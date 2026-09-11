@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
+    "telethon>=1.36",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +42,7 @@ known-first-party = ["app", "models", "packages"]
 [tool.mypy]
 python_version = "3.12"
 mypy_path = "apps/api"
-files = ["apps/api", "packages"]
+files = ["apps/api", "packages", "scripts"]
 exclude = ["apps/api/alembic/versions"]
 explicit_package_bases = true
 disallow_untyped_defs = true
@@ -49,6 +50,10 @@ check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "telethon.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "packages"]
