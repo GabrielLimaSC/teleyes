@@ -1,3 +1,4 @@
+from models.admin import Admin
 from models.base import Base
 from models.delivery import Delivery
 from models.match import Match
@@ -7,6 +8,7 @@ from models.rule import Rule
 from models.source import Source
 
 __all__ = [
+    "Admin",
     "Base",
     "Delivery",
     "Match",
