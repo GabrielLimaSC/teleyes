@@ -1,0 +1,163 @@
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.pipeline import IncomingMessage, process_message
+from models import Delivery, Match, Recipient, Rule, Source
+from packages.metrics.counters import MetricReason, get_count
+from packages.notifications.bot import BotNotifier
+from packages.notifications.fakes import FakeBotClient
+from packages.rules.dedupe import DedupeCache
+
+
+def _seed(session: Session) -> tuple[Source, Rule, Recipient]:
+    source = Source(name="Grupo Teste", telegram_chat_id="-100123")
+    rule = Rule(name="iPhone", include_terms="iphone", max_price_cents=500000)
+    recipient = Recipient(
+        name="Gabriel", telegram_chat_id="999", allowlisted=True
+    )
+    session.add_all([source, rule, recipient])
+    session.flush()
+    return source, rule, recipient
+
+
+def _message(source: Source, text: str, message_id: int = 1) -> IncomingMessage:
+    return IncomingMessage(
+        source_id=source.id,
+        message_id=message_id,
+        text=text,
+        link=None,
+        received_at=datetime.now(UTC),
+    )
+
+
+async def test_matched_message_creates_exactly_one_match_and_one_notification(
+    session: Session,
+) -> None:
+    source, rule, recipient = _seed(session)
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    result = await process_message(
+        session, _message(source, "Promoção iPhone 15 por R$ 3.899"), rule, [recipient],
+        notifier, dedupe_cache,
+    )
+    session.commit()
+
+    assert result.match is not None
+    assert result.deliveries_sent == 1
+    assert session.scalar(select(func.count()).select_from(Match)) == 1
+    assert session.scalar(select(func.count()).select_from(Delivery)) == 1
+    assert client.sent == [("999", "Promoção iPhone 15 por R$ 3.899")]
+
+
+async def test_reprocessing_same_message_does_not_duplicate_match_or_delivery(
+    session: Session,
+) -> None:
+    source, rule, recipient = _seed(session)
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+    message = _message(source, "Promoção iPhone 15 por R$ 3.899")
+
+    first = await process_message(session, message, rule, [recipient], notifier, dedupe_cache)
+    second = await process_message(session, message, rule, [recipient], notifier, dedupe_cache)
+    session.commit()
+
+    assert first.match is not None
+    assert second.match is None
+    assert second.reason == "duplicate"
+    assert session.scalar(select(func.count()).select_from(Match)) == 1
+    assert session.scalar(select(func.count()).select_from(Delivery)) == 1
+    assert client.sent == [("999", "Promoção iPhone 15 por R$ 3.899")]
+
+
+async def test_message_without_matching_term_is_discarded_and_counted(session: Session) -> None:
+    source, rule, recipient = _seed(session)
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    result = await process_message(
+        session, _message(source, "Samsung Galaxy em promoção"), rule, [recipient],
+        notifier, dedupe_cache,
+    )
+    session.commit()
+
+    assert result.match is None
+    assert result.reason == MetricReason.NO_TERM.value
+    assert get_count(session, MetricReason.NO_TERM, source_id=source.id) == 1
+    assert session.scalar(select(func.count()).select_from(Match)) == 0
+    assert client.sent == []
+
+
+async def test_blocked_message_is_discarded_and_counted_as_blocked(session: Session) -> None:
+    source, _, recipient = _seed(session)
+    rule = Rule(name="iPhone sem usado", include_terms="iphone", exclude_terms="usado")
+    session.add(rule)
+    session.flush()
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    result = await process_message(
+        session, _message(source, "iPhone usado, aceito troca"), rule, [recipient],
+        notifier, dedupe_cache,
+    )
+    session.commit()
+
+    assert result.match is None
+    assert result.reason == MetricReason.BLOCKED.value
+    assert get_count(session, MetricReason.BLOCKED, source_id=source.id) == 1
+
+
+async def test_price_above_ceiling_is_discarded_and_counted(session: Session) -> None:
+    source, rule, recipient = _seed(session)  # rule ceiling is 500000 cents
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    result = await process_message(
+        session, _message(source, "iPhone 15 por R$ 9.999"), rule, [recipient],
+        notifier, dedupe_cache,
+    )
+    session.commit()
+
+    assert result.match is None
+    assert result.reason == MetricReason.PRICE_ABOVE_CEILING.value
+    assert get_count(session, MetricReason.PRICE_ABOVE_CEILING, source_id=source.id) == 1
+    assert session.scalar(select(func.count()).select_from(Match)) == 0
+
+
+async def test_delivery_failure_is_recorded_without_failing_the_whole_batch(
+    session: Session,
+) -> None:
+    source, rule, _ = _seed(session)
+    ok_recipient = Recipient(name="Gabriel", telegram_chat_id="222", allowlisted=True)
+    failing_recipient = Recipient(name="Namorada", telegram_chat_id="111", allowlisted=True)
+    session.add_all([ok_recipient, failing_recipient])
+    session.flush()
+
+    client = FakeBotClient(fail_for_chat_ids={"111"})
+    notifier = BotNotifier(
+        bot_token="token", client=client, allowlisted_chat_ids={"222", "111"}
+    )
+    dedupe_cache = DedupeCache()
+
+    result = await process_message(
+        session,
+        _message(source, "Promoção iPhone 15 por R$ 3.899"),
+        rule,
+        [ok_recipient, failing_recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+
+    assert result.match is not None
+    assert result.deliveries_sent == 1
+    assert client.sent == [("222", "Promoção iPhone 15 por R$ 3.899")]
+    assert get_count(session, MetricReason.DELIVERY_FAILURE, source_id=source.id) == 1
+    assert session.scalar(select(func.count()).select_from(Delivery)) == 2
