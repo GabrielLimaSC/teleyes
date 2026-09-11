@@ -5,6 +5,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from models import Base
+from packages.metrics.counters import MetricCounter  # noqa: F401  (register on Base.metadata)
 
 config = context.config
 
