@@ -43,6 +43,7 @@ python_version = "3.12"
 mypy_path = "apps/api"
 files = ["apps/api", "packages"]
 exclude = ["apps/api/alembic/versions"]
+explicit_package_bases = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 warn_unused_ignores = true
