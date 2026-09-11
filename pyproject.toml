@@ -11,6 +11,8 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -22,22 +24,24 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["apps/api/app"]
+packages = ["apps/api/app", "apps/api/models"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = ["apps/api/alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app"]
+known-first-party = ["app", "models"]
 
 [tool.mypy]
 python_version = "3.12"
 mypy_path = "apps/api"
 files = ["apps/api"]
+exclude = ["apps/api/alembic/versions"]
 disallow_untyped_defs = true
 check_untyped_defs = true
 warn_unused_ignores = true
