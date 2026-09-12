@@ -50,17 +50,26 @@ houver) diretamente no terminal. Ao final:
    `apps/api/repositories/recipient_repo.py` por enquanto — não há API HTTP
    ainda, isso é Sprint 3).
 
-## 5. Estado atual do pipeline (importante)
+## 5. Rodar o pipeline de verdade
 
-O login (passo 3) e a listagem de diálogos já são reais e testáveis nesta
-etapa — é a parte que desbloqueia o portão humano do S1-06.
+```bash
+python scripts/run_pipeline_demo.py \
+  --source-chat-id <chat_id do grupo, ex.: -1001079131412> \
+  --source-name "Pelando Promoções" \
+  --rule-name "Demo" --include-terms "promo,promoção" \
+  --recipient-chat-id <chat_id do passo 4> --recipient-name "Gabriel"
+```
 
-O que **ainda não existe** é um processo único que liga tudo:
-ouvir mensagens reais de uma fonte configurada → aplicar `MatchRule` →
-extrair preço → verificar dedupe → persistir `Match`/`Delivery` → notificar
-via `BotNotifier`. Os componentes já existem e têm testes próprios
-(`packages/telegram`, `packages/rules`, `apps/api/repositories`,
-`packages/notifications`), mas a integração final ainda não foi quebrada em
-task pelo Tech Lead. Enquanto essa task não existir, o `done_when` do S1-06
-("mensagem controlada em grupo real produz exatamente um match persistido e
-um alerta real no celular") não pode ser fechado — só o login pode.
+O script aplica as migrations pendentes automaticamente (não precisa rodar
+`alembic upgrade head` à parte), cadastra ou reaproveita a fonte/regra/
+destinatário indicados, conecta na sessão salva no passo 3 e fica escutando
+mensagens novas do grupo. Cada mensagem passa pelo pipeline completo (regra →
+preço → dedupe → persistência → notificação); se bater com a regra, envia o
+alerta de verdade para o `chat_id` do destinatário. Ctrl+C encerra.
+
+Para o `done_when` do S1-06: poste no grupo uma mensagem controlada contendo
+o termo da regra, confirme que o alerta chega no celular, depois poste a
+**mesma mensagem de novo** e confirme que **não chega um segundo alerta**
+(enquanto o script continua rodando — reiniciar o processo entre as duas
+postagens não está coberto ainda, é limitação conhecida documentada no PR do
+S1-07/S1-08).

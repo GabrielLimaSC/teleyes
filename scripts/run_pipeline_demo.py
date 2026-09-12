@@ -6,11 +6,12 @@ Uso:
         --rule-name "Demo" --include-terms "promo,promoção" \\
         --recipient-chat-id 123456789 --recipient-name "Gabriel"
 
-Cadastra (ou reaproveita, se já existirem) a fonte/regra/destinatário indicados,
-conecta na sessão MTProto salva por scripts/telegram_login.py e escuta mensagens
-novas do grupo indicado. Cada mensagem passa pelo pipeline completo (regras ->
-preço -> dedupe -> persistência -> notificação) e o alerta é enviado de verdade
-pelo bot via API HTTP do Telegram. Ctrl+C encerra.
+Aplica as migrations pendentes (equivalente a `alembic upgrade head`), cadastra
+(ou reaproveita, se já existirem) a fonte/regra/destinatário indicados, conecta
+na sessão MTProto salva por scripts/telegram_login.py e escuta mensagens novas
+do grupo indicado. Cada mensagem passa pelo pipeline completo (regras -> preço
+-> dedupe -> persistência -> notificação) e o alerta é enviado de verdade pelo
+bot via API HTTP do Telegram. Ctrl+C encerra.
 
 Nenhum valor de TG_API_ID/TG_API_HASH/BOT_TOKEN é lido de argumento nem
 hardcoded aqui — sempre vêm do .env. `--source-chat-id`/`--recipient-chat-id`
@@ -24,6 +25,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 
@@ -36,6 +39,16 @@ from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 
 SESSION_PATH = Path("data/teleyes.session")
+ALEMBIC_INI_PATH = Path(__file__).resolve().parents[1] / "apps" / "api" / "alembic.ini"
+
+
+def run_migrations() -> None:
+    """Apply pending Alembic migrations before touching the database.
+
+    Keeps this script self-contained: no separate manual `alembic upgrade
+    head` step to remember before a demo run.
+    """
+    command.upgrade(Config(str(ALEMBIC_INI_PATH)), "head")
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,6 +82,7 @@ async def main() -> None:
         print("BOT_TOKEN ausente no .env.")
         sys.exit(1)
 
+    run_migrations()
     session_factory = get_sessionmaker(get_engine())
 
     with session_factory() as setup_session:
