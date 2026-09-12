@@ -1,0 +1,88 @@
+.match-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
+.match-card__icon {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b4b52;
+}
+
+.match-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.match-card__product {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #08060d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-card__meta {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: #4b4b52;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-card__price {
+  flex: 0 0 auto;
+  margin: 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #08060d;
+  white-space: nowrap;
+}
+
+.match-card__status {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.match-card__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.match-card__aurora-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6a3fbf;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .match-card {
+    flex-wrap: wrap;
+  }
+
+  .match-card__price {
+    margin-left: 72px;
+  }
+}

@@ -1,0 +1,51 @@
+.historico-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 8px 16px 48px;
+}
+
+.historico-page h1 {
+  font-size: 32px;
+  margin: 16px 0 20px;
+}
+
+.historico-page__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+.historico-page__filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #4b4b52;
+}
+
+.historico-page__filters select,
+.historico-page__filters input {
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+}
+
+.historico-page__filters button {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: none;
+  background: #ececef;
+  color: #4b4b52;
+  cursor: pointer;
+  height: fit-content;
+}
+
+.historico-page__error {
+  color: #b3261e;
+}

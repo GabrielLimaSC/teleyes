@@ -1,0 +1,46 @@
+/* Page-switch transition for React Router's `viewTransition` navigations
+ * (NavCapsule.tsx) — a diagonal wipe via a custom clip-path, replacing the
+ * browser's default cross-fade. Falls back to a plain swap automatically in
+ * browsers without View Transitions support (React Router only calls
+ * `document.startViewTransition` when it exists), and the animation itself
+ * is skipped entirely under prefers-reduced-motion. */
+
+/* The UA stylesheet default (mix-blend-mode: plus-lighter) is meant for a
+ * symmetric cross-fade, where old fades out as new fades in. Ours isn't
+ * symmetric — old stays fully opaque the whole time (animation: none) and
+ * new is only clipped, never faded — so wherever the clip has revealed new,
+ * both are opaque and would additively blend instead of new simply
+ * replacing old. A double-exposure artifact seen while building an evidence
+ * capture for this transition (S4-09 finish pass) turned out to trace back
+ * to unrelated test-timing, not this blend mode, but forcing `normal` here
+ * removes a plausible additive-blend risk this app's asymmetric animation
+ * has no use for regardless. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  animation: none;
+}
+
+::view-transition-new(root) {
+  animation: teleyes-diagonal-reveal 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes teleyes-diagonal-reveal {
+  from {
+    clip-path: polygon(-10% -10%, 5% -10%, -10% 5%);
+  }
+  to {
+    clip-path: polygon(-10% -10%, 120% -10%, -10% 120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

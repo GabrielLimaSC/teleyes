@@ -1,0 +1,28 @@
+.feed-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 8px 16px 48px;
+}
+
+.feed-page h1 {
+  font-size: 32px;
+  margin: 16px 0 4px;
+}
+
+.feed-page__subtitle {
+  margin: 0 0 20px;
+  color: #4b4b52;
+}
+
+.feed-page__error {
+  color: #b3261e;
+}
+
+.feed-page__connection-warning {
+  color: #8a6d00;
+  font-size: 14px;
+}
+
+.feed-page__list {
+  margin-top: 16px;
+}
