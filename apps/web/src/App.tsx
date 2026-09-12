@@ -4,6 +4,9 @@ import { RequireAuth } from './auth/RequireAuth'
 import { LoginPage } from './pages/LoginPage'
 import { FeedPage } from './pages/FeedPage'
 import { HistoricoPage } from './pages/HistoricoPage'
+import { RegrasPage } from './pages/RegrasPage'
+import { DestinatariosSection } from './pages/DestinatariosSection'
+import { FontesPage } from './pages/FontesPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 function App() {
@@ -24,7 +27,8 @@ function App() {
           path="/regras"
           element={
             <RequireAuth>
-              <PlaceholderPage title="Regras" />
+              <RegrasPage />
+              <DestinatariosSection />
             </RequireAuth>
           }
         />
@@ -32,7 +36,7 @@ function App() {
           path="/fontes"
           element={
             <RequireAuth>
-              <PlaceholderPage title="Fontes" />
+              <FontesPage />
             </RequireAuth>
           }
         />
