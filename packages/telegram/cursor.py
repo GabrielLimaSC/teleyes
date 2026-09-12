@@ -30,7 +30,14 @@ def get_cursor(session: Session, source_id: int) -> int:
     return cursor.last_message_id if cursor is not None else 0
 
 
-def _advance_cursor(session: Session, source_id: int, message_id: int) -> ProcessingCursor:
+def advance_cursor(session: Session, source_id: int, message_id: int) -> ProcessingCursor:
+    """Move the persisted cursor forward to `message_id`, never backward.
+
+    Public so the live message path (`app.pipeline.process_message`) can call
+    it too, not just `backfill_since_cursor` below — a live message must
+    advance the cursor exactly like a backfilled one, or a later backfill
+    would re-fetch and re-notify a message already delivered live.
+    """
     cursor = session.scalar(select(ProcessingCursor).where(ProcessingCursor.source_id == source_id))
     if cursor is None:
         cursor = ProcessingCursor(source_id=source_id, last_message_id=message_id)
@@ -76,6 +83,6 @@ async def backfill_since_cursor(
 
     if collected:
         newest_id = max(message.id for message in collected)
-        _advance_cursor(session, source_id, newest_id)
+        advance_cursor(session, source_id, newest_id)
 
     return collected

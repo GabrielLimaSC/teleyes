@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from models import Delivery, Match, Recipient, Rule
 from packages.events.broker import EventBroker
@@ -14,6 +14,7 @@ from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
 from packages.rules.normalize import normalize_text
 from packages.rules.price import extract_price
+from packages.telegram.cursor import MessageFetcherProtocol, advance_cursor, backfill_since_cursor
 
 
 def parse_terms(raw: str | None) -> list[str]:
@@ -37,6 +38,16 @@ class ProcessResult:
     match: Match | None
     deliveries_sent: int
     reason: str | None = None
+
+
+@dataclass
+class ListenerSource:
+    """Everything `catch_up_since_cursor` needs to recover one source's gap."""
+
+    source_id: int
+    chat_id: str
+    rule: Rule
+    recipients: list[Recipient]
 
 
 def _build_match_rule(rule: Rule) -> MatchRule:
@@ -68,7 +79,15 @@ async def process_message(
     row. Reprocessing the same message with the same `dedupe_cache` is a no-op:
     the signature check short-circuits before a `Match`/`Delivery` row is ever
     created, so neither is duplicated.
+
+    Also advances the source's persisted cursor (`packages.telegram.cursor`) to
+    this message's id, matched or not — without that, a later backfill (a
+    process restart or a reconnect after a short drop) would re-fetch and
+    re-notify a message already delivered here, since backfill only knows to
+    skip what the cursor says was already seen.
     """
+    advance_cursor(session, message.source_id, message.message_id)
+
     match_rule = _build_match_rule(rule)
 
     if not match_rule.matches(message.text):
@@ -135,6 +154,57 @@ async def process_message(
     session.flush()
 
     return ProcessResult(match=db_match, deliveries_sent=deliveries_sent)
+
+
+async def catch_up_since_cursor(
+    session_factory: sessionmaker[Session],
+    fetcher: MessageFetcherProtocol,
+    source: ListenerSource,
+    notifier: BotNotifier,
+    dedupe_cache: DedupeCache,
+    *,
+    max_messages: int = 100,
+    max_age: timedelta | None = timedelta(hours=24),
+) -> list[ProcessResult]:
+    """Recover messages missed while disconnected, through the real pipeline.
+
+    Call this after every successful connect — the very first one in a fresh
+    process (recovers whatever was missed while it was down, i.e. a restart)
+    and again after any reconnect (recovers a short connection drop's gap).
+    Bounded by `max_messages`/`max_age` so a long gap doesn't replay a
+    source's entire history — messages older than the bound are permanently
+    skipped, not queued for later, matching `backfill_since_cursor`'s own
+    contract. Each recovered message runs through the same `process_message`
+    as a live one, so matching/pricing/dedupe/notification and the cursor
+    advance itself all stay identical between the two paths.
+    """
+    with session_factory() as cursor_session:
+        recovered = await backfill_since_cursor(
+            cursor_session,
+            fetcher,
+            source.source_id,
+            source.chat_id,
+            max_messages=max_messages,
+            max_age=max_age,
+        )
+        cursor_session.commit()
+
+    results: list[ProcessResult] = []
+    for raw in recovered:
+        with session_factory() as session:
+            incoming = IncomingMessage(
+                source_id=source.source_id,
+                message_id=raw.id,
+                text=raw.text,
+                link=None,
+                received_at=raw.date,
+            )
+            result = await process_message(
+                session, incoming, source.rule, source.recipients, notifier, dedupe_cache
+            )
+            session.commit()
+            results.append(result)
+    return results
 
 
 def build_match_event(result: ProcessResult) -> dict[str, Any] | None:
