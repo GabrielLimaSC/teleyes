@@ -19,6 +19,9 @@ playwright-report
 blob-report
 playwright/.cache
 
+# Impeccable finish-review screenshots — point-in-time evidence, not design truth
+.impeccable/review
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

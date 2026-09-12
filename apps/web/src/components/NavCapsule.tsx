@@ -47,18 +47,6 @@ export function NavCapsule() {
 
   return (
     <header className="nav-shell">
-      {/* Gooey filter def for the pill layer — kept invisible, referenced by
-          NavCapsule.css's `filter: url(#nav-goo)`. */}
-      <svg aria-hidden="true" focusable="false" className="nav-goo-defs">
-        <filter id="nav-goo">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
-          <feColorMatrix
-            in="blur"
-            mode="matrix"
-            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"
-          />
-        </filter>
-      </svg>
       <span className="nav-wordmark">teleyes</span>
       <nav className="nav-capsule" aria-label="Navegação principal">
         {/* The gooey "metaball" look: the pill's own blurred, contrast-boosted

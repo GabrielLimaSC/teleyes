@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-12T09:00:00Z",
+  "title": "Design System: teleyes",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "primary", "displayName": "Ink", "canonical": "#08060d" },
+      "page-bg": { "role": "neutral", "displayName": "Page Canvas", "canonical": "#f5f5f7" },
+      "ink-muted": { "role": "neutral", "displayName": "Muted Ink", "canonical": "#4b4b52" },
+      "capsule-bg": { "role": "primary", "displayName": "Capsule Black", "canonical": "#17181c" },
+      "capsule-tab-inactive": { "role": "neutral", "displayName": "Capsule Tab Gray", "canonical": "#b8b9bf" },
+      "success": { "role": "success", "displayName": "Success", "canonical": "#1c8a4b" },
+      "danger": { "role": "danger", "displayName": "Danger", "canonical": "#b3261e" },
+      "warning": { "role": "warning", "displayName": "Warning", "canonical": "#8a6d00" },
+      "indigo": { "role": "info", "displayName": "Indigo (notifications disabled)", "canonical": "#3f3fb0" },
+      "aurora-blue": { "role": "accent", "displayName": "Aurora Blue", "canonical": "#5b8dfb" },
+      "aurora-violet": { "role": "accent", "displayName": "Aurora Violet", "canonical": "#a35bfb" },
+      "aurora-pink": { "role": "accent", "displayName": "Aurora Pink", "canonical": "#fb5ba0" },
+      "aurora-mint": { "role": "accent", "displayName": "Aurora Mint", "canonical": "#4ce8a8" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles — one per page (Feed ao vivo, Regras, Saúde…)." },
+      "title": { "displayName": "Title", "purpose": "Section headers inside a page." },
+      "body": { "displayName": "Body", "purpose": "Form inputs, buttons, table cells." },
+      "label": { "displayName": "Label", "purpose": "Metadata lines, table headers, form field labels — always muted." }
+    },
+    "shadows": [
+      { "name": "capsule-float", "value": "0 8px 24px rgba(0, 0, 0, 0.18)", "purpose": "The navigation capsule only — the one element that must read as physically hovering." },
+      { "name": "glass-lift", "value": "0 8px 32px rgba(15, 15, 20, 0.08)", "purpose": "Every glass card — a softer lift so cards rest on the canvas rather than float above it." }
+    ],
+    "motion": [
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Nav pill slide between tabs — smooth deceleration, no bounce/overshoot (replaced an elastic curve flagged by the S4-09 finish pass)." },
+      { "name": "diagonal-reveal", "value": "clip-path keyframe, 420ms, via document.startViewTransition()", "purpose": "Page transition on tab click — a custom diagonal reveal replacing the browser's default cross-fade." },
+      { "name": "fill-from-click", "value": "clip-path: circle(), 0%→150% over 480ms", "purpose": "Primary button fill bloom expanding from the pointer-down point (useFillOrigin)." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main CTA (Nova regra, Nova fonte, Novo destinatário, Salvar, Entrar) — capsule-black fill with a click-point fill bloom.",
+      "html": "<button class=\"ds-btn-primary\">+ Nova regra</button>",
+      "css": ".ds-btn-primary { font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 999px; border: none; background: #17181c; color: #fff; cursor: pointer; position: relative; overflow: hidden; } .ds-btn-primary::after { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, 0.18); clip-path: circle(0% at var(--fill-x, 50%) var(--fill-y, 50%)); transition: clip-path 480ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:active::after { clip-path: circle(150% at var(--fill-x, 50%) var(--fill-y, 50%)); }"
+    },
+    {
+      "name": "Primary Button (disabled)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Submit button with an unmet precondition (empty password, no recipient selected) — explicit gray fill, not opacity dimming.",
+      "html": "<button class=\"ds-btn-primary ds-btn-primary--disabled\" disabled>Entrar</button>",
+      "css": ".ds-btn-primary--disabled { background: #c7c7cc; color: #6b6b70; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Table row actions (Editar, Duplicar, Testar) — white fill, hairline border, muted text.",
+      "html": "<button class=\"ds-btn-ghost\">Editar</button>",
+      "css": ".ds-btn-ghost { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, 0.12); background: #fff; cursor: pointer; color: #4b4b52; } .ds-btn-ghost:hover { background: #f0f0f2; }"
+    },
+    {
+      "name": "Danger Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Delete action (Excluir) — same ghost shape, danger-colored text and border. Always paired with the word Excluir, never icon-only.",
+      "html": "<button class=\"ds-btn-ghost ds-btn-ghost--danger\">Excluir</button>",
+      "css": ".ds-btn-ghost--danger { color: #b3261e; border-color: rgba(179, 38, 30, 0.3); }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "nav-pill-active",
+      "description": "Dot + word status indicator — never color-only. Pale tint background, saturated dot and text of the same hue.",
+      "html": "<span class=\"ds-status ds-status--success\"><span class=\"ds-status__dot\"></span>Entregue</span>",
+      "css": ".ds-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; } .ds-status__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; } .ds-status--success { background: #e2f5e9; color: #1c8a4b; }"
+    },
+    {
+      "name": "Glass Card",
+      "kind": "card",
+      "refersTo": "glass-surface",
+      "description": "Frosted translucent container — match cards, CRUD panels, table wraps, the login card. Needs a varied background behind it (Aurora Wash) to read as glass.",
+      "html": "<div class=\"ds-glass-card\">Card content</div>",
+      "css": ".ds-glass-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.4); border-top-color: rgba(255, 255, 255, 0.8); box-shadow: 0 8px 32px rgba(15, 15, 20, 0.08); padding: 20px; }"
+    },
+    {
+      "name": "Navigation Capsule",
+      "kind": "nav",
+      "refersTo": "nav-pill-active",
+      "description": "Floating dark pill-shaped nav with a gooey sliding active-tab pill (SVG goo filter) and diagonal View Transitions page reveals.",
+      "html": "<nav class=\"ds-nav-capsule\"><a class=\"ds-nav-tab ds-nav-tab--active\">Feed</a><a class=\"ds-nav-tab\">Regras</a></nav>",
+      "css": ".ds-nav-capsule { display: inline-flex; gap: 4px; padding: 6px; border-radius: 999px; background: #17181c; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); } .ds-nav-tab { padding: 8px 16px; border-radius: 999px; color: #b8b9bf; font-size: 14px; font-weight: 500; text-decoration: none; } .ds-nav-tab--active { background: #fff; color: #08060d; }"
+    },
+    {
+      "name": "Mobile Table Row (card-stack)",
+      "kind": "custom",
+      "refersTo": "crud-table",
+      "description": "Below 640px, CRUD table rows become stacked label/value cards instead of a scrolling table, so actions stay directly reachable.",
+      "html": "<div class=\"ds-mobile-row\"><div class=\"ds-mobile-row__field\"><span class=\"ds-mobile-row__label\">Regra</span><span>iPhone até R$ 5.000</span></div></div>",
+      "css": ".ds-mobile-row { padding: 12px; box-sizing: border-box; border-bottom: 1px solid rgba(0, 0, 0, 0.08); } .ds-mobile-row__field { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; } .ds-mobile-row__label { font-size: 12px; font-weight: 500; color: #4b4b52; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Console",
+    "overview": "teleyes is a one-admin instrument panel for a personal Telegram promotion monitor: liquid glass in daylight, never a nightclub. The world is Apple's liquid-glass material — a light, almost-white canvas holding frosted, translucent surfaces — applied in Operate mode: the interface's job is to let Gabriel scan a live feed, edit rules, and check system health quickly, never to perform for an audience. Every screen is real: real login, real CRUD, real SSE feed, real (or honestly not_configured) notification delivery. Legibility is a stated, non-negotiable acceptance criterion: product name and price are always the darkest, heaviest thing in a row; status is never color alone. The one deliberately theatrical gesture — the floating dark navigation capsule with its gooey sliding pill and diagonal page transitions — exists precisely because it is the one piece of chrome Gabriel looks at on every single screen.",
+    "keyCharacteristics": [
+      "Light liquid-glass surfaces on an off-white canvas, never a dark theme.",
+      "A floating dark capsule is the only saturated, opaque shape in the whole system.",
+      "Weight and color encode hierarchy (product/price bold+dark, metadata light+gray) — never size alone.",
+      "Status is always a dot plus a word, never a color chip by itself.",
+      "Motion is confined to specific, purposeful moments (nav pill, page transition, button fill) and fully disabled under prefers-reduced-motion."
+    ],
+    "rules": [
+      { "name": "The One Dark Shape Rule", "body": "Only the navigation capsule (and, by inheritance, primary buttons using its same fill) is ever a flat, opaque dark shape.", "section": "colors" },
+      { "name": "The Two-Weight Rule", "body": "A row never needs a third font size to read correctly: what matters is bold and dark, what's context is regular and muted.", "section": "typography" },
+      { "name": "The Two-Shadow Rule", "body": "There are exactly two shadow values in the whole system (capsule float, glass lift). A third shadow value is a sign a new component invented its own physics.", "section": "elevation" },
+      { "name": "The Dot-and-Word Rule", "body": "No status anywhere in the system is color-only — every status resolves to a {label, color} pair rendered as dot + word together.", "section": "components" }
+    ],
+    "dos": [
+      "Do keep product and price the darkest, boldest thing in any row.",
+      "Do pair every status indicator with a word, never a bare colored dot or chip.",
+      "Do wrap every new primary CTA in .fill-button and call useFillOrigin() on onPointerDown.",
+      "Do guard every new motion with a prefers-reduced-motion: reduce override that removes it, not just shortens it.",
+      "Do surface the backend's real error detail string in role=\"alert\" text."
+    ],
+    "donts": [
+      "Don't introduce a second dark, opaque fill anywhere outside the navigation capsule and primary buttons.",
+      "Don't invent a third shadow value.",
+      "Don't fabricate data a real field doesn't back.",
+      "Don't use a bounce/elastic easing curve anywhere — the system's one motion signature uses a smooth exponential decelerate."
+    ]
+  }
+}

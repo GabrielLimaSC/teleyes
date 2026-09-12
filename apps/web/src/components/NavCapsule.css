@@ -7,12 +7,6 @@
   flex-wrap: wrap;
 }
 
-.nav-goo-defs {
-  position: absolute;
-  width: 0;
-  height: 0;
-}
-
 .nav-wordmark {
   font-size: 20px;
   font-weight: 600;
@@ -34,7 +28,11 @@
 .nav-capsule__goo-layer {
   position: absolute;
   inset: 0;
-  filter: url(#nav-goo);
+  /* Plain CSS filter functions instead of an SVG url(#id) filter reference —
+   * simpler, and one fewer moving part while tracking down the pill
+   * disappearing during page transitions below (S4-09 finish pass). Same
+   * blur+contrast "goo" technique the SVG version used. */
+  filter: blur(6px) contrast(20);
   pointer-events: none;
 }
 
@@ -42,10 +40,51 @@
   position: absolute;
   background: #ffffff;
   border-radius: 999px;
+  /* Its own named transition group: without this, the pill (mid-repositioning
+   * on every nav click, via the transition below) gets flattened into the
+   * page-level view-transition's root snapshot and — for reasons not fully
+   * pinned down; a plain unrelated absolutely-positioned element in the same
+   * spot rendered fine — was found to render as fully invisible for the
+   * duration of the reveal, on every single page transition once the router
+   * fix (main.tsx) made that reveal actually fire (S4-09 finish pass). Its
+   * own view-transition-name pulls it out of that snapshot into an
+   * independently-tracked group, which resolved it; the group's own
+   * transform animation is disabled below so this transition remains the
+   * only thing moving it, keeping the fallback path for browsers/states
+   * without View Transitions (reduced motion, no API support) unchanged. */
+  view-transition-name: nav-pill;
+  /* ease-out-expo — smooth deceleration, no bounce/overshoot. Only takes
+   * visual effect outside an active view transition (reduced motion, or no
+   * View Transitions support) — during one, the named group below is what's
+   * actually visible, since the live element is hidden for the transition's
+   * duration in favor of its captured snapshot pair. */
   transition:
-    left 320ms cubic-bezier(0.6, -0.28, 0.44, 1.28),
-    top 320ms cubic-bezier(0.6, -0.28, 0.44, 1.28),
-    width 320ms cubic-bezier(0.6, -0.28, 0.44, 1.28);
+    left 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    top 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Retunes the browser's own default transform/resize morph for this named
+ * group to the same ease-out-expo curve and duration as the transition
+ * above, so the slide reads identically whichever mechanism is actually
+ * driving it. */
+::view-transition-group(nav-pill) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1;
+}
+
+/* This named group exists to opt the active label into the top layer (see
+ * .nav-tab--active), so its z-index above wins against the pill's — without
+ * a name here, the label stays flattened into the page-level root snapshot
+ * and paints underneath the pill's top-layer group regardless of source
+ * z-index. Left on the browser's default transform/cross-fade timing for
+ * this group: the old and new active tab differ in both text and slot
+ * position (whichever tab is active moves, the pill tracks it), so, unlike
+ * nav-pill, this genuinely needs to morph between two different boxes, not
+ * just relocate one. */
+::view-transition-group(nav-tab-label) {
+  z-index: 2;
 }
 
 .nav-tab {
@@ -70,6 +109,14 @@
 .nav-tab--active,
 .nav-tab--active:hover {
   color: #08060d;
+  /* Paired with .nav-pill's own view-transition-name: giving the pill a name
+   * promotes it to the browser's top layer during a transition, which paints
+   * over normal-flow content (this label included) regardless of z-index —
+   * that's what made the active tab's text vanish behind the pill for the
+   * whole reveal (S4-09 finish pass, round 3). Naming the label too promotes
+   * it to the same top layer, where its ::view-transition-group z-index
+   * below can out-rank the pill's and restore the resting stacking order. */
+  view-transition-name: nav-tab-label;
 }
 
 .nav-tab:focus-visible {

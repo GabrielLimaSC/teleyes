@@ -5,6 +5,21 @@
  * `document.startViewTransition` when it exists), and the animation itself
  * is skipped entirely under prefers-reduced-motion. */
 
+/* The UA stylesheet default (mix-blend-mode: plus-lighter) is meant for a
+ * symmetric cross-fade, where old fades out as new fades in. Ours isn't
+ * symmetric — old stays fully opaque the whole time (animation: none) and
+ * new is only clipped, never faded — so wherever the clip has revealed new,
+ * both are opaque and would additively blend instead of new simply
+ * replacing old. A double-exposure artifact seen while building an evidence
+ * capture for this transition (S4-09 finish pass) turned out to trace back
+ * to unrelated test-timing, not this blend mode, but forcing `normal` here
+ * removes a plausible additive-blend risk this app's asymmetric animation
+ * has no use for regardless. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
 ::view-transition-old(root) {
   animation: none;
 }

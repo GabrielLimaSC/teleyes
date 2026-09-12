@@ -139,7 +139,8 @@
 }
 
 .crud-form__submit:disabled {
-  opacity: 0.6;
+  background: #c7c7cc;
+  color: #6b6b70;
   cursor: not-allowed;
 }
 
@@ -167,4 +168,62 @@
 .crud-page__section h2 {
   font-size: 22px;
   margin: 0 0 16px;
+}
+
+/* Below 640px a wide table degrades to a stacked card per row instead of
+   relying on horizontal scroll for every column — Ações/Status stay directly
+   visible without a swipe. */
+@media (max-width: 640px) {
+  .crud-table-wrap {
+    overflow-x: visible;
+  }
+
+  .crud-table thead {
+    display: none;
+  }
+
+  .crud-table,
+  .crud-table tbody,
+  .crud-table tr,
+  .crud-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .crud-table tr {
+    box-sizing: border-box;
+    padding: 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .crud-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .crud-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: none;
+    text-align: right;
+  }
+
+  .crud-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 500;
+    color: #4b4b52;
+    text-align: left;
+    flex: 0 0 auto;
+  }
+
+  .crud-table__name {
+    justify-content: space-between;
+  }
+
+  .crud-table__actions {
+    justify-content: flex-end;
+  }
 }

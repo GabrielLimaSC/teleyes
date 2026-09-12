@@ -1,0 +1,349 @@
+---
+name: teleyes
+description: Personal Telegram promotion monitor — a calm liquid-glass Operate console for one admin.
+colors:
+  page-bg: "#f5f5f7"
+  ink: "#08060d"
+  ink-muted: "#4b4b52"
+  capsule-bg: "#17181c"
+  capsule-tab-inactive: "#b8b9bf"
+  glass-surface: "rgba(255, 255, 255, 0.6)"
+  glass-edge-top: "rgba(255, 255, 255, 0.8)"
+  glass-edge: "rgba(255, 255, 255, 0.4)"
+  border-hairline: "rgba(0, 0, 0, 0.12)"
+  danger: "#b3261e"
+  danger-bg: "#fbe4e2"
+  success: "#1c8a4b"
+  success-bg: "#e2f5e9"
+  warning: "#8a6d00"
+  warning-bg: "#fbf1d6"
+  indigo: "#3f3fb0"
+  indigo-bg: "#e9e9fb"
+  neutral-status: "#4b4b52"
+  neutral-status-bg: "#ececef"
+  aurora-violet: "#a35bfb"
+  aurora-blue: "#5b8dfb"
+  aurora-pink: "#fb5ba0"
+  aurora-mint: "#4ce8a8"
+  category-phone: "#e3ecfb"
+  category-laptop: "#ece3fb"
+  category-headphones: "#fbeee3"
+  category-gaming: "#fbe3ef"
+  category-generic: "#e9e9ec"
+typography:
+  display:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    fontSize: "32px"
+    fontWeight: 700
+    lineHeight: 1.2
+  title:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    fontSize: "22px"
+    fontWeight: 700
+  body:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.4
+  label:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 500
+rounded:
+  pill: "999px"
+  card: "20px"
+  icon-square: "14px"
+  input: "10px"
+spacing:
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+  xl: "20px"
+  xxl: "24px"
+components:
+  button-primary:
+    backgroundColor: "{colors.capsule-bg}"
+    textColor: "#ffffff"
+    rounded: "{rounded.pill}"
+    padding: "10px 18px"
+  button-primary-hover:
+    backgroundColor: "{colors.capsule-bg}"
+  button-ghost:
+    backgroundColor: "#ffffff"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.pill}"
+    padding: "6px 12px"
+  nav-pill-active:
+    backgroundColor: "#ffffff"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
+  nav-tab-inactive:
+    backgroundColor: "transparent"
+    textColor: "{colors.capsule-tab-inactive}"
+---
+
+# Design System: teleyes
+
+## Overview
+
+**Creative North Star: "The Quiet Console"**
+
+teleyes is a one-admin instrument panel for a personal Telegram promotion monitor: liquid glass in
+daylight, never a nightclub. The world is Apple's "liquid glass" material — a light, almost-white
+canvas (`#f5f5f7`) holding frosted, translucent surfaces — applied in **Operate** mode: the interface's
+job is to let Gabriel scan a live feed, edit rules, and check system health quickly, never to perform for
+an audience. Every screen is real: real login, real CRUD, real SSE feed, real (or honestly `not_configured`)
+notification delivery. Nothing on screen is decoration standing in for a feature that doesn't exist yet.
+
+Legibility is a stated, non-negotiable acceptance criterion, not a preference: product name and price are
+always the darkest, heaviest thing in a row; source, rule, and other metadata recede in weight and color.
+Status is never color alone — every status pill carries a dot **and** a word. The one deliberately
+theatrical gesture — the floating dark navigation capsule with its gooey sliding pill and diagonal page
+transitions — exists precisely because it is the one piece of chrome Gabriel looks at on every single
+screen; everything downstream of it stays calm so the capsule's motion has room to be the signature.
+
+**Key Characteristics:**
+- Light liquid-glass surfaces on an off-white canvas, never a dark theme.
+- A floating dark capsule is the only saturated, opaque shape in the whole system.
+- Weight and color encode hierarchy (product/price bold+dark, metadata light+gray) — never size alone.
+- Status is always a dot plus a word, never a color chip by itself.
+- Motion is confined to specific, purposeful moments (nav pill, page transition, button fill) and fully
+  disabled under `prefers-reduced-motion` — it is never ambient or decorative.
+
+## Colors
+
+The palette is almost monochrome by design — near-white surfaces, near-black text — with color spent only
+on two things: the navigation capsule's opacity and the small, purposeful status/category accents.
+
+### Primary
+- **Ink** (`#08060d`): the only "loud" neutral — product names, prices, page titles, the active nav
+  pill's own label. Reserved for what the eye must land on first in any row.
+
+### Neutral
+- **Page Canvas** (`#f5f5f7`): the app's background on every page; never pure white, so the glass
+  surfaces have something to float above.
+- **Aurora Wash** (three radial gradients — blue `rgba(91, 141, 251, 0.16)`, violet
+  `rgba(163, 91, 251, 0.14)`, pink `rgba(251, 91, 160, 0.1)` — anchored top-left, top-right, and
+  bottom-center, on a fixed `body::before` layer, `z-index: -1`): without something varied behind them,
+  the glass cards' `backdrop-filter: blur()` has nothing to blur and the signature material reads as a
+  plain translucent white rectangle rather than "glass". The wash exists purely to make that material
+  legible at rest; it never carries meaning and stays subtle enough to leave every text contrast ratio
+  in the system unaffected (S4-09 finish pass).
+- **Muted Ink** (`#4b4b52`): every secondary/metadata string — form labels, table headers, match
+  metadata, health-panel labels. Chosen specifically to clear 4.5:1 contrast against both the page
+  canvas and white card surfaces (`#7a7a82`, the first color tried here, measured 3.91–4.26:1 and was
+  replaced during S4-08's accessibility pass).
+- **Capsule Black** (`#17181c`): the navigation capsule and every primary button's resting fill — the
+  system's one deliberately opaque, dark shape.
+- **Capsule Tab Gray** (`#b8b9bf`): inactive nav labels sitting directly on the dark capsule.
+
+### Named Rules (optional, powerful)
+**The One Dark Shape Rule.** Only the navigation capsule (and, by inheritance, primary buttons using
+its same fill) is ever a flat, opaque dark shape. Every other surface is glass, white, or the page
+canvas — the capsule's darkness stays legible as *the* navigation landmark because nothing else competes
+for that register.
+
+### Status & Category Accents
+Status pills and category-icon tiles are the only saturated color in the system, and both follow the
+same construction: a pale tint background (`*-bg`) with a fully-saturated foreground/dot of the same hue
+family, so text stays legible and the dot stays identifiable at a glance.
+- **Success** (`#1c8a4b` on `#e2f5e9`): a delivery that actually sent.
+- **Danger** (`#b3261e` on `#fbe4e2`): a failed delivery or a destructive action (delete buttons, error text).
+- **Warning** (`#8a6d00` on `#fbf1d6`): not-yet-connected/not-allowlisted states — "attention", not "broken".
+- **Indigo** (`#3f3fb0` on `#e9e9fb`): the deliberately calm "notification disabled" state — distinguished
+  from Danger on purpose, because no `BOT_TOKEN` is a configuration fact, not a failure.
+- **Category tiles** (`#e3ecfb` blue / `#ece3fb` violet / `#fbeee3` peach / `#fbe3ef` pink / `#e9e9ec`
+  neutral gray): purely decorative sorting cues on the Feed/Histórico cards — the hue carries no status
+  meaning, only "these two rows are probably the same kind of thing".
+- **Aurora Glow** (`#5b8dfb` → `#a35bfb` → `#fb5ba0` → `#4ce8a8`, conic gradient): reserved for the single
+  match that is the lowest price a rule has ever seen. No real data can trigger it yet (price history is
+  backlog); the ring exists, tested, waiting for that field.
+
+## Typography
+
+**Display/Body Font:** system UI stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+sans-serif`) — no webfont is loaded. "Grotesk" in the approved direction is honored through the system
+sans on every platform (SF on Apple devices) rather than a shipped font file, keeping the app fast and
+license-free for a single-admin tool.
+
+**Character:** Plain, high-legibility, weight-driven hierarchy — the type system does almost all of its
+work through **bold vs. regular** and **dark vs. muted**, not through a wide size scale.
+
+### Hierarchy
+- **Display** (700, 32px, 1.2): page titles ("Feed ao vivo", "Regras", "Saúde", …) — one per page.
+- **Title** (700, 22–24px): section headers inside a page (the login card's "teleyes", the
+  "Destinatários" sub-section heading on Regras).
+- **Product** (700, 17px, `{colors.ink}`): a match's product line — always the heaviest text in its card.
+- **Price** (700, 18px, `{colors.ink}`): always bold and dark, matching Product's weight so the two
+  numbers a user actually needs — what and how much — read at the same authority.
+- **Body** (400, 14px): form inputs, buttons, table cells.
+- **Label** (500, 13px, `{colors.ink-muted}`): metadata lines, table headers, form field labels — always
+  the muted color, never competing with Product/Price.
+
+### Named Rules (optional)
+**The Two-Weight Rule.** A row never needs a third font size to read correctly: what matters is bold and
+dark, what's context is regular and muted. If a new field needs its own size to stand out, it's fighting
+the hierarchy instead of using it.
+
+## Layout
+
+Every page shares one shell: the navigation capsule fixed at the top (see Components → Navigation), then
+a single content column, `max-width: 640–900px` depending on the page's density (760px for card lists
+like Feed/Histórico, 900px for the wider CRUD tables on Regras/Fontes, 640px for the single-column Saúde
+panel), centered with side padding that never lets content touch the viewport edge. There is no sidebar
+anywhere in the system — this is a stated rejection from the approved direction, not an omission.
+
+**Responsive behavior:** at ≤640px the navigation capsule wraps its six tabs onto two rows rather than
+scrolling or collapsing into a menu — verified to introduce zero page-level horizontal scroll at 390px.
+CRUD tables (Regras/Fontes/Destinatários) get their own horizontal scroll container
+(`overflow-x: auto` on a `.crud-table-wrap`, not the page) below that width, so a wide table degrades by
+scrolling in place rather than forcing the whole page to scroll sideways or truncating columns silently.
+Filter forms (Histórico) and CRUD forms stack to a single column below 640px via `grid-template-columns:
+repeat(auto-fit, minmax(180px, 1fr))`.
+
+## Elevation & Depth
+
+The system is a **hybrid**: mostly flat, tonal layering (a card is simply a lighter, blurred rectangle on
+the page canvas), with exactly one real shadow vocabulary reserved for the two elements that need to read
+as floating above everything else.
+
+### Shadow Vocabulary
+- **Capsule float** (`box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18)`): the navigation capsule only — it is
+  the one element in the system that must read as physically hovering over the page.
+- **Glass lift** (`box-shadow: 0 8px 32px rgba(15, 15, 20, 0.08)`): every glass card (match cards, form
+  panels, CRUD table containers) — a much softer lift than the capsule's, keeping cards feeling like they
+  rest on the canvas rather than float above it.
+
+### Named Rules (optional)
+**The Two-Shadow Rule.** There are exactly two shadow values in the whole system (capsule float, glass
+lift). A third shadow value is a sign a new component invented its own physics instead of joining one of
+the two existing depth planes.
+
+## Shapes
+
+Corners are large and consistently pill-or-rounded, never sharp: **20px** on every glass card, **999px**
+(true pill) on the navigation capsule, every button, every status pill, and the pause/active toggle;
+**14px** on category-icon squares (a smaller, secondary radius so icon tiles read as "inside" a card
+rather than as their own card); **10–12px** on form inputs and selects. Borders are hairline and low
+alpha (`rgba(0, 0, 0, 0.12)` on inputs and CRUD-table action buttons) or omitted entirely in favor of the
+glass surface's own soft top-edge highlight (`border-top-color: rgba(255, 255, 255, 0.8)` on
+`.glass-card`) — teleyes never uses a hard, fully-opaque border as its primary surface delimiter.
+
+## Components
+
+### Buttons
+- **Shape:** true pill (`border-radius: 999px`).
+- **Primary** (`.crud-page__new-button`, `.crud-form__submit`, the login submit, "Enviar teste"):
+  `{colors.capsule-bg}` fill, white text, `10px 18px` padding.
+  - **Interaction — color fill from the click point:** every primary button also carries `.fill-button`
+    (`FillButton.css`): a translucent white bloom (`rgba(255, 255, 255, 0.18)`) expands from wherever the
+    pointer went down (`--fill-x`/`--fill-y`, set by `useFillOrigin()`), via `clip-path: circle()`
+    animating 0%→150% over 480ms on an ease-out-expo-flavored curve. Disabled under
+    `prefers-reduced-motion`.
+- **Ghost** (`.crud-form__cancel`, table row actions "Editar"/"Duplicar"/"Testar"): white fill, hairline
+  border, `{colors.ink-muted}` text, `6–8px` vertical padding.
+- **Danger ghost** ("Excluir"): same ghost shape, `{colors.danger}` text and a low-alpha danger border —
+  color is the only differentiator from a normal ghost button, since delete is always paired with the
+  word "Excluir" itself, never an icon-only trash button.
+- **Disabled:** an explicit gray fill (`#c7c7cc` background, `#6b6b70` text, `cursor: not-allowed`) on
+  primary submit buttons with an unmet precondition (empty password, no recipient selected), rather than
+  dimming the resting fill with opacity — a flat gray reads as "not clickable" at a glance where an
+  opacity-dimmed dark pill can still look pressable in a static screenshot (S4-09 finish pass).
+
+### Status Pill
+- **Style:** pill shape, pale tint background, saturated dot (8px circle) + saturated text of the same
+  hue, `6px 14px` padding.
+- **The Dot-and-Word Rule.** No status anywhere in the system is color-only: `summarizeDeliveryStatus`,
+  `telegramStateLabel`/`botStateLabel`, and the SSE `connecting`/`open`/`error` states all resolve to a
+  `{label, color}` pair rendered as dot + word together, never a bare colored chip.
+
+### Cards / Containers (Glass Card)
+- **Corner Style:** 20px.
+- **Background:** `rgba(255, 255, 255, 0.6)`, `backdrop-filter: blur(20px)`.
+- **Border:** 1px `rgba(255, 255, 255, 0.4)`, with the top edge brightened to `rgba(255, 255, 255, 0.8)`
+  for the "light hitting frosted glass from above" cue the approved direction asked for.
+- **Shadow Strategy:** Glass Lift (see Elevation).
+- Used for: match cards, CRUD create/edit form panels, CRUD table containers, the Saúde health/test panels,
+  the login card.
+
+### Match Card (signature)
+The Feed/Histórico row: a category-icon tile (colored square, 56px, line-art SVG glyph) on the left, then
+product (bold) over metadata (muted, "Fonte: … · Regra: … · Para: …") in the middle, price (bold, right
+of center), the status pill, and — only when `isLowestPriceEver` is true — the Aurora Glow ring around
+the whole card plus a small "Menor preço já visto" label. Wraps to two lines below 720px (icon+product
+row, then price+status row) rather than shrinking text.
+
+### Inputs / Fields
+- **Style:** 10px radius, hairline border, white or near-white (`rgba(255,255,255,0.7)` on the login
+  card) fill.
+- **Label:** always a real `<label>` wrapping the control (never a placeholder standing in for a label).
+- **Error:** a `role="alert"` paragraph in `{colors.danger}` directly below the form, carrying the
+  backend's actual error `detail` string, never a generic "something went wrong".
+
+### Navigation (signature)
+The floating capsule: `{colors.capsule-bg}`, true pill, `6px` internal padding, the wordmark "teleyes"
+(lowercase, 600 weight) sitting outside the capsule to its left. The six tabs (Login, Feed, Regras,
+Fontes, Histórico, Saúde) live inside it as plain text links; the active one sits under a solid white
+pill (`.nav-pill`) that is a single absolutely-positioned element, not a per-tab background, so it can
+slide.
+- **Motion — the gooey pill:** the pill lives inside `.nav-capsule__goo-layer`, a layer with
+  `filter: blur(6px) contrast(20)` applied only to that layer — never to the tab labels themselves, which
+  stay crisp. A first pass used an SVG `feGaussianBlur` + `feColorMatrix` filter for the same effect,
+  simplified to the plain CSS functions during the S4-09 finish pass (not the cause of any bug found
+  there, just one fewer moving part). The pill's `left/top/width/height`
+  transition on an ease-out-expo curve (`cubic-bezier(0.16, 1, 0.3, 1)`; a first pass used a bouncy
+  `cubic-bezier(0.6, -0.28, 0.44, 1.28)` that Impeccable's detector correctly flagged as dated
+  bounce/elastic easing during S4-09's finish pass). The blur+contrast filter deforms the pill's edges as
+  it moves, producing the gooey "metaball" read the direction called for from a single moving shape
+  rather than two blobs merging.
+- **Motion — page transitions:** tab clicks use React Router's native `viewTransition` (wraps navigation
+  in `document.startViewTransition()`), paired with a custom diagonal `clip-path` reveal keyframe
+  (`teleyes-diagonal-reveal`, 420ms) in place of the browser's default cross-fade. Falls back to a plain
+  swap automatically wherever `startViewTransition` doesn't exist. **Requires the data router**
+  (`createBrowserRouter` + `RouterProvider`, wired in `src/main.tsx`) — `viewTransition` on `NavLink` is a
+  silent no-op under the plain `<BrowserRouter>` component, which is what this app shipped with through
+  S4-08: the prop was set the whole time but `document.startViewTransition` was never actually called, so
+  the diagonal reveal never fired in production (found and fixed in the S4-09 finish pass, since the
+  original motion-evidence test never asserted the transition actually ran). Don't revert to
+  `<BrowserRouter>` without re-verifying this. Once that fix made the reveal actually run, it exposed a
+  second issue: the pill rendered as fully invisible for the reveal's whole duration, because it was being
+  flattened into the page-level `::view-transition-new(root)` snapshot. Fixed by giving `.nav-pill` its own
+  `view-transition-name: nav-pill` (NavCapsule.css), which tracks it as an independent named transition
+  group instead — a `::view-transition-group(nav-pill)` override retunes that group's default animation to
+  the same 320ms ease-out-expo curve so the slide still reads identically either way. That fix introduced a
+  third issue: naming the pill promotes it to the browser's top layer, which paints over normal-flow
+  content regardless of z-index — so the active tab's own label went invisible behind the pill for the
+  reveal's duration. Fixed by giving `.nav-tab--active` its own paired `view-transition-name: nav-tab-label`
+  and ranking the two named groups explicitly (`::view-transition-group(nav-tab-label) { z-index: 2 }` over
+  `nav-pill`'s `z-index: 1`), restoring the label-in-front-of-pill order the resting state already has.
+- **Mobile:** wraps to two rows at ≤640px; the pill's position is re-measured via
+  `getBoundingClientRect`-derived offsets on every route change and on `resize`, so it still finds the
+  right tab after a reflow.
+- **Reduced motion:** the goo filter, the pill's transition, and the page's clip-path keyframe are all
+  disabled under `prefers-reduced-motion: reduce`.
+
+## Do's and Don'ts
+
+### Do:
+- **Do** keep product and price the darkest, boldest thing in any row — metadata is always
+  `{colors.ink-muted}`, never `{colors.ink}`.
+- **Do** pair every status indicator with a word, never ship a bare colored dot or chip.
+- **Do** wrap every new primary CTA in `.fill-button` and call `useFillOrigin()` on `onPointerDown`, so
+  the click-fill motion stays consistent everywhere buttons commit an action.
+- **Do** guard every new motion (transition, animation, SVG filter) with a
+  `prefers-reduced-motion: reduce` override that removes it, not just shortens it.
+- **Do** surface the backend's real error `detail` string in `role="alert"` text — never a generic
+  fallback when the API already told you what went wrong.
+
+### Don't:
+- **Don't** introduce a second dark, opaque fill anywhere outside the navigation capsule and primary
+  buttons — that darkness is the capsule's signature, and duplicating it elsewhere dilutes the one
+  landmark the whole nav depends on.
+- **Don't** invent a third shadow value — every elevated surface is either Capsule Float or Glass Lift.
+- **Don't** fabricate data a real field doesn't back: the category icon, the "Último match" column, and
+  the Aurora Glow trigger are all explicitly either cosmetic-only or held inert until real data exists —
+  follow that same discipline for any new derived or decorative field.
+- **Don't** use a bounce/elastic easing curve (`cubic-bezier` with any value outside `[0, 1]`) anywhere —
+  Impeccable's detector treats this as a hard finding, and the system's one motion signature (the gooey
+  pill) uses a smooth exponential decelerate specifically to avoid the dated, tacky read a bounce gives.

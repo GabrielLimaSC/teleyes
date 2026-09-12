@@ -250,18 +250,20 @@ export function RegrasPage() {
             <tbody>
               {rules.map((rule) => (
                 <tr key={rule.id}>
-                  <td className="crud-table__name">{rule.name}</td>
-                  <td>{rule.include_terms}</td>
-                  <td>{rule.exclude_terms ?? '—'}</td>
-                  <td>{formatPriceLimit(rule.max_price_cents)}</td>
-                  <td>
+                  <td className="crud-table__name" data-label="Regra">
+                    {rule.name}
+                  </td>
+                  <td data-label="Termos incluídos">{rule.include_terms}</td>
+                  <td data-label="Termos bloqueados">{rule.exclude_terms ?? '—'}</td>
+                  <td data-label="Preço máximo">{formatPriceLimit(rule.max_price_cents)}</td>
+                  <td data-label="Status">
                     <StatusToggle
                       active={rule.active}
                       pausing={pausingId === rule.id}
                       onPause={() => handlePause(rule)}
                     />
                   </td>
-                  <td className="crud-table__actions">
+                  <td className="crud-table__actions" data-label="Ações">
                     <button type="button" onClick={() => openEdit(rule)}>
                       Editar
                     </button>
