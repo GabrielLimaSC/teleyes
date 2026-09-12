@@ -4,6 +4,9 @@ import { fetchCurrentAdmin, login as apiLogin, logout as apiLogout } from '../ap
 
 const CSRF_STORAGE_KEY = 'teleyes.csrf_token'
 
+export const CSRF_MISSING_MESSAGE =
+  'Sessão sem token de segurança em memória — atualize a página e faça login de novo.'
+
 type AuthStatus = 'checking' | 'authenticated' | 'anonymous'
 
 interface AuthContextValue {
@@ -15,6 +18,9 @@ interface AuthContextValue {
    * logout needs a fresh login first — GET /auth/me has no way to hand back a
    * token, only POST /auth/login does). */
   csrfMissing: boolean
+  /** For any other mutating call (rules/sources/recipients CRUD) — null exactly
+   * when csrfMissing is true. */
+  csrfToken: string | null
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -68,7 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [csrfToken])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, adminId, login, logout, csrfMissing: status === 'authenticated' && csrfToken === null }),
+    () => ({
+      status,
+      adminId,
+      login,
+      logout,
+      csrfMissing: status === 'authenticated' && csrfToken === null,
+      csrfToken,
+    }),
     [status, adminId, login, logout, csrfToken],
   )
 
