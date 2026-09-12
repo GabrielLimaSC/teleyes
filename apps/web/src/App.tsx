@@ -7,7 +7,7 @@ import { HistoricoPage } from './pages/HistoricoPage'
 import { RegrasPage } from './pages/RegrasPage'
 import { DestinatariosSection } from './pages/DestinatariosSection'
 import { FontesPage } from './pages/FontesPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
+import { SaudePage } from './pages/SaudePage'
 
 function App() {
   return (
@@ -52,7 +52,7 @@ function App() {
           path="/saude"
           element={
             <RequireAuth>
-              <PlaceholderPage title="Saúde" />
+              <SaudePage />
             </RequireAuth>
           }
         />

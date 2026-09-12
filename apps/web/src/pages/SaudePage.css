@@ -1,0 +1,68 @@
+.saude-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 8px 16px 48px;
+}
+
+.saude-page h1 {
+  font-size: 32px;
+  margin: 16px 0 20px;
+}
+
+.saude-page__error {
+  color: #b3261e;
+}
+
+.saude-page__result {
+  font-weight: 600;
+  color: #08060d;
+}
+
+.saude-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.saude-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #4b4b52;
+}
+
+.saude-panel select,
+.saude-panel input {
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+}
+
+.saude-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.saude-row__label {
+  color: #7a7a82;
+}
+
+.saude-row__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #08060d;
+}
+
+.saude-row__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
