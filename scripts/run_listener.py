@@ -48,6 +48,7 @@ from telethon import TelegramClient, events
 from app.pipeline import IncomingMessage, ListenerSource, catch_up_since_cursor, process_message
 from models import Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
+from packages.monitoring.heartbeat import load_heartbeat_config, run_heartbeat
 from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
@@ -226,6 +227,9 @@ async def main() -> None:
             sleep=asyncio.sleep,
         )
     )
+    heartbeat = asyncio.create_task(
+        run_heartbeat(load_heartbeat_config(), client.is_connected, stop_event)
+    )
     stop_waiter = asyncio.create_task(stop_event.wait())
     disconnected_waiter = asyncio.create_task(client.run_until_disconnected())
     try:
@@ -240,8 +244,11 @@ async def main() -> None:
             await client.disconnect()
             await disconnected_waiter
     finally:
+        stop_event.set()
         watchdog.cancel()
+        heartbeat.cancel()
         stop_waiter.cancel()
+        await asyncio.gather(watchdog, heartbeat, stop_waiter, return_exceptions=True)
 
 
 if __name__ == "__main__":

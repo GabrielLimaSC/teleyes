@@ -49,6 +49,11 @@ considerar a instalação completa.
    - `TG_API_ID` / `TG_API_HASH` — criados em https://my.telegram.org/apps (uma conta Telegram real, de
      preferência dedicada — ver `CLAUDE.md`, seção Segurança).
    - `BOT_TOKEN` — criado com o [@BotFather](https://t.me/BotFather) no Telegram.
+   - `HEARTBEAT_URL` — opcional; URL de ping fornecida por um monitor externo (por exemplo,
+     healthchecks.io). Deixe vazia para desativar. Trate a URL como segredo: o identificador normalmente
+     fica no próprio caminho.
+   - `HEARTBEAT_INTERVAL_SECONDS` — intervalo entre tentativas enquanto o listener está conectado
+     (padrão: 300 segundos).
    - `APP_ENV=production` — `.env.example` traz `development` (valor de desenvolvimento); numa instalação
      de produção de verdade, troque, já que esse valor aparece em `GET /health` (ver
      [Diagnóstico](#diagnóstico)) e ajuda a distinguir os dois ambientes de relance.
@@ -181,6 +186,22 @@ conectados. Os campos que importam pra isso:
 imprime, no boot, quantas fontes/regras/destinatários ativos encontrou e por que ficou ocioso quando é o
 caso (credencial ausente, ou nenhuma fonte/regra/destinatário ativo cadastrado). Reiniciá-lo depois de
 cadastrar algo pelo painel resolve o segundo caso.
+
+### Heartbeat externo opcional
+
+Quando `HEARTBEAT_URL` está preenchida, o próprio processo `listener` envia periodicamente um `POST` sem
+payload para essa URL, mas somente enquanto o cliente MTProto real reporta conexão ativa. O heartbeat não
+parte da API: o `/health` da API comprova apenas que aquele processo está no ar e não representa a conexão
+do listener separado.
+
+Se a conexão cair, os pings param; quando ela voltar, retomam no próximo ciclo. Listener sem credenciais,
+sem fonte/regra/destinatário ativo ou ocioso não envia sucesso. Falhas de rede e respostas HTTP de erro são
+registradas sem a URL e tentadas novamente no próximo intervalo, sem interromper o processamento de
+mensagens. Heartbeat atrasado significa, portanto, que o listener não está conectado ou que ele/serviço de
+monitoramento/rede está indisponível — consulte os logs para distinguir as causas.
+
+Para desligar, deixe `HEARTBEAT_URL=` vazia (ou remova a variável) e reinicie o listener. Nenhum endpoint
+público, Tailscale Funnel ou redirecionamento de porta é criado por esse recurso.
 
 ## Desligar com segurança
 
