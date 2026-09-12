@@ -15,9 +15,10 @@ from auth.rate_limit import LoginRateLimiter
 from auth.session import SessionRecord, SessionStore
 from models import Admin
 from models.db import get_engine, get_sessionmaker
+from packages.events.broker import EventBroker
 from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
-from packages.telegram.adapter import TelegramAdapter
+from packages.telegram.adapter import AdapterState, TelegramAdapter
 
 SESSION_COOKIE_NAME = "teleyes_session"
 
@@ -26,6 +27,12 @@ app.state.session_store = SessionStore()
 app.state.rate_limiter = LoginRateLimiter()
 app.state.session_factory = get_sessionmaker(get_engine())
 app.state.started_at = time.monotonic()
+app.state.event_broker = EventBroker()
+
+
+def _publish_adapter_state_event(state: AdapterState) -> None:
+    app.state.event_broker.publish("adapter_state", {"state": state.value})
+
 
 _runtime_settings = get_settings()
 app.state.telegram_adapter = TelegramAdapter(
@@ -33,6 +40,7 @@ app.state.telegram_adapter = TelegramAdapter(
     api_hash=_runtime_settings.tg_api_hash,
     client=None,
     sleep=asyncio.sleep,
+    on_state_change=_publish_adapter_state_event,
 )
 app.state.bot_configured = bool(_runtime_settings.bot_token)
 app.state.notification_test_ids = itertools.count(start=-1, step=-1)
@@ -130,6 +138,7 @@ def logout(response: Response, session: SessionRecord = Depends(require_csrf)) -
 
 
 def _register_routers() -> None:
+    from app.routers.events import router as events_router
     from app.routers.health import router as health_router
     from app.routers.matches import router as matches_router
     from app.routers.metrics import router as metrics_router
@@ -145,6 +154,7 @@ def _register_routers() -> None:
     app.include_router(matches_router)
     app.include_router(metrics_router)
     app.include_router(notifications_router)
+    app.include_router(events_router)
 
 
 _register_routers()

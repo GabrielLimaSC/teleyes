@@ -54,6 +54,7 @@ class TelegramAdapter:
         max_attempts: int = 5,
         base_backoff_seconds: float = 1.0,
         max_backoff_seconds: float = 60.0,
+        on_state_change: Callable[[AdapterState], None] | None = None,
     ) -> None:
         self._api_id = api_id
         self._api_hash = api_hash
@@ -62,8 +63,14 @@ class TelegramAdapter:
         self._max_attempts = max_attempts
         self._base_backoff_seconds = base_backoff_seconds
         self._max_backoff_seconds = max_backoff_seconds
+        self._on_state_change = on_state_change
         self.state: AdapterState = AdapterState.NOT_CONFIGURED
         self.backoff_delays: list[float] = []
+
+    def _set_state(self, state: AdapterState) -> None:
+        self.state = state
+        if self._on_state_change is not None:
+            self._on_state_change(state)
 
     def is_configured(self) -> bool:
         return self._api_id is not None and bool(self._api_hash)
@@ -81,23 +88,23 @@ class TelegramAdapter:
 
         assert self._client is not None, "configured adapter requires a client"
 
-        self.state = attempting_state
+        self._set_state(attempting_state)
         for attempt in range(self._max_attempts):
             try:
                 await self._client.connect()
             except FloodWaitError as error:
-                self.state = AdapterState.RECONNECTING
+                self._set_state(AdapterState.RECONNECTING)
                 delay = self._backoff_delay(attempt, error.seconds)
                 self.backoff_delays.append(delay)
                 await self._sleep(delay)
             except BlockedError:
-                self.state = AdapterState.BLOCKED
+                self._set_state(AdapterState.BLOCKED)
                 return self.state
             else:
-                self.state = AdapterState.CONNECTED
+                self._set_state(AdapterState.CONNECTED)
                 return self.state
 
-        self.state = AdapterState.BLOCKED
+        self._set_state(AdapterState.BLOCKED)
         return self.state
 
     def _backoff_delay(self, attempt: int, requested_seconds: float) -> float:
@@ -108,4 +115,4 @@ class TelegramAdapter:
         if self._client is not None:
             await self._client.disconnect()
         if self.state != AdapterState.NOT_CONFIGURED:
-            self.state = AdapterState.RECONNECTING
+            self._set_state(AdapterState.RECONNECTING)

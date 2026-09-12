@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from models import Delivery, Match, Recipient, Rule
+from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.notifications.bot import BotNotifier
 from packages.rules.dedupe import DedupeCache, compute_signature
@@ -133,3 +135,29 @@ async def process_message(
     session.flush()
 
     return ProcessResult(match=db_match, deliveries_sent=deliveries_sent)
+
+
+def build_match_event(result: ProcessResult) -> dict[str, Any] | None:
+    """Build the `match` SSE payload for a `ProcessResult`, or `None` if it was a discard."""
+    if result.match is None:
+        return None
+    return {
+        "match_id": result.match.id,
+        "source_id": result.match.source_id,
+        "rule_id": result.match.rule_id,
+        "price_cents": result.match.price_cents,
+        "message_link": result.match.message_link,
+        "matched_at": result.match.matched_at.isoformat(),
+        "deliveries_sent": result.deliveries_sent,
+    }
+
+
+def publish_match_event(broker: EventBroker, result: ProcessResult) -> None:
+    """Publish the `match` SSE event for a `ProcessResult`.
+
+    Call this only after the caller's `session.commit()` has succeeded — a match
+    must never reach the live feed before it is durably persisted.
+    """
+    event = build_match_event(result)
+    if event is not None:
+        broker.publish("match", event)
