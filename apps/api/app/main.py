@@ -23,7 +23,11 @@ app.state.session_factory = get_sessionmaker(get_engine())
 
 def get_db(request: Request) -> Iterator[Session]:
     with request.app.state.session_factory() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            session.rollback()
+            raise
 
 
 def get_current_session(
@@ -99,3 +103,16 @@ def logout(response: Response, session: SessionRecord = Depends(require_csrf)) -
     app.state.session_store.delete_session(session.session_id)
     response.delete_cookie(SESSION_COOKIE_NAME)
     return {"status": "logged_out"}
+
+
+def _register_configuration_routers() -> None:
+    from app.routers.recipients import router as recipients_router
+    from app.routers.rules import router as rules_router
+    from app.routers.sources import router as sources_router
+
+    app.include_router(rules_router)
+    app.include_router(sources_router)
+    app.include_router(recipients_router)
+
+
+_register_configuration_routers()
