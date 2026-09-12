@@ -1,0 +1,51 @@
+# Production Compose — separate from docker-compose.yml (dev, hot-reload,
+# bind-mounted source). Meant to run 24/7 on the home desktop behind
+# Tailscale Serve: only `web` is published, and only to localhost — Tailscale
+# Serve is what actually terminates HTTPS on the tailnet, not this file.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - teleyes-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:80"
+    healthcheck:
+      # 127.0.0.1, not localhost: nginx only listens on IPv4 (docker/web-nginx.conf
+      # has no `listen [::]:80`), but `localhost` inside the container resolves to
+      # ::1 first — that mismatch made this healthcheck fail with "connection
+      # refused" even while nginx served real requests fine (found in the S5-01
+      # PR review with a working Docker daemon, not reproducible in this worktree).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  # Named volume, not a host bind mount: it lives inside Docker Desktop's own
+  # Linux VM regardless of host OS, so the permission tightening in
+  # docker/api-entrypoint.sh is actually enforced — a bind mount from a
+  # Windows path would have NTFS silently ignore it (this desktop's host OS
+  # is Windows 11 with Docker Desktop/WSL2, confirmed by Gabriel 2026-09-12).
+  teleyes-data:
