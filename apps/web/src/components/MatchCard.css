@@ -36,7 +36,7 @@
   margin: 4px 0 0;
   font-size: 13px;
   font-weight: 400;
-  color: #7a7a82;
+  color: #4b4b52;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -67,6 +67,14 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+
+.match-card__aurora-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6a3fbf;
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {

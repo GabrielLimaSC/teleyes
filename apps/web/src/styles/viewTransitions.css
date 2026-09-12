@@ -1,0 +1,31 @@
+/* Page-switch transition for React Router's `viewTransition` navigations
+ * (NavCapsule.tsx) — a diagonal wipe via a custom clip-path, replacing the
+ * browser's default cross-fade. Falls back to a plain swap automatically in
+ * browsers without View Transitions support (React Router only calls
+ * `document.startViewTransition` when it exists), and the animation itself
+ * is skipped entirely under prefers-reduced-motion. */
+
+::view-transition-old(root) {
+  animation: none;
+}
+
+::view-transition-new(root) {
+  animation: teleyes-diagonal-reveal 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes teleyes-diagonal-reveal {
+  from {
+    clip-path: polygon(-10% -10%, 5% -10%, -10% 5%);
+  }
+  to {
+    clip-path: polygon(-10% -10%, 120% -10%, -10% 120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

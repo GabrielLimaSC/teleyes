@@ -7,6 +7,12 @@
   flex-wrap: wrap;
 }
 
+.nav-goo-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
 .nav-wordmark {
   font-size: 20px;
   font-weight: 600;
@@ -15,6 +21,7 @@
 }
 
 .nav-capsule {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -24,7 +31,25 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
+.nav-capsule__goo-layer {
+  position: absolute;
+  inset: 0;
+  filter: url(#nav-goo);
+  pointer-events: none;
+}
+
+.nav-pill {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 999px;
+  transition:
+    left 320ms cubic-bezier(0.6, -0.28, 0.44, 1.28),
+    top 320ms cubic-bezier(0.6, -0.28, 0.44, 1.28),
+    width 320ms cubic-bezier(0.6, -0.28, 0.44, 1.28);
+}
+
 .nav-tab {
+  position: relative;
   appearance: none;
   border: none;
   background: transparent;
@@ -35,9 +60,7 @@
   border-radius: 999px;
   text-decoration: none;
   white-space: nowrap;
-  transition:
-    background-color 200ms ease,
-    color 200ms ease;
+  transition: color 200ms ease;
 }
 
 .nav-tab:hover {
@@ -46,8 +69,22 @@
 
 .nav-tab--active,
 .nav-tab--active:hover {
-  background: #ffffff;
   color: #08060d;
+}
+
+.nav-tab:focus-visible {
+  outline: 2px solid #7fb3ff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-capsule__goo-layer {
+    filter: none;
+  }
+
+  .nav-pill {
+    transition: none;
+  }
 }
 
 @media (max-width: 640px) {

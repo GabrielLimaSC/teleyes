@@ -7,8 +7,10 @@ import { ApiError } from '../api/auth'
 import type { Rule } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
 import { StatusToggle } from '../components/StatusToggle'
+import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/GlassCard.css'
 import '../components/CrudTable.css'
+import '../components/FillButton.css'
 
 interface RuleForm {
   name: string
@@ -46,6 +48,7 @@ type FormTarget = { kind: 'create' } | { kind: 'edit'; rule: Rule }
 
 export function RegrasPage() {
   const { csrfToken } = useAuth()
+  const fillOrigin = useFillOrigin()
   const [rules, setRules] = useState<Rule[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -155,7 +158,12 @@ export function RegrasPage() {
     <main className="crud-page">
       <div className="crud-page__header">
         <h1>Regras</h1>
-        <button type="button" className="crud-page__new-button" onClick={openCreate}>
+        <button
+          type="button"
+          className="crud-page__new-button fill-button"
+          onClick={openCreate}
+          onPointerDown={fillOrigin}
+        >
           + Nova regra
         </button>
       </div>
@@ -199,7 +207,12 @@ export function RegrasPage() {
             </label>
           </div>
           <div className="crud-form__actions">
-            <button type="submit" className="crud-form__submit" disabled={submitting}>
+            <button
+              type="submit"
+              className="crud-form__submit fill-button"
+              disabled={submitting}
+              onPointerDown={fillOrigin}
+            >
               {submitting ? 'Salvando…' : 'Salvar'}
             </button>
             <button type="button" className="crud-form__cancel" onClick={closeForm}>
@@ -288,7 +301,7 @@ export function RegrasPage() {
       {activeTester && (
         <div className="glass-card crud-form" style={{ marginTop: 16 }}>
           <h2>Testar regra: {activeTester.name}</h2>
-          <p style={{ margin: 0, fontSize: 13, color: '#7a7a82' }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#4b4b52' }}>
             Prévia local (não chama a API nem cria dado nenhum) — reproduz a mesma lógica de
             normalização e termos do backend.
           </p>

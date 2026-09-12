@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/GlassCard.css'
+import '../components/FillButton.css'
 import './LoginPage.css'
 
 export function LoginPage() {
   const { status, adminId, logout, csrfMissing, login } = useAuth()
+  const fillOrigin = useFillOrigin()
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -32,6 +35,8 @@ export function LoginPage() {
           )}
           <button
             type="button"
+            className="fill-button"
+            onPointerDown={fillOrigin}
             onClick={() => {
               setLogoutError(null)
               logout().catch((err: unknown) => {
@@ -76,7 +81,12 @@ export function LoginPage() {
           autoComplete="current-password"
           required
         />
-        <button type="submit" disabled={submitting || password.length === 0}>
+        <button
+          type="submit"
+          className="fill-button"
+          onPointerDown={fillOrigin}
+          disabled={submitting || password.length === 0}
+        >
           {submitting ? 'Entrando…' : 'Entrar'}
         </button>
         {error && (

@@ -1,0 +1,48 @@
+/* "Menor preço histórico já visto" badge (docs/SPRINT4_DIRECTION.md, Apple
+ * Intelligence/Siri-style aurora ring). Backlog: Match/Rule have no price
+ * history yet, so nothing in the real app ever sets `isLowestPriceEver` true
+ * today — the component/CSS exists and is tested (AuroraGlow.test), just
+ * without a live trigger until that data exists. */
+.match-card--aurora {
+  position: relative;
+  z-index: 0;
+}
+
+.match-card--aurora::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  z-index: -1;
+  background: conic-gradient(from var(--aurora-angle, 0deg), #5b8dfb, #a35bfb, #fb5ba0, #4ce8a8, #5b8dfb);
+  filter: blur(10px);
+  opacity: 0.75;
+  animation: aurora-rotate 6s linear infinite;
+}
+
+.match-card--aurora::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  background: #ffffff;
+}
+
+@keyframes aurora-rotate {
+  to {
+    --aurora-angle: 360deg;
+  }
+}
+
+@property --aurora-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-card--aurora::before {
+    animation: none;
+  }
+}
