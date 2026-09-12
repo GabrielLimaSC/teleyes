@@ -1,0 +1,129 @@
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import Select, exists, select
+from sqlalchemy.orm import Session
+
+from app.main import get_current_session, get_db
+from models import Delivery, Match
+
+router = APIRouter(
+    prefix="/matches",
+    tags=["matches"],
+    dependencies=[Depends(get_current_session)],
+)
+
+
+class DeliveryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    recipient_id: int
+    status: str
+    delivered_at: datetime | None
+    created_at: datetime
+
+
+class MatchResponse(BaseModel):
+    id: int
+    source_id: int
+    rule_id: int
+    message_text: str
+    price_cents: int | None
+    message_link: str | None
+    matched_at: datetime
+    created_at: datetime
+    deliveries: list[DeliveryResponse]
+
+
+def _match_filters(
+    statement: Select[tuple[Match, Delivery]],
+    *,
+    rule_id: int | None,
+    source_id: int | None,
+    recipient_id: int | None,
+    price_cents: int | None,
+    min_price_cents: int | None,
+    max_price_cents: int | None,
+    delivery_status: str | None,
+) -> Select[tuple[Match, Delivery]]:
+    if rule_id is not None:
+        statement = statement.where(Match.rule_id == rule_id)
+    if source_id is not None:
+        statement = statement.where(Match.source_id == source_id)
+    if price_cents is not None:
+        statement = statement.where(Match.price_cents == price_cents)
+    if min_price_cents is not None:
+        statement = statement.where(Match.price_cents >= min_price_cents)
+    if max_price_cents is not None:
+        statement = statement.where(Match.price_cents <= max_price_cents)
+
+    if recipient_id is not None or delivery_status is not None:
+        delivery_filter = (
+            select(Delivery.id)
+            .where(Delivery.match_id == Match.id)
+            .correlate(Match)
+        )
+        if recipient_id is not None:
+            delivery_filter = delivery_filter.where(Delivery.recipient_id == recipient_id)
+        if delivery_status is not None:
+            delivery_filter = delivery_filter.where(Delivery.status == delivery_status)
+        statement = statement.where(exists(delivery_filter))
+
+    return statement
+
+
+@router.get("", response_model=list[MatchResponse])
+def list_matches(
+    rule_id: int | None = Query(default=None, ge=1),
+    source_id: int | None = Query(default=None, ge=1),
+    recipient_id: int | None = Query(default=None, ge=1),
+    price_cents: int | None = Query(default=None, ge=0),
+    min_price_cents: int | None = Query(default=None, ge=0),
+    max_price_cents: int | None = Query(default=None, ge=0),
+    delivery_status: str | None = Query(default=None, min_length=1, max_length=32),
+    db: Session = Depends(get_db),
+) -> list[MatchResponse]:
+    if (
+        min_price_cents is not None
+        and max_price_cents is not None
+        and min_price_cents > max_price_cents
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="min_price_cents must not exceed max_price_cents",
+        )
+
+    statement = select(Match, Delivery).outerjoin(Delivery, Delivery.match_id == Match.id)
+    statement = _match_filters(
+        statement,
+        rule_id=rule_id,
+        source_id=source_id,
+        recipient_id=recipient_id,
+        price_cents=price_cents,
+        min_price_cents=min_price_cents,
+        max_price_cents=max_price_cents,
+        delivery_status=delivery_status,
+    ).order_by(Match.id.desc(), Delivery.id)
+
+    matches: dict[int, MatchResponse] = {}
+    for db_match, delivery in db.execute(statement):
+        response = matches.get(db_match.id)
+        if response is None:
+            response = MatchResponse(
+                id=db_match.id,
+                source_id=db_match.source_id,
+                rule_id=db_match.rule_id,
+                message_text=db_match.message_text,
+                price_cents=db_match.price_cents,
+                message_link=db_match.message_link,
+                matched_at=db_match.matched_at,
+                created_at=db_match.created_at,
+                deliveries=[],
+            )
+            matches[db_match.id] = response
+        if delivery is not None:
+            response.deliveries.append(DeliveryResponse.model_validate(delivery))
+
+    return list(matches.values())
