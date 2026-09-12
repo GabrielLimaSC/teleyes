@@ -23,6 +23,7 @@ custa pouco disco.
 
 import argparse
 import os
+import signal
 import time
 from pathlib import Path
 
@@ -32,6 +33,28 @@ from packages.backup.sqlite_backup import apply_retention, run_backup_once
 BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", "backups"))
 BACKUP_INTERVAL_SECONDS = float(os.environ.get("BACKUP_INTERVAL_SECONDS", 6 * 60 * 60))
 BACKUP_RETENTION_COUNT = int(os.environ.get("BACKUP_RETENTION_COUNT", 28))
+
+class _StopRequested(Exception):
+    pass
+
+
+def _handle_stop_signal(signum: int, frame: object) -> None:
+    # A process running as the container's PID 1 (docker/backup-entrypoint.sh
+    # execs this directly) needs an *explicit* handler for a signal to reach
+    # it at all — the kernel suppresses the default action of an unhandled
+    # signal for PID 1 specifically (same root cause fixed in
+    # scripts/run_listener.py, S5-09). Without this, `docker compose stop`/
+    # `down` would sit through the full grace period and force-kill this
+    # every time.
+    #
+    # Raising here, not just setting a flag, matters: PEP 475 (Python 3.5+)
+    # makes time.sleep() automatically retry an interrupted syscall, so a
+    # handler that only sets a flag would let the sleep below run out its
+    # full multi-hour interval regardless — only a handler that raises
+    # actually breaks out of it immediately (confirmed by actually hitting
+    # this with a real Docker container: a flag-only version silently didn't
+    # exit on SIGTERM, this raising version does).
+    raise _StopRequested
 
 
 def _db_path_from_url(url: str) -> Path:
@@ -59,13 +82,19 @@ def main() -> None:
     parser.add_argument("--once", action="store_true", help="roda um ciclo e sai")
     args = parser.parse_args()
 
+    signal.signal(signal.SIGTERM, _handle_stop_signal)
+    signal.signal(signal.SIGINT, _handle_stop_signal)
+
     db_path = _db_path_from_url(get_database_url())
 
     while True:
         run_cycle(db_path)
         if args.once:
             return
-        time.sleep(BACKUP_INTERVAL_SECONDS)
+        try:
+            time.sleep(BACKUP_INTERVAL_SECONDS)
+        except _StopRequested:
+            return
 
 
 if __name__ == "__main__":
