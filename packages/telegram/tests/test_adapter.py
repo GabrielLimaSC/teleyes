@@ -52,6 +52,27 @@ async def test_reconnect_backs_off_exponentially_then_reaches_blocked() -> None:
     assert client.disconnect_calls == 1
 
 
+async def test_state_changes_notify_the_on_state_change_callback() -> None:
+    client = FakeTelegramClient(script=[None])
+    observed: list[AdapterState] = []
+    adapter = TelegramAdapter(
+        api_id=1,
+        api_hash="hash",
+        client=client,
+        sleep=fake_sleep,
+        on_state_change=observed.append,
+    )
+
+    await adapter.connect()
+    await adapter.disconnect()
+
+    assert observed == [
+        AdapterState.CONNECTING,
+        AdapterState.CONNECTED,
+        AdapterState.RECONNECTING,
+    ]
+
+
 async def test_exhausting_attempts_without_block_signal_ends_blocked() -> None:
     client = FakeTelegramClient(script=[0.1, 0.1])
     adapter = TelegramAdapter(

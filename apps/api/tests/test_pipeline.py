@@ -5,8 +5,9 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.pipeline import IncomingMessage, process_message
+from app.pipeline import IncomingMessage, build_match_event, process_message, publish_match_event
 from models import Delivery, Match, Recipient, Rule, Source
+from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, get_count
 from packages.notifications.bot import BotNotifier
 from packages.notifications.fakes import FakeBotClient
@@ -159,3 +160,71 @@ async def test_reprocessing_same_message_does_not_duplicate_match_or_delivery(
     assert session.scalar(select(func.count()).select_from(Match)) == 1
     assert session.scalar(select(func.count()).select_from(Delivery)) == 1
     assert client.sent == [("999", "Promoção iPhone 15 por R$ 3.899")]
+
+
+# --- publicação de evento SSE só depois do commit -----------------------------
+
+
+async def test_publish_match_event_is_only_meant_to_run_after_commit(
+    session: Session,
+) -> None:
+    source, rule, recipient = _seed(session)
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    result = await process_message(
+        session,
+        _message(source, "Promoção iPhone 15 por R$ 3.899"),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+
+    broker = EventBroker()
+    publish_match_event(broker, result)
+
+    # last_event_id=0 replays everything published so far, since a fresh subscribe
+    # with no Last-Event-ID (a new client, not a reconnect) never gets a backlog.
+    subscription = broker.subscribe(last_event_id=0)
+    assert len(subscription.backlog) == 1
+    event = subscription.backlog[0]
+    assert event.type == "match"
+    assert result.match is not None
+    assert event.data == {
+        "match_id": result.match.id,
+        "source_id": source.id,
+        "rule_id": rule.id,
+        "price_cents": result.match.price_cents,
+        "message_link": None,
+        "matched_at": result.match.matched_at.isoformat(),
+        "deliveries_sent": 1,
+    }
+
+
+async def test_publish_match_event_is_a_no_op_when_the_message_was_discarded(
+    session: Session,
+) -> None:
+    source, rule, recipient = _seed(session)
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    result = await process_message(
+        session,
+        _message(source, "Samsung Galaxy em promoção"),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+
+    assert build_match_event(result) is None
+
+    broker = EventBroker()
+    publish_match_event(broker, result)
+    subscription = broker.subscribe(last_event_id=None)
+    assert subscription.backlog == []
