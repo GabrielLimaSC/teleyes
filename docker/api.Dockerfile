@@ -1,8 +1,9 @@
-# Shared production image for the FastAPI service (`api`) and the Telegram
-# listener (`listener`, S5-09) — both are the same Python codebase and the
-# same dependency set, so one image serves both; docker-compose.prod.yml
-# picks which process runs by overriding `entrypoint:` per service. No
-# --reload, no bind-mounted source, unlike Dockerfile.dev (root).
+# Shared production image for the FastAPI service (`api`), the Telegram
+# listener (`listener`, S5-09), and the backup sidecar (`backup`, S5-03) —
+# all three are the same Python codebase and the same dependency set, so one
+# image serves all of them; docker-compose.prod.yml picks which process runs
+# by overriding `entrypoint:` per service. No --reload, no bind-mounted
+# source, unlike Dockerfile.dev (root).
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -24,7 +25,8 @@ RUN pip install --no-cache-dir -e .
 
 COPY docker/api-entrypoint.sh /api-entrypoint.sh
 COPY docker/listener-entrypoint.sh /listener-entrypoint.sh
-RUN chmod +x /api-entrypoint.sh /listener-entrypoint.sh
+COPY docker/backup-entrypoint.sh /backup-entrypoint.sh
+RUN chmod +x /api-entrypoint.sh /listener-entrypoint.sh /backup-entrypoint.sh
 
 EXPOSE 8000
 ENTRYPOINT ["/api-entrypoint.sh"]

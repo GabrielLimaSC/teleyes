@@ -42,6 +42,32 @@ services:
     # if a real need for `docker compose ps` to distinguish "running" from
     # "actually connected" shows up; not built speculatively here.
 
+  backup:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    entrypoint: ["/backup-entrypoint.sh"]
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # Read-write, not :ro: SQLite's WAL mode needs every connection —
+      # including a logically read-only one like this backup's `VACUUM INTO`
+      # — to have write access to the database's directory, since readers
+      # coordinate through the `-shm` file, not just the `-wal`/`.db` files
+      # themselves. A read-only mount here would make VACUUM INTO fail the
+      # moment there's an uncheckpointed write pending, not just be overly
+      # cautious.
+      - teleyes-data:/app/data
+      - teleyes-backups:/app/backups
+    depends_on:
+      api:
+        condition: service_healthy
+    # No healthcheck, same reasoning as `listener`: a sleep-loop worker with
+    # no HTTP surface has nothing to probe; restart: unless-stopped alone
+    # covers crash recovery.
+
   web:
     build:
       context: .
@@ -71,3 +97,4 @@ volumes:
   # Windows path would have NTFS silently ignore it (this desktop's host OS
   # is Windows 11 with Docker Desktop/WSL2, confirmed by Gabriel 2026-09-12).
   teleyes-data:
+  teleyes-backups:
