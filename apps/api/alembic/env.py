@@ -1,10 +1,10 @@
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from models import Base
+from models.db import get_database_url
 from packages.metrics.counters import MetricCounter  # noqa: F401  (register on Base.metadata)
 
 config = context.config
@@ -16,7 +16,7 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    return os.getenv("DATABASE_URL", "sqlite:///./data/teleyes.db")
+    return get_database_url()
 
 
 def run_migrations_offline() -> None:
