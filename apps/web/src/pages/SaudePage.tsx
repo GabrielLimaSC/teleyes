@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import { useHealth } from '../hooks/useHealth'
+import type { SseState } from '../hooks/useHealth'
 import { listRecipients } from '../api/recipients'
 import { testNotification } from '../api/notifications'
 import { ApiError } from '../api/auth'
 import type { Recipient } from '../api/types'
 import { botStateLabel, telegramStateLabel } from '../components/adapterStateLabel'
+import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/GlassCard.css'
 import '../components/CrudTable.css'
+import '../components/FillButton.css'
 import './SaudePage.css'
 
 function formatUptime(seconds: number): string {
@@ -17,6 +20,12 @@ function formatUptime(seconds: number): string {
   if (hours > 0) return `${hours}h ${minutes}min`
   if (minutes > 0) return `${minutes}min ${secs}s`
   return `${secs}s`
+}
+
+const SSE_STATE_LABELS: Record<SseState, { label: string; color: string }> = {
+  connecting: { label: 'Conectando…', color: '#8a6d00' },
+  open: { label: 'Conectado', color: '#1c8a4b' },
+  error: { label: 'Desconectado', color: '#b3261e' },
 }
 
 function StatusRow({ label, state }: { label: string; state: { label: string; color: string } }) {
@@ -33,7 +42,8 @@ function StatusRow({ label, state }: { label: string; state: { label: string; co
 
 export function SaudePage() {
   const { csrfToken } = useAuth()
-  const { health, loading, error, sseConnected } = useHealth()
+  const { health, loading, error, sseState } = useHealth()
+  const fillOrigin = useFillOrigin()
 
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [recipientId, setRecipientId] = useState('')
@@ -83,14 +93,7 @@ export function SaudePage() {
         <section className="glass-card saude-panel">
           <StatusRow label="Telegram" state={telegramStateLabel(health.telegram.state)} />
           <StatusRow label="Bot" state={botStateLabel(health.bot.state)} />
-          <StatusRow
-            label="Feed em tempo real (SSE)"
-            state={
-              sseConnected
-                ? { label: 'Conectado', color: '#1c8a4b' }
-                : { label: 'Desconectado', color: '#b3261e' }
-            }
-          />
+          <StatusRow label="Feed em tempo real (SSE)" state={SSE_STATE_LABELS[sseState]} />
           <div className="saude-row">
             <span className="saude-row__label">Versão</span>
             <span className="saude-row__value">{health.version}</span>
@@ -108,7 +111,7 @@ export function SaudePage() {
 
       <section className="glass-card saude-panel" style={{ marginTop: 20 }}>
         <h2>Teste de notificação</h2>
-        <p style={{ marginTop: 0, fontSize: 13, color: '#7a7a82' }}>
+        <p style={{ marginTop: 0, fontSize: 13, color: '#4b4b52' }}>
           Aciona o envio real (ou mostra <code>not_configured</code> sem fingir entrega, se não houver
           `BOT_TOKEN`).
         </p>
@@ -129,8 +132,9 @@ export function SaudePage() {
         </label>
         <button
           type="button"
-          className="crud-form__submit"
+          className="crud-form__submit fill-button"
           onClick={sendTest}
+          onPointerDown={fillOrigin}
           disabled={sending || recipientId === ''}
         >
           {sending ? 'Enviando…' : 'Enviar teste'}

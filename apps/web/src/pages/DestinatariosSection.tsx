@@ -12,8 +12,10 @@ import type { RecipientInput } from '../api/recipients'
 import { ApiError } from '../api/auth'
 import type { Recipient } from '../api/types'
 import { StatusToggle } from '../components/StatusToggle'
+import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/GlassCard.css'
 import '../components/CrudTable.css'
+import '../components/FillButton.css'
 
 interface RecipientForm {
   name: string
@@ -45,6 +47,7 @@ type FormTarget = { kind: 'create' } | { kind: 'edit'; recipient: Recipient }
  */
 export function DestinatariosSection() {
   const { csrfToken } = useAuth()
+  const fillOrigin = useFillOrigin()
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -144,7 +147,12 @@ export function DestinatariosSection() {
     <section className="crud-page__section">
       <div className="crud-page__header">
         <h2>Destinatários</h2>
-        <button type="button" className="crud-page__new-button" onClick={openCreate}>
+        <button
+          type="button"
+          className="crud-page__new-button fill-button"
+          onClick={openCreate}
+          onPointerDown={fillOrigin}
+        >
           + Novo destinatário
         </button>
       </div>
@@ -179,7 +187,12 @@ export function DestinatariosSection() {
             </label>
           </div>
           <div className="crud-form__actions">
-            <button type="submit" className="crud-form__submit" disabled={submitting}>
+            <button
+              type="submit"
+              className="crud-form__submit fill-button"
+              disabled={submitting}
+              onPointerDown={fillOrigin}
+            >
               {submitting ? 'Salvando…' : 'Salvar'}
             </button>
             <button type="button" className="crud-form__cancel" onClick={closeForm}>

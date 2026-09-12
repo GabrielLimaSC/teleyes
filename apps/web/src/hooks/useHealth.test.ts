@@ -85,17 +85,18 @@ describe('useHealth', () => {
     await waitFor(() => expect(result.current.health?.telegram.state).toBe('connected'))
   })
 
-  it('reports sseConnected from the EventSource open/error callbacks', async () => {
+  it('starts "connecting" and reports open/error from the EventSource callbacks', async () => {
     vi.spyOn(healthApi, 'fetchHealth').mockResolvedValue(buildHealth())
 
     const { result } = renderHook(() => useHealth(60_000))
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1))
+    expect(result.current.sseState).toBe('connecting')
 
     FakeEventSource.instances[0].onopen?.()
-    await waitFor(() => expect(result.current.sseConnected).toBe(true))
+    await waitFor(() => expect(result.current.sseState).toBe('open'))
 
     FakeEventSource.instances[0].onerror?.()
-    await waitFor(() => expect(result.current.sseConnected).toBe(false))
+    await waitFor(() => expect(result.current.sseState).toBe('error'))
   })
 
   it('closes the EventSource and stops polling on unmount', async () => {

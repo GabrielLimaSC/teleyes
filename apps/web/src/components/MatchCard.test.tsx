@@ -80,4 +80,28 @@ describe('MatchCard', () => {
 
     expect(screen.getByText('Preço não identificado')).toBeInTheDocument()
   })
+
+  it('has no Aurora Glow ring or label by default (no real price-history data yet)', () => {
+    const { container } = render(
+      <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} />,
+    )
+
+    expect(container.querySelector('.match-card--aurora')).not.toBeInTheDocument()
+    expect(screen.queryByText('Menor preço já visto')).not.toBeInTheDocument()
+  })
+
+  it('renders the Aurora Glow ring and label when isLowestPriceEver is true', () => {
+    const { container } = render(
+      <MatchCard
+        match={buildMatch()}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        isLowestPriceEver
+      />,
+    )
+
+    expect(container.querySelector('.match-card--aurora')).toBeInTheDocument()
+    expect(screen.getByText('Menor preço já visto')).toBeInTheDocument()
+  })
 })

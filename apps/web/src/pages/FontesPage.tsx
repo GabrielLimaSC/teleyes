@@ -7,8 +7,10 @@ import { fetchMatches } from '../api/matches'
 import { ApiError } from '../api/auth'
 import type { Source } from '../api/types'
 import { StatusToggle } from '../components/StatusToggle'
+import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/GlassCard.css'
 import '../components/CrudTable.css'
+import '../components/FillButton.css'
 
 interface SourceForm {
   name: string
@@ -34,6 +36,7 @@ type FormTarget = { kind: 'create' } | { kind: 'edit'; source: Source }
 
 export function FontesPage() {
   const { csrfToken } = useAuth()
+  const fillOrigin = useFillOrigin()
   const [sources, setSources] = useState<Source[]>([])
   const [lastMatchBySource, setLastMatchBySource] = useState<Map<number, string>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -142,11 +145,16 @@ export function FontesPage() {
     <main className="crud-page">
       <div className="crud-page__header">
         <h1>Fontes</h1>
-        <button type="button" className="crud-page__new-button" onClick={openCreate}>
+        <button
+          type="button"
+          className="crud-page__new-button fill-button"
+          onClick={openCreate}
+          onPointerDown={fillOrigin}
+        >
           + Nova fonte
         </button>
       </div>
-      <p style={{ marginTop: -12, marginBottom: 20, fontSize: 13, color: '#7a7a82' }}>
+      <p style={{ marginTop: -12, marginBottom: 20, fontSize: 13, color: '#4b4b52' }}>
         Cadastro manual pelo chat_id do grupo — ainda não há um jeito de listar os grupos que a conta já
         acessa direto por aqui.
       </p>
@@ -173,7 +181,12 @@ export function FontesPage() {
             </label>
           </div>
           <div className="crud-form__actions">
-            <button type="submit" className="crud-form__submit" disabled={submitting}>
+            <button
+              type="submit"
+              className="crud-form__submit fill-button"
+              disabled={submitting}
+              onPointerDown={fillOrigin}
+            >
               {submitting ? 'Salvando…' : 'Salvar'}
             </button>
             <button type="button" className="crud-form__cancel" onClick={closeForm}>

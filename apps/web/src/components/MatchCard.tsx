@@ -4,6 +4,7 @@ import { summarizeDeliveryStatus } from './deliveryStatus'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 import './MatchCard.css'
 import '../components/GlassCard.css'
+import '../components/AuroraGlow.css'
 
 function formatPrice(cents: number | null): string {
   if (cents === null) return 'Preço não identificado'
@@ -15,11 +16,17 @@ export function MatchCard({
   rule,
   source,
   recipients,
+  isLowestPriceEver = false,
 }: {
   match: Match
   rule: Rule | undefined
   source: Source | undefined
   recipients: Recipient[]
+  /** Aurora Glow ring (docs/SPRINT4_DIRECTION.md) — always false in the real
+   * app today: Match/Rule carry no price-history data yet (backlog), so
+   * nothing can honestly set this true. The prop exists so the component is
+   * built and tested ahead of that data landing. */
+  isLowestPriceEver?: boolean
 }) {
   const category = categorize(match.message_text)
   const status = summarizeDeliveryStatus(match.deliveries)
@@ -28,7 +35,7 @@ export function MatchCard({
     .filter((name): name is string => Boolean(name))
 
   return (
-    <article className="glass-card match-card">
+    <article className={'glass-card match-card' + (isLowestPriceEver ? ' match-card--aurora' : '')}>
       <div className="match-card__icon" style={{ background: CATEGORY_BACKGROUND[category] }}>
         <CategoryIcon category={category} />
       </div>
@@ -40,6 +47,7 @@ export function MatchCard({
         </p>
       </div>
       <p className="match-card__price">{formatPrice(match.price_cents)}</p>
+      {isLowestPriceEver && <span className="match-card__aurora-label">Menor preço já visto</span>}
       <span
         className="match-card__status"
         style={{ background: status.background, color: status.foreground }}

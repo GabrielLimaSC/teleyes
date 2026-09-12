@@ -4,11 +4,13 @@ import type { AdapterState, HealthResponse } from '../api/health'
 
 const POLL_INTERVAL_MS = 5000
 
+export type SseState = 'connecting' | 'open' | 'error'
+
 interface UseHealthResult {
   health: HealthResponse | null
   loading: boolean
   error: string | null
-  sseConnected: boolean
+  sseState: SseState
 }
 
 /**
@@ -23,7 +25,10 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS): UseHealthResult {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sseConnected, setSseConnected] = useState(false)
+  // Starts "connecting", not "error" — the EventSource handshake takes a
+  // moment, and reporting a red "disconnected" before it's even had a chance
+  // to open would be a false alarm, not an honest state.
+  const [sseState, setSseState] = useState<SseState>('connecting')
 
   useEffect(() => {
     let cancelled = false
@@ -48,10 +53,10 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS): UseHealthResult {
 
     const source = new EventSource('/events')
     source.onopen = () => {
-      if (!cancelled) setSseConnected(true)
+      if (!cancelled) setSseState('open')
     }
     source.onerror = () => {
-      if (!cancelled) setSseConnected(false)
+      if (!cancelled) setSseState('error')
     }
     source.addEventListener('adapter_state', (event: MessageEvent<string>) => {
       if (cancelled) return
@@ -70,5 +75,5 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS): UseHealthResult {
     }
   }, [pollIntervalMs])
 
-  return { health, loading, error, sseConnected }
+  return { health, loading, error, sseState }
 }

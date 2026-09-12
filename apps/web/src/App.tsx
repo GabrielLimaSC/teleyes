@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { NavCapsule } from './components/NavCapsule'
+import { OfflineBanner } from './components/OfflineBanner'
 import { RequireAuth } from './auth/RequireAuth'
 import { LoginPage } from './pages/LoginPage'
 import { FeedPage } from './pages/FeedPage'
@@ -12,6 +13,7 @@ import { SaudePage } from './pages/SaudePage'
 function App() {
   return (
     <>
+      <OfflineBanner />
       <NavCapsule />
       <Routes>
         <Route path="/" element={<LoginPage />} />

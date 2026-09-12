@@ -56,6 +56,23 @@ afterEach(() => {
 })
 
 describe('SaudePage', () => {
+  it('shows "Conectando…" for SSE before the EventSource opens, never a premature "Desconectado"', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse(health))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    render(<SaudePage />)
+
+    expect(await screen.findByText('Conectando…')).toBeInTheDocument()
+    expect(screen.queryByText('Desconectado')).not.toBeInTheDocument()
+  })
+
   it('shows the not_configured state for Telegram, bot and the test result honestly', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
