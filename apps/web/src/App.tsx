@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom'
 import { NavCapsule } from './components/NavCapsule'
 import { RequireAuth } from './auth/RequireAuth'
 import { LoginPage } from './pages/LoginPage'
+import { FeedPage } from './pages/FeedPage'
+import { HistoricoPage } from './pages/HistoricoPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 function App() {
@@ -14,7 +16,7 @@ function App() {
           path="/feed"
           element={
             <RequireAuth>
-              <PlaceholderPage title="Feed ao vivo" />
+              <FeedPage />
             </RequireAuth>
           }
         />
@@ -38,7 +40,7 @@ function App() {
           path="/historico"
           element={
             <RequireAuth>
-              <PlaceholderPage title="Histórico" />
+              <HistoricoPage />
             </RequireAuth>
           }
         />
