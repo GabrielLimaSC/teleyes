@@ -47,7 +47,8 @@
 }
 
 .login-card button:disabled {
-  opacity: 0.6;
+  background: #c7c7cc;
+  color: #6b6b70;
   cursor: not-allowed;
 }
 

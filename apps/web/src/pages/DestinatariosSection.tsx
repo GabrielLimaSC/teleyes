@@ -229,17 +229,19 @@ export function DestinatariosSection() {
             <tbody>
               {recipients.map((recipient) => (
                 <tr key={recipient.id}>
-                  <td className="crud-table__name">{recipient.name}</td>
-                  <td>{recipient.telegram_chat_id}</td>
-                  <td>{recipient.allowlisted ? 'Sim' : 'Não'}</td>
-                  <td>
+                  <td className="crud-table__name" data-label="Destinatário">
+                    {recipient.name}
+                  </td>
+                  <td data-label="Chat ID">{recipient.telegram_chat_id}</td>
+                  <td data-label="Autorizado">{recipient.allowlisted ? 'Sim' : 'Não'}</td>
+                  <td data-label="Status">
                     <StatusToggle
                       active={recipient.active}
                       pausing={pausingId === recipient.id}
                       onPause={() => handlePause(recipient)}
                     />
                   </td>
-                  <td className="crud-table__actions">
+                  <td className="crud-table__actions" data-label="Ações">
                     <button type="button" onClick={() => openEdit(recipient)}>
                       Editar
                     </button>

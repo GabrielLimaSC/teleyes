@@ -223,17 +223,21 @@ export function FontesPage() {
             <tbody>
               {sources.map((source) => (
                 <tr key={source.id}>
-                  <td className="crud-table__name">{source.name}</td>
-                  <td>{source.telegram_chat_id}</td>
-                  <td>{formatLastMatch(lastMatchBySource.get(source.id))}</td>
-                  <td>
+                  <td className="crud-table__name" data-label="Fonte">
+                    {source.name}
+                  </td>
+                  <td data-label="Chat ID">{source.telegram_chat_id}</td>
+                  <td data-label="Último match">
+                    {formatLastMatch(lastMatchBySource.get(source.id))}
+                  </td>
+                  <td data-label="Status">
                     <StatusToggle
                       active={source.active}
                       pausing={pausingId === source.id}
                       onPause={() => handlePause(source)}
                     />
                   </td>
-                  <td className="crud-table__actions">
+                  <td className="crud-table__actions" data-label="Ações">
                     <button type="button" onClick={() => openEdit(source)}>
                       Editar
                     </button>
