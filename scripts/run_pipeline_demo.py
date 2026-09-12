@@ -13,6 +13,15 @@ do grupo indicado. Cada mensagem passa pelo pipeline completo (regras -> preço
 -> dedupe -> persistência -> notificação) e o alerta é enviado de verdade pelo
 bot via API HTTP do Telegram. Ctrl+C encerra.
 
+Antes de começar a escutar ao vivo, e de novo depois de qualquer reconexão
+detectada (S5-02), recupera mensagens perdidas desde o cursor persistido
+(`packages/telegram/cursor.py`) — cobre tanto reiniciar o processo (o que foi
+perdido enquanto estava parado) quanto uma queda de conexão curta (o real
+`_handle_auto_reconnect` desta versão do Telethon não faz catch-up nenhum
+sozinho, ver `packages/telegram/reconnect_watch.py`). Bounded por
+`BACKFILL_MAX_MESSAGES`/`BACKFILL_MAX_AGE` — não reprocessa o histórico
+inteiro do grupo.
+
 Nenhum valor de TG_API_ID/TG_API_HASH/BOT_TOKEN é lido de argumento nem
 hardcoded aqui — sempre vêm do .env. `--source-chat-id`/`--recipient-chat-id`
 não são segredos (são só identificadores), por isso são argumentos normais.
@@ -22,7 +31,7 @@ import argparse
 import asyncio
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from alembic import command
@@ -31,15 +40,20 @@ from dotenv import load_dotenv
 from telethon import TelegramClient, events
 
 from app.demo_setup import ensure_demo_setup
-from app.pipeline import IncomingMessage, process_message
+from app.pipeline import IncomingMessage, ListenerSource, catch_up_since_cursor, process_message
 from models.db import get_engine, get_sessionmaker
 from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
+from packages.telegram.reconnect_watch import supervise_reconnects
+from packages.telegram.telethon_client import TelethonMessageFetcher
 
 SESSION_PATH = Path("data/teleyes.session")
 ALEMBIC_INI_PATH = Path(__file__).resolve().parents[1] / "apps" / "api" / "alembic.ini"
+BACKFILL_MAX_MESSAGES = 100
+BACKFILL_MAX_AGE = timedelta(hours=24)
+RECONNECT_POLL_SECONDS = 15.0
 
 
 def run_migrations() -> None:
@@ -118,6 +132,29 @@ async def main() -> None:
         allowlisted_chat_ids={setup.recipient.telegram_chat_id},
     )
     dedupe_cache = DedupeCache()
+    fetcher = TelethonMessageFetcher(client)
+    listener_source = ListenerSource(
+        source_id=setup.source.id,
+        chat_id=args.source_chat_id,
+        rule=setup.rule,
+        recipients=[setup.recipient],
+    )
+
+    async def catch_up() -> None:
+        recovered = await catch_up_since_cursor(
+            session_factory,
+            fetcher,
+            listener_source,
+            notifier,
+            dedupe_cache,
+            max_messages=BACKFILL_MAX_MESSAGES,
+            max_age=BACKFILL_MAX_AGE,
+        )
+        if recovered:
+            print(f"Recuperadas {len(recovered)} mensagens perdidas.")
+
+    # Covers a process restart: whatever arrived while this run was down.
+    await catch_up()
 
     print(f"Conectado. Escutando mensagens de {args.source_chat_id}... (Ctrl+C para sair)")
 
@@ -141,7 +178,23 @@ async def main() -> None:
             else:
                 print(f"Descartado: {result.reason}")
 
-    await client.run_until_disconnected()
+    # Covers a short connection drop: this Telethon version's own auto-reconnect
+    # doesn't catch up on missed updates by itself (see the module docstring
+    # above and packages/telegram/reconnect_watch.py), so this polls the
+    # client's own public is_connected() and re-runs catch-up whenever it
+    # flips back to True.
+    watchdog = asyncio.create_task(
+        supervise_reconnects(
+            client.is_connected,
+            catch_up,
+            poll_seconds=RECONNECT_POLL_SECONDS,
+            sleep=asyncio.sleep,
+        )
+    )
+    try:
+        await client.run_until_disconnected()
+    finally:
+        watchdog.cancel()
 
 
 if __name__ == "__main__":
