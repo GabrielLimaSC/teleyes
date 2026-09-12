@@ -507,6 +507,88 @@
         "title": "RuleUpdate",
         "type": "object"
       },
+      "SimulateMessageRequest": {
+        "description": "A controlled, test-only message \u2014 S3-07's browser demo, not the real listener.\n\nReal Telegram ingestion stays in `scripts/run_pipeline_demo.py`; this exists so\nthe SSE feed and match history can be exercised end to end without a Telegram\ncredential.",
+        "properties": {
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "recipient_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Recipient Ids",
+            "type": "array"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "integer"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "rule_id",
+          "recipient_ids",
+          "text"
+        ],
+        "title": "SimulateMessageRequest",
+        "type": "object"
+      },
+      "SimulateMessageResponse": {
+        "properties": {
+          "deliveries_sent": {
+            "title": "Deliveries Sent",
+            "type": "integer"
+          },
+          "match_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "match_id",
+          "reason",
+          "deliveries_sent"
+        ],
+        "title": "SimulateMessageResponse",
+        "type": "object"
+      },
       "SourceCreate": {
         "properties": {
           "name": {
@@ -842,6 +924,65 @@
           }
         },
         "summary": "Me"
+      }
+    },
+    "/demo/messages": {
+      "post": {
+        "operationId": "simulate_message_demo_messages_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateMessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate Message",
+        "tags": [
+          "demo"
+        ]
       }
     },
     "/events": {

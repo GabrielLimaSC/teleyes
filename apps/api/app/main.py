@@ -18,6 +18,7 @@ from models.db import get_engine, get_sessionmaker
 from packages.events.broker import EventBroker
 from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
+from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 
 SESSION_COOKIE_NAME = "teleyes_session"
@@ -44,6 +45,7 @@ app.state.telegram_adapter = TelegramAdapter(
 )
 app.state.bot_configured = bool(_runtime_settings.bot_token)
 app.state.notification_test_ids = itertools.count(start=-1, step=-1)
+app.state.demo_dedupe_cache = DedupeCache()
 
 
 def _build_bot_notifier(allowlisted_chat_ids: set[str]) -> BotNotifier:
@@ -138,6 +140,7 @@ def logout(response: Response, session: SessionRecord = Depends(require_csrf)) -
 
 
 def _register_routers() -> None:
+    from app.routers.demo import router as demo_router
     from app.routers.events import router as events_router
     from app.routers.health import router as health_router
     from app.routers.matches import router as matches_router
@@ -155,6 +158,7 @@ def _register_routers() -> None:
     app.include_router(metrics_router)
     app.include_router(notifications_router)
     app.include_router(events_router)
+    app.include_router(demo_router)
 
 
 _register_routers()

@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/demo/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate Message */
+        post: operations["simulate_message_demo_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -491,6 +508,35 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /**
+         * SimulateMessageRequest
+         * @description A controlled, test-only message — S3-07's browser demo, not the real listener.
+         *
+         *     Real Telegram ingestion stays in `scripts/run_pipeline_demo.py`; this exists so
+         *     the SSE feed and match history can be exercised end to end without a Telegram
+         *     credential.
+         */
+        SimulateMessageRequest: {
+            /** Link */
+            link?: string | null;
+            /** Recipient Ids */
+            recipient_ids: number[];
+            /** Rule Id */
+            rule_id: number;
+            /** Source Id */
+            source_id: number;
+            /** Text */
+            text: string;
+        };
+        /** SimulateMessageResponse */
+        SimulateMessageResponse: {
+            /** Deliveries Sent */
+            deliveries_sent: number;
+            /** Match Id */
+            match_id: number | null;
+            /** Reason */
+            reason: string | null;
+        };
         /** SourceCreate */
         SourceCreate: {
             /** Name */
@@ -658,6 +704,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: number;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    simulate_message_demo_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulateMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulateMessageResponse"];
                 };
             };
             /** @description Validation Error */
