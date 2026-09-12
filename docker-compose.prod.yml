@@ -31,7 +31,12 @@ services:
     ports:
       - "127.0.0.1:8080:80"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      # 127.0.0.1, not localhost: nginx only listens on IPv4 (docker/web-nginx.conf
+      # has no `listen [::]:80`), but `localhost` inside the container resolves to
+      # ::1 first — that mismatch made this healthcheck fail with "connection
+      # refused" even while nginx served real requests fine (found in the S5-01
+      # PR review with a working Docker daemon, not reproducible in this worktree).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       retries: 3
