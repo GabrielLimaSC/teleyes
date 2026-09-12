@@ -1,3 +1,6 @@
+import asyncio
+import itertools
+import time
 from collections.abc import Iterator
 
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
@@ -12,13 +15,40 @@ from auth.rate_limit import LoginRateLimiter
 from auth.session import SessionRecord, SessionStore
 from models import Admin
 from models.db import get_engine, get_sessionmaker
+from packages.notifications.bot import BotNotifier
+from packages.notifications.http_client import HttpBotClient
+from packages.telegram.adapter import TelegramAdapter
 
 SESSION_COOKIE_NAME = "teleyes_session"
 
-app = FastAPI(title="teleyes")
+app = FastAPI(title="teleyes", version="0.1.0")
 app.state.session_store = SessionStore()
 app.state.rate_limiter = LoginRateLimiter()
 app.state.session_factory = get_sessionmaker(get_engine())
+app.state.started_at = time.monotonic()
+
+_runtime_settings = get_settings()
+app.state.telegram_adapter = TelegramAdapter(
+    api_id=_runtime_settings.tg_api_id,
+    api_hash=_runtime_settings.tg_api_hash,
+    client=None,
+    sleep=asyncio.sleep,
+)
+app.state.bot_configured = bool(_runtime_settings.bot_token)
+app.state.notification_test_ids = itertools.count(start=-1, step=-1)
+
+
+def _build_bot_notifier(allowlisted_chat_ids: set[str]) -> BotNotifier:
+    bot_token = get_settings().bot_token
+    client = HttpBotClient(bot_token) if bot_token else None
+    return BotNotifier(
+        bot_token=bot_token,
+        client=client,
+        allowlisted_chat_ids=allowlisted_chat_ids,
+    )
+
+
+app.state.bot_notifier_factory = _build_bot_notifier
 
 
 def get_db(request: Request) -> Iterator[Session]:
@@ -54,12 +84,6 @@ def require_csrf(
 
 class LoginRequest(BaseModel):
     password: str
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    settings = get_settings()
-    return {"status": "ok", "env": settings.app_env}
 
 
 @app.post("/auth/login")
@@ -105,14 +129,22 @@ def logout(response: Response, session: SessionRecord = Depends(require_csrf)) -
     return {"status": "logged_out"}
 
 
-def _register_configuration_routers() -> None:
+def _register_routers() -> None:
+    from app.routers.health import router as health_router
+    from app.routers.matches import router as matches_router
+    from app.routers.metrics import router as metrics_router
+    from app.routers.notifications import router as notifications_router
     from app.routers.recipients import router as recipients_router
     from app.routers.rules import router as rules_router
     from app.routers.sources import router as sources_router
 
+    app.include_router(health_router)
     app.include_router(rules_router)
     app.include_router(sources_router)
     app.include_router(recipients_router)
+    app.include_router(matches_router)
+    app.include_router(metrics_router)
+    app.include_router(notifications_router)
 
 
-_register_configuration_routers()
+_register_routers()
