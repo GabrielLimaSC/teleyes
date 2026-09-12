@@ -42,11 +42,23 @@ class ProcessResult:
 
 @dataclass
 class ListenerSource:
-    """Everything `catch_up_since_cursor` needs to recover one source's gap."""
+    """Everything `catch_up_since_cursor` needs to recover one source's gap.
+
+    `rules` is a list, not one `Rule`: the schema has no rule<->source or
+    rule<->recipient relationship at all (checked against
+    `apps/api/models/*.py` and the CRUD routers before writing this, S5-09) —
+    every active rule is evaluated against every active source's messages,
+    and every match goes to every active, allowlisted recipient. One
+    `ProcessingCursor` per source (unique on `source_id` alone) means the
+    backfill fetch itself must run once per source, then be evaluated against
+    every rule — never once per (source, rule) pair, which would advance the
+    shared cursor on the first rule and starve every rule after it of the
+    same recovered messages.
+    """
 
     source_id: int
     chat_id: str
-    rule: Rule
+    rules: list[Rule]
     recipients: list[Recipient]
 
 
@@ -191,19 +203,20 @@ async def catch_up_since_cursor(
 
     results: list[ProcessResult] = []
     for raw in recovered:
-        with session_factory() as session:
-            incoming = IncomingMessage(
-                source_id=source.source_id,
-                message_id=raw.id,
-                text=raw.text,
-                link=None,
-                received_at=raw.date,
-            )
-            result = await process_message(
-                session, incoming, source.rule, source.recipients, notifier, dedupe_cache
-            )
-            session.commit()
-            results.append(result)
+        for rule in source.rules:
+            with session_factory() as session:
+                incoming = IncomingMessage(
+                    source_id=source.source_id,
+                    message_id=raw.id,
+                    text=raw.text,
+                    link=None,
+                    received_at=raw.date,
+                )
+                result = await process_message(
+                    session, incoming, rule, source.recipients, notifier, dedupe_cache
+                )
+                session.commit()
+                results.append(result)
     return results
 
 

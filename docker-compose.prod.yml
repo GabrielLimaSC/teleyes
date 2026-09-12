@@ -20,6 +20,28 @@ services:
       retries: 3
       start_period: 10s
 
+  listener:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    entrypoint: ["/listener-entrypoint.sh"]
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - teleyes-data:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    # No healthcheck: a background worker with no HTTP surface has nothing a
+    # conventional healthcheck can probe. `restart: unless-stopped` alone
+    # already satisfies "reinicia sozinho depois de um crash real" — Docker's
+    # restart policy triggers on the process exiting, independent of any
+    # healthcheck existing at all. A file-based heartbeat could add one later
+    # if a real need for `docker compose ps` to distinguish "running" from
+    # "actually connected" shows up; not built speculatively here.
+
   web:
     build:
       context: .

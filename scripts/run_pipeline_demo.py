@@ -136,7 +136,7 @@ async def main() -> None:
     listener_source = ListenerSource(
         source_id=setup.source.id,
         chat_id=args.source_chat_id,
-        rule=setup.rule,
+        rules=[setup.rule],
         recipients=[setup.recipient],
     )
 

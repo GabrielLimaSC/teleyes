@@ -85,7 +85,7 @@ async def test_catch_up_recovers_missed_messages_through_the_real_pipeline(
     bot_client = FakeBotClient()
     notifier = BotNotifier(bot_token="token", client=bot_client, allowlisted_chat_ids={"999"})
     listener_source = ListenerSource(
-        source_id=source.id, chat_id="-100123", rule=rule, recipients=[recipient]
+        source_id=source.id, chat_id="-100123", rules=[rule], recipients=[recipient]
     )
 
     results = await catch_up_since_cursor(
@@ -137,7 +137,7 @@ async def test_restart_does_not_replay_a_message_already_seen_live(
     fresh_dedupe_cache = DedupeCache()
     client = FakeTelegramClient(messages=[_msg(1), _msg(2)])
     listener_source = ListenerSource(
-        source_id=source.id, chat_id="-100123", rule=rule, recipients=[recipient]
+        source_id=source.id, chat_id="-100123", rules=[rule], recipients=[recipient]
     )
 
     results = await catch_up_since_cursor(
@@ -162,7 +162,7 @@ async def test_short_disconnect_recovers_the_gap_via_adapter_reconnect(
     notifier = BotNotifier(bot_token="token", client=FakeBotClient(), allowlisted_chat_ids={"999"})
     dedupe_cache = DedupeCache()
     listener_source = ListenerSource(
-        source_id=source.id, chat_id="-100123", rule=rule, recipients=[recipient]
+        source_id=source.id, chat_id="-100123", rules=[rule], recipients=[recipient]
     )
 
     client = FakeTelegramClient(messages=[_msg(1)])
@@ -197,7 +197,7 @@ async def test_catch_up_respects_max_messages_bound(
     notifier = BotNotifier(bot_token="token", client=FakeBotClient(), allowlisted_chat_ids={"999"})
     client = FakeTelegramClient(messages=[_msg(i) for i in range(1, 11)])
     listener_source = ListenerSource(
-        source_id=source.id, chat_id="-100123", rule=rule, recipients=[recipient]
+        source_id=source.id, chat_id="-100123", rules=[rule], recipients=[recipient]
     )
 
     results = await catch_up_since_cursor(
@@ -208,3 +208,40 @@ async def test_catch_up_respects_max_messages_bound(
     # The remaining 7 are permanently skipped, not queued — same bounded
     # contract as `backfill_since_cursor` itself.
     assert get_cursor(session, source.id) == 3
+
+
+async def test_catch_up_evaluates_every_rule_without_starving_later_rules(
+    session: Session, session_factory: sessionmaker[Session]
+) -> None:
+    """`ProcessingCursor` is unique on `source_id` alone (one per source, not
+    per source+rule) — S5-09 found that fetching messages once per (source,
+    rule) pair would advance that single shared cursor on the first rule's
+    fetch, leaving nothing left to recover for every rule after it. The fix:
+    `backfill_since_cursor` runs exactly once per source, and its result is
+    then evaluated against every rule.
+    """
+    source, first_rule, recipient = _seed(session)
+    second_rule = Rule(name="Notebook", include_terms="notebook")
+    session.add(second_rule)
+    session.commit()
+
+    client = FakeTelegramClient(
+        messages=[_msg(1, text="iphone por 100"), _msg(2, text="notebook por 200")]
+    )
+    notifier = BotNotifier(bot_token="token", client=FakeBotClient(), allowlisted_chat_ids={"999"})
+    listener_source = ListenerSource(
+        source_id=source.id,
+        chat_id="-100123",
+        rules=[first_rule, second_rule],
+        recipients=[recipient],
+    )
+
+    results = await catch_up_since_cursor(
+        session_factory, client, listener_source, notifier, DedupeCache()
+    )
+
+    # 2 messages x 2 rules = 4 evaluations; each message matches exactly one
+    # of the two rules.
+    assert len(results) == 4
+    assert sum(1 for r in results if r.match is not None) == 2
+    assert get_cursor(session, source.id) == 2
