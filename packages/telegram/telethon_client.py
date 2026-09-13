@@ -9,7 +9,7 @@ from packages.telegram.cursor import TelegramMessage
 
 class IterMessagesClientProtocol(Protocol):
     def iter_messages(
-        self, entity: object, *, min_id: int, limit: int
+        self, entity: object, *, min_id: int = 0, limit: int | None = None
     ) -> AsyncIterator[TelegramMessageLike]: ...
 
 
@@ -53,4 +53,15 @@ class TelethonMessageFetcher:
         self, chat_id: str, *, min_id: int, limit: int
     ) -> AsyncIterator[TelegramMessage]:
         async for message in self._client.iter_messages(int(chat_id), min_id=min_id, limit=limit):
+            yield to_telegram_message(message)
+
+    async def iter_recent(self, chat_id: str) -> AsyncIterator[TelegramMessage]:
+        """Adapts to `packages.telegram.historical.RecentMessageFetcherProtocol`.
+
+        No `min_id`/`limit` here on purpose (S6-02): a homologation scan of the
+        last 24h is independent of the per-source cursor, and must not stop
+        early on a fixed count — only `fetch_messages_since`'s time window
+        decides when to stop consuming this newest-to-oldest iterator.
+        """
+        async for message in self._client.iter_messages(int(chat_id)):
             yield to_telegram_message(message)

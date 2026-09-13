@@ -22,6 +22,13 @@ reiniciar o processo — e de novo sempre que o watchdog de reconexão
 cobre uma queda curta. Bounded por BACKFILL_MAX_MESSAGES/BACKFILL_MAX_AGE, não
 reprocessa o histórico inteiro de nenhum grupo.
 
+Também roda, uma vez por fonte logo após registrar o handler ao vivo, um scan
+histórico independente do cursor (S6-02): reavalia as últimas 24h de cada
+fonte ativa contra toda regra ativa, persiste os matches e cria
+Delivery(status="historical") por destinatário aplicável, mas nunca chama o
+BotNotifier — sem alerta retroativo. Repetir esse scan num restart não
+duplica (identidade persistente da S6-01).
+
 Sem TG_API_ID/TG_API_HASH/BOT_TOKEN configurados, encerra imediatamente com
 uma mensagem clara — nunca finge ter conectado. Sem nenhuma fonte, regra ou
 destinatário ativo cadastrado, também encerra (nada pra escutar).
@@ -37,7 +44,7 @@ import asyncio
 import os
 import signal
 import sys
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -45,7 +52,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from telethon import TelegramClient, events
 
-from app.pipeline import IncomingMessage, ListenerSource, catch_up_since_cursor, process_message
+from app.pipeline import (
+    IncomingMessage,
+    ListenerSource,
+    catch_up_since_cursor,
+    process_message,
+    run_historical_scan,
+)
 from models import Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
 from packages.monitoring.heartbeat import load_heartbeat_config, run_heartbeat
@@ -60,6 +73,7 @@ SESSION_PATH = Path("data/teleyes.session")
 BACKFILL_MAX_MESSAGES = 100
 BACKFILL_MAX_AGE = timedelta(hours=24)
 RECONNECT_POLL_SECONDS = 15.0
+HISTORICAL_WINDOW = timedelta(hours=24)
 
 
 def _load_active_config(session: Session) -> tuple[list[Source], list[Rule], list[Recipient]]:
@@ -215,6 +229,35 @@ async def main() -> None:
                         f"Match! fonte={source.name} regra={rule.name} "
                         f"match_id={result.match.id} entregas={result.deliveries_sent}"
                     )
+
+    # S6-02: fixed *after* the live handler above is already registered, so
+    # any message that arrives while the scan below is still running has
+    # date >= historical_scan_started_at and is skipped by
+    # `fetch_messages_since` — it is the live handler's alert to send, never
+    # a duplicate "historical" one from a scan still paging through results.
+    historical_scan_started_at = datetime.now(UTC)
+    historical_matches = 0
+    for listener_source in listener_sources:
+        try:
+            historical_results = await run_historical_scan(
+                session_factory,
+                fetcher,
+                listener_source,
+                window=HISTORICAL_WINDOW,
+                before=historical_scan_started_at,
+            )
+        except Exception:
+            # Sanitized on purpose: never the source's chat_id/name or any
+            # message content, only its internal database id and the fact
+            # that it failed — one source's scan breaking must not sink the
+            # others', and must never leak rejected content into a log.
+            print(f"Scan histórico falhou para a fonte id={listener_source.source_id}.")
+            continue
+        historical_matches += sum(1 for r in historical_results if r.match is not None)
+    if historical_matches:
+        print(
+            f"Histórico das últimas 24h: {historical_matches} match(es) sem alerta retroativo."
+        )
 
     # Covers a short connection drop: this Telethon version's own auto-reconnect
     # doesn't catch up on missed updates by itself (see reconnect_watch.py), so

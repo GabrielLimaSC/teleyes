@@ -74,4 +74,29 @@ describe('HistoricoPage', () => {
       expect(matchCalls.at(-1)?.[0]).toBe('/matches?rule_id=1')
     })
   })
+
+  it('offers and forwards the historical (no retroactive alert) delivery filter (S6-02)', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<HistoricoPage />)
+
+    const deliverySelect = await screen.findByLabelText('Entrega')
+    expect(screen.getByRole('option', { name: 'Histórico — sem alerta' })).toBeInTheDocument()
+
+    await user.selectOptions(deliverySelect, 'historical')
+
+    await waitFor(() => {
+      const matchCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/matches'))
+      expect(matchCalls.at(-1)?.[0]).toBe('/matches?delivery_status=historical')
+    })
+  })
 })

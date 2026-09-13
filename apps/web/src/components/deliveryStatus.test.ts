@@ -23,8 +23,20 @@ describe('summarizeDeliveryStatus', () => {
     )
   })
 
+  it('reports the historical label for a match matched without a retroactive alert (S6-02)', () => {
+    expect(summarizeDeliveryStatus([delivery('historical')]).label).toBe('Histórico — sem alerta')
+  })
+
   it('never encodes state by color alone — every pill carries a label', () => {
-    for (const status of ['sent', 'failed', 'not_allowlisted', 'not_configured', 'duplicate', 'weird']) {
+    for (const status of [
+      'sent',
+      'failed',
+      'not_allowlisted',
+      'not_configured',
+      'duplicate',
+      'historical',
+      'weird',
+    ]) {
       const pill = summarizeDeliveryStatus([delivery(status)])
       expect(pill.label.length).toBeGreaterThan(0)
       expect(pill.dotColor.length).toBeGreaterThan(0)

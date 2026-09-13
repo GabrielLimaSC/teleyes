@@ -46,3 +46,11 @@ class FakeTelegramClient:
         for message in sorted(self.messages, key=lambda m: m.id):
             if message.id > min_id:
                 yield message
+
+    async def iter_recent(self, chat_id: str) -> AsyncIterator[TelegramMessage]:
+        """Newest-to-oldest, like the real Telegram history API's default order —
+        exercises `packages.telegram.historical.fetch_messages_since` (S6-02)
+        without any `min_id`/`limit` bound.
+        """
+        for message in sorted(self.messages, key=lambda m: m.id, reverse=True):
+            yield message

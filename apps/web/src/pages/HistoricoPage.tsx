@@ -9,6 +9,7 @@ import './HistoricoPage.css'
 const DELIVERY_STATUS_OPTIONS = [
   { value: '', label: 'Qualquer status' },
   { value: 'sent', label: 'Entregue' },
+  { value: 'historical', label: 'Histórico — sem alerta' },
   { value: 'failed', label: 'Falha no envio' },
   { value: 'not_configured', label: 'Notificação desativada' },
   { value: 'not_allowlisted', label: 'Destinatário não autorizado' },

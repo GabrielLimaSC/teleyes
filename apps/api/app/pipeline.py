@@ -17,6 +17,9 @@ from packages.rules.match import MatchRule
 from packages.rules.normalize import normalize_text
 from packages.rules.price import extract_price
 from packages.telegram.cursor import MessageFetcherProtocol, advance_cursor, backfill_since_cursor
+from packages.telegram.historical import RecentMessageFetcherProtocol, fetch_messages_since
+
+HISTORICAL_DELIVERY_STATUS = "historical"
 
 
 def parse_terms(raw: str | None) -> list[str]:
@@ -78,6 +81,82 @@ def _discard_reason(match_rule: MatchRule, text: str) -> MetricReason:
     return MetricReason.NO_TERM
 
 
+@dataclass
+class RuleEvaluation:
+    price_cents: int | None
+    discard_reason: MetricReason | None
+
+
+def _evaluate_rule(rule: Rule, text: str) -> RuleEvaluation:
+    """Match -> price, with no side effect of its own.
+
+    Shared by the live and historical paths (S6-02) precisely so neither one
+    duplicates the matching/pricing logic — they differ only in what happens
+    *after* this: the live path counts discards/matches and notifies, the
+    historical path never touches a metric counter at all (a homologation
+    scan of the last 24h must not inflate the counters that describe live
+    traffic health, and would double-count on every listener restart if it
+    did, since `MetricCounter` is cumulative, not deduplicated by identity).
+    """
+    match_rule = _build_match_rule(rule)
+    if not match_rule.matches(text):
+        return RuleEvaluation(price_cents=None, discard_reason=_discard_reason(match_rule, text))
+
+    price = extract_price(text)
+    if (
+        rule.max_price_cents is not None
+        and price.price_cents is not None
+        and price.price_cents > rule.max_price_cents
+    ):
+        return RuleEvaluation(price_cents=None, discard_reason=MetricReason.PRICE_ABOVE_CEILING)
+
+    return RuleEvaluation(price_cents=price.price_cents, discard_reason=None)
+
+
+def _persist_match(
+    session: Session, message: IncomingMessage, rule: Rule, price_cents: int | None
+) -> Match | None:
+    """Insert a `Match`, or return `None` if the S6-01 identity already exists.
+
+    Shared by the live and historical paths: a real `telegram_message_id`
+    makes `(source_id, rule_id, telegram_message_id)` unique, so a second
+    insert of the same message+rule from another process, another session, or
+    a repeated historical scan is a no-op here — no extra cache needed for
+    either path to be idempotent across restarts.
+    """
+    db_match = Match(
+        source_id=message.source_id,
+        rule_id=rule.id,
+        telegram_message_id=message.message_id,
+        message_text=message.text,
+        price_cents=price_cents,
+        message_link=message.link,
+        matched_at=message.received_at,
+    )
+    try:
+        # Keep the insert in a savepoint: a second process may race this one
+        # after its own in-memory cache starts cold. The database constraint is
+        # authoritative, and rolling back only this savepoint leaves the outer
+        # transaction (including a live caller's cursor advance) usable.
+        with session.begin_nested():
+            session.add(db_match)
+            session.flush()
+    except IntegrityError:
+        if message.message_id is None:
+            raise
+        existing_match_id = session.scalar(
+            select(Match.id).where(
+                Match.source_id == message.source_id,
+                Match.rule_id == rule.id,
+                Match.telegram_message_id == message.message_id,
+            )
+        )
+        if existing_match_id is None:
+            raise
+        return None
+    return db_match
+
+
 async def process_message(
     session: Session,
     message: IncomingMessage,
@@ -104,62 +183,22 @@ async def process_message(
     if message.message_id is not None:
         advance_cursor(session, message.source_id, message.message_id)
 
-    match_rule = _build_match_rule(rule)
-
-    if not match_rule.matches(message.text):
-        reason = _discard_reason(match_rule, message.text)
-        increment_counter(session, reason, source_id=message.source_id)
-        return ProcessResult(match=None, deliveries_sent=0, reason=reason.value)
-
-    price = extract_price(message.text)
-    if (
-        rule.max_price_cents is not None
-        and price.price_cents is not None
-        and price.price_cents > rule.max_price_cents
-    ):
-        increment_counter(session, MetricReason.PRICE_ABOVE_CEILING, source_id=message.source_id)
-        return ProcessResult(
-            match=None, deliveries_sent=0, reason=MetricReason.PRICE_ABOVE_CEILING.value
-        )
+    evaluation = _evaluate_rule(rule, message.text)
+    if evaluation.discard_reason is not None:
+        increment_counter(session, evaluation.discard_reason, source_id=message.source_id)
+        return ProcessResult(match=None, deliveries_sent=0, reason=evaluation.discard_reason.value)
 
     signature = compute_signature(
         message.source_id,
         message.text,
-        price_cents=price.price_cents,
+        price_cents=evaluation.price_cents,
         rule_id=rule.id,
     )
     if not dedupe_cache.should_process(signature):
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
-    db_match = Match(
-        source_id=message.source_id,
-        rule_id=rule.id,
-        telegram_message_id=message.message_id,
-        message_text=message.text,
-        price_cents=price.price_cents,
-        message_link=message.link,
-        matched_at=message.received_at,
-    )
-    try:
-        # Keep the insert in a savepoint: a second process may race this one
-        # after its own in-memory cache starts cold. The database constraint is
-        # authoritative, and rolling back only this savepoint leaves the outer
-        # transaction (including its cursor advance) usable by the caller.
-        with session.begin_nested():
-            session.add(db_match)
-            session.flush()
-    except IntegrityError:
-        if message.message_id is None:
-            raise
-        existing_match_id = session.scalar(
-            select(Match.id).where(
-                Match.source_id == message.source_id,
-                Match.rule_id == rule.id,
-                Match.telegram_message_id == message.message_id,
-            )
-        )
-        if existing_match_id is None:
-            raise
+    db_match = _persist_match(session, message, rule, evaluation.price_cents)
+    if db_match is None:
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
     increment_counter(session, MetricReason.SEEN, source_id=message.source_id)
@@ -243,6 +282,81 @@ async def catch_up_since_cursor(
                 )
                 result = await process_message(
                     session, incoming, rule, source.recipients, notifier, dedupe_cache
+                )
+                session.commit()
+                results.append(result)
+    return results
+
+
+async def process_historical_message(
+    session: Session, message: IncomingMessage, rule: Rule, recipients: list[Recipient]
+) -> ProcessResult:
+    """Evaluate one historical message against `rule`, with no live side effect.
+
+    S6-02: structurally cannot notify — there is no `BotNotifier` parameter to
+    call, so a homologation scan of the last 24h can never send a retroactive
+    alert. Never advances `ProcessingCursor` and never touches a metric
+    counter either (see `_evaluate_rule`). Applicable recipients still get a
+    `Delivery` row, with `status="historical"` and `delivered_at=NULL`, so the
+    panel can show "matched, no alert sent" instead of hiding the match.
+    """
+    evaluation = _evaluate_rule(rule, message.text)
+    if evaluation.discard_reason is not None:
+        return ProcessResult(match=None, deliveries_sent=0, reason=evaluation.discard_reason.value)
+
+    db_match = _persist_match(session, message, rule, evaluation.price_cents)
+    if db_match is None:
+        return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
+
+    for recipient in recipients:
+        session.add(
+            Delivery(
+                match_id=db_match.id,
+                recipient_id=recipient.id,
+                status=HISTORICAL_DELIVERY_STATUS,
+                delivered_at=None,
+            )
+        )
+    session.flush()
+
+    return ProcessResult(match=db_match, deliveries_sent=0)
+
+
+async def run_historical_scan(
+    session_factory: sessionmaker[Session],
+    fetcher: RecentMessageFetcherProtocol,
+    source: ListenerSource,
+    *,
+    window: timedelta = timedelta(hours=24),
+    before: datetime,
+) -> list[ProcessResult]:
+    """Reevaluate `source`'s last `window` of messages against every active rule.
+
+    S6-02: independent of `ProcessingCursor`/the live reconnect path — never
+    reads or advances it — and safe to repeat on every listener startup, since
+    `_persist_match`'s identity check (S6-01) makes a second scan a no-op with
+    a fresh process, a fresh session, and no cache of its own.
+
+    `before` must be captured by the caller *after* the live handler is
+    already registered (see `packages.telegram.historical.fetch_messages_since`)
+    so a message that arrives while this scan is still running is always the
+    live handler's alert to send, never re-classified as historical.
+    """
+    recent = await fetch_messages_since(fetcher, source.chat_id, window=window, before=before)
+
+    results: list[ProcessResult] = []
+    for raw in recent:
+        for rule in source.rules:
+            with session_factory() as session:
+                incoming = IncomingMessage(
+                    source_id=source.source_id,
+                    message_id=raw.id,
+                    text=raw.text,
+                    link=None,
+                    received_at=raw.date,
+                )
+                result = await process_historical_message(
+                    session, incoming, rule, source.recipients
                 )
                 session.commit()
                 results.append(result)
