@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Protocol
 
 from packages.telegram.cursor import TelegramMessage
@@ -9,7 +10,29 @@ from packages.telegram.cursor import TelegramMessage
 class IterMessagesClientProtocol(Protocol):
     def iter_messages(
         self, entity: object, *, min_id: int, limit: int
-    ) -> AsyncIterator[object]: ...
+    ) -> AsyncIterator[TelegramMessageLike]: ...
+
+
+class TelegramMessageLike(Protocol):
+    id: int
+    text: str | None
+    date: datetime
+
+
+def normalize_telegram_datetime(value: datetime) -> datetime:
+    """Return a Telegram event timestamp as an aware UTC datetime."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def to_telegram_message(message: TelegramMessageLike) -> TelegramMessage:
+    """Copy identity, content and the real event time from a Telethon message."""
+    return TelegramMessage(
+        id=message.id,
+        text=message.text or "",
+        date=normalize_telegram_datetime(message.date),
+    )
 
 
 class TelethonMessageFetcher:
@@ -30,8 +53,4 @@ class TelethonMessageFetcher:
         self, chat_id: str, *, min_id: int, limit: int
     ) -> AsyncIterator[TelegramMessage]:
         async for message in self._client.iter_messages(int(chat_id), min_id=min_id, limit=limit):
-            yield TelegramMessage(
-                id=message.id,  # type: ignore[attr-defined]
-                text=message.text or "",  # type: ignore[attr-defined]
-                date=message.date,  # type: ignore[attr-defined]
-            )
+            yield to_telegram_message(message)

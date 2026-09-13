@@ -80,7 +80,9 @@ async def simulate_message(
     notifier = notifier_factory({recipient.telegram_chat_id for recipient in recipients})
     message = IncomingMessage(
         source_id=source.id,
-        message_id=0,
+        # Synthetic demo input has no Telegram identity. `None` keeps the
+        # legacy in-memory dedupe behavior without persisting a fake id.
+        message_id=None,
         text=payload.text,
         link=payload.link,
         received_at=datetime.now(UTC),

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from models import Delivery, Match, Recipient, Rule
@@ -27,7 +29,7 @@ def parse_terms(raw: str | None) -> list[str]:
 @dataclass
 class IncomingMessage:
     source_id: int
-    message_id: int
+    message_id: int | None
     text: str
     link: str | None
     received_at: datetime
@@ -88,17 +90,19 @@ async def process_message(
 
     Discards and failures are counted only by category (`packages.metrics`); the
     message text is never passed to a counter, so it has no path into a metric
-    row. Reprocessing the same message with the same `dedupe_cache` is a no-op:
-    the signature check short-circuits before a `Match`/`Delivery` row is ever
-    created, so neither is duplicated.
+    row. A real Telegram identity is also protected by a database constraint,
+    so reprocessing it is a no-op even with another session/process and a cold
+    `dedupe_cache`. Inputs without an identity retain the legacy memory-only
+    behavior explicitly.
 
-    Also advances the source's persisted cursor (`packages.telegram.cursor`) to
-    this message's id, matched or not — without that, a later backfill (a
-    process restart or a reconnect after a short drop) would re-fetch and
-    re-notify a message already delivered here, since backfill only knows to
-    skip what the cursor says was already seen.
+    Also advances the source's persisted cursor (`packages.telegram.cursor`) for
+    real messages, matched or not — without that, a later backfill (a process
+    restart or a reconnect after a short drop) would re-fetch and re-notify a
+    message already delivered here. Synthetic/legacy inputs use a NULL identity
+    and do not invent or advance a Telegram cursor.
     """
-    advance_cursor(session, message.source_id, message.message_id)
+    if message.message_id is not None:
+        advance_cursor(session, message.source_id, message.message_id)
 
     match_rule = _build_match_rule(rule)
 
@@ -118,22 +122,47 @@ async def process_message(
             match=None, deliveries_sent=0, reason=MetricReason.PRICE_ABOVE_CEILING.value
         )
 
-    signature = compute_signature(message.source_id, message.text, price_cents=price.price_cents)
+    signature = compute_signature(
+        message.source_id,
+        message.text,
+        price_cents=price.price_cents,
+        rule_id=rule.id,
+    )
     if not dedupe_cache.should_process(signature):
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
-
-    increment_counter(session, MetricReason.SEEN, source_id=message.source_id)
 
     db_match = Match(
         source_id=message.source_id,
         rule_id=rule.id,
+        telegram_message_id=message.message_id,
         message_text=message.text,
         price_cents=price.price_cents,
         message_link=message.link,
         matched_at=message.received_at,
     )
-    session.add(db_match)
-    session.flush()
+    try:
+        # Keep the insert in a savepoint: a second process may race this one
+        # after its own in-memory cache starts cold. The database constraint is
+        # authoritative, and rolling back only this savepoint leaves the outer
+        # transaction (including its cursor advance) usable by the caller.
+        with session.begin_nested():
+            session.add(db_match)
+            session.flush()
+    except IntegrityError:
+        if message.message_id is None:
+            raise
+        existing_match_id = session.scalar(
+            select(Match.id).where(
+                Match.source_id == message.source_id,
+                Match.rule_id == rule.id,
+                Match.telegram_message_id == message.message_id,
+            )
+        )
+        if existing_match_id is None:
+            raise
+        return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
+
+    increment_counter(session, MetricReason.SEEN, source_id=message.source_id)
 
     deliveries_sent = 0
     for recipient in recipients:

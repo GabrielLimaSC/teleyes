@@ -94,7 +94,8 @@ async def test_catch_up_recovers_missed_messages_through_the_real_pipeline(
 
     assert [r.match is not None for r in results] == [True, True, False]
     assert get_cursor(session, source.id) == 3
-    assert session.scalar(select(Match.id).order_by(Match.id)) is not None
+    persisted = list(session.scalars(select(Match).order_by(Match.telegram_message_id)))
+    assert [match.telegram_message_id for match in persisted] == [1, 2]
     assert len(bot_client.sent) == 2
 
 
