@@ -45,6 +45,10 @@ considerar a instalação completa.
    cd teleyes
    cp .env.example .env
    ```
+   No Windows PowerShell, a última linha pode ser escrita explicitamente como
+   `Copy-Item .env.example .env`; os comandos `docker compose` dos passos seguintes funcionam diretamente
+   no PowerShell, sem WSL ou Git Bash. Execute todos a partir da raiz do repositório.
+
    Edite `.env` e preencha:
    - `TG_API_ID` / `TG_API_HASH` — criados em https://my.telegram.org/apps (uma conta Telegram real, de
      preferência dedicada — ver `CLAUDE.md`, seção Segurança).
@@ -66,7 +70,20 @@ considerar a instalação completa.
    docker compose -f docker-compose.prod.yml build
    ```
 
-3. **Login interativo do Telegram** (uma vez, cria a sessão MTProto dentro do volume que os containers
+3. **Inicializar o banco e a API**:
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --wait api
+   ```
+   No primeiro uso, o entrypoint da API executa `alembic upgrade head`, criando o schema no volume
+   `teleyes-data`; `--wait` só devolve o terminal depois que a API fica saudável. Esse comando é seguro
+   também numa instalação existente: aplica apenas migrations pendentes e não apaga nem recria o volume.
+   Não use `down -v` durante o onboarding, pois `-v` apagaria os volumes nomeados e seus dados.
+
+   A ordem é obrigatória: os comandos seguintes usam `--entrypoint python`, que substitui o entrypoint
+   normal da API e, portanto, **não executa migrations**. Criar o administrador antes deste passo falha
+   porque a tabela `admin` ainda não existe.
+
+4. **Login interativo do Telegram** (uma vez, cria a sessão MTProto dentro do volume que os containers
    realmente usam — nunca rode `scripts/telegram_login.py` fora de um container em produção, ele escreveria
    num `data/` local que os containers não veem, já que `docker-compose.prod.yml` usa um volume nomeado, não
    um bind mount):
@@ -77,26 +94,26 @@ considerar a instalação completa.
    cole nada disso em chat. Ao final, lista os últimos diálogos visíveis; confirme que o(s) grupo(s) que
    você quer monitorar aparece(m) na lista.
 
-4. **Criar a senha do painel** (uma vez — sem isso não existe nenhuma forma de logar):
+5. **Criar a senha do painel** (uma vez — sem isso não existe nenhuma forma de logar):
    ```bash
    docker compose -f docker-compose.prod.yml run --rm --entrypoint python api scripts/create_admin.py
    ```
    Pede a senha duas vezes (mínimo 8 caracteres). Rodar de novo mais tarde redefine a senha em vez de criar
    um segundo administrador — o produto é single-admin por design (`apps/api/models/admin.py`).
 
-5. **Subir tudo**:
+6. **Subir tudo**:
    ```bash
    docker compose -f docker-compose.prod.yml up -d
    ```
-   Sobe `api`, `listener`, `backup` e `web`. `api` roda as migrations do Alembic automaticamente antes de
-   aceitar tráfego — não precisa rodar `alembic upgrade head` à parte.
+   Mantém a `api` já inicializada e sobe `listener`, `backup` e `web`. Em todo boot futuro, a API confere e
+   aplica migrations pendentes automaticamente antes de aceitar tráfego.
 
-6. **Cadastrar fonte(s), regra(s) e destinatário(s) ativos e allowlisted pelo painel** (`http://localhost:8080`
+7. **Cadastrar fonte(s), regra(s) e destinatário(s) ativos e allowlisted pelo painel** (`http://localhost:8080`
    nesta máquina, ou pela URL do Tailscale Serve quando configurado). Sem pelo menos um de cada, ativo, o
    `listener` fica honestamente ocioso (ver [Diagnóstico](#diagnóstico)) — ele lê essa configuração do banco
    uma vez, no start.
 
-7. Reinicie `listener` pra ele pegar a configuração que você acabou de cadastrar:
+8. Reinicie `listener` pra ele pegar a configuração que você acabou de cadastrar:
    ```bash
    docker compose -f docker-compose.prod.yml restart listener
    ```
