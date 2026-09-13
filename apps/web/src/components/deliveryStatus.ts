@@ -20,6 +20,14 @@ export function summarizeDeliveryStatus(deliveries: Delivery[]): StatusPill {
   if (deliveries.some((delivery) => delivery.status === 'sent')) {
     return { label: 'Entregue', dotColor: '#1c8a4b', background: '#e2f5e9', foreground: '#166b3a' }
   }
+  if (deliveries.some((delivery) => delivery.status === 'historical')) {
+    return {
+      label: 'Histórico — sem alerta',
+      dotColor: '#5b5bd6',
+      background: '#e9e9fb',
+      foreground: '#3f3fb0',
+    }
+  }
   if (deliveries.some((delivery) => delivery.status === 'failed')) {
     return { label: 'Falha no envio', dotColor: '#b3261e', background: '#fbe4e2', foreground: '#8c1d17' }
   }
