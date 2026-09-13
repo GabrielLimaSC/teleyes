@@ -37,7 +37,7 @@ import asyncio
 import os
 import signal
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -54,7 +54,7 @@ from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 from packages.telegram.reconnect_watch import supervise_reconnects
-from packages.telegram.telethon_client import TelethonMessageFetcher
+from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
 
 SESSION_PATH = Path("data/teleyes.session")
 BACKFILL_MAX_MESSAGES = 100
@@ -195,14 +195,15 @@ async def main() -> None:
     @client.on(events.NewMessage(chats=chat_ids))
     async def handler(event: events.NewMessage.Event) -> None:
         source = sources_by_chat_id[event.chat_id]
+        telegram_message = to_telegram_message(event.message)
         for rule in rules:
             with session_factory() as message_session:
                 incoming = IncomingMessage(
                     source_id=source.id,
-                    message_id=event.message.id,
-                    text=event.message.text or "",
+                    message_id=telegram_message.id,
+                    text=telegram_message.text,
                     link=None,
-                    received_at=datetime.now(UTC),
+                    received_at=telegram_message.date,
                 )
                 result = await process_message(
                     message_session, incoming, rule, recipients, notifier, dedupe_cache

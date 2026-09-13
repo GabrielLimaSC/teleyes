@@ -31,7 +31,7 @@ import argparse
 import asyncio
 import os
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from alembic import command
@@ -47,7 +47,7 @@ from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 from packages.telegram.reconnect_watch import supervise_reconnects
-from packages.telegram.telethon_client import TelethonMessageFetcher
+from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
 
 SESSION_PATH = Path("data/teleyes.session")
 ALEMBIC_INI_PATH = Path(__file__).resolve().parents[1] / "apps" / "api" / "alembic.ini"
@@ -160,13 +160,14 @@ async def main() -> None:
 
     @client.on(events.NewMessage(chats=int(args.source_chat_id)))
     async def handler(event: events.NewMessage.Event) -> None:
+        telegram_message = to_telegram_message(event.message)
         with session_factory() as message_session:
             incoming = IncomingMessage(
                 source_id=setup.source.id,
-                message_id=event.message.id,
-                text=event.message.text or "",
+                message_id=telegram_message.id,
+                text=telegram_message.text,
                 link=None,
-                received_at=datetime.now(UTC),
+                received_at=telegram_message.date,
             )
             result = await process_message(
                 message_session, incoming, setup.rule, [setup.recipient], notifier, dedupe_cache

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
@@ -8,10 +8,19 @@ from models.base import Base
 
 class Match(Base):
     __tablename__ = "match"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_id",
+            "rule_id",
+            "telegram_message_id",
+            name="uq_match_source_rule_telegram_message",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     source_id: Mapped[int] = mapped_column(ForeignKey("source.id"))
     rule_id: Mapped[int] = mapped_column(ForeignKey("rule.id"))
+    telegram_message_id: Mapped[int | None] = mapped_column(nullable=True)
     message_text: Mapped[str] = mapped_column(String)
     price_cents: Mapped[int | None] = mapped_column(nullable=True)
     message_link: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -24,6 +24,13 @@ def test_signature_differs_for_different_source_or_price() -> None:
     assert base != other_price
 
 
+def test_signature_differs_for_different_rule_when_rule_is_provided() -> None:
+    first_rule = compute_signature(1, "Promoção iPhone 15", rule_id=10)
+    second_rule = compute_signature(1, "Promoção iPhone 15", rule_id=20)
+
+    assert first_rule != second_rule
+
+
 def test_dedupe_cache_processes_a_signature_only_once() -> None:
     cache = DedupeCache()
     signature = compute_signature(1, "Promoção iPhone 15", price_cents=399900)
