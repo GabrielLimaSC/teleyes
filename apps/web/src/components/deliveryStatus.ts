@@ -28,6 +28,14 @@ export function summarizeDeliveryStatus(deliveries: Delivery[]): StatusPill {
       foreground: '#3f3fb0',
     }
   }
+  if (deliveries.some((delivery) => delivery.status === 'grouped')) {
+    return {
+      label: 'Agrupado — mesma promoção já alertada',
+      dotColor: '#5b5bd6',
+      background: '#e9e9fb',
+      foreground: '#3f3fb0',
+    }
+  }
   if (deliveries.some((delivery) => delivery.status === 'failed')) {
     return { label: 'Falha no envio', dotColor: '#b3261e', background: '#fbe4e2', foreground: '#8c1d17' }
   }

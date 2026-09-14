@@ -88,4 +88,39 @@ describe('FeedPage', () => {
     expect(cheapCard?.className).toContain('match-card--aurora')
     expect(expensiveCard?.className).not.toContain('match-card--aurora')
   })
+
+  it('resolves grouped_source_ids into source names for "Visto em" (S7-11)', async () => {
+    vi.stubGlobal('EventSource', InertEventSource)
+    const match = {
+      id: 1,
+      source_id: 1,
+      rule_id: 1,
+      message_text: 'RTX 5070 por R$ 4.000',
+      price_cents: 400_000,
+      message_link: null,
+      matched_at: '2026-01-01T00:00:00Z',
+      created_at: '2026-01-01T00:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: false,
+      grouped_source_ids: [2, 3],
+    }
+    const sources = [
+      { id: 1, name: 'Wolf Ofertas', telegram_chat_id: '-1001', active: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 2, name: 'CMdias', telegram_chat_id: '-1002', active: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 3, name: 'Menor Preço', telegram_chat_id: '-1003', active: true, created_at: '2026-01-01T00:00:00Z' },
+    ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([match]))
+        if (url.startsWith('/sources')) return Promise.resolve(jsonResponse(sources))
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+
+    render(<FeedPage />)
+
+    expect(await screen.findByText('Visto em: CMdias, Menor Preço')).toBeInTheDocument()
+  })
 })

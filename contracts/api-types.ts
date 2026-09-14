@@ -392,6 +392,8 @@ export interface components {
             created_at: string;
             /** Deliveries */
             deliveries: components["schemas"]["DeliveryResponse"][];
+            /** Grouped Source Ids */
+            grouped_source_ids?: number[] | null;
             /** Id */
             id: number;
             /** Is Lowest Price Ever */

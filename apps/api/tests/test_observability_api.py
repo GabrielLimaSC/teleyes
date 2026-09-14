@@ -335,7 +335,12 @@ def test_matches_tied_at_the_lowest_price_are_both_flagged(api: ApiContext) -> N
             rule_id=ids["rule_a"],
             message_text="Notebook por R$ 100,00 de novo",
             price_cents=10_000,
-            matched_at=datetime.now(UTC),
+            # Far outside GROUPING_WINDOW (S7-11) from match_a's own
+            # matched_at, on purpose: this test is about `is_lowest_price_ever`
+            # (a rule-wide historical minimum, unrelated to the grouping
+            # window), so the tie must stay its own separate card rather than
+            # collapsing into match_a's read-time display group.
+            matched_at=datetime.now(UTC) + timedelta(days=1),
         )
         session.add(tie)
         session.commit()
@@ -385,6 +390,128 @@ def test_matches_lowest_price_stays_correct_for_a_match_inserted_out_of_chronolo
     after_flags = {item["id"]: item["is_lowest_price_ever"] for item in after.json()}
     assert after_flags[cheaper_id] is True
     assert after_flags[ids["match_a"]] is False
+
+
+def test_matches_group_same_rule_and_price_within_window_into_one_card(
+    api: ApiContext,
+) -> None:
+    """S7-11 mechanism 2: three sources post the exact same rule+price, each
+    5 minutes after the previous one (well within GROUPING_WINDOW). Only the
+    earliest survives as its own card; the other two collapse into its
+    `grouped_source_ids`, with no duplicate source id even if two of them
+    shared a source.
+    """
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source_c = Source(name="Grupo C", telegram_chat_id="-1003")
+        session.add(source_c)
+        session.flush()
+        second = Match(
+            source_id=ids["source_b"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00 também",
+            price_cents=10_000,
+            matched_at=now + timedelta(minutes=5),
+        )
+        third = Match(
+            source_id=source_c.id,
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00 de novo também",
+            price_cents=10_000,
+            matched_at=now + timedelta(minutes=10),
+        )
+        session.add_all([second, third])
+        session.commit()
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert response.status_code == 200
+    payload = response.json()
+    by_id = {item["id"]: item for item in payload}
+
+    # match_b has a different price (25_000) — it is never part of this
+    # group and keeps its own card.
+    assert set(by_id) == {ids["match_a"], ids["match_b"]}
+    assert set(by_id[ids["match_a"]]["grouped_source_ids"]) == {ids["source_b"], source_c.id}
+    assert by_id[ids["match_b"]]["grouped_source_ids"] is None
+
+
+def test_matches_grouping_survives_out_of_chronological_insertion_order(
+    api: ApiContext,
+) -> None:
+    """A historical scan (S6-02) processes newest-to-oldest, so the
+    chronologically-earliest match of a group can be the *last* one inserted.
+    Grouping is computed fresh from `matched_at` on every read, never from
+    insertion order, so the representative is still correctly the earliest
+    by time regardless of which row exists in the database first.
+    """
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        newer_but_inserted_first = Match(
+            source_id=ids["source_b"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00 também",
+            price_cents=10_000,
+            matched_at=now + timedelta(minutes=5),
+        )
+        session.add(newer_but_inserted_first)
+        session.commit()
+
+        older_but_inserted_last = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00, achado no histórico",
+            price_cents=10_000,
+            matched_at=now - timedelta(minutes=5),
+        )
+        session.add(older_but_inserted_last)
+        session.commit()
+        older_id = older_but_inserted_last.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert response.status_code == 200
+    payload = response.json()
+
+    # match_a's own matched_at=now sits between the two new ones, so the
+    # true chronological earliest is older_but_inserted_last, even though it
+    # was the last row inserted into the database. match_a shares
+    # older_but_inserted_last's own source_id, so only source_b (the other
+    # match's distinct source) shows up in the group.
+    representative = next(item for item in payload if item["id"] == older_id)
+    assert set(representative["grouped_source_ids"]) == {ids["source_b"]}
+    returned_ids = {item["id"] for item in payload}
+    assert older_id in returned_ids
+    assert ids["match_a"] not in returned_ids
+
+
+def test_matches_outside_the_grouping_window_stay_separate_cards(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        far_apart = Match(
+            source_id=ids["source_b"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00, bem depois",
+            price_cents=10_000,
+            matched_at=now + timedelta(hours=6),
+        )
+        session.add(far_apart)
+        session.commit()
+        far_apart_id = far_apart.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert response.status_code == 200
+    payload = response.json()
+
+    returned_ids = {item["id"] for item in payload}
+    assert far_apart_id in returned_ids
+    assert ids["match_a"] in returned_ids
+    for item in payload:
+        assert item["grouped_source_ids"] is None
 
 
 def test_rules_expose_the_true_lowest_price_seen_per_rule(api: ApiContext) -> None:

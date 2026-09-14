@@ -214,6 +214,9 @@ export function HistoricoPage() {
             source={sources.find((source) => source.id === match.source_id)}
             recipients={recipients}
             isLowestPriceEver={match.is_lowest_price_ever}
+            groupedSourceNames={match.grouped_source_ids
+              ?.map((sourceId) => sources.find((source) => source.id === sourceId)?.name)
+              .filter((name): name is string => Boolean(name))}
           />
         ))}
       </div>

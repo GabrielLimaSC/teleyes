@@ -38,6 +38,14 @@ class ListenerFetcherProtocol(MessageFetcherProtocol, RecentMessageFetcherProtoc
     """
 
 HISTORICAL_DELIVERY_STATUS = "historical"
+# S7-11: a different source posting the same real-world promotion (same
+# rule, same exact price) within this window of another match that was
+# already really sent gets persisted normally but never re-notified — a
+# named constant, not a magic number, tunable in one place. The task's own
+# description ("1 a 10 minutos de diferença") suggested 15 minutes as a
+# margin over that.
+GROUPED_DELIVERY_STATUS = "grouped"
+GROUPING_WINDOW = timedelta(minutes=15)
 
 
 def parse_terms(raw: str | None) -> list[str]:
@@ -193,6 +201,47 @@ def _persist_match(
     return db_match
 
 
+def _already_notified_group_match_exists(
+    session: Session,
+    rule_id: int,
+    price_cents: int,
+    matched_at: datetime,
+    window: timedelta,
+) -> bool:
+    """S7-11: whether some other `Match` (any source) for the same rule and
+    the exact same price, within `window` of `matched_at`, already has a real
+    successful send — never `"historical"`/`"grouped"`/`"failed"`/etc., only
+    the literal `"sent"` status `process_message` uses below. Safe to compare
+    live against what's already committed in the database precisely because
+    live events arrive in real chronological order (unlike the historical
+    scan, S6-02) — no risk of a later message actually being the earlier one.
+
+    Deliberately conservative: this only ever looks at a genuinely-sent
+    delivery as the "this promotion already alerted" anchor. A chain of
+    postings spread out past `window` from that original alert (but each
+    individually close to its own neighbor) can still notify again — that's
+    a known v1 limitation, not a bug, registered rather than solved with an
+    unconfirmed heuristic (CLAUDE.md: no fuzzy matching without real
+    examples). The read-time display grouping (`app.routers.matches`) covers
+    that wider chain visually regardless.
+    """
+    window_start = matched_at - window
+    window_end = matched_at + window
+    exists_stmt = (
+        select(Match.id)
+        .join(Delivery, Delivery.match_id == Match.id)
+        .where(
+            Match.rule_id == rule_id,
+            Match.price_cents == price_cents,
+            Match.matched_at >= window_start,
+            Match.matched_at <= window_end,
+            Delivery.status == "sent",
+        )
+        .limit(1)
+    )
+    return session.scalar(exists_stmt) is not None
+
+
 async def process_message(
     session: Session,
     message: IncomingMessage,
@@ -233,6 +282,14 @@ async def process_message(
     if not dedupe_cache.should_process(signature):
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
+    # S7-11: computed before persisting this match, so it can never see
+    # itself — a different source having already sent a real alert for the
+    # exact same rule+price within the window means this one is the "same"
+    # real-world promotion, and must never notify again.
+    already_grouped = evaluation.price_cents is not None and _already_notified_group_match_exists(
+        session, rule.id, evaluation.price_cents, message.received_at, GROUPING_WINDOW
+    )
+
     db_match = _persist_match(
         session,
         message,
@@ -245,6 +302,19 @@ async def process_message(
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
     increment_counter(session, MetricReason.SEEN, source_id=message.source_id)
+
+    if already_grouped:
+        for recipient in recipients:
+            session.add(
+                Delivery(
+                    match_id=db_match.id,
+                    recipient_id=recipient.id,
+                    status=GROUPED_DELIVERY_STATUS,
+                    delivered_at=None,
+                )
+            )
+        session.flush()
+        return ProcessResult(match=db_match, deliveries_sent=0)
 
     deliveries_sent = 0
     for recipient in recipients:
