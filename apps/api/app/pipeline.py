@@ -27,6 +27,7 @@ from packages.telegram.historical import (
     fetch_messages_since,
     latest_message_id,
 )
+from packages.telegram.links import build_message_link
 
 
 class ListenerFetcherProtocol(MessageFetcherProtocol, RecentMessageFetcherProtocol, Protocol):
@@ -295,7 +296,7 @@ async def catch_up_since_cursor(
                     source_id=source.source_id,
                     message_id=raw.id,
                     text=raw.text,
-                    link=None,
+                    link=build_message_link(source.chat_id, raw.id),
                     received_at=raw.date,
                 )
                 result = await process_message(
@@ -453,7 +454,7 @@ async def run_historical_scan(
                     source_id=source.source_id,
                     message_id=raw.id,
                     text=raw.text,
-                    link=None,
+                    link=build_message_link(source.chat_id, raw.id),
                     received_at=raw.date,
                 )
                 result = await process_historical_message(

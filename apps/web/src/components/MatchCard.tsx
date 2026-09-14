@@ -11,6 +11,10 @@ function formatPrice(cents: number | null): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function formatMatchedAt(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR')
+}
+
 export function MatchCard({
   match,
   rule,
@@ -46,6 +50,17 @@ export function MatchCard({
           Fonte: {source?.name ?? `#${match.source_id}`} · Regra: {rule?.name ?? `#${match.rule_id}`}
           {recipientNames.length > 0 && <> · Para: {recipientNames.join(', ')}</>}
         </p>
+        <p className="match-card__timestamp">{formatMatchedAt(match.matched_at)}</p>
+        {match.message_link !== null && (
+          <a
+            className="match-card__link"
+            href={match.message_link}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir promoção
+          </a>
+        )}
       </div>
       <p className="match-card__price">{formatPrice(match.price_cents)}</p>
       {isLowestPriceEver && <span className="match-card__aurora-label">Menor preço já visto</span>}

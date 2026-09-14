@@ -128,4 +128,41 @@ describe('MatchCard', () => {
     expect(container.querySelector('.match-card--aurora')).toBeInTheDocument()
     expect(screen.getByText('Menor preço já visto')).toBeInTheDocument()
   })
+
+  it('shows the match date/time (S7-10)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ matched_at: '2026-03-05T14:30:00Z' })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByText(new Date('2026-03-05T14:30:00Z').toLocaleString('pt-BR'))).toBeInTheDocument()
+  })
+
+  it('has no "Abrir promoção" link when the match has no real link yet (S7-10)', () => {
+    render(
+      <MatchCard match={buildMatch({ message_link: null })} rule={rule} source={source} recipients={[]} />,
+    )
+
+    expect(screen.queryByRole('link', { name: 'Abrir promoção' })).not.toBeInTheDocument()
+  })
+
+  it('opens the real promotion link in a new tab when present (S7-10)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ message_link: 'https://t.me/c/123456/7' })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    const link = screen.getByRole('link', { name: 'Abrir promoção' })
+    expect(link).toHaveAttribute('href', 'https://t.me/c/123456/7')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
 })

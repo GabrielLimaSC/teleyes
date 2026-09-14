@@ -77,6 +77,7 @@ from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
+from packages.telegram.links import build_message_link
 from packages.telegram.reconnect_watch import supervise_reconnects
 from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
 
@@ -270,7 +271,7 @@ async def main() -> None:
                     source_id=source.id,
                     message_id=telegram_message.id,
                     text=telegram_message.text,
-                    link=None,
+                    link=build_message_link(source.telegram_chat_id, telegram_message.id),
                     received_at=telegram_message.date,
                 )
                 result = await process_message(
