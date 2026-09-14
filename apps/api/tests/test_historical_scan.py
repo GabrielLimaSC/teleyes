@@ -69,6 +69,40 @@ async def test_historical_scan_persists_matches_without_advancing_cursor(
     assert get_cursor(session, fixture.source.id) == 0
 
 
+async def test_historical_scan_defaults_to_a_7_day_window(db_path: Path, session: Session) -> None:
+    """S7-04: widened from S6-02's original 24h default. A message 3 days old
+    would have been silently dropped under the old default — this proves the
+    real default `run_historical_scan` uses now, not just what
+    `fetch_messages_since` supports when a caller passes `window` explicitly.
+    """
+    fixture = _fixture(db_path, session)
+    now = datetime.now(UTC)
+    # FakeTelegramClient.iter_recent yields by id descending as a stand-in for
+    # newest-first (packages/telegram/fakes.py) — id must correlate with
+    # recency here exactly like real Telegram message ids do, so the newer
+    # (3 days old) message needs the higher id.
+    client = FakeTelegramClient(
+        messages=[
+            _msg(1, "Promoção iphone por R$ 100", date=now - timedelta(days=8)),
+            _msg(2, "Promoção iphone por R$ 200", date=now - timedelta(days=3)),
+        ]
+    )
+    listener_source = ListenerSource(
+        source_id=fixture.source.id,
+        chat_id="-100123",
+        rules=[fixture.rule],
+        recipients=[fixture.recipient],
+    )
+
+    # No `window` argument here on purpose — exercising the default.
+    results = await run_historical_scan(
+        fixture.session_factory, client, listener_source, before=now
+    )
+
+    matched_ids = {r.match.telegram_message_id for r in results if r.match is not None}
+    assert matched_ids == {2}
+
+
 async def test_historical_scan_creates_one_delivery_per_recipient_never_sent(
     db_path: Path, session: Session
 ) -> None:

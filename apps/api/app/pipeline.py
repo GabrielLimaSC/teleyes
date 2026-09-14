@@ -111,9 +111,10 @@ def _evaluate_rule(rule: Rule, text: str) -> RuleEvaluation:
     duplicates the matching/pricing logic — they differ only in what happens
     *after* this: the live path counts discards/matches and notifies, the
     historical path never touches a metric counter at all (a homologation
-    scan of the last 24h must not inflate the counters that describe live
-    traffic health, and would double-count on every listener restart if it
-    did, since `MetricCounter` is cumulative, not deduplicated by identity).
+    scan of the historical window must not inflate the counters that
+    describe live traffic health, and would double-count on every listener
+    restart if it did, since `MetricCounter` is cumulative, not deduplicated
+    by identity).
     """
     match_rule = _build_match_rule(rule)
     if not match_rule.matches(text):
@@ -355,10 +356,10 @@ async def prepare_source_at_startup(
     during this restart. A source with no cursor yet has never been
     live-processed at all, so nothing was actually "missed" there: its cursor
     is initialized at the chat's current head instead, with no notification.
-    Never both for the same source. Either way, that source's last-24h
-    history still surfaces through S6-02's non-notifying `run_historical_scan`
-    — this function never replaces that, only decides what the *notifying*
-    startup path does.
+    Never both for the same source. Either way, that source's historical-
+    window (S7-04: 7 days by default) history still surfaces through S6-02's
+    non-notifying `run_historical_scan` — this function never replaces that,
+    only decides what the *notifying* startup path does.
     """
     with session_factory() as session:
         source_has_cursor = has_cursor(session, source.source_id)
@@ -389,8 +390,8 @@ async def process_historical_message(
     """Evaluate one historical message against `rule`, with no live side effect.
 
     S6-02: structurally cannot notify — there is no `BotNotifier` parameter to
-    call, so a homologation scan of the last 24h can never send a retroactive
-    alert. Never advances `ProcessingCursor` and never touches a metric
+    call, so a homologation scan of the historical window can never send a
+    retroactive alert. Never advances `ProcessingCursor` and never touches a metric
     counter either (see `_evaluate_rule`). Applicable recipients still get a
     `Delivery` row, with `status="historical"` and `delivered_at=NULL`, so the
     panel can show "matched, no alert sent" instead of hiding the match.
@@ -422,10 +423,15 @@ async def run_historical_scan(
     fetcher: RecentMessageFetcherProtocol,
     source: ListenerSource,
     *,
-    window: timedelta = timedelta(hours=24),
+    window: timedelta = timedelta(days=7),
     before: datetime,
 ) -> list[ProcessResult]:
     """Reevaluate `source`'s last `window` of messages against every active rule.
+
+    Default window is 7 days (S7-04, widened from the original 24h of S6-02's
+    first homologation pass) — unrelated to `catch_up_since_cursor`'s own
+    `max_age` (still 24h), which bounds a *reconnect*'s gap, not how far back
+    a fresh source's first historical scan looks.
 
     S6-02: independent of `ProcessingCursor`/the live reconnect path — never
     reads or advances it — and safe to repeat on every listener startup, since

@@ -58,10 +58,11 @@ class TelethonMessageFetcher:
     async def iter_recent(self, chat_id: str) -> AsyncIterator[TelegramMessage]:
         """Adapts to `packages.telegram.historical.RecentMessageFetcherProtocol`.
 
-        No `min_id`/`limit` here on purpose (S6-02): a homologation scan of the
-        last 24h is independent of the per-source cursor, and must not stop
-        early on a fixed count — only `fetch_messages_since`'s time window
-        decides when to stop consuming this newest-to-oldest iterator.
+        No `min_id`/`limit` here on purpose (S6-02): a homologation scan is
+        independent of the per-source cursor, and must not stop early on a
+        fixed count — only `fetch_messages_since`'s time window (7 days by
+        default, S7-04) decides when to stop consuming this newest-to-oldest
+        iterator.
         """
         async for message in self._client.iter_messages(int(chat_id)):
             yield to_telegram_message(message)
