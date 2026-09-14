@@ -16,6 +16,51 @@ test('feed and historico show the empty state before any match exists', async ({
   await expect(page.getByText('Nenhum match encontrado com esses filtros.')).toBeVisible()
 })
 
+test('the "Abrir promoção" button opens the real link in a new tab (S7-10)', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Link',
+    telegram_chat_id: '-100781',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra E2E Link',
+    include_terms: 'gadgetlinke2e',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Link',
+    telegram_chat_id: '992',
+    allowlisted: true,
+  })
+
+  await page.goto('/feed')
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: 'gadgetlinke2e por R$ 100',
+    link: 'https://t.me/c/123456/99',
+  })
+
+  const openButton = page.getByRole('link', { name: 'Abrir promoção' })
+  await expect(openButton).toBeVisible()
+  await expect(openButton).toHaveAttribute('href', 'https://t.me/c/123456/99')
+  await expect(openButton).toHaveAttribute('target', '_blank')
+
+  // Real Telegram link — fulfilled with an empty stub instead of aborted, so
+  // the tab actually finishes navigating there (and newPage.url() reflects
+  // the real target) without this test depending on the real t.me network.
+  await context.route('https://t.me/**', (route) => route.fulfill({ status: 200, body: '' }))
+  const [newPage] = await Promise.all([context.waitForEvent('page'), openButton.click()])
+  await newPage.waitForLoadState('load')
+  expect(newPage.url()).toBe('https://t.me/c/123456/99')
+  await newPage.close()
+})
+
 test('a message with no extractable price shows the honest placeholder, live', async ({ page }) => {
   await page.goto('/')
   const csrfToken = await apiLogin(page)
