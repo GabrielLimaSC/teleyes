@@ -17,6 +17,8 @@ test('logs in against the real API, navigates the shell, and logs out', async ({
   await expect(page.getByText(/Sessão ativa/)).toBeVisible()
 
   // the nav capsule switches pages, including the ones still empty in this task
+  await page.locator('.nav-mascot').hover()
+  await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
   await nav.getByRole('link', { name: 'Feed' }).click()
   await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Feed' })).toHaveClass(/nav-tab--active/)

@@ -9,7 +9,7 @@ import { apiLogin } from './helpers'
  * check that each one actually fires (a transition that never starts leaves
  * two identical frames, which the assertions below would fail on).
  *
- * The nav pill and page fade use front-loaded ease-out curves, so fixed-ms
+ * The nav expansion and page fade use front-loaded ease-out curves, so fixed-ms
  * waits at native speed are too timing-sensitive across machines. Each is
  * slowed down first, then sampled across multiple rendered frames.
  *
@@ -27,48 +27,29 @@ async function rafPumpWait(page: Page, totalMs: number, steps: number): Promise<
   }
 }
 
-test('nav pill slides between tabs (mid-transition capture)', async ({ page }) => {
+test('nav capsule expands sideways from the mascot (mid-transition capture)', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/')
   await apiLogin(page)
   await page.goto('/feed')
 
-  const pill = page.locator('.nav-pill')
-  const regrasTab = page.getByRole('link', { name: 'Regras' })
-  const before = await pill.boundingBox()
-  // the tab link itself is never animated, so its box is always an accurate
-  // read of the pill's true destination — comparing against it (rather than
-  // re-measuring the pill after trying to force its slowed transition to
-  // finish, which does not reliably snap mid-flight) avoids a race entirely
-  const target = await regrasTab.boundingBox()
+  const glass = page.locator('.nav-capsule__glass')
+  const mascot = page.getByRole('button', { name: 'Expandir navegação' })
+  const before = await glass.evaluate((el) => getComputedStyle(el).transform)
 
   await page.addStyleTag({
-    // Isolate the pill: slow its transition and disable the route fade that
-    // would otherwise start on the same click.
-    content:
-      '.nav-pill { transition-duration: 10000ms !important; } ' +
-      'main { animation: none !important; }',
+    content: '.nav-capsule__glass { transition-duration: 10000ms !important; }',
   })
-  await regrasTab.click()
+  await mascot.click()
   await rafPumpWait(page, 200, 4)
-  await page.screenshot({ path: '.impeccable/review/motion-nav-pill-mid-slide.png' })
-  const mid = await pill.boundingBox()
-  const midAnimState = await pill.evaluate((el) => el.getAnimations().map((a) => a.playState))
+  await page.screenshot({ path: '.impeccable/review/motion-nav-expansion-mid-flight.png' })
+  const mid = await glass.evaluate((el) => getComputedStyle(el).transform)
+  const midAnimState = await glass.evaluate((el) => el.getAnimations().map((a) => a.playState))
 
-  expect(before).not.toBeNull()
-  expect(target).not.toBeNull()
-  expect(mid).not.toBeNull()
-  // the pill actually moved (not a snap) — its start position differs from
-  // its destination at least on one axis
-  expect(before!.x).not.toBe(target!.x)
-  // and the capture really is mid-flight: still animating at capture time,
-  // not a settled frame that merely differs by sub-pixel rounding (the
-  // earlier version of this test byte-identically caught the pre-click
-  // frame twice — a numeric-only check on the boxes let that slip through)
+  expect(mid).not.toBe(before)
+  expect(mid).not.toBe('matrix(1, 0, 0, 1, 0, 0)')
   expect(midAnimState.length).toBeGreaterThan(0)
   expect(midAnimState.every((state) => state === 'running')).toBe(true)
-  // and hasn't already arrived at its destination
-  expect(mid!.x).not.toBe(target!.x)
 })
 
 test('page fade advances through intermediate frames without stalling', async ({ page }) => {
@@ -87,6 +68,7 @@ test('page fade advances through intermediate frames without stalling', async ({
       'main { animation-duration: 1600ms !important; ' +
       'animation-timing-function: linear !important; }',
   })
+  await page.locator('.nav-mascot').hover()
   await page.getByRole('link', { name: 'Saúde' }).click()
 
   const opacities: number[] = []
@@ -130,6 +112,7 @@ test('all tabs remain responsive during rapid page-fade navigation', async ({ pa
     ['Saúde', '/saude'],
   ] as const
 
+  await page.locator('.nav-mascot').hover()
   for (const [label, path] of routeSequence) {
     await page.getByRole('link', { name: label }).click()
     await expect(page).toHaveURL(new RegExp(`${path === '/' ? '/$' : `${path}$`}`))
