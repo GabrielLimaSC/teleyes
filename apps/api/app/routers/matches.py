@@ -132,21 +132,33 @@ def _order_by(sort: MatchSort | None) -> list[Any]:
 
 
 def _attach_group(chain: list[MatchResponse], hidden_ids: set[int]) -> None:
-    """A chain of 2+ chronologically-consecutive same-rule/same-price matches:
-    the earliest becomes the representative card (`grouped_source_ids` gets
-    every other member's distinct `source_id`) and the rest are hidden from
-    the returned list — their `Match`/`Delivery` rows are untouched, only
-    excluded from this response.
+    """A chain of 2+ chronologically-consecutive same-rule/same-price matches
+    collapses into one card. The representative prefers a member that
+    actually sent a real alert (`Delivery.status == "sent"`) over one that
+    merely arrived first chronologically — otherwise an older match with no
+    real alert (e.g. `historical`, S6-02) could become the representative
+    and hide a sibling that genuinely notified Gabriel's phone, showing a
+    dishonest status for the whole group. Falls back to the earliest
+    `matched_at` when no member ever sent a real alert; a tie among several
+    "sent" members (shouldn't happen given mechanism 1 in `app.pipeline`,
+    kept here only as a safety net) also resolves to the earliest.
+    `grouped_source_ids` gets every other member's distinct `source_id`) and
+    the rest are hidden from the returned list — their `Match`/`Delivery`
+    rows are untouched, only excluded from this response.
     """
     if len(chain) < 2:
         return
-    representative = chain[0]
-    other_source_ids = sorted(
-        {member.source_id for member in chain[1:]} - {representative.source_id}
-    )
+    def _sent(member: MatchResponse) -> bool:
+        return any(delivery.status == "sent" for delivery in member.deliveries)
+
+    sent_members = [member for member in chain if _sent(member)]
+    candidates = sent_members if sent_members else chain
+    representative = min(candidates, key=lambda member: member.matched_at)
+    others = [member for member in chain if member.id != representative.id]
+    other_source_ids = sorted({member.source_id for member in others} - {representative.source_id})
     if other_source_ids:
         representative.grouped_source_ids = other_source_ids
-    for member in chain[1:]:
+    for member in others:
         hidden_ids.add(member.id)
 
 

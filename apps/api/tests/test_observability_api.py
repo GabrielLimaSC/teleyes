@@ -444,15 +444,27 @@ def test_matches_grouping_survives_out_of_chronological_insertion_order(
     chronologically-earliest match of a group can be the *last* one inserted.
     Grouping is computed fresh from `matched_at` on every read, never from
     insertion order, so the representative is still correctly the earliest
-    by time regardless of which row exists in the database first.
+    by time regardless of which row exists in the database first. None of
+    these matches ever sent a real alert (no `Delivery` at all), so this
+    stays a pure insertion-order check, independent of the representative's
+    separate preference for a real "sent" alert (see the dedicated test for
+    that).
     """
     ids = _seed_matches(api)
     now = datetime.now(UTC)
     with api.session_factory() as session:
+        # A dedicated rule, never rule_a: _seed_matches' own match_a already
+        # has a real "sent" delivery at essentially this same `now`, which
+        # would otherwise make it the representative regardless of order.
+        rule = Rule(name="Regra E2E Ordem Cronológica", include_terms="gadgetordeme2e")
+        source_c = Source(name="Grupo E2E Ordem C", telegram_chat_id="-1006")
+        session.add_all([rule, source_c])
+        session.flush()
+
         newer_but_inserted_first = Match(
-            source_id=ids["source_b"],
-            rule_id=ids["rule_a"],
-            message_text="Notebook por R$ 100,00 também",
+            source_id=source_c.id,
+            rule_id=rule.id,
+            message_text="gadgetordeme2e por R$ 100,00 também",
             price_cents=10_000,
             matched_at=now + timedelta(minutes=5),
         )
@@ -461,30 +473,28 @@ def test_matches_grouping_survives_out_of_chronological_insertion_order(
 
         older_but_inserted_last = Match(
             source_id=ids["source_a"],
-            rule_id=ids["rule_a"],
-            message_text="Notebook por R$ 100,00, achado no histórico",
+            rule_id=rule.id,
+            message_text="gadgetordeme2e por R$ 100,00, achado no histórico",
             price_cents=10_000,
             matched_at=now - timedelta(minutes=5),
         )
         session.add(older_but_inserted_last)
         session.commit()
-        older_id = older_but_inserted_last.id
+        rule_id, older_id = rule.id, older_but_inserted_last.id
+        newer_id = newer_but_inserted_first.id
     _login(api)
 
-    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    response = api.client.get("/matches", params={"rule_id": rule_id})
     assert response.status_code == 200
     payload = response.json()
 
-    # match_a's own matched_at=now sits between the two new ones, so the
-    # true chronological earliest is older_but_inserted_last, even though it
-    # was the last row inserted into the database. match_a shares
-    # older_but_inserted_last's own source_id, so only source_b (the other
-    # match's distinct source) shows up in the group.
+    # The true chronological earliest is older_but_inserted_last, even
+    # though it was the last row inserted into the database.
     representative = next(item for item in payload if item["id"] == older_id)
-    assert set(representative["grouped_source_ids"]) == {ids["source_b"]}
+    assert representative["grouped_source_ids"] == [source_c.id]
     returned_ids = {item["id"] for item in payload}
     assert older_id in returned_ids
-    assert ids["match_a"] not in returned_ids
+    assert newer_id not in returned_ids
 
 
 def test_matches_outside_the_grouping_window_stay_separate_cards(api: ApiContext) -> None:
@@ -512,6 +522,83 @@ def test_matches_outside_the_grouping_window_stay_separate_cards(api: ApiContext
     assert ids["match_a"] in returned_ids
     for item in payload:
         assert item["grouped_source_ids"] is None
+
+
+def test_matches_group_representative_prefers_a_real_sent_alert_over_being_chronologically_first(
+    api: ApiContext,
+) -> None:
+    """A historical scan (S6-02) can insert an older, `historical`-status
+    match for a rule+price shortly before a genuinely new live message from
+    a different source triggers a real `sent` alert for the same rule+price,
+    within GROUPING_WINDOW of each other. The `historical` match is
+    chronologically earlier, but it never really alerted — picking it as the
+    representative would show a dishonest status (e.g. "Histórico — sem
+    alerta") for a group that did send a real alert, hiding the `sent`
+    match entirely. The representative must be the one that actually sent.
+    """
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        # A dedicated rule/sources, never rule_a/source_a/source_b: _seed_matches'
+        # own match_a shares rule_a, price 10_000 and a matched_at essentially
+        # equal to this test's own `now`, which would otherwise fold into the
+        # very chain this test is trying to isolate.
+        rule = Rule(name="Regra E2E Histórico vs Sent", include_terms="gadgethistsente2e")
+        historical_source = Source(name="Grupo E2E Histórico", telegram_chat_id="-1004")
+        sent_source = Source(name="Grupo E2E Sent", telegram_chat_id="-1005")
+        session.add_all([rule, historical_source, sent_source])
+        session.flush()
+
+        historical_match = Match(
+            source_id=historical_source.id,
+            rule_id=rule.id,
+            message_text="gadgethistsente2e por R$ 100,00, achado no histórico",
+            price_cents=10_000,
+            matched_at=now - timedelta(minutes=10),
+        )
+        session.add(historical_match)
+        session.flush()
+        session.add(
+            Delivery(
+                match_id=historical_match.id,
+                recipient_id=ids["recipient_a"],
+                status="historical",
+            )
+        )
+
+        sent_match = Match(
+            source_id=sent_source.id,
+            rule_id=rule.id,
+            message_text="gadgethistsente2e por R$ 100,00, alerta real",
+            price_cents=10_000,
+            matched_at=now,
+        )
+        session.add(sent_match)
+        session.flush()
+        session.add(
+            Delivery(
+                match_id=sent_match.id,
+                recipient_id=ids["recipient_a"],
+                status="sent",
+                delivered_at=now,
+            )
+        )
+        session.commit()
+        rule_id = rule.id
+        historical_id, sent_id = historical_match.id, sent_match.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": rule_id})
+    assert response.status_code == 200
+    payload = response.json()
+    returned_ids = {item["id"] for item in payload}
+
+    assert sent_id in returned_ids
+    assert historical_id not in returned_ids
+
+    representative = next(item for item in payload if item["id"] == sent_id)
+    assert {delivery["status"] for delivery in representative["deliveries"]} == {"sent"}
+    assert representative["grouped_source_ids"] == [historical_source.id]
 
 
 def test_rules_expose_the_true_lowest_price_seen_per_rule(api: ApiContext) -> None:
