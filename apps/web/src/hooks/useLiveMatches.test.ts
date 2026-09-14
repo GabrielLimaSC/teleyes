@@ -11,6 +11,8 @@ function buildMatch(id: number): Match {
     rule_id: 1,
     message_text: `match ${id}`,
     price_cents: null,
+    price_cash_cents: null,
+    price_card_cents: null,
     message_link: null,
     matched_at: '2026-01-01T00:00:00Z',
     created_at: '2026-01-01T00:00:00Z',

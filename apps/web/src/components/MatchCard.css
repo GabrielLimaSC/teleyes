@@ -63,6 +63,28 @@
   white-space: nowrap;
 }
 
+.match-card__price-split {
+  flex: 0 0 auto;
+  margin: 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.match-card__price-cash {
+  font-size: 16px;
+  font-weight: 700;
+  color: #08060d;
+}
+
+.match-card__price-card {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b4b52;
+}
+
 .match-card__status {
   flex: 0 0 auto;
   display: inline-flex;
@@ -94,7 +116,8 @@
     flex-wrap: wrap;
   }
 
-  .match-card__price {
+  .match-card__price,
+  .match-card__price-split {
     margin-left: 72px;
   }
 }

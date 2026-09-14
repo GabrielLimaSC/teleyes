@@ -40,6 +40,8 @@ function buildMatch(overrides: Partial<Match> = {}): Match {
     rule_id: 1,
     message_text: 'Promoção iPhone 15 128GB por R$ 3.899',
     price_cents: 389_900,
+    price_cash_cents: null,
+    price_card_cents: null,
     message_link: null,
     matched_at: '2026-01-01T00:00:00Z',
     created_at: '2026-01-01T00:00:00Z',
@@ -127,6 +129,37 @@ describe('MatchCard', () => {
 
     expect(container.querySelector('.match-card--aurora')).toBeInTheDocument()
     expect(screen.getByText('Menor preço já visto')).toBeInTheDocument()
+  })
+
+  it('shows both prices when the message had explicit cash/card anchors (S7-05)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ price_cash_cents: 389_900, price_card_cents: 419_900 })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByText('À vista: R$ 3.899,00')).toBeInTheDocument()
+    expect(screen.getByText('Cartão: R$ 4.199,00')).toBeInTheDocument()
+    // The single-price paragraph never renders alongside the split prices.
+    expect(screen.queryByText('R$ 3.899,00', { selector: '.match-card__price' })).not.toBeInTheDocument()
+  })
+
+  it('shows only the single price when no cash/card split was found', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ price_cents: 389_900, price_cash_cents: null, price_card_cents: null })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByText('R$ 3.899,00')).toBeInTheDocument()
+    expect(screen.queryByText(/À vista:/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Cartão:/)).not.toBeInTheDocument()
   })
 
   it('shows the match date/time (S7-10)', () => {

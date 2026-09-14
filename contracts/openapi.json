@@ -181,6 +181,28 @@
             "title": "Message Text",
             "type": "string"
           },
+          "price_card_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Card Cents"
+          },
+          "price_cash_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cash Cents"
+          },
           "price_cents": {
             "anyOf": [
               {
@@ -207,6 +229,8 @@
           "rule_id",
           "message_text",
           "price_cents",
+          "price_cash_cents",
+          "price_card_cents",
           "message_link",
           "matched_at",
           "created_at",

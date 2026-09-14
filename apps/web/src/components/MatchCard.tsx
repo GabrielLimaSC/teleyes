@@ -6,9 +6,13 @@ import './MatchCard.css'
 import '../components/GlassCard.css'
 import '../components/AuroraGlow.css'
 
+function formatCurrency(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 function formatPrice(cents: number | null): string {
   if (cents === null) return 'Preço não identificado'
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return formatCurrency(cents)
 }
 
 function formatMatchedAt(iso: string): string {
@@ -62,7 +66,14 @@ export function MatchCard({
           </a>
         )}
       </div>
-      <p className="match-card__price">{formatPrice(match.price_cents)}</p>
+      {match.price_cash_cents !== null && match.price_card_cents !== null ? (
+        <div className="match-card__price-split">
+          <span className="match-card__price-cash">À vista: {formatCurrency(match.price_cash_cents)}</span>
+          <span className="match-card__price-card">Cartão: {formatCurrency(match.price_card_cents)}</span>
+        </div>
+      ) : (
+        <p className="match-card__price">{formatPrice(match.price_cents)}</p>
+      )}
       {isLowestPriceEver && <span className="match-card__aurora-label">Menor preço já visto</span>}
       <span
         className="match-card__status"

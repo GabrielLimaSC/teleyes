@@ -12,6 +12,11 @@ export interface Match {
   rule_id: number
   message_text: string
   price_cents: number | null
+  /** S7-05: only ever both non-null together, when the message had two
+   * explicit, distinct textual anchors ("à vista"/"pix" vs. "cartão"/
+   * "parcelado"/"Nx de") — null/null for every other match. */
+  price_cash_cents: number | null
+  price_card_cents: number | null
   message_link: string | null
   matched_at: string
   created_at: string
