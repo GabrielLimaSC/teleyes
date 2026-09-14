@@ -30,6 +30,28 @@ def get_cursor(session: Session, source_id: int) -> int:
     return cursor.last_message_id if cursor is not None else 0
 
 
+def has_cursor(session: Session, source_id: int) -> bool:
+    """Whether a `ProcessingCursor` row already exists for `source_id`.
+
+    `get_cursor`'s `0` sentinel cannot tell "never live-processed, no row
+    yet" apart from "processed up to a cursor value that happens to be 0" —
+    but those two states must be handled differently at listener startup
+    (S6-04): a brand-new source has never had a live connection, so treating
+    its whole recent history as "missed during a disconnect" and running the
+    notifying reconnect catch-up on it would send real alerts for messages
+    that were never actually missed live. A source with a real persisted
+    cursor, by contrast, always should. Callers that need that distinction
+    (`scripts/run_listener.py`'s startup sequencing) must use this function,
+    not `get_cursor(...) == 0`.
+    """
+    return (
+        session.scalar(
+            select(ProcessingCursor.source_id).where(ProcessingCursor.source_id == source_id)
+        )
+        is not None
+    )
+
+
 def advance_cursor(session: Session, source_id: int, message_id: int) -> ProcessingCursor:
     """Move the persisted cursor forward to `message_id`, never backward.
 

@@ -20,7 +20,13 @@ Faz catch-up (packages/telegram/cursor.py, S5-02) uma vez no boot — cobre
 reiniciar o processo — e de novo sempre que o watchdog de reconexão
 (packages/telegram/reconnect_watch.py) detectar que a conexão caiu e voltou —
 cobre uma queda curta. Bounded por BACKFILL_MAX_MESSAGES/BACKFILL_MAX_AGE, não
-reprocessa o histórico inteiro de nenhum grupo.
+reprocessa o histórico inteiro de nenhum grupo. No boot, uma fonte sem cursor
+persistido ainda (nunca processada ao vivo antes) nunca passa por esse
+catch-up notificante — teria tratado toda sua história recente como "perdida
+numa queda" e mandado alerta retroativo de verdade (S6-04). Em vez disso, o
+cursor dela é só inicializado na ponta mais recente do chat, sem notificar
+nada; o histórico das últimas 24h dessa fonte nova continua aparecendo só via
+o scan não notificante abaixo.
 
 Também roda, uma vez por fonte logo após registrar o handler ao vivo, um scan
 histórico independente do cursor (S6-02): reavalia as últimas 24h de cada
@@ -56,6 +62,7 @@ from app.pipeline import (
     IncomingMessage,
     ListenerSource,
     catch_up_since_cursor,
+    prepare_source_at_startup,
     process_message,
     run_historical_scan,
 )
@@ -184,6 +191,13 @@ async def main() -> None:
     ]
 
     async def catch_up() -> None:
+        """Real reconnect recovery. Only called for a watchdog-detected
+        reconnect (below), where every `listener_source` here already has a
+        persisted cursor — either from a prior live message, or from
+        `startup_prepare_cursors` below, which always runs first at boot.
+        Treating everything `backfill_since_cursor` returns as "missed during
+        this specific drop" and notifying for it is therefore correct.
+        """
         total = 0
         for listener_source in listener_sources:
             recovered = await catch_up_since_cursor(
@@ -199,8 +213,42 @@ async def main() -> None:
         if total:
             print(f"Recuperadas {total} avaliações de mensagens perdidas.")
 
-    # Covers a process restart: whatever arrived while this run was down.
-    await catch_up()
+    async def startup_prepare_cursors() -> None:
+        """Once per source, at process boot only (S6-04) — delegates the
+        actual per-source decision to `app.pipeline.prepare_source_at_startup`
+        (new-source cursor init vs. real reconnect-style notifying recovery)
+        and only aggregates the two kinds of log line here.
+        """
+        recovered_total = 0
+        initialized_source_ids: list[int] = []
+        for listener_source in listener_sources:
+            outcome = await prepare_source_at_startup(
+                session_factory,
+                fetcher,
+                listener_source,
+                notifier,
+                dedupe_cache,
+                max_messages=BACKFILL_MAX_MESSAGES,
+                max_age=BACKFILL_MAX_AGE,
+            )
+            if outcome.initialized:
+                initialized_source_ids.append(listener_source.source_id)
+            else:
+                recovered_total += len(outcome.recovered)
+
+        if recovered_total:
+            print(f"Recuperadas {recovered_total} avaliações de mensagens perdidas.")
+        if initialized_source_ids:
+            print(
+                f"Fonte(s) nova(s) id={initialized_source_ids}: cursor inicializado sem "
+                "catch-up notificante — histórico das últimas 24h vem só do scan não "
+                "notificante."
+            )
+
+    # Covers a process restart: whatever arrived while this run was down, for
+    # a source already live-processed before this boot. A brand-new source
+    # instead just gets its cursor initialized, with no notification (S6-04).
+    await startup_prepare_cursors()
 
     sources_by_chat_id = {int(source.telegram_chat_id): source for source in sources}
     chat_ids = list(sources_by_chat_id.keys())

@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from models import Source
 from models.base import Base
 from packages.telegram.adapter import AdapterState, TelegramAdapter
-from packages.telegram.cursor import TelegramMessage, backfill_since_cursor, get_cursor
+from packages.telegram.cursor import (
+    TelegramMessage,
+    advance_cursor,
+    backfill_since_cursor,
+    get_cursor,
+    has_cursor,
+)
 from packages.telegram.fakes import FakeTelegramClient
 
 
@@ -42,6 +48,22 @@ def _msg(message_id: int, minutes_ago: float = 0.0) -> TelegramMessage:
 
 async def test_get_cursor_defaults_to_zero_for_new_source(session: Session, source_id: int) -> None:
     assert get_cursor(session, source_id) == 0
+
+
+async def test_has_cursor_distinguishes_no_row_from_a_real_value_of_zero(
+    session: Session, source_id: int
+) -> None:
+    """S6-04: `get_cursor`'s `0` sentinel alone cannot tell a brand-new source
+    (never live-processed, no row at all) apart from a source whose real
+    persisted cursor happens to be `0` — `has_cursor` is what the listener's
+    startup sequencing must check instead.
+    """
+    assert has_cursor(session, source_id) is False
+
+    advance_cursor(session, source_id, 0)
+
+    assert get_cursor(session, source_id) == 0
+    assert has_cursor(session, source_id) is True
 
 
 async def test_backfill_returns_new_messages_and_advances_cursor(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -16,8 +16,25 @@ from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
 from packages.rules.normalize import normalize_text
 from packages.rules.price import extract_price
-from packages.telegram.cursor import MessageFetcherProtocol, advance_cursor, backfill_since_cursor
-from packages.telegram.historical import RecentMessageFetcherProtocol, fetch_messages_since
+from packages.telegram.cursor import (
+    MessageFetcherProtocol,
+    advance_cursor,
+    backfill_since_cursor,
+    has_cursor,
+)
+from packages.telegram.historical import (
+    RecentMessageFetcherProtocol,
+    fetch_messages_since,
+    latest_message_id,
+)
+
+
+class ListenerFetcherProtocol(MessageFetcherProtocol, RecentMessageFetcherProtocol, Protocol):
+    """Structural union of both fetch shapes the listener startup path needs:
+    `iter_messages` (cursor-bounded, live/reconnect) and `iter_recent`
+    (unbounded, historical/head-lookup). `TelethonMessageFetcher` and the
+    tests' `FakeTelegramClient` already implement both.
+    """
 
 HISTORICAL_DELIVERY_STATUS = "historical"
 
@@ -286,6 +303,84 @@ async def catch_up_since_cursor(
                 session.commit()
                 results.append(result)
     return results
+
+
+async def initialize_new_source_cursor(
+    session: Session,
+    fetcher: RecentMessageFetcherProtocol,
+    source_id: int,
+    chat_id: str,
+) -> None:
+    """Set a brand-new source's cursor to the chat's current head, without
+    notifying anything (S6-04).
+
+    Only for a source with no persisted `ProcessingCursor` row yet
+    (`packages.telegram.cursor.has_cursor` is `False`) — call this instead of
+    `catch_up_since_cursor` for it at listener startup. That function treats
+    every message `backfill_since_cursor` returns as "missed during a
+    disconnect" and notifies for each match; a source that has simply never
+    been live-processed before was never actually disconnected, so its whole
+    recent history would be reported as a real, retroactive alert — exactly
+    what S6-02's non-notifying `run_historical_scan` exists to surface
+    instead. Idempotent: a chat with no messages at all leaves the cursor
+    unset, and the next boot's `has_cursor` check is still `False`, so this
+    simply runs again.
+    """
+    latest_id = await latest_message_id(fetcher, chat_id)
+    if latest_id is not None:
+        advance_cursor(session, source_id, latest_id)
+
+
+@dataclass
+class StartupResult:
+    initialized: bool
+    recovered: list[ProcessResult]
+
+
+async def prepare_source_at_startup(
+    session_factory: sessionmaker[Session],
+    fetcher: ListenerFetcherProtocol,
+    source: ListenerSource,
+    notifier: BotNotifier,
+    dedupe_cache: DedupeCache,
+    *,
+    max_messages: int = 100,
+    max_age: timedelta | None = timedelta(hours=24),
+) -> StartupResult:
+    """One source's listener-boot handling (S6-04).
+
+    A source with a cursor already persisted gets exactly the same notifying
+    recovery a reconnect does (`catch_up_since_cursor`) — it really was
+    live-processed before, so anything within the bound really was missed
+    during this restart. A source with no cursor yet has never been
+    live-processed at all, so nothing was actually "missed" there: its cursor
+    is initialized at the chat's current head instead, with no notification.
+    Never both for the same source. Either way, that source's last-24h
+    history still surfaces through S6-02's non-notifying `run_historical_scan`
+    — this function never replaces that, only decides what the *notifying*
+    startup path does.
+    """
+    with session_factory() as session:
+        source_has_cursor = has_cursor(session, source.source_id)
+
+    if not source_has_cursor:
+        with session_factory() as session:
+            await initialize_new_source_cursor(
+                session, fetcher, source.source_id, source.chat_id
+            )
+            session.commit()
+        return StartupResult(initialized=True, recovered=[])
+
+    recovered = await catch_up_since_cursor(
+        session_factory,
+        fetcher,
+        source,
+        notifier,
+        dedupe_cache,
+        max_messages=max_messages,
+        max_age=max_age,
+    )
+    return StartupResult(initialized=False, recovered=recovered)
 
 
 async def process_historical_message(
