@@ -26,7 +26,13 @@ export function LoginPage() {
     return (
       <main className="login-page">
         <section className="glass-card login-card">
-          <h1>teleyes</h1>
+          <div className="login-card__brand">
+            <span className="login-card__mascot-frame">
+              <img className="login-card__mascot" src="/mascot.png" alt="" />
+            </span>
+            <h1>teleyes</h1>
+            <p className="login-card__tagline">Monitor pessoal de promoções do Telegram</p>
+          </div>
           <p>Sessão ativa (admin #{adminId}).</p>
           {csrfMissing && (
             <p className="login-warning">
@@ -70,17 +76,25 @@ export function LoginPage() {
   return (
     <main className="login-page">
       <form className="glass-card login-card" onSubmit={handleSubmit}>
-        <h1>teleyes</h1>
-        <p>Entre com a senha de administrador.</p>
-        <label htmlFor="password">Senha</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="current-password"
-          required
-        />
+        <div className="login-card__brand">
+          <span className="login-card__mascot-frame">
+            <img className="login-card__mascot" src="/mascot.png" alt="" />
+          </span>
+          <h1>teleyes</h1>
+          <p className="login-card__tagline">Monitor pessoal de promoções do Telegram</p>
+        </div>
+        <div className="login-card__field">
+          <p className="login-card__hint">Entre com a senha de administrador.</p>
+          <label htmlFor="password">Senha</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </div>
         <button
           type="submit"
           className="fill-button"
