@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { prefersReducedMotion } from '../utils/motion'
 import './NavCapsule.css'
 
 const TABS = [
@@ -73,7 +72,6 @@ export function NavCapsule() {
             }}
             to={tab.to}
             end={tab.to === '/'}
-            viewTransition={!prefersReducedMotion()}
             className={({ isActive }) => 'nav-tab' + (isActive ? ' nav-tab--active' : '')}
           >
             {tab.label}
