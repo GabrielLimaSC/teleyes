@@ -23,6 +23,13 @@ class Match(Base):
     telegram_message_id: Mapped[int | None] = mapped_column(nullable=True)
     message_text: Mapped[str] = mapped_column(String)
     price_cents: Mapped[int | None] = mapped_column(nullable=True)
+    # S7-05: only ever set together, and only when the message has two
+    # explicit, distinct textual anchors (packages/rules/price.py) — never a
+    # guess. `price_cents` above keeps mirroring the cash value when both are
+    # set, so every existing filter/sort/ordering by `price_cents` keeps
+    # working unchanged.
+    price_cash_cents: Mapped[int | None] = mapped_column(nullable=True)
+    price_card_cents: Mapped[int | None] = mapped_column(nullable=True)
     message_link: Mapped[str | None] = mapped_column(String, nullable=True)
     matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

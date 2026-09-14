@@ -405,6 +405,10 @@ export interface components {
             message_link: string | null;
             /** Message Text */
             message_text: string;
+            /** Price Card Cents */
+            price_card_cents: number | null;
+            /** Price Cash Cents */
+            price_cash_cents: number | null;
             /** Price Cents */
             price_cents: number | null;
             /** Rule Id */

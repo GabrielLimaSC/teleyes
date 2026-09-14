@@ -102,6 +102,10 @@ def _discard_reason(match_rule: MatchRule, text: str) -> MetricReason:
 class RuleEvaluation:
     price_cents: int | None
     discard_reason: MetricReason | None
+    # S7-05: only ever both set together, and only when extract_price found
+    # two explicit, distinct textual anchors — see packages.rules.price.
+    price_cash_cents: int | None = None
+    price_card_cents: int | None = None
 
 
 def _evaluate_rule(rule: Rule, text: str) -> RuleEvaluation:
@@ -128,11 +132,22 @@ def _evaluate_rule(rule: Rule, text: str) -> RuleEvaluation:
     ):
         return RuleEvaluation(price_cents=None, discard_reason=MetricReason.PRICE_ABOVE_CEILING)
 
-    return RuleEvaluation(price_cents=price.price_cents, discard_reason=None)
+    return RuleEvaluation(
+        price_cents=price.price_cents,
+        discard_reason=None,
+        price_cash_cents=price.price_cash_cents,
+        price_card_cents=price.price_card_cents,
+    )
 
 
 def _persist_match(
-    session: Session, message: IncomingMessage, rule: Rule, price_cents: int | None
+    session: Session,
+    message: IncomingMessage,
+    rule: Rule,
+    price_cents: int | None,
+    *,
+    price_cash_cents: int | None = None,
+    price_card_cents: int | None = None,
 ) -> Match | None:
     """Insert a `Match`, or return `None` if the S6-01 identity already exists.
 
@@ -148,6 +163,8 @@ def _persist_match(
         telegram_message_id=message.message_id,
         message_text=message.text,
         price_cents=price_cents,
+        price_cash_cents=price_cash_cents,
+        price_card_cents=price_card_cents,
         message_link=message.link,
         matched_at=message.received_at,
     )
@@ -215,7 +232,14 @@ async def process_message(
     if not dedupe_cache.should_process(signature):
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
-    db_match = _persist_match(session, message, rule, evaluation.price_cents)
+    db_match = _persist_match(
+        session,
+        message,
+        rule,
+        evaluation.price_cents,
+        price_cash_cents=evaluation.price_cash_cents,
+        price_card_cents=evaluation.price_card_cents,
+    )
     if db_match is None:
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
@@ -400,7 +424,14 @@ async def process_historical_message(
     if evaluation.discard_reason is not None:
         return ProcessResult(match=None, deliveries_sent=0, reason=evaluation.discard_reason.value)
 
-    db_match = _persist_match(session, message, rule, evaluation.price_cents)
+    db_match = _persist_match(
+        session,
+        message,
+        rule,
+        evaluation.price_cents,
+        price_cash_cents=evaluation.price_cash_cents,
+        price_card_cents=evaluation.price_card_cents,
+    )
     if db_match is None:
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 

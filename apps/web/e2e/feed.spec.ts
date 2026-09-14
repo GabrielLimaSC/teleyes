@@ -139,3 +139,36 @@ test('historico sorts matches by price within a rule (S7-07)', async ({ page }) 
       'gadget e2e barato por R$ 100',
     ])
 })
+
+test('the feed shows both prices when the message anchors cash and card explicitly (S7-05)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Preco Duplo',
+    telegram_chat_id: '-100782',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra E2E Preco Duplo',
+    include_terms: 'gadgetduploe2e',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Preco Duplo',
+    telegram_chat_id: '991',
+    allowlisted: true,
+  })
+
+  await page.goto('/feed')
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: 'gadgetduploe2e por R$ 3.899 no pix ou R$ 4.199 no cartão',
+  })
+
+  await expect(page.getByText('gadgetduploe2e por R$ 3.899 no pix ou R$ 4.199 no cartão')).toBeVisible()
+  await expect(page.getByText('À vista: R$ 3.899,00')).toBeVisible()
+  await expect(page.getByText('Cartão: R$ 4.199,00')).toBeVisible()
+})

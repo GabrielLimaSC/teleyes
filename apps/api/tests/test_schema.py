@@ -182,3 +182,65 @@ def test_match_identity_migration_preserves_legacy_data_and_downgrades(
         (2, "identified promo"),
         (4, "another legacy promo"),
     ]
+
+
+def test_cash_card_price_migration_preserves_legacy_rows_and_downgrades(
+    db_path: Path, alembic_runner: AlembicRunner
+) -> None:
+    url = f"sqlite:///{db_path}"
+    previous_head = "b1c4e6f8a201"
+    before = alembic_runner("upgrade", previous_head, database_url=url)
+    assert before.returncode == 0, before.stderr
+
+    timestamp = "2026-09-14 12:00:00"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "INSERT INTO source (id, name, telegram_chat_id, created_at, active) "
+            "VALUES (1, 'Legacy source', '-1001', ?, 1)",
+            (timestamp,),
+        )
+        connection.execute(
+            "INSERT INTO rule (id, name, include_terms, active, created_at) "
+            "VALUES (1, 'Legacy rule', 'promo', 1, ?)",
+            (timestamp,),
+        )
+        connection.execute(
+            "INSERT INTO match "
+            "(id, source_id, rule_id, message_text, price_cents, matched_at, created_at) "
+            "VALUES (1, 1, 1, 'legacy single-price promo', 19900, ?, ?)",
+            (timestamp, timestamp),
+        )
+
+    upgrade = alembic_runner("upgrade", "head", database_url=url)
+    assert upgrade.returncode == 0, upgrade.stderr
+
+    with sqlite3.connect(db_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info('match')")}
+        assert {"price_cash_cents", "price_card_cents"} <= columns
+
+        legacy = connection.execute(
+            "SELECT price_cents, price_cash_cents, price_card_cents FROM match WHERE id = 1"
+        ).fetchone()
+        assert legacy == (19900, None, None)
+
+        connection.execute(
+            "INSERT INTO match "
+            "(id, source_id, rule_id, message_text, price_cents, price_cash_cents, "
+            "price_card_cents, matched_at, created_at) "
+            "VALUES (2, 1, 1, 'pix ou cartao promo', 38990, 38990, 41990, ?, ?)",
+            (timestamp, timestamp),
+        )
+        connection.commit()
+
+    downgrade = alembic_runner("downgrade", previous_head, database_url=url)
+    assert downgrade.returncode == 0, downgrade.stderr
+
+    with sqlite3.connect(db_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info('match')")}
+        rows = connection.execute(
+            "SELECT id, price_cents FROM match ORDER BY id"
+        ).fetchall()
+    assert "price_cash_cents" not in columns
+    assert "price_card_cents" not in columns
+    # price_cents itself (and the rest of the row) survives the downgrade untouched.
+    assert rows == [(1, 19900), (2, 38990)]

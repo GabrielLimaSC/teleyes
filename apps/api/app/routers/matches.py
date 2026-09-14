@@ -32,6 +32,11 @@ class MatchResponse(BaseModel):
     rule_id: int
     message_text: str
     price_cents: int | None
+    # S7-05: only ever both set together, when packages.rules.price found two
+    # explicit, distinct textual anchors — null/null for every other match,
+    # same as always.
+    price_cash_cents: int | None
+    price_card_cents: int | None
     message_link: str | None
     matched_at: datetime
     created_at: datetime
@@ -164,6 +169,8 @@ def list_matches(
                 rule_id=db_match.rule_id,
                 message_text=db_match.message_text,
                 price_cents=db_match.price_cents,
+                price_cash_cents=db_match.price_cash_cents,
+                price_card_cents=db_match.price_card_cents,
                 message_link=db_match.message_link,
                 matched_at=db_match.matched_at,
                 created_at=db_match.created_at,
