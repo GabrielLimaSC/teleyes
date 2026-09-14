@@ -51,4 +51,41 @@ describe('FeedPage', () => {
     )
     expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBeforeRefresh)
   })
+
+  it('shows the Aurora Glow seal only for a match flagged as the lowest price ever (S7-06)', async () => {
+    vi.stubGlobal('EventSource', InertEventSource)
+    const cheapest = {
+      id: 1,
+      source_id: 1,
+      rule_id: 1,
+      message_text: 'iPhone barato',
+      price_cents: 100_00,
+      message_link: null,
+      matched_at: '2026-01-01T00:00:00Z',
+      created_at: '2026-01-01T00:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: true,
+    }
+    const notCheapest = { ...cheapest, id: 2, message_text: 'iPhone caro', is_lowest_price_ever: false }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([cheapest, notCheapest]))
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+
+    render(<FeedPage />)
+
+    await screen.findByText('iPhone barato')
+    await screen.findByText('iPhone caro')
+    // Only one seal, scoped to the flagged match's own card.
+    expect(screen.getAllByText('Menor preço já visto')).toHaveLength(1)
+
+    const cheapCard = screen.getByText('iPhone barato').closest('article')
+    const expensiveCard = screen.getByText('iPhone caro').closest('article')
+    expect(cheapCard?.className).toContain('match-card--aurora')
+    expect(expensiveCard?.className).not.toContain('match-card--aurora')
+  })
 })

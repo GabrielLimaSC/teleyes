@@ -2,10 +2,11 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.main import get_current_session, get_db, require_csrf
-from models import Rule
+from models import Match, Rule
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
 
@@ -40,6 +41,7 @@ class RuleResponse(BaseModel):
     max_price_cents: int | None
     active: bool
     created_at: datetime
+    lowest_price_cents: int | None = None
 
 
 def _not_found(error: NotFoundError) -> HTTPException:
@@ -50,8 +52,28 @@ def _not_found(error: NotFoundError) -> HTTPException:
 def list_rules(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
-) -> list[Rule]:
-    return list(rule_repo.list_rules(db, include_inactive=include_inactive))
+) -> list[RuleResponse]:
+    """S7-06: `lowest_price_cents` (the true historical minimum among the
+    rule's own priced matches, `None` with no priced match yet) is computed
+    fresh here in one extra query — never persisted on `Rule`, same reasoning
+    as `Match.is_lowest_price_ever` in `app.routers.matches`.
+    """
+    rules = list(rule_repo.list_rules(db, include_inactive=include_inactive))
+    lowest_by_rule: dict[int, int | None] = dict(
+        db.execute(
+            select(Match.rule_id, func.min(Match.price_cents))
+            .where(Match.price_cents.is_not(None))
+            .group_by(Match.rule_id)
+        )
+        .tuples()
+        .all()
+    )
+    return [
+        RuleResponse.model_validate(rule).model_copy(
+            update={"lowest_price_cents": lowest_by_rule.get(rule.id)}
+        )
+        for rule in rules
+    ]
 
 
 @router.post(

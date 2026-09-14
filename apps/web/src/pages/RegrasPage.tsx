@@ -45,6 +45,11 @@ function formatPriceLimit(cents: number | null): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function formatLowestPrice(cents: number | null): string {
+  if (cents === null) return '—'
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 type FormTarget = { kind: 'create' } | { kind: 'edit'; rule: Rule }
 
 export function RegrasPage() {
@@ -244,6 +249,7 @@ export function RegrasPage() {
                 <th>Termos incluídos</th>
                 <th>Termos bloqueados</th>
                 <th>Preço máximo</th>
+                <th>Menor preço já visto</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
@@ -257,6 +263,7 @@ export function RegrasPage() {
                   <td data-label="Termos incluídos">{rule.include_terms}</td>
                   <td data-label="Termos bloqueados">{rule.exclude_terms ?? '—'}</td>
                   <td data-label="Preço máximo">{formatPriceLimit(rule.max_price_cents)}</td>
+                  <td data-label="Menor preço já visto">{formatLowestPrice(rule.lowest_price_cents)}</td>
                   <td data-label="Status">
                     <StatusToggle
                       active={rule.active}
@@ -293,7 +300,7 @@ export function RegrasPage() {
               ))}
               {rules.length === 0 && (
                 <tr>
-                  <td colSpan={6}>Nenhuma regra cadastrada ainda.</td>
+                  <td colSpan={7}>Nenhuma regra cadastrada ainda.</td>
                 </tr>
               )}
             </tbody>

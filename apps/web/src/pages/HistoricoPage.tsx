@@ -213,6 +213,7 @@ export function HistoricoPage() {
             rule={rules.find((rule) => rule.id === match.rule_id)}
             source={sources.find((source) => source.id === match.source_id)}
             recipients={recipients}
+            isLowestPriceEver={match.is_lowest_price_ever}
           />
         ))}
       </div>

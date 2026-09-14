@@ -2,7 +2,7 @@ import itertools
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -309,6 +309,130 @@ def test_matches_sort_defaults_to_recency_and_rejects_unknown_values(
 
     invalid_response = api.client.get("/matches", params={"sort": "price"})
     assert invalid_response.status_code == 422
+
+
+def test_matches_flag_the_true_historical_lowest_price_per_rule(api: ApiContext) -> None:
+    """S7-06: match_a=10_000 is rule_a's minimum, match_b=25_000 is not,
+    match_c has no price at all so it can never be flagged.
+    """
+    ids = _seed_matches(api)
+    _login(api)
+
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    by_id = {item["id"]: item for item in response.json()}
+
+    assert by_id[ids["match_a"]]["is_lowest_price_ever"] is True
+    assert by_id[ids["match_b"]]["is_lowest_price_ever"] is False
+    assert by_id[ids["match_c"]]["is_lowest_price_ever"] is False
+
+
+def test_matches_tied_at_the_lowest_price_are_both_flagged(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    with api.session_factory() as session:
+        tie = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00 de novo",
+            price_cents=10_000,
+            matched_at=datetime.now(UTC),
+        )
+        session.add(tie)
+        session.commit()
+        tie_id = tie.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert response.status_code == 200
+    by_id = {item["id"]: item for item in response.json()}
+
+    assert by_id[ids["match_a"]]["is_lowest_price_ever"] is True
+    assert by_id[tie_id]["is_lowest_price_ever"] is True
+    assert by_id[ids["match_b"]]["is_lowest_price_ever"] is False
+
+
+def test_matches_lowest_price_stays_correct_for_a_match_inserted_out_of_chronological_order(
+    api: ApiContext,
+) -> None:
+    """S7-06: a historical scan (S6-02) processes a source newest-to-oldest,
+    so an even cheaper *older* match can be inserted after a newer, pricier
+    one already exists. Computed fresh on every read (never persisted at
+    insert time), this stays correct regardless of insertion order — no
+    backfill of a stale flag on older matches is ever needed.
+    """
+    ids = _seed_matches(api)
+    _login(api)
+
+    before = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert {item["id"]: item["is_lowest_price_ever"] for item in before.json()} == {
+        ids["match_a"]: True,
+        ids["match_b"]: False,
+    }
+
+    with api.session_factory() as session:
+        cheaper_but_inserted_later = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 50,00 (histórico)",
+            price_cents=5_000,
+            matched_at=datetime.now(UTC) - timedelta(days=2),
+        )
+        session.add(cheaper_but_inserted_later)
+        session.commit()
+        cheaper_id = cheaper_but_inserted_later.id
+
+    after = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    after_flags = {item["id"]: item["is_lowest_price_ever"] for item in after.json()}
+    assert after_flags[cheaper_id] is True
+    assert after_flags[ids["match_a"]] is False
+
+
+def test_rules_expose_the_true_lowest_price_seen_per_rule(api: ApiContext) -> None:
+    """S7-06: rule_a's own lowest is match_a's 10_000; rule_b only has
+    match_c, which has no extracted price at all, so its lowest stays
+    `None` ("—" in the UI) same as a rule with zero matches whatsoever.
+    """
+    ids = _seed_matches(api)
+    with api.session_factory() as session:
+        empty_rule = Rule(name="Sem match nenhum", include_terms="nada-e2e")
+        session.add(empty_rule)
+        session.commit()
+        empty_rule_id = empty_rule.id
+    _login(api)
+
+    response = api.client.get("/rules?include_inactive=true")
+    assert response.status_code == 200
+    by_id = {rule["id"]: rule for rule in response.json()}
+
+    assert by_id[ids["rule_a"]]["lowest_price_cents"] == 10_000
+    assert by_id[ids["rule_b"]]["lowest_price_cents"] is None
+    assert by_id[empty_rule_id]["lowest_price_cents"] is None
+
+
+def test_rules_lowest_price_recalculates_without_reprocessing_old_matches(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    _login(api)
+
+    before = api.client.get("/rules")
+    before_by_id = {rule["id"]: rule for rule in before.json()}
+    assert before_by_id[ids["rule_a"]]["lowest_price_cents"] == 10_000
+
+    with api.session_factory() as session:
+        cheaper = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 20,00",
+            price_cents=2_000,
+            matched_at=datetime.now(UTC),
+        )
+        session.add(cheaper)
+        session.commit()
+
+    after = api.client.get("/rules")
+    after_by_id = {rule["id"]: rule for rule in after.json()}
+    assert after_by_id[ids["rule_a"]]["lowest_price_cents"] == 2_000
 
 
 def test_metrics_are_authenticated_and_contain_only_aggregates(api: ApiContext) -> None:

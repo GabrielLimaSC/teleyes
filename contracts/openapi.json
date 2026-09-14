@@ -157,6 +157,10 @@
             "title": "Id",
             "type": "integer"
           },
+          "is_lowest_price_ever": {
+            "title": "Is Lowest Price Ever",
+            "type": "boolean"
+          },
           "matched_at": {
             "format": "date-time",
             "title": "Matched At",
@@ -206,7 +210,8 @@
           "message_link",
           "matched_at",
           "created_at",
-          "deliveries"
+          "deliveries",
+          "is_lowest_price_ever"
         ],
         "title": "MatchResponse",
         "type": "object"
@@ -428,6 +433,17 @@
           "include_terms": {
             "title": "Include Terms",
             "type": "string"
+          },
+          "lowest_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest Price Cents"
           },
           "max_price_cents": {
             "anyOf": [
@@ -1671,6 +1687,7 @@
     },
     "/rules": {
       "get": {
+        "description": "S7-06: `lowest_price_cents` (the true historical minimum among the\nrule's own priced matches, `None` with no priced match yet) is computed\nfresh here in one extra query \u2014 never persisted on `Rule`, same reasoning\nas `Match.is_lowest_price_ever` in `app.routers.matches`.",
         "operationId": "list_rules_rules_get",
         "parameters": [
           {
