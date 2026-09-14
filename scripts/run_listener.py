@@ -25,15 +25,19 @@ persistido ainda (nunca processada ao vivo antes) nunca passa por esse
 catch-up notificante — teria tratado toda sua história recente como "perdida
 numa queda" e mandado alerta retroativo de verdade (S6-04). Em vez disso, o
 cursor dela é só inicializado na ponta mais recente do chat, sem notificar
-nada; o histórico das últimas 24h dessa fonte nova continua aparecendo só via
-o scan não notificante abaixo.
+nada; o histórico recente dessa fonte nova continua aparecendo só via o scan
+não notificante abaixo.
 
 Também roda, uma vez por fonte logo após registrar o handler ao vivo, um scan
-histórico independente do cursor (S6-02): reavalia as últimas 24h de cada
-fonte ativa contra toda regra ativa, persiste os matches e cria
-Delivery(status="historical") por destinatário aplicável, mas nunca chama o
-BotNotifier — sem alerta retroativo. Repetir esse scan num restart não
-duplica (identidade persistente da S6-01).
+histórico independente do cursor (S6-02): reavalia os últimos
+HISTORICAL_WINDOW (7 dias por padrão desde a S7-04; era 24h na S6-02
+original) de cada fonte ativa contra toda regra ativa, persiste os matches e
+cria Delivery(status="historical") por destinatário aplicável, mas nunca
+chama o BotNotifier — sem alerta retroativo. Repetir esse scan num restart
+não duplica (identidade persistente da S6-01). Não confundir com
+BACKFILL_MAX_AGE abaixo, que continua em 24h — propósito diferente, o teto
+de uma reconexão curta de verdade, não de quanto histórico uma fonte nova
+ganha na primeira instalação.
 
 Sem TG_API_ID/TG_API_HASH/BOT_TOKEN configurados, encerra imediatamente com
 uma mensagem clara — nunca finge ter conectado. Sem nenhuma fonte, regra ou
@@ -80,7 +84,10 @@ SESSION_PATH = Path("data/teleyes.session")
 BACKFILL_MAX_MESSAGES = 100
 BACKFILL_MAX_AGE = timedelta(hours=24)
 RECONNECT_POLL_SECONDS = 15.0
-HISTORICAL_WINDOW = timedelta(hours=24)
+# S7-04: 7 days, not 24h — widened after Gabriel's homologation feedback.
+# Unrelated to BACKFILL_MAX_AGE above, which stays 24h on purpose (a real
+# reconnect's gap, not a fresh source's first historical scan).
+HISTORICAL_WINDOW = timedelta(days=7)
 
 
 def _load_active_config(session: Session) -> tuple[list[Source], list[Rule], list[Recipient]]:
@@ -241,8 +248,7 @@ async def main() -> None:
         if initialized_source_ids:
             print(
                 f"Fonte(s) nova(s) id={initialized_source_ids}: cursor inicializado sem "
-                "catch-up notificante — histórico das últimas 24h vem só do scan não "
-                "notificante."
+                "catch-up notificante — histórico recente vem só do scan não notificante."
             )
 
     # Covers a process restart: whatever arrived while this run was down, for
@@ -304,7 +310,8 @@ async def main() -> None:
         historical_matches += sum(1 for r in historical_results if r.match is not None)
     if historical_matches:
         print(
-            f"Histórico das últimas 24h: {historical_matches} match(es) sem alerta retroativo."
+            f"Histórico dos últimos {HISTORICAL_WINDOW.days} dias: {historical_matches} "
+            "match(es) sem alerta retroativo."
         )
 
     # Covers a short connection drop: this Telethon version's own auto-reconnect
