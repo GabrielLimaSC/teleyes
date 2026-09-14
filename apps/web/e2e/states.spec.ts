@@ -49,6 +49,78 @@ test('a message with no extractable price shows the honest placeholder, live', a
   await expect(card.getByText('Preço não identificado')).toBeVisible()
 })
 
+test('a long product name wraps instead of being cut with an ellipsis (S7-02)', async ({ page }) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo Nome Longo E2E',
+    telegram_chat_id: '-100779',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'RTX E2E',
+    include_terms: 'rtx',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel Nome Longo E2E',
+    telegram_chat_id: '994',
+    allowlisted: true,
+  })
+  const longText =
+    'Placa de vídeo rtx 5060 Ti 16GB GDDR7 com resfriamento triplo e RGB endereçável, ' +
+    'edição especial gamer completa da linha, frete grátis pra todo o Brasil'
+
+  await page.goto('/feed')
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: longText,
+  })
+
+  const product = page.locator('.match-card__product', { hasText: 'rtx 5060 Ti' })
+  await expect(product).toBeVisible()
+
+  const style = await product.evaluate((el) => {
+    const computed = getComputedStyle(el)
+    return { whiteSpace: computed.whiteSpace, textOverflow: computed.textOverflow }
+  })
+  expect(style.whiteSpace).not.toBe('nowrap')
+  expect(style.textOverflow).not.toBe('ellipsis')
+
+  // The full text is really on screen, not just present-but-clipped in the
+  // DOM: a wrapped element's rendered box is taller than a single line of
+  // text at this font size — `lineHeight` itself is unreliable to compare
+  // against directly, since this element never sets one explicitly and
+  // Chromium reports the computed `normal` keyword, not a pixel value.
+  const box = await product.boundingBox()
+  const fontSize = await product.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+  expect(box!.height).toBeGreaterThan(fontSize * 1.8)
+})
+
+test('the "Atualizar" button reloads Feed and Histórico on demand, no F5 needed (S7-02)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await apiLogin(page)
+
+  await page.goto('/feed')
+  await expect(page.getByRole('button', { name: 'Atualizar' })).toBeVisible()
+  const [feedResponse] = await Promise.all([
+    page.waitForResponse((res) => res.url().includes('/matches') && res.request().method() === 'GET'),
+    page.getByRole('button', { name: 'Atualizar' }).click(),
+  ])
+  expect(feedResponse.ok()).toBe(true)
+
+  await page.goto('/historico')
+  await expect(page.getByRole('button', { name: 'Atualizar' })).toBeVisible()
+  const [historicoResponse] = await Promise.all([
+    page.waitForResponse((res) => res.url().includes('/matches') && res.request().method() === 'GET'),
+    page.getByRole('button', { name: 'Atualizar' }).click(),
+  ])
+  expect(historicoResponse.ok()).toBe(true)
+})
+
 test('shows an offline banner when the browser goes offline, and clears it back online', async ({
   page,
   context,

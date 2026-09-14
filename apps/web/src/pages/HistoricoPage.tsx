@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MatchCard } from '../components/MatchCard'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
@@ -60,7 +60,10 @@ export function HistoricoPage() {
     fetchRecipients().then(setRecipients).catch(() => setRecipients([]))
   }, [])
 
-  useEffect(() => {
+  // S7-02: named and stable per filter combination so a visible "Atualizar"
+  // button can trigger the exact same reload on demand, not just the effect
+  // below reacting to a filter change.
+  const loadMatches = useCallback(() => {
     setLoading(true)
     fetchMatches(toApiFilters(form))
       .then((data) => {
@@ -80,6 +83,10 @@ export function HistoricoPage() {
     form.maxPriceReais,
     form.deliveryStatus,
   ])
+
+  useEffect(() => {
+    loadMatches()
+  }, [loadMatches])
 
   const updateField = (field: keyof FilterForm) => (value: string) =>
     setForm((current) => ({ ...current, [field]: value }))
@@ -159,6 +166,9 @@ export function HistoricoPage() {
         </label>
         <button type="button" onClick={() => setForm(EMPTY_FILTERS)}>
           Limpar filtros
+        </button>
+        <button type="button" onClick={loadMatches}>
+          Atualizar
         </button>
       </form>
 

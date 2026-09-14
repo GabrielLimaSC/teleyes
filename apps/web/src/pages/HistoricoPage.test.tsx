@@ -99,4 +99,28 @@ describe('HistoricoPage', () => {
       expect(matchCalls.at(-1)?.[0]).toBe('/matches?delivery_status=historical')
     })
   })
+
+  it('the "Atualizar" button reloads matches on demand without changing filters (S7-02)', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<HistoricoPage />)
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+    await user.click(screen.getByRole('button', { name: 'Atualizar' }))
+
+    await waitFor(() => {
+      const matchCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/matches'))
+      expect(matchCalls).toHaveLength(2)
+      expect(matchCalls[1][0]).toBe('/matches')
+    })
+  })
 })
