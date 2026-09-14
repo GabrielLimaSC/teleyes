@@ -28,6 +28,15 @@
   font-weight: 700;
   color: #08060d;
   overflow-wrap: break-word;
+  /* S8-02 safety net, not the main strategy (that's cutting before the first
+     link in JS): the rare case of a long product description with no link
+     at all still gets capped, wrapping normally otherwise (no S7-02
+     mid-word single-line ellipsis). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }
 
 .match-card__meta {

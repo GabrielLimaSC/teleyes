@@ -19,6 +19,26 @@ function formatMatchedAt(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR')
 }
 
+const FIRST_LINK_RE = /https?:\/\//i
+
+/**
+ * S8-02: real promo messages tend to end in one or more links plus a
+ * boilerplate footer ("Cupom, preço e estoque por tempo limitado."), which
+ * made the card grow to several lines showing content nobody reads. Cuts at
+ * the link itself — a natural semantic boundary, never inside a word/phrase
+ * (unlike the mid-word CSS ellipsis S7-02 removed on purpose). `message_text`
+ * itself is never touched, only what this component renders.
+ */
+function productText(messageText: string): string {
+  const match = FIRST_LINK_RE.exec(messageText)
+  if (match === null) return messageText
+  const before = messageText.slice(0, match.index).trimEnd()
+  // A link at (or near) the very start would otherwise leave an empty/near-
+  // empty card — showing the full text is always better than showing
+  // nothing.
+  return before.length > 0 ? before : messageText
+}
+
 export function MatchCard({
   match,
   rule,
@@ -54,7 +74,7 @@ export function MatchCard({
         <CategoryIcon category={category} />
       </div>
       <div className="match-card__body">
-        <p className="match-card__product">{match.message_text}</p>
+        <p className="match-card__product">{productText(match.message_text)}</p>
         <p className="match-card__meta">
           Fonte: {source?.name ?? `#${match.source_id}`} · Regra: {rule?.name ?? `#${match.rule_id}`}
           {recipientNames.length > 0 && <> · Para: {recipientNames.join(', ')}</>}

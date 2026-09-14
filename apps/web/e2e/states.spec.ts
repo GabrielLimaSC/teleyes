@@ -143,6 +143,47 @@ test('a long product name wraps instead of being cut with an ellipsis (S7-02)', 
   expect(box!.height).toBeGreaterThan(fontSize * 1.8)
 })
 
+test('a real promo message with links and a footer shows only the text before the link (S8-02)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'CMdias E2E',
+    telegram_chat_id: '-100783',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'RTX 5070 E2E',
+    include_terms: 'rtx 5070',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E CMdias',
+    telegram_chat_id: '995',
+    allowlisted: true,
+  })
+  // The exact real message that made the card enormous in the homologation
+  // (also the S8-01 fixture for the coupon-price bug — same message, two
+  // different bugs).
+  const realText =
+    '🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF: ' +
+    'https://s.shopee.com.br/abc ⚠️Cupom, preço e estoque por tempo limitado. Anúncio'
+
+  await page.goto('/feed')
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: realText,
+  })
+
+  await expect(
+    page.getByText('🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF:'),
+  ).toBeVisible()
+  await expect(page.getByText(/shopee\.com\.br/)).not.toBeVisible()
+  await expect(page.getByText(/Anúncio/)).not.toBeVisible()
+})
+
 test('the "Atualizar" button reloads Feed and Histórico on demand, no F5 needed (S7-02)', async ({
   page,
 }) => {
