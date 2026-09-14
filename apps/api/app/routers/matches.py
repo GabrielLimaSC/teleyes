@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
@@ -74,6 +75,25 @@ def _match_filters(
     return statement
 
 
+MatchSort = Literal["price_asc", "price_desc"]
+
+
+def _order_by(sort: MatchSort | None) -> list[Any]:
+    """S7-07: ranks matches by price within (typically) a single filtered
+    rule. `Match.id.desc()` (most recent first) stays the default and the
+    tiebreaker for a price tie — same order the UI already showed before
+    this existed. `nulls_last()` keeps a match with no extracted price at the
+    bottom regardless of direction, since SQLite would otherwise sort NULL
+    before every value in `price_asc` (the opposite of what "ascending"
+    should mean for a price list a human is scanning).
+    """
+    if sort == "price_asc":
+        return [Match.price_cents.asc().nulls_last(), Match.id.desc(), Delivery.id]
+    if sort == "price_desc":
+        return [Match.price_cents.desc().nulls_last(), Match.id.desc(), Delivery.id]
+    return [Match.id.desc(), Delivery.id]
+
+
 @router.get("", response_model=list[MatchResponse])
 def list_matches(
     rule_id: int | None = Query(default=None, ge=1),
@@ -83,6 +103,7 @@ def list_matches(
     min_price_cents: int | None = Query(default=None, ge=0),
     max_price_cents: int | None = Query(default=None, ge=0),
     delivery_status: str | None = Query(default=None, min_length=1, max_length=32),
+    sort: Literal["price_asc", "price_desc"] | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[MatchResponse]:
     if (
@@ -105,7 +126,7 @@ def list_matches(
         min_price_cents=min_price_cents,
         max_price_cents=max_price_cents,
         delivery_status=delivery_status,
-    ).order_by(Match.id.desc(), Delivery.id)
+    ).order_by(*_order_by(sort))
 
     matches: dict[int, MatchResponse] = {}
     for db_match, delivery in db.execute(statement):

@@ -1,6 +1,8 @@
 import { ApiError } from './auth'
 import type { Match } from './types'
 
+export type MatchSort = 'price_asc' | 'price_desc'
+
 export interface MatchFilters {
   ruleId?: number
   sourceId?: number
@@ -8,6 +10,7 @@ export interface MatchFilters {
   minPriceCents?: number
   maxPriceCents?: number
   deliveryStatus?: string
+  sort?: MatchSort
 }
 
 export function buildMatchQuery(filters: MatchFilters): string {
@@ -18,6 +21,7 @@ export function buildMatchQuery(filters: MatchFilters): string {
   if (filters.minPriceCents !== undefined) params.set('min_price_cents', String(filters.minPriceCents))
   if (filters.maxPriceCents !== undefined) params.set('max_price_cents', String(filters.maxPriceCents))
   if (filters.deliveryStatus !== undefined) params.set('delivery_status', filters.deliveryStatus)
+  if (filters.sort !== undefined) params.set('sort', filters.sort)
   return params.toString()
 }
 

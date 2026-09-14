@@ -815,6 +815,7 @@ export interface operations {
                 min_price_cents?: number | null;
                 max_price_cents?: number | null;
                 delivery_status?: string | null;
+                sort?: ("price_asc" | "price_desc") | null;
             };
             header?: never;
             path?: never;

@@ -276,6 +276,41 @@ def test_invalid_match_price_range_becomes_422(api: ApiContext) -> None:
     assert response.status_code == 422
 
 
+def test_matches_sort_by_price_puts_nulls_last_regardless_of_direction(
+    api: ApiContext,
+) -> None:
+    """S7-07: match_a=10_000, match_b=25_000, match_c=None (see _seed_matches)."""
+    ids = _seed_matches(api)
+    _login(api)
+
+    def ordered_ids(sort: str) -> list[int]:
+        response = api.client.get("/matches", params={"sort": sort})
+        assert response.status_code == 200
+        return [item["id"] for item in response.json()]
+
+    assert ordered_ids("price_asc") == [ids["match_a"], ids["match_b"], ids["match_c"]]
+    assert ordered_ids("price_desc") == [ids["match_b"], ids["match_a"], ids["match_c"]]
+
+
+def test_matches_sort_defaults_to_recency_and_rejects_unknown_values(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    _login(api)
+
+    default_response = api.client.get("/matches")
+    assert default_response.status_code == 200
+    # Same order as before S7-07 existed: most recently inserted first.
+    assert [item["id"] for item in default_response.json()] == [
+        ids["match_c"],
+        ids["match_b"],
+        ids["match_a"],
+    ]
+
+    invalid_response = api.client.get("/matches", params={"sort": "price"})
+    assert invalid_response.status_code == 422
+
+
 def test_metrics_are_authenticated_and_contain_only_aggregates(api: ApiContext) -> None:
     with api.session_factory() as session:
         source = Source(name="Grupo", telegram_chat_id="-1009")

@@ -1194,6 +1194,26 @@
             }
           },
           {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "price_asc",
+                    "price_desc"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort"
+            }
+          },
+          {
             "in": "cookie",
             "name": "teleyes_session",
             "required": false,

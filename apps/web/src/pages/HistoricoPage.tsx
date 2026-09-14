@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { MatchCard } from '../components/MatchCard'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
-import type { MatchFilters } from '../api/matches'
+import type { MatchFilters, MatchSort } from '../api/matches'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 import './HistoricoPage.css'
 
@@ -16,6 +16,15 @@ const DELIVERY_STATUS_OPTIONS = [
   { value: 'duplicate', label: 'Duplicado' },
 ]
 
+// S7-07: ranking por preço — mais útil com uma regra específica filtrada
+// (comparar o mesmo produto/promoção), mas funciona com qualquer combinação
+// de filtros, inclusive nenhum.
+const SORT_OPTIONS: Array<{ value: '' | MatchSort; label: string }> = [
+  { value: '', label: 'Mais recentes primeiro' },
+  { value: 'price_asc', label: 'Menor preço primeiro' },
+  { value: 'price_desc', label: 'Maior preço primeiro' },
+]
+
 export interface FilterForm {
   ruleId: string
   sourceId: string
@@ -23,6 +32,7 @@ export interface FilterForm {
   minPriceReais: string
   maxPriceReais: string
   deliveryStatus: string
+  sort: '' | MatchSort
 }
 
 const EMPTY_FILTERS: FilterForm = {
@@ -32,6 +42,7 @@ const EMPTY_FILTERS: FilterForm = {
   minPriceReais: '',
   maxPriceReais: '',
   deliveryStatus: '',
+  sort: '',
 }
 
 export function toApiFilters(form: FilterForm): MatchFilters {
@@ -42,6 +53,7 @@ export function toApiFilters(form: FilterForm): MatchFilters {
   if (form.minPriceReais !== '') filters.minPriceCents = Math.round(Number(form.minPriceReais) * 100)
   if (form.maxPriceReais !== '') filters.maxPriceCents = Math.round(Number(form.maxPriceReais) * 100)
   if (form.deliveryStatus !== '') filters.deliveryStatus = form.deliveryStatus
+  if (form.sort !== '') filters.sort = form.sort
   return filters
 }
 
@@ -82,6 +94,7 @@ export function HistoricoPage() {
     form.minPriceReais,
     form.maxPriceReais,
     form.deliveryStatus,
+    form.sort,
   ])
 
   useEffect(() => {
@@ -138,6 +151,19 @@ export function HistoricoPage() {
             onChange={(event) => updateField('deliveryStatus')(event.target.value)}
           >
             {DELIVERY_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Ordenar por
+          <select
+            value={form.sort}
+            onChange={(event) => updateField('sort')(event.target.value)}
+          >
+            {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
