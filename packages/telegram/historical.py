@@ -44,3 +44,16 @@ async def fetch_messages_since(
             break
         collected.append(message)
     return collected
+
+
+async def latest_message_id(fetcher: RecentMessageFetcherProtocol, chat_id: str) -> int | None:
+    """The most recent message's id in `chat_id` right now, or `None` if empty.
+
+    S6-04: used to initialize a brand-new source's `ProcessingCursor` at the
+    chat's current head instead of running the notifying reconnect catch-up
+    on it — `iter_recent` is newest-first, so the very first item is already
+    the answer; nothing else needs to be fetched.
+    """
+    async for message in fetcher.iter_recent(chat_id):
+        return message.id
+    return None

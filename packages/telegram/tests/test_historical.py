@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from packages.telegram.cursor import TelegramMessage
 from packages.telegram.fakes import FakeTelegramClient
-from packages.telegram.historical import fetch_messages_since
+from packages.telegram.historical import fetch_messages_since, latest_message_id
 
 
 def _msg(message_id: int, *, date: datetime) -> TelegramMessage:
@@ -69,3 +69,25 @@ async def test_fetch_messages_since_never_reads_or_needs_a_cursor() -> None:
 
     assert [m.id for m in first] == [1]
     assert [m.id for m in second] == [1]
+
+
+async def test_latest_message_id_returns_the_newest_id_regardless_of_age() -> None:
+    """S6-04: unlike `fetch_messages_since`, this has no time window at all —
+    a brand-new source's cursor is initialized to the chat's true current
+    head even if that head is older than the 24h historical window.
+    """
+    now = datetime(2026, 9, 13, 12, 0, tzinfo=UTC)
+    client = FakeTelegramClient(
+        messages=[
+            _msg(1, date=now - timedelta(days=30)),
+            _msg(2, date=now - timedelta(days=10)),
+        ]
+    )
+
+    assert await latest_message_id(client, "-100123") == 2
+
+
+async def test_latest_message_id_is_none_for_an_empty_chat() -> None:
+    client = FakeTelegramClient(messages=[])
+
+    assert await latest_message_id(client, "-100123") is None
