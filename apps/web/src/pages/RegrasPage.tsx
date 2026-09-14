@@ -8,6 +8,7 @@ import type { Rule } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
 import { StatusToggle } from '../components/StatusToggle'
 import { useFillOrigin } from '../utils/useFillOrigin'
+import { DestinatariosSection } from './DestinatariosSection'
 import '../components/GlassCard.css'
 import '../components/CrudTable.css'
 import '../components/FillButton.css'
@@ -320,6 +321,8 @@ export function RegrasPage() {
           )}
         </div>
       )}
+
+      <DestinatariosSection />
     </main>
   )
 }
