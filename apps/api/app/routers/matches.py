@@ -7,6 +7,7 @@ from sqlalchemy import ScalarSelect, Select, exists, func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.main import get_current_session, get_db
+from app.pipeline import GROUPING_WINDOW
 from models import Delivery, Match
 
 router = APIRouter(
@@ -42,6 +43,13 @@ class MatchResponse(BaseModel):
     created_at: datetime
     deliveries: list[DeliveryResponse]
     is_lowest_price_ever: bool
+    # S7-11 mechanism 2: other sources' ids that posted this same rule+price
+    # within GROUPING_WINDOW of this match (chained, so a longer spread-out
+    # sequence still collapses into one card) — None when nothing grouped
+    # with it. Purely a read-time presentation grouping: every Match row
+    # still exists and is unaffected, this only decides which one is the
+    # representative card and which ones are folded into it.
+    grouped_source_ids: list[int] | None = None
 
 
 def _lowest_price_cents_per_rule() -> ScalarSelect[int | None]:
@@ -123,6 +131,70 @@ def _order_by(sort: MatchSort | None) -> list[Any]:
     return [Match.id.desc(), Delivery.id]
 
 
+def _attach_group(chain: list[MatchResponse], hidden_ids: set[int]) -> None:
+    """A chain of 2+ chronologically-consecutive same-rule/same-price matches
+    collapses into one card. The representative prefers a member that
+    actually sent a real alert (`Delivery.status == "sent"`) over one that
+    merely arrived first chronologically — otherwise an older match with no
+    real alert (e.g. `historical`, S6-02) could become the representative
+    and hide a sibling that genuinely notified Gabriel's phone, showing a
+    dishonest status for the whole group. Falls back to the earliest
+    `matched_at` when no member ever sent a real alert; a tie among several
+    "sent" members (shouldn't happen given mechanism 1 in `app.pipeline`,
+    kept here only as a safety net) also resolves to the earliest.
+    `grouped_source_ids` gets every other member's distinct `source_id`) and
+    the rest are hidden from the returned list — their `Match`/`Delivery`
+    rows are untouched, only excluded from this response.
+    """
+    if len(chain) < 2:
+        return
+    def _sent(member: MatchResponse) -> bool:
+        return any(delivery.status == "sent" for delivery in member.deliveries)
+
+    sent_members = [member for member in chain if _sent(member)]
+    candidates = sent_members if sent_members else chain
+    representative = min(candidates, key=lambda member: member.matched_at)
+    others = [member for member in chain if member.id != representative.id]
+    other_source_ids = sorted({member.source_id for member in others} - {representative.source_id})
+    if other_source_ids:
+        representative.grouped_source_ids = other_source_ids
+    for member in others:
+        hidden_ids.add(member.id)
+
+
+def _apply_display_grouping(matches: dict[int, MatchResponse]) -> list[MatchResponse]:
+    """S7-11 mechanism 2: collapses same rule+price matches into one card at
+    read time, independent of insertion order. `process_message`'s own check
+    (mechanism 1, in `app.pipeline`) only ever compares against a match it
+    can already see, so it misses two known cases: a historical scan
+    inserting matches out of chronological order, and a chain spread out
+    past `GROUPING_WINDOW` from its own first link but with each consecutive
+    pair still close together. Grouping fresh on every read, from
+    `matched_at`, fixes both without ever touching what was persisted.
+    """
+    groups: dict[tuple[int, int], list[MatchResponse]] = {}
+    for response in matches.values():
+        if response.price_cents is None:
+            continue
+        groups.setdefault((response.rule_id, response.price_cents), []).append(response)
+
+    hidden_ids: set[int] = set()
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda response: response.matched_at)
+        chain = [members[0]]
+        for candidate in members[1:]:
+            if candidate.matched_at - chain[-1].matched_at <= GROUPING_WINDOW:
+                chain.append(candidate)
+                continue
+            _attach_group(chain, hidden_ids)
+            chain = [candidate]
+        _attach_group(chain, hidden_ids)
+
+    return [response for response in matches.values() if response.id not in hidden_ids]
+
+
 @router.get("", response_model=list[MatchResponse])
 def list_matches(
     rule_id: int | None = Query(default=None, ge=1),
@@ -183,4 +255,4 @@ def list_matches(
         if delivery is not None:
             response.deliveries.append(DeliveryResponse.model_validate(delivery))
 
-    return list(matches.values())
+    return _apply_display_grouping(matches)

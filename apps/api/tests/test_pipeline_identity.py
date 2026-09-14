@@ -102,6 +102,13 @@ async def test_same_message_can_match_two_rules_with_shared_memory_cache(session
 
 
 async def test_same_message_id_in_different_sources_does_not_conflict(session: Session) -> None:
+    """Both sources still get their own real `Match` row (identity is a
+    per-source thing, S6-01) — but since `_message()` gives both the exact
+    same rule/price/timestamp, this is also the canonical S7-11 grouping
+    scenario: two different sources "posting the same real promotion" within
+    the window. Only the first send is real; the second is grouped, not
+    re-sent.
+    """
     first_source_id, rule_id, recipient_id = _seed(session)
     second_source = Source(name="Other source", telegram_chat_id="-1002")
     session.add(second_source)
@@ -122,7 +129,7 @@ async def test_same_message_id_in_different_sources_does_not_conflict(session: S
     session.commit()
 
     assert session.scalar(select(func.count()).select_from(Match)) == 2
-    assert len(client.sent) == 2
+    assert len(client.sent) == 1
 
 
 async def test_message_without_identity_keeps_explicit_memory_only_dedupe(

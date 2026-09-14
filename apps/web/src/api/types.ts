@@ -24,6 +24,11 @@ export interface Match {
   /** S7-06: computed fresh on every read from the rule's real match history —
    * never a value stored on the match itself. */
   is_lowest_price_ever: boolean
+  /** S7-11: other sources' ids that posted this same rule+price within the
+   * grouping window (chained), only ever set on the representative card —
+   * the other matches still exist, just excluded from this response. `null`
+   * when nothing grouped with it. */
+  grouped_source_ids: number[] | null
 }
 
 export interface Rule {

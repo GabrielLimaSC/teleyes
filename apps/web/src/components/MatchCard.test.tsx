@@ -47,6 +47,7 @@ function buildMatch(overrides: Partial<Match> = {}): Match {
     created_at: '2026-01-01T00:00:00Z',
     deliveries: [],
     is_lowest_price_ever: false,
+    grouped_source_ids: null,
     ...overrides,
   }
 }
@@ -197,5 +198,32 @@ describe('MatchCard', () => {
     expect(link).toHaveAttribute('href', 'https://t.me/c/123456/7')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
+  it('has no "Visto em" line when nothing grouped with it (S7-11)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ grouped_source_ids: null })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.queryByText(/Visto em:/)).not.toBeInTheDocument()
+  })
+
+  it('shows "Visto em" with the resolved names of every grouped source (S7-11)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ grouped_source_ids: [2, 3] })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        groupedSourceNames={['CMdias', 'Wolf Ofertas']}
+      />,
+    )
+
+    expect(screen.getByText('Visto em: CMdias, Wolf Ofertas')).toBeInTheDocument()
   })
 })

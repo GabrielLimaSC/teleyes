@@ -27,6 +27,12 @@ describe('summarizeDeliveryStatus', () => {
     expect(summarizeDeliveryStatus([delivery('historical')]).label).toBe('Histórico — sem alerta')
   })
 
+  it('reports the grouped label for a match never notified because another source already alerted the same promotion (S7-11)', () => {
+    expect(summarizeDeliveryStatus([delivery('grouped')]).label).toBe(
+      'Agrupado — mesma promoção já alertada',
+    )
+  })
+
   it('never encodes state by color alone — every pill carries a label', () => {
     for (const status of [
       'sent',
@@ -35,6 +41,7 @@ describe('summarizeDeliveryStatus', () => {
       'not_configured',
       'duplicate',
       'historical',
+      'grouped',
       'weird',
     ]) {
       const pill = summarizeDeliveryStatus([delivery(status)])

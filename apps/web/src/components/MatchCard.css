@@ -45,6 +45,14 @@
   color: #8a8a92;
 }
 
+.match-card__grouped-sources {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #8a8a92;
+  overflow-wrap: break-word;
+}
+
 .match-card__link {
   display: inline-block;
   margin-top: 8px;

@@ -172,3 +172,54 @@ test('the feed shows both prices when the message anchors cash and card explicit
   await expect(page.getByText('À vista: R$ 3.899,00')).toBeVisible()
   await expect(page.getByText('Cartão: R$ 4.199,00')).toBeVisible()
 })
+
+test('two sources posting the exact same promotion collapse into one card (S7-11)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const sourceA = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Duplicado A',
+    telegram_chat_id: '-100790',
+  })
+  const sourceB = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Duplicado B',
+    telegram_chat_id: '-100791',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra E2E Duplicado',
+    include_terms: 'gadgetdupe2e',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Duplicado',
+    telegram_chat_id: '990',
+    allowlisted: true,
+  })
+
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: sourceA.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: 'gadgetdupe2e por R$ 4.000 no Grupo A',
+  })
+  // Same rule, same price, posted seconds later from a different source —
+  // well within GROUPING_WINDOW.
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: sourceB.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: 'gadgetdupe2e por R$ 4.000 no Grupo B',
+  })
+
+  await page.goto('/historico')
+  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Duplicado' })
+
+  // Only the first source's card stays, now naming the other source too —
+  // the second message is a real, persisted Match (never lost, S6-01), just
+  // never its own card and never its own alert.
+  await expect(page.getByText('gadgetdupe2e por R$ 4.000 no Grupo A')).toBeVisible()
+  await expect(page.getByText('Visto em: Grupo E2E Duplicado B')).toBeVisible()
+  await expect(page.getByText('gadgetdupe2e por R$ 4.000 no Grupo B')).not.toBeVisible()
+  await expect(page.locator('.match-card__product')).toHaveCount(1)
+})

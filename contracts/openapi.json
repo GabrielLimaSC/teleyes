@@ -153,6 +153,20 @@
             "title": "Deliveries",
             "type": "array"
           },
+          "grouped_source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grouped Source Ids"
+          },
           "id": {
             "title": "Id",
             "type": "integer"

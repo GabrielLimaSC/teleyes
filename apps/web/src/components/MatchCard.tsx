@@ -25,6 +25,7 @@ export function MatchCard({
   source,
   recipients,
   isLowestPriceEver = false,
+  groupedSourceNames,
 }: {
   match: Match
   rule: Rule | undefined
@@ -36,6 +37,10 @@ export function MatchCard({
    * itself. Defaults to `false` for callers (tests, mostly) that don't pass
    * it. */
   isLowestPriceEver?: boolean
+  /** S7-11: names resolved by the caller from `match.grouped_source_ids`
+   * (this component never resolves ids itself — same pattern as `source`).
+   * Undefined/empty renders nothing. */
+  groupedSourceNames?: string[]
 }) {
   const category = categorize(match.message_text)
   const status = summarizeDeliveryStatus(match.deliveries)
@@ -55,6 +60,9 @@ export function MatchCard({
           {recipientNames.length > 0 && <> · Para: {recipientNames.join(', ')}</>}
         </p>
         <p className="match-card__timestamp">{formatMatchedAt(match.matched_at)}</p>
+        {groupedSourceNames !== undefined && groupedSourceNames.length > 0 && (
+          <p className="match-card__grouped-sources">Visto em: {groupedSourceNames.join(', ')}</p>
+        )}
         {match.message_link !== null && (
           <a
             className="match-card__link"
