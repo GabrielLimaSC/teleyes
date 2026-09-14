@@ -66,6 +66,28 @@ describe('MatchCard', () => {
     expect(screen.getByText('Entregue')).toBeInTheDocument()
   })
 
+  it('renders a long product name in full, never shortened (S7-02)', () => {
+    const longName =
+      'Placa de vídeo NVIDIA GeForce RTX 5060 Ti 16GB GDDR7 com resfriamento triplo e RGB ' +
+      'endereçável, edição especial gamer completa da linha'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: longName })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+      />,
+    )
+
+    // A CSS-only truncation (text-overflow: ellipsis) never touches the DOM
+    // text itself — so this alone wouldn't have caught the S7-02 bug. The
+    // real regression check is `.match-card__product` no longer setting
+    // `white-space: nowrap`/`text-overflow: ellipsis` at all (see
+    // MatchCard.css and the Playwright coverage in e2e/states.spec.ts, which
+    // exercises the actual rendered layout in a real browser).
+    expect(screen.getByText(longName)).toBeInTheDocument()
+  })
+
   it('falls back to raw ids when rule/source lookups are missing', () => {
     render(<MatchCard match={buildMatch()} rule={undefined} source={undefined} recipients={[]} />)
 

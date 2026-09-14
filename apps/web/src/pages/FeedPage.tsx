@@ -6,7 +6,7 @@ import type { Recipient, Rule, Source } from '../api/types'
 import './FeedPage.css'
 
 export function FeedPage() {
-  const { matches, loading, error, connectionState } = useLiveMatches()
+  const { matches, loading, error, connectionState, refresh } = useLiveMatches()
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -19,8 +19,15 @@ export function FeedPage() {
 
   return (
     <main className="feed-page">
-      <h1>Feed ao vivo</h1>
-      <p className="feed-page__subtitle">Ofertas encontradas pelas suas regras, em tempo real.</p>
+      <div className="feed-page__header">
+        <div>
+          <h1>Feed ao vivo</h1>
+          <p className="feed-page__subtitle">Ofertas encontradas pelas suas regras, em tempo real.</p>
+        </div>
+        <button type="button" className="feed-page__refresh" onClick={refresh}>
+          Atualizar
+        </button>
+      </div>
       {connectionState === 'error' && (
         <p className="feed-page__connection-warning" role="status">
           Conexão com o feed caiu — tentando reconectar…

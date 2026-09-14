@@ -27,9 +27,7 @@
   font-size: 17px;
   font-weight: 700;
   color: #08060d;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 
 .match-card__meta {
@@ -37,9 +35,7 @@
   font-size: 13px;
   font-weight: 400;
   color: #4b4b52;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 
 .match-card__price {

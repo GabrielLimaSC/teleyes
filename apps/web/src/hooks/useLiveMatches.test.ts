@@ -99,6 +99,20 @@ describe('useLiveMatches', () => {
     expect(FakeEventSource.instances[0].closed).toBe(true)
   })
 
+  it('refresh() reloads the list on demand, same as an SSE event (S7-02)', async () => {
+    const spy = vi.spyOn(matchesApi, 'fetchMatches')
+    spy.mockResolvedValueOnce([]).mockResolvedValueOnce([buildMatch(1)])
+
+    const { result } = renderHook(() => useLiveMatches())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    result.current.refresh()
+
+    await waitFor(() => expect(result.current.matches).toHaveLength(1))
+    expect(spy).toHaveBeenCalledTimes(2)
+  })
+
   it('surfaces an error state when the initial load fails', async () => {
     vi.spyOn(matchesApi, 'fetchMatches').mockRejectedValue(new Error('boom'))
 
