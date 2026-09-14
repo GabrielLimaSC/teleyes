@@ -3,8 +3,8 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Select, exists, select
-from sqlalchemy.orm import Session
+from sqlalchemy import ScalarSelect, Select, exists, func, select
+from sqlalchemy.orm import Session, aliased
 
 from app.main import get_current_session, get_db
 from models import Delivery, Match
@@ -36,10 +36,34 @@ class MatchResponse(BaseModel):
     matched_at: datetime
     created_at: datetime
     deliveries: list[DeliveryResponse]
+    is_lowest_price_ever: bool
+
+
+def _lowest_price_cents_per_rule() -> ScalarSelect[int | None]:
+    """Scalar subquery: the true historical minimum `price_cents` for the
+    same rule as the outer `Match` row, `NULL` if that rule has no priced
+    match at all (S7-06).
+
+    Computed on every read, correlated into the same single query
+    `list_matches` already runs — never persisted on `Match` at insert time.
+    A historical scan (S6-02) processes a source's messages newest-to-oldest,
+    so "the minimum so far" at insert time would not reflect real
+    chronological order and could flag a stale/wrong match as the record;
+    computing it fresh on every read is always correct and never needs a
+    backfill when an even cheaper match is inserted later, live or
+    historical.
+    """
+    lowest = aliased(Match)
+    return (
+        select(func.min(lowest.price_cents))
+        .where(lowest.rule_id == Match.rule_id, lowest.price_cents.is_not(None))
+        .correlate(Match)
+        .scalar_subquery()
+    )
 
 
 def _match_filters(
-    statement: Select[tuple[Match, Delivery]],
+    statement: Select[tuple[Match, Delivery, int | None]],
     *,
     rule_id: int | None,
     source_id: int | None,
@@ -48,7 +72,7 @@ def _match_filters(
     min_price_cents: int | None,
     max_price_cents: int | None,
     delivery_status: str | None,
-) -> Select[tuple[Match, Delivery]]:
+) -> Select[tuple[Match, Delivery, int | None]]:
     if rule_id is not None:
         statement = statement.where(Match.rule_id == rule_id)
     if source_id is not None:
@@ -116,7 +140,9 @@ def list_matches(
             detail="min_price_cents must not exceed max_price_cents",
         )
 
-    statement = select(Match, Delivery).outerjoin(Delivery, Delivery.match_id == Match.id)
+    statement = select(Match, Delivery, _lowest_price_cents_per_rule()).outerjoin(
+        Delivery, Delivery.match_id == Match.id
+    )
     statement = _match_filters(
         statement,
         rule_id=rule_id,
@@ -129,7 +155,7 @@ def list_matches(
     ).order_by(*_order_by(sort))
 
     matches: dict[int, MatchResponse] = {}
-    for db_match, delivery in db.execute(statement):
+    for db_match, delivery, lowest_price_cents in db.execute(statement):
         response = matches.get(db_match.id)
         if response is None:
             response = MatchResponse(
@@ -142,6 +168,9 @@ def list_matches(
                 matched_at=db_match.matched_at,
                 created_at=db_match.created_at,
                 deliveries=[],
+                is_lowest_price_ever=(
+                    db_match.price_cents is not None and db_match.price_cents == lowest_price_cents
+                ),
             )
             matches[db_match.id] = response
         if delivery is not None:

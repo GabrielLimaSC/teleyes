@@ -217,7 +217,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Rules */
+        /**
+         * List Rules
+         * @description S7-06: `lowest_price_cents` (the true historical minimum among the
+         *     rule's own priced matches, `None` with no priced match yet) is computed
+         *     fresh here in one extra query — never persisted on `Rule`, same reasoning
+         *     as `Match.is_lowest_price_ever` in `app.routers.matches`.
+         */
         get: operations["list_rules_rules_get"];
         put?: never;
         /** Create Rule */
@@ -388,6 +394,8 @@ export interface components {
             deliveries: components["schemas"]["DeliveryResponse"][];
             /** Id */
             id: number;
+            /** Is Lowest Price Ever */
+            is_lowest_price_ever: boolean;
             /**
              * Matched At
              * Format: date-time
@@ -492,6 +500,8 @@ export interface components {
             id: number;
             /** Include Terms */
             include_terms: string;
+            /** Lowest Price Cents */
+            lowest_price_cents?: number | null;
             /** Max Price Cents */
             max_price_cents: number | null;
             /** Name */

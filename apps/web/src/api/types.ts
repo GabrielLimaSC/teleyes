@@ -16,6 +16,9 @@ export interface Match {
   matched_at: string
   created_at: string
   deliveries: Delivery[]
+  /** S7-06: computed fresh on every read from the rule's real match history —
+   * never a value stored on the match itself. */
+  is_lowest_price_ever: boolean
 }
 
 export interface Rule {
@@ -26,6 +29,9 @@ export interface Rule {
   max_price_cents: number | null
   active: boolean
   created_at: string
+  /** S7-06: the rule's true historical minimum among its own priced
+   * matches, or `null` with no priced match yet. */
+  lowest_price_cents: number | null
 }
 
 export interface Source {

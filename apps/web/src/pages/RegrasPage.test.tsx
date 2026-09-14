@@ -22,6 +22,7 @@ const baseRule = {
   max_price_cents: 400_000,
   active: true,
   created_at: '2026-01-01T00:00:00Z',
+  lowest_price_cents: null,
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -62,6 +63,27 @@ describe('RegrasPage', () => {
     expect(await screen.findByText('iPhone')).toBeInTheDocument()
     expect(screen.getByText('R$ 4.000,00')).toBeInTheDocument()
     expect(screen.getByText('ativa')).toBeInTheDocument()
+    // baseRule has no priced match yet — falls back to "—", not "R$ 0,00".
+    // "Termos bloqueados" also renders "—" for a null exclude_terms, so this
+    // targets the specific cell by its data-label instead of the bare text.
+    const row = screen.getByText('iPhone').closest('tr') as HTMLElement
+    expect(row.querySelector('[data-label="Menor preço já visto"]')).toHaveTextContent('—')
+  })
+
+  it('shows the real lowest price ever seen for a rule with a priced match (S7-06)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        withEmptyRecipients(() =>
+          Promise.resolve(jsonResponse([{ ...baseRule, lowest_price_cents: 199_00 }])),
+        ),
+      ),
+    )
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText('iPhone')).toBeInTheDocument()
+    expect(screen.getByText('R$ 199,00')).toBeInTheDocument()
   })
 
   it('creates a rule and shows the API validation error on failure', async () => {

@@ -15,6 +15,7 @@ function buildMatch(id: number): Match {
     matched_at: '2026-01-01T00:00:00Z',
     created_at: '2026-01-01T00:00:00Z',
     deliveries: [],
+    is_lowest_price_ever: false,
   }
 }
 

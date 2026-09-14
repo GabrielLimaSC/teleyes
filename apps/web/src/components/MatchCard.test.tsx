@@ -11,6 +11,7 @@ const rule: Rule = {
   max_price_cents: 400_000,
   active: true,
   created_at: '2026-01-01T00:00:00Z',
+  lowest_price_cents: null,
 }
 
 const source: Source = {
@@ -43,6 +44,7 @@ function buildMatch(overrides: Partial<Match> = {}): Match {
     matched_at: '2026-01-01T00:00:00Z',
     created_at: '2026-01-01T00:00:00Z',
     deliveries: [],
+    is_lowest_price_ever: false,
     ...overrides,
   }
 }

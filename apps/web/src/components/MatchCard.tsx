@@ -22,10 +22,11 @@ export function MatchCard({
   rule: Rule | undefined
   source: Source | undefined
   recipients: Recipient[]
-  /** Aurora Glow ring (docs/SPRINT4_DIRECTION.md) — always false in the real
-   * app today: Match/Rule carry no price-history data yet (backlog), so
-   * nothing can honestly set this true. The prop exists so the component is
-   * built and tested ahead of that data landing. */
+  /** Aurora Glow ring (docs/SPRINT4_DIRECTION.md). S7-06: driven by
+   * `Match.is_lowest_price_ever`, computed on the backend on every read from
+   * the rule's real match history — never a value stored on the match
+   * itself. Defaults to `false` for callers (tests, mostly) that don't pass
+   * it. */
   isLowestPriceEver?: boolean
 }) {
   const category = categorize(match.message_text)
