@@ -1,100 +1,265 @@
 .nav-shell {
   display: flex;
+  min-height: 88px;
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  padding: 20px 16px 8px;
-  flex-wrap: wrap;
+  padding: 14px 12px 4px;
 }
 
-.nav-wordmark {
-  font-size: 20px;
-  font-weight: 600;
-  color: #08060d;
-  letter-spacing: -0.02em;
+.nav-glass-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 
 .nav-capsule {
   position: relative;
-  display: flex;
+  display: grid;
+  width: min(650px, calc(100vw - 24px));
+  height: 64px;
+  grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
   align-items: center;
-  gap: 4px;
-  background: #17181c;
-  border-radius: 999px;
-  padding: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-}
-
-.nav-capsule__goo-layer {
-  position: absolute;
-  inset: 0;
-  /* Plain CSS filter functions instead of an SVG url(#id) filter reference —
-   * simpler, and one fewer moving part while tracking down the pill
-   * disappearing during page transitions below (S4-09 finish pass). Same
-   * blur+contrast "goo" technique the SVG version used. */
-  filter: blur(6px) contrast(20);
+  isolation: isolate;
   pointer-events: none;
 }
 
-.nav-pill {
+.nav-capsule__glass {
   position: absolute;
-  background: #ffffff;
+  inset: 4px 0;
+  overflow: hidden;
   border-radius: 999px;
-  /* ease-out-expo — smooth deceleration, no bounce/overshoot. */
+  opacity: 0;
+  transform: scaleX(0.11);
+  box-shadow:
+    0 14px 38px rgba(8, 6, 13, 0.24),
+    0 3px 8px rgba(8, 6, 13, 0.12);
+  transform-origin: center;
   transition:
-    left 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    top 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease-out;
+}
+
+.nav-glass__refraction,
+.nav-mascot__refraction,
+.nav-glass__tint,
+.nav-mascot__tint,
+.nav-glass__shine,
+.nav-mascot__shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nav-glass__refraction,
+.nav-mascot__refraction {
+  background: rgba(20, 21, 27, 0.08);
+  -webkit-backdrop-filter: blur(6px) saturate(190%) contrast(112%);
+  backdrop-filter: blur(6px) saturate(190%) contrast(112%);
+  filter: url('#nav-glass-refraction');
+}
+
+.nav-glass__tint,
+.nav-mascot__tint {
+  background:
+    linear-gradient(105deg, rgba(255, 255, 255, 0.13), transparent 34%),
+    rgba(12, 13, 18, 0.58);
+}
+
+.nav-glass__shine,
+.nav-mascot__shine {
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: inherit;
+  box-shadow:
+    inset 1px 1px 1px rgba(255, 255, 255, 0.34),
+    inset -1px -2px 2px rgba(0, 0, 0, 0.24),
+    inset 0 -1px 12px rgba(92, 132, 255, 0.08);
+}
+
+.nav-capsule__wing {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  opacity: 0;
+  transform: translateX(var(--wing-shift));
+  transition:
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1) 35ms,
+    opacity 160ms ease-out 25ms;
+}
+
+.nav-capsule__wing--left {
+  --wing-shift: 22px;
+  grid-column: 1;
+  justify-content: flex-end;
+  padding-left: 8px;
+}
+
+.nav-capsule__wing--right {
+  --wing-shift: -22px;
+  grid-column: 3;
+  justify-content: flex-start;
+  padding-right: 8px;
+}
+
+.nav-capsule:hover .nav-capsule__glass,
+.nav-capsule:focus-within .nav-capsule__glass,
+.nav-capsule--pinned .nav-capsule__glass {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.nav-capsule:hover .nav-capsule__wing,
+.nav-capsule:focus-within .nav-capsule__wing,
+.nav-capsule--pinned .nav-capsule__wing {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .nav-tab {
   position: relative;
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: #b8b9bf;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 8px 18px;
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
+  color: #d7d8de;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1;
+  padding: 8px 12px;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 200ms ease;
+  transition:
+    color 180ms ease-out,
+    background-color 180ms ease-out,
+    box-shadow 180ms ease-out;
 }
 
 .nav-tab:hover {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .nav-tab--active,
 .nav-tab--active:hover {
-  color: #08060d;
+  color: #0d0d12;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 #ffffff;
 }
 
-.nav-tab:focus-visible {
-  outline: 2px solid #7fb3ff;
-  outline-offset: 2px;
+.nav-tab:focus-visible,
+.nav-mascot:focus-visible {
+  outline: 3px solid #4f8cff;
+  outline-offset: 3px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nav-capsule__goo-layer {
-    filter: none;
-  }
+.nav-mascot {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  box-shadow:
+    0 12px 28px rgba(8, 6, 13, 0.28),
+    0 0 22px rgba(255, 255, 255, 0.32);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms ease-out;
+}
 
-  .nav-pill {
-    transition: none;
-  }
+.nav-mascot:hover {
+  transform: translate(-50%, -50%) scale(1.035);
+  box-shadow:
+    0 14px 32px rgba(8, 6, 13, 0.3),
+    0 0 28px rgba(255, 255, 255, 0.44);
+}
+
+.nav-mascot__refraction,
+.nav-mascot__tint,
+.nav-mascot__shine {
+  border-radius: 50%;
+}
+
+.nav-mascot__tint {
+  background:
+    radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.26), transparent 38%),
+    rgba(15, 17, 24, 0.38);
+}
+
+.nav-mascot img {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 66px;
+  height: 66px;
+  margin: 7px auto 0;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.26));
+  transform: scale(1.05);
 }
 
 @media (max-width: 640px) {
   .nav-shell {
-    flex-direction: column;
-    gap: 12px;
+    min-height: 80px;
+    padding-inline: 8px;
   }
 
   .nav-capsule {
-    flex-wrap: wrap;
-    justify-content: center;
-    border-radius: 20px;
+    width: calc(100vw - 16px);
+    height: 58px;
+    grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+  }
+
+  .nav-capsule__glass {
+    inset-block: 2px;
+  }
+
+  .nav-capsule__wing--left {
+    padding-left: 4px;
+  }
+
+  .nav-capsule__wing--right {
+    padding-right: 4px;
+  }
+
+  .nav-tab {
+    min-height: 34px;
+    padding: 7px 4px;
+    font-size: 10.5px;
+  }
+
+  .nav-mascot {
+    width: 64px;
+    height: 64px;
+  }
+
+  .nav-mascot img {
+    width: 57px;
+    height: 57px;
+    margin-top: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-capsule__glass,
+  .nav-capsule__wing,
+  .nav-tab,
+  .nav-mascot {
+    transition: none;
   }
 }

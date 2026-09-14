@@ -188,23 +188,30 @@ test('the nav capsule is fully reachable by keyboard with visible focus', async 
   await apiLogin(page)
   await page.goto('/feed')
 
-  const feedLink = page.getByRole('link', { name: 'Feed' })
-  await feedLink.focus()
-  await expect(feedLink).toBeFocused()
+  const labels = ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Saúde']
+  const loginLink = page.getByRole('link', { name: 'Login' })
+  await loginLink.focus()
+  await expect(loginLink).toBeFocused()
+  await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
 
-  await page.keyboard.press('Tab')
-  await expect(page.getByRole('link', { name: 'Regras' })).toBeFocused()
+  for (const label of labels.slice(1)) {
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: label })).toBeFocused()
+  }
 
+  await page.getByRole('link', { name: 'Regras' }).focus()
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL('/regras')
 })
 
-test('respects prefers-reduced-motion: the nav pill transition is disabled', async ({ page }) => {
+test('respects prefers-reduced-motion: the nav expansion transition is disabled', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
   await apiLogin(page)
   await page.goto('/feed')
 
-  const transition = await page.locator('.nav-pill').evaluate((el) => getComputedStyle(el).transitionDuration)
-  expect(transition).toMatch(/^0s(,\s*0s)*$/)
+  for (const selector of ['.nav-capsule__glass', '.nav-capsule__wing', '.nav-mascot']) {
+    const transition = await page.locator(selector).first().evaluate((el) => getComputedStyle(el).transitionDuration)
+    expect(transition).toMatch(/^0s(,\s*0s)*$/)
+  }
 })

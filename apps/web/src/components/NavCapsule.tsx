@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import './NavCapsule.css'
 
 const TABS = [
@@ -11,72 +11,90 @@ const TABS = [
   { to: '/saude', label: 'Saúde' },
 ]
 
-function activeIndex(pathname: string): number {
-  const index = TABS.findIndex((tab) => (tab.to === '/' ? pathname === '/' : pathname.startsWith(tab.to)))
-  return index === -1 ? 0 : index
+function NavTab({ to, label, onNavigate }: (typeof TABS)[number] & { onNavigate: () => void }) {
+  return (
+    <NavLink
+      to={to}
+      end={to === '/'}
+      className={({ isActive }) => 'nav-tab' + (isActive ? ' nav-tab--active' : '')}
+      onClick={onNavigate}
+    >
+      {label}
+    </NavLink>
+  )
 }
 
 export function NavCapsule() {
-  const location = useLocation()
-  const tabRefs = useRef<(HTMLAnchorElement | null)[]>([])
-  const [pillStyle, setPillStyle] = useState<{
-    left: number
-    top: number
-    width: number
-    height: number
-  } | null>(null)
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const activeTab = tabRefs.current[activeIndex(location.pathname)]
-      if (activeTab === null || activeTab === undefined) return
-      // top/height too, not just left/width — the capsule wraps to multiple
-      // rows on narrow screens (NavCapsule.css), so the pill must follow.
-      setPillStyle({
-        left: activeTab.offsetLeft,
-        top: activeTab.offsetTop,
-        width: activeTab.offsetWidth,
-        height: activeTab.offsetHeight,
-      })
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [location.pathname])
+  const [isPinnedOpen, setIsPinnedOpen] = useState(false)
 
   return (
     <header className="nav-shell">
-      <span className="nav-wordmark">teleyes</span>
-      <nav className="nav-capsule" aria-label="Navegação principal">
-        {/* The gooey "metaball" look: the pill's own blurred, contrast-boosted
-            edges deform as `left`/`width` transition between tabs — filter and
-            transition both fall away under prefers-reduced-motion. */}
-        <div className="nav-capsule__goo-layer">
-          {pillStyle && (
-            <span
-              className="nav-pill"
-              style={{
-                left: pillStyle.left,
-                top: pillStyle.top,
-                width: pillStyle.width,
-                height: pillStyle.height,
-              }}
-            />
-          )}
-        </div>
-        {TABS.map((tab, index) => (
-          <NavLink
-            key={tab.to}
-            ref={(element) => {
-              tabRefs.current[index] = element
-            }}
-            to={tab.to}
-            end={tab.to === '/'}
-            className={({ isActive }) => 'nav-tab' + (isActive ? ' nav-tab--active' : '')}
+      <svg className="nav-glass-filter" aria-hidden="true">
+        <defs>
+          <filter
+            id="nav-glass-refraction"
+            x="-15%"
+            y="-35%"
+            width="130%"
+            height="170%"
+            colorInterpolationFilters="sRGB"
           >
-            {tab.label}
-          </NavLink>
-        ))}
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.012 0.08"
+              numOctaves="1"
+              seed="7"
+              result="surface"
+            />
+            <feGaussianBlur in="surface" stdDeviation="1.4" result="softSurface" />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="softSurface"
+              scale="34"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
+          </filter>
+        </defs>
+      </svg>
+
+      <nav
+        className={'nav-capsule' + (isPinnedOpen ? ' nav-capsule--pinned' : '')}
+        aria-label="Navegação principal"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') setIsPinnedOpen(false)
+        }}
+      >
+        <span className="nav-capsule__glass" aria-hidden="true">
+          <span className="nav-glass__refraction" />
+          <span className="nav-glass__tint" />
+          <span className="nav-glass__shine" />
+        </span>
+
+        <span className="nav-capsule__wing nav-capsule__wing--left">
+          {TABS.slice(0, 3).map((tab) => (
+            <NavTab key={tab.to} {...tab} onNavigate={() => setIsPinnedOpen(false)} />
+          ))}
+        </span>
+
+        <span className="nav-capsule__wing nav-capsule__wing--right">
+          {TABS.slice(3).map((tab) => (
+            <NavTab key={tab.to} {...tab} onNavigate={() => setIsPinnedOpen(false)} />
+          ))}
+        </span>
+
+        <button
+          type="button"
+          className="nav-mascot"
+          aria-label={isPinnedOpen ? 'Recolher navegação' : 'Expandir navegação'}
+          aria-expanded={isPinnedOpen}
+          onClick={() => setIsPinnedOpen((open) => !open)}
+        >
+          <span className="nav-mascot__refraction" aria-hidden="true" />
+          <span className="nav-mascot__tint" aria-hidden="true" />
+          <span className="nav-mascot__shine" aria-hidden="true" />
+          <img src="/mascot.png" alt="" width="256" height="256" />
+        </button>
       </nav>
     </header>
   )
