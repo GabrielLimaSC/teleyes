@@ -226,4 +226,63 @@ describe('MatchCard', () => {
 
     expect(screen.getByText('Visto em: CMdias, Wolf Ofertas')).toBeInTheDocument()
   })
+
+  it('shows only the text before the first link, dropping URLs and footer (S8-02)', () => {
+    const realCmdiasText =
+      '🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF: ' +
+      'https://s.shopee.com.br/abc ⚠️Cupom, preço e estoque por tempo limitado. Anúncio'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: realCmdiasText })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(
+      screen.getByText('🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF:'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/shopee\.com\.br/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Anúncio/)).not.toBeInTheDocument()
+  })
+
+  it('shows the full text unchanged when the message has no link (S8-02)', () => {
+    const noLinkText = 'RTX 5070 por R$ 4.516, sem link nenhum aqui'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: noLinkText })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByText(noLinkText)).toBeInTheDocument()
+  })
+
+  it('falls back to the full text when the link sits at the very start (S8-02)', () => {
+    const linkFirstText = 'https://s.shopee.com.br/abc RTX 5070 por R$ 4.516'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: linkFirstText })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    // Truncating here would leave an empty card — showing everything beats
+    // showing nothing, same principle as S7-02's "never lose information".
+    expect(screen.getByText(linkFirstText)).toBeInTheDocument()
+  })
+
+  it('never cuts a word mid-way right before the link (S8-02)', () => {
+    const text = 'RTX5070promocao https://s.shopee.com.br/abc'
+    render(
+      <MatchCard match={buildMatch({ message_text: text })} rule={rule} source={source} recipients={[]} />,
+    )
+
+    expect(screen.getByText('RTX5070promocao')).toBeInTheDocument()
+  })
 })
