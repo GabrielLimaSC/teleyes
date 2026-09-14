@@ -64,6 +64,27 @@ test('creating a source with a duplicate chat id shows the real 409 as feedback'
   await expect(page.getByRole('alert')).toBeVisible()
 })
 
+test('the Regras and Destinatários tables share the same container width and left edge (S7-01)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/regras')
+
+  const wraps = page.locator('.crud-page .crud-table-wrap')
+  await expect(wraps).toHaveCount(2)
+
+  const rulesBox = await wraps.nth(0).boundingBox()
+  const recipientsBox = await wraps.nth(1).boundingBox()
+  expect(rulesBox).not.toBeNull()
+  expect(recipientsBox).not.toBeNull()
+  // Same left edge and width — the S7-01 bug was DestinatariosSection
+  // rendering outside RegrasPage's 900px-centered `.crud-page` container,
+  // stretching full-width instead of sharing it.
+  expect(recipientsBox!.x).toBeCloseTo(rulesBox!.x, 0)
+  expect(recipientsBox!.width).toBeCloseTo(rulesBox!.width, 0)
+})
+
 test('creates and pauses a recipient from the Regras page', async ({ page }) => {
   await page.goto('/')
   await apiLogin(page)

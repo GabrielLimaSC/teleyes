@@ -28,6 +28,24 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
+/**
+ * S7-01: `RegrasPage` now renders `DestinatariosSection` inline (same
+ * `.crud-page` container, no longer a sibling route element), so every test
+ * here also has to answer its `GET /recipients` call — otherwise it either
+ * throws on an unhandled URL or, worse, silently reuses the rules mock data
+ * as if it were recipients (a rule named "iPhone" becomes a fake "ativa"
+ * recipient row, breaking `getByRole('button', { name: 'ativa' })`
+ * uniqueness). Always empty here: no test in this file exercises recipients.
+ */
+function withEmptyRecipients(
+  handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+) {
+  return (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+    return handler(input, init)
+  }
+}
+
 describe('RegrasPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -36,7 +54,7 @@ describe('RegrasPage', () => {
   it('lists rules with their terms, price limit and status', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.resolve(jsonResponse([baseRule]))),
+      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))),
     )
 
     render(<RegrasPage />)
@@ -47,14 +65,16 @@ describe('RegrasPage', () => {
   })
 
   it('creates a rule and shows the API validation error on failure', async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const method = init?.method ?? 'GET'
-      if (method === 'GET') return Promise.resolve(jsonResponse([]))
-      if (method === 'POST') {
-        return Promise.resolve(jsonResponse({ detail: 'include_terms must not be blank' }, 422))
-      }
-      throw new Error(`unexpected ${method} ${String(input)}`)
-    })
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'GET') return Promise.resolve(jsonResponse([]))
+        if (method === 'POST') {
+          return Promise.resolve(jsonResponse({ detail: 'include_terms must not be blank' }, 422))
+        }
+        throw new Error(`unexpected ${method} ${String(input)}`)
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
@@ -71,7 +91,7 @@ describe('RegrasPage', () => {
   it('duplicating a rule pre-fills the create form with a copy suffix', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.resolve(jsonResponse([baseRule]))),
+      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))),
     )
     const user = userEvent.setup()
 
@@ -85,33 +105,38 @@ describe('RegrasPage', () => {
   })
 
   it('the rule tester previews a match without calling the API', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse([baseRule])))
+    const fetchMock = vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule]))))
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
     render(<RegrasPage />)
+    await screen.findByText('iPhone')
 
     await user.click(await screen.findByRole('button', { name: 'Testar' }))
     await user.type(screen.getByLabelText('Mensagem de exemplo'), 'Promoção iPhone 15')
 
     expect(await screen.findByText('✅ Bateria com esta regra')).toBeInTheDocument()
-    // only the initial GET /rules call — the tester never touches the network
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    // Only the initial mount calls — GET /rules and DestinatariosSection's own
+    // GET /recipients (S7-01: it now renders inline, inside the same page) —
+    // the tester itself never touches the network.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
   })
 
   it('pausing a rule calls the pause endpoint and reloads the list', async () => {
     const paused = { ...baseRule, active: false }
     let pauseCalled = false
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input)
-      const method = init?.method ?? 'GET'
-      if (url.endsWith('/pause')) {
-        pauseCalled = true
-        return Promise.resolve(jsonResponse(paused))
-      }
-      if (method === 'GET') return Promise.resolve(jsonResponse(pauseCalled ? [paused] : [baseRule]))
-      throw new Error(`unexpected ${method} ${url}`)
-    })
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url.endsWith('/pause')) {
+          pauseCalled = true
+          return Promise.resolve(jsonResponse(paused))
+        }
+        if (method === 'GET') return Promise.resolve(jsonResponse(pauseCalled ? [paused] : [baseRule]))
+        throw new Error(`unexpected ${method} ${url}`)
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 

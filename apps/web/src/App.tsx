@@ -6,7 +6,6 @@ import { LoginPage } from './pages/LoginPage'
 import { FeedPage } from './pages/FeedPage'
 import { HistoricoPage } from './pages/HistoricoPage'
 import { RegrasPage } from './pages/RegrasPage'
-import { DestinatariosSection } from './pages/DestinatariosSection'
 import { FontesPage } from './pages/FontesPage'
 import { SaudePage } from './pages/SaudePage'
 
@@ -30,7 +29,6 @@ function App() {
           element={
             <RequireAuth>
               <RegrasPage />
-              <DestinatariosSection />
             </RequireAuth>
           }
         />
