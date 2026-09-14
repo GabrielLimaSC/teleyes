@@ -11,6 +11,7 @@ const EMPTY: FilterForm = {
   minPriceReais: '',
   maxPriceReais: '',
   deliveryStatus: '',
+  sort: '',
 }
 
 describe('toApiFilters', () => {
@@ -29,6 +30,12 @@ describe('toApiFilters', () => {
     expect(
       toApiFilters({ ...EMPTY, ruleId: '1', sourceId: '2', recipientId: '3', deliveryStatus: 'sent' }),
     ).toEqual({ ruleId: 1, sourceId: 2, recipientId: 3, deliveryStatus: 'sent' })
+  })
+
+  it('forwards sort only when a direction is chosen (S7-07)', () => {
+    expect(toApiFilters(EMPTY)).toEqual({})
+    expect(toApiFilters({ ...EMPTY, sort: 'price_asc' })).toEqual({ sort: 'price_asc' })
+    expect(toApiFilters({ ...EMPTY, sort: 'price_desc' })).toEqual({ sort: 'price_desc' })
   })
 })
 
@@ -97,6 +104,37 @@ describe('HistoricoPage', () => {
     await waitFor(() => {
       const matchCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/matches'))
       expect(matchCalls.at(-1)?.[0]).toBe('/matches?delivery_status=historical')
+    })
+  })
+
+  it('offers and forwards the price sort control (S7-07)', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<HistoricoPage />)
+
+    const sortSelect = await screen.findByLabelText('Ordenar por')
+    expect(screen.getByRole('option', { name: 'Menor preço primeiro' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Maior preço primeiro' })).toBeInTheDocument()
+
+    await user.selectOptions(sortSelect, 'price_asc')
+    await waitFor(() => {
+      const matchCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/matches'))
+      expect(matchCalls.at(-1)?.[0]).toBe('/matches?sort=price_asc')
+    })
+
+    await user.selectOptions(sortSelect, 'price_desc')
+    await waitFor(() => {
+      const matchCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/matches'))
+      expect(matchCalls.at(-1)?.[0]).toBe('/matches?sort=price_desc')
     })
   })
 
