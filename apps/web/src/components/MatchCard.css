@@ -38,6 +38,22 @@
   overflow-wrap: break-word;
 }
 
+.match-card__timestamp {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #8a8a92;
+}
+
+.match-card__link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #17181c;
+  text-decoration: underline;
+}
+
 .match-card__price {
   flex: 0 0 auto;
   margin: 0 8px;

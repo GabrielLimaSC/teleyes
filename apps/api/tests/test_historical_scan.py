@@ -308,3 +308,30 @@ async def test_live_event_after_a_historical_scan_still_sends_a_real_alert(
     assert live_result.match is not None
     assert len(bot_client.sent) == 1
     assert session.scalar(select(func.count()).select_from(Match)) == 2
+
+
+async def test_historical_scan_populates_the_real_telegram_link_for_a_supergroup_source(
+    db_path: Path, session: Session
+) -> None:
+    """S7-10: proves the historical (non-notifying) path fills
+    `Match.message_link` too, not just the live/reconnect catch-up.
+    """
+    fixture = _fixture(db_path, session)
+    now = datetime.now(UTC)
+    client = FakeTelegramClient(
+        messages=[_msg(9, "Promoção iphone por R$ 100", date=now - timedelta(hours=1))]
+    )
+    listener_source = ListenerSource(
+        source_id=fixture.source.id,
+        chat_id="-100123",
+        rules=[fixture.rule],
+        recipients=[fixture.recipient],
+    )
+
+    results = await run_historical_scan(
+        fixture.session_factory, client, listener_source, before=now
+    )
+
+    assert len(results) == 1
+    assert results[0].match is not None
+    assert results[0].match.message_link == "https://t.me/c/123/9"

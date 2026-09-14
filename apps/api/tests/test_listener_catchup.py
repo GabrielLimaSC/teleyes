@@ -246,3 +246,27 @@ async def test_catch_up_evaluates_every_rule_without_starving_later_rules(
     assert len(results) == 4
     assert sum(1 for r in results if r.match is not None) == 2
     assert get_cursor(session, source.id) == 2
+
+
+async def test_catch_up_populates_the_real_telegram_link_for_a_supergroup_source(
+    session: Session, session_factory: sessionmaker[Session]
+) -> None:
+    """S7-10: `Match.message_link` was always `None` before — this proves the
+    recovered/notifying catch-up path actually fills it now, for a source
+    whose `telegram_chat_id` follows the real `-100<internal id>` supergroup
+    convention (`_seed`'s `"-100123"`).
+    """
+    source, rule, recipient = _seed(session)
+    client = FakeTelegramClient(messages=[_msg(7, text="Promoção iphone por R$ 100")])
+    notifier = BotNotifier(bot_token="token", client=FakeBotClient(), allowlisted_chat_ids={"999"})
+    listener_source = ListenerSource(
+        source_id=source.id, chat_id="-100123", rules=[rule], recipients=[recipient]
+    )
+
+    results = await catch_up_since_cursor(
+        session_factory, client, listener_source, notifier, DedupeCache()
+    )
+
+    assert len(results) == 1
+    assert results[0].match is not None
+    assert results[0].match.message_link == "https://t.me/c/123/7"
