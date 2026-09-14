@@ -6,11 +6,6 @@ import './styles/viewTransitions.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
 
-// NavCapsule's NavLink `viewTransition` prop only wraps navigations in
-// document.startViewTransition() under the data router (createBrowserRouter
-// + RouterProvider) — under the plain <BrowserRouter> it used to silently no-op,
-// so the diagonal page-reveal keyframe (viewTransitions.css) never actually
-// fired despite the prop being set (S4-09 finish pass).
 const router = createBrowserRouter([
   {
     path: '*',
