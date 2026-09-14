@@ -14,6 +14,19 @@ _MONEY_RE = re.compile(
 _CASH_ANCHOR_RE = re.compile(r"\b(?:a\s*vista|à\s*vista|pix)\b", re.IGNORECASE)
 _CARD_ANCHOR_RE = re.compile(r"\b(?:cart[aã]o|parcelado)\b", re.IGNORECASE)
 
+# S8-01: coupon/discount keywords from the real CMdias message ("cupom de R$
+# 90 OFF") plus the task's own confirmed wording variations ("R$X de
+# desconto", "cupom: R$X") — anchored on confirmed keywords, not an inferred
+# pattern (CLAUDE.md). Split by which side of the anchor the value falls on
+# in every confirmed example: "cupom" always precedes its value ("cupom de
+# R$X", "cupom: R$X"); "off"/"desconto" always follow theirs ("R$X off",
+# "R$X de desconto") — directional, so an unrelated real price sitting a few
+# characters away on the *other* side (e.g. "R$ 500, cupom de R$ 50 off")
+# can never be picked by raw nearest-distance instead of the actual coupon
+# value.
+_COUPON_PRECEDING_RE = re.compile(r"\bcupom\b", re.IGNORECASE)
+_COUPON_FOLLOWING_RE = re.compile(r"\b(?:off|desconto)\b", re.IGNORECASE)
+
 
 @dataclass
 class PriceExtraction:
@@ -71,6 +84,14 @@ def _nearest_candidate(position: int, candidates: list[_Candidate]) -> _Candidat
     return min(candidates, key=lambda c: _distance_to_candidate(position, c))
 
 
+def _nearest_candidate_after(position: int, candidates: list[_Candidate]) -> _Candidate | None:
+    return _nearest_candidate(position, [c for c in candidates if c.span[0] >= position])
+
+
+def _nearest_candidate_before(position: int, candidates: list[_Candidate]) -> _Candidate | None:
+    return _nearest_candidate(position, [c for c in candidates if c.span[1] <= position])
+
+
 def _detect_cash_and_card(text: str, candidates: list[_Candidate]) -> tuple[int, int] | None:
     """Cash/card split (S7-05), or `None` if the message doesn't unambiguously
     anchor two distinct values.
@@ -111,6 +132,37 @@ def _detect_cash_and_card(text: str, candidates: list[_Candidate]) -> tuple[int,
     return cash_candidate.cents, card_candidate.cents
 
 
+def _drop_coupon_candidates(text: str, candidates: list[_Candidate]) -> list[_Candidate]:
+    """S8-01: a price value anchored to a coupon/discount keyword ("cupom de
+    R$ 90 OFF" in the real CMdias message that exposed this) is never the
+    product price — not as the main candidate, not as a last-resort fallback
+    either (unlike an installment amount, which legitimately can be the price
+    when it's the only candidate in the message).
+
+    Each anchor occurrence excludes only the nearest candidate on its
+    confirmed side (`_COUPON_PRECEDING_RE`/`_COUPON_FOLLOWING_RE`) — an
+    unrelated real price sitting closer in raw character distance, but on
+    the wrong side of the anchor, is never picked (that's why this can't
+    reuse the plain `_nearest_candidate` `_detect_cash_and_card` uses: "cupom
+    de" there is often only a few characters past an unrelated, real price
+    stated just before it).
+    """
+    excluded: list[_Candidate] = []
+
+    def _exclude(candidate: _Candidate | None) -> None:
+        if candidate is not None and all(candidate is not already for already in excluded):
+            excluded.append(candidate)
+
+    for anchor in _COUPON_PRECEDING_RE.finditer(text):
+        _exclude(_nearest_candidate_after(anchor.end(), candidates))
+    for anchor in _COUPON_FOLLOWING_RE.finditer(text):
+        _exclude(_nearest_candidate_before(anchor.start(), candidates))
+
+    if not excluded:
+        return candidates
+    return [c for c in candidates if all(c is not dropped for dropped in excluded)]
+
+
 def extract_price(text: str) -> PriceExtraction:
     """Conservatively extract a price in cents from a message.
 
@@ -118,10 +170,13 @@ def extract_price(text: str) -> PriceExtraction:
     written with a comma decimal (`3899,90`) — plain digits (`128GB`, a year,
     a quantity) are ignored. Values preceded by an installment count
     (`12x de`) are treated as installment amounts, not the total price,
-    *unless* it is the only value in the whole message. When multiple total
-    (non-installment) prices are found, the lowest one is returned and the
-    result is marked ambiguous — unless they can be told apart as a cash vs.
-    card price (S7-05, see `_detect_cash_and_card`).
+    *unless* it is the only value in the whole message. A value anchored to a
+    coupon/discount keyword (S8-01, see `_drop_coupon_candidates`) is dropped
+    before anything else and never becomes the price, even as the sole
+    remaining candidate. When multiple total (non-installment) prices are
+    found, the lowest one is returned and the result is marked ambiguous —
+    unless they can be told apart as a cash vs. card price (S7-05, see
+    `_detect_cash_and_card`).
     """
     candidates: list[_Candidate] = []
     for match in _MONEY_RE.finditer(text):
@@ -138,6 +193,10 @@ def extract_price(text: str) -> PriceExtraction:
             )
         )
 
+    if not candidates:
+        return PriceExtraction(price_cents=None)
+
+    candidates = _drop_coupon_candidates(text, candidates)
     if not candidates:
         return PriceExtraction(price_cents=None)
 
