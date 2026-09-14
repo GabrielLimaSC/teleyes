@@ -54,6 +54,24 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/Verificando sessão/)).not.toBeInTheDocument()
   })
 
+  it('shows the teleyes mascot as a decorative brand image (S7-09)', async () => {
+    mockFetch({})
+
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+
+    await screen.findByLabelText('Senha')
+    // Decorative — the "teleyes" heading right next to it already names the
+    // brand for screen readers, so an empty alt avoids redundant noise
+    // rather than announcing "imagem" or repeating the name.
+    const mascot = document.querySelector('.login-card__mascot')
+    expect(mascot).toBeInTheDocument()
+    expect(mascot).toHaveAttribute('alt', '')
+  })
+
   it('logs in with the real API contract and shows the authenticated view', async () => {
     let loggedIn = false
     mockFetch({
