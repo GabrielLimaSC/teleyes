@@ -167,5 +167,55 @@ describe('RegrasPage', () => {
     await user.click(await screen.findByRole('button', { name: 'ativa' }))
 
     expect(await screen.findByRole('button', { name: 'pausada' })).toBeInTheDocument()
+    // S9-02: pausing had no success feedback at all before this — the S7-11
+    // status toggle change itself is evidence enough of success on its own,
+    // but the toast confirms the gap the task set out to fill is covered.
+    expect(await screen.findByRole('status')).toHaveTextContent('Regra pausada.')
+  })
+
+  it('creating a rule shows a success toast (S9-02)', async () => {
+    let created = false
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'POST') {
+          created = true
+          return Promise.resolve(jsonResponse({ ...baseRule, id: 2, name: 'Nova regra' }, 201))
+        }
+        if (method === 'GET') return Promise.resolve(jsonResponse(created ? [baseRule, { ...baseRule, id: 2, name: 'Nova regra' }] : [baseRule]))
+        throw new Error(`unexpected ${method} ${String(input)}`)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: '+ Nova regra' }))
+    await user.type(screen.getByLabelText(/Nome/), 'Nova regra')
+    await user.type(screen.getByLabelText(/Termos incluídos/), 'novo termo')
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Regra criada.')
+  })
+
+  it('updating a rule shows a distinct success toast from creating (S9-02)', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'PATCH') return Promise.resolve(jsonResponse({ ...baseRule, name: 'iPhone editado' }))
+        if (method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+        throw new Error(`unexpected ${method} ${String(input)}`)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Regra atualizada.')
   })
 })

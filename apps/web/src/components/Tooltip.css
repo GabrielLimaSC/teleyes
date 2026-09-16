@@ -1,0 +1,47 @@
+/* S9-02: liquid glass tooltip — a real gap. First use: MatchCard's S9-06
+   title cut reveals the rest of the message on hover/focus instead of
+   just discarding it, so "never hide information" still holds even after
+   the cut. Block by default: the one real caller wraps a block-level `<p>`
+   (the card title), and inline-block's shrink-to-fit sizing would otherwise
+   narrow the trigger below its content's full available width. */
+
+.tooltip {
+  position: relative;
+  display: block;
+}
+
+.tooltip__bubble {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 50;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  font-family: var(--font-body);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text);
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    visibility 150ms;
+  pointer-events: none;
+}
+
+.tooltip:hover .tooltip__bubble,
+.tooltip:focus-within .tooltip__bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip__bubble {
+    transition: none;
+  }
+}
