@@ -300,7 +300,10 @@ def test_matches_sort_defaults_to_recency_and_rejects_unknown_values(
 
     default_response = api.client.get("/matches")
     assert default_response.status_code == 200
-    # Same order as before S7-07 existed: most recently inserted first.
+    # All three share the same `matched_at` in `_seed_matches` — this order
+    # comes from the `Match.id.desc()` *tiebreaker* (S10-03), not from
+    # `matched_at` itself, which ties here and proves nothing about recency
+    # order on its own — see the dedicated out-of-order test below for that.
     assert [item["id"] for item in default_response.json()] == [
         ids["match_c"],
         ids["match_b"],
@@ -309,6 +312,100 @@ def test_matches_sort_defaults_to_recency_and_rejects_unknown_values(
 
     invalid_response = api.client.get("/matches", params={"sort": "price"})
     assert invalid_response.status_code == 422
+
+
+def test_matches_default_order_is_real_chronological_order_not_insertion_order(
+    api: ApiContext,
+) -> None:
+    """S10-03: real production regression — a historical re-scan (S6-02)
+    inserts matches for old messages out of order every time the listener
+    restarts, so `Match.id.desc()` alone (insertion order) quietly stopped
+    tracking real recency. Confirmed against production data: zero
+    correlation between `id` and `matched_at` after a few restarts.
+
+    Seeds three matches whose *insertion* order is scrambled relative to
+    their `matched_at` order, mirroring the real production shape (a recent
+    real-time match inserted first, gets the lowest id; an old historical
+    match inserted after it, gets a higher id despite being older).
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo S10-03", telegram_chat_id="-1010")
+        rule = Rule(name="Regra S10-03", include_terms="produto")
+        session.add_all([source, rule])
+        session.flush()
+
+        def make(text: str, matched_at: datetime) -> Match:
+            match = Match(
+                source_id=source.id,
+                rule_id=rule.id,
+                message_text=text,
+                price_cents=10_000,
+                matched_at=matched_at,
+            )
+            session.add(match)
+            session.flush()
+            return match
+
+        # Insertion order: recent, old, middle — deliberately not sorted
+        # either way, so a passing test can't be an accident of coincidence.
+        recent = make("Produto recente", now)
+        old = make("Produto antigo", now - timedelta(days=7))
+        middle = make("Produto do meio", now - timedelta(days=1))
+        session.commit()
+        ids = {"recent": recent.id, "old": old.id, "middle": middle.id}
+
+    # Insertion order (= what `id.desc()` alone would return, the bug):
+    # middle, old, recent — the exact opposite of real chronological order.
+    assert ids["recent"] < ids["old"] < ids["middle"]
+
+    _login(api)
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [
+        ids["recent"],
+        ids["middle"],
+        ids["old"],
+    ]
+
+
+def test_matches_id_breaks_ties_when_matched_at_is_identical(api: ApiContext) -> None:
+    """S10-03: real production example — two different messages processed in
+    the same historical-scan batch can share the exact same `matched_at`.
+    `Match.id.desc()` is still the final tiebreaker in that case, same as
+    before this task.
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo Tie S10-03", telegram_chat_id="-1011")
+        rule = Rule(name="Regra Tie S10-03", include_terms="produto")
+        session.add_all([source, rule])
+        session.flush()
+
+        first = Match(
+            source_id=source.id,
+            rule_id=rule.id,
+            message_text="Produto A",
+            price_cents=10_000,
+            matched_at=now,
+        )
+        session.add(first)
+        session.flush()
+        second = Match(
+            source_id=source.id,
+            rule_id=rule.id,
+            message_text="Produto B",
+            price_cents=20_000,
+            matched_at=now,
+        )
+        session.add(second)
+        session.commit()
+        ids = {"first": first.id, "second": second.id}
+
+    _login(api)
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [ids["second"], ids["first"]]
 
 
 def test_matches_flag_the_true_historical_lowest_price_per_rule(api: ApiContext) -> None:
