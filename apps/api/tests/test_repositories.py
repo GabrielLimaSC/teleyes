@@ -39,6 +39,21 @@ def test_rule_update_not_found_raises(session: Session) -> None:
         rule_repo.update_rule(session, 999, name="x")
 
 
+def test_clear_rule_matches_for_a_missing_rule_raises(session: Session) -> None:
+    with pytest.raises(NotFoundError):
+        rule_repo.clear_rule_matches(session, 999)
+
+
+def test_clear_rule_matches_returns_zero_and_deletes_nothing_when_the_rule_has_no_matches(
+    session: Session,
+) -> None:
+    rule = rule_repo.create_rule(session, name="iPhone", include_terms="iphone")
+
+    deleted = rule_repo.clear_rule_matches(session, rule.id)
+
+    assert deleted == 0
+
+
 # --- source_repo ---------------------------------------------------------------
 
 

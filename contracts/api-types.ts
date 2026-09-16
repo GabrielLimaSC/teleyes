@@ -252,6 +252,30 @@ export interface paths {
         patch: operations["update_rule_rules__rule_id__patch"];
         trace?: never;
     };
+    "/rules/{rule_id}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear Rule Matches
+         * @description S10-04: apaga todo o histórico de matches (e deliveries) de uma
+         *     regra — pedido do Gabriel pra limpar regras antigas mal configuradas
+         *     sem mexer em código. A regra em si nunca é apagada nem pausada, só o
+         *     histórico. Auditoria mínima: registra no log quantos matches saíram e
+         *     de qual regra.
+         */
+        delete: operations["clear_rule_matches_rules__rule_id__matches_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rules/{rule_id}/pause": {
         parameters: {
             query?: never;
@@ -340,6 +364,11 @@ export interface components {
              * @enum {string}
              */
             state: "configured" | "not_configured";
+        };
+        /** ClearMatchesResponse */
+        ClearMatchesResponse: {
+            /** Deleted */
+            deleted: number;
         };
         /** DeliveryResponse */
         DeliveryResponse: {
@@ -1219,6 +1248,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_rule_matches_rules__rule_id__matches_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearMatchesResponse"];
                 };
             };
             /** @description Validation Error */

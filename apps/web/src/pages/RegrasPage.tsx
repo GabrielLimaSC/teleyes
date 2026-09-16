@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
-import { createRule, deleteRule, listRules, pauseRule, updateRule } from '../api/rules'
+import { clearRuleMatches, createRule, deleteRule, listRules, pauseRule, updateRule } from '../api/rules'
 import type { RuleInput } from '../api/rules'
+import { fetchMatches } from '../api/matches'
 import { ApiError } from '../api/auth'
 import type { Rule } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
@@ -72,6 +73,11 @@ export function RegrasPage() {
 
   const [testerId, setTesterId] = useState<number | null>(null)
   const [testerText, setTesterText] = useState('')
+
+  const [checkingClearId, setCheckingClearId] = useState<number | null>(null)
+  const [clearConfirm, setClearConfirm] = useState<{ rule: Rule; count: number } | null>(null)
+  const [clearing, setClearing] = useState(false)
+  const [clearError, setClearError] = useState<string | null>(null)
 
   const reload = () => {
     setLoading(true)
@@ -167,6 +173,55 @@ export function RegrasPage() {
         setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir a regra.')
       })
       .finally(() => setDeletingId(null))
+  }
+
+  // S10-04: the count shown here is the same one Feed/Histórico would show
+  // for this rule (grouped duplicate cards collapsed) — meaningful to
+  // Gabriel as "how many cards go away", even on the rare message where a
+  // few of those matches are folded duplicates and the real row count the
+  // backend deletes ends up slightly higher (reflected in the success
+  // toast afterward, which always uses the API's own real count).
+  const openClearConfirm = (rule: Rule) => {
+    setClearError(null)
+    setCheckingClearId(rule.id)
+    fetchMatches({ ruleId: rule.id })
+      .then((matches) => {
+        if (matches.length === 0) {
+          showToast(`Nenhum match encontrado pra "${rule.name}".`)
+          return
+        }
+        setClearConfirm({ rule, count: matches.length })
+      })
+      .catch(() => setListError('Não foi possível checar o histórico da regra.'))
+      .finally(() => setCheckingClearId(null))
+  }
+
+  const closeClearConfirm = () => {
+    setClearConfirm(null)
+    setClearError(null)
+  }
+
+  const confirmClear = () => {
+    if (clearConfirm === null) return
+    if (csrfToken === null) {
+      setClearError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    setClearing(true)
+    clearRuleMatches(csrfToken, clearConfirm.rule.id)
+      .then(({ deleted }) => {
+        reload()
+        setClearConfirm(null)
+        showToast(
+          deleted === 1 ? '1 match apagado.' : `${deleted} matches apagados.`,
+        )
+      })
+      .catch((error: unknown) => {
+        setClearError(
+          error instanceof ApiError ? error.message : 'Não foi possível limpar o histórico.',
+        )
+      })
+      .finally(() => setClearing(false))
   }
 
   const activeTester = rules.find((rule) => rule.id === testerId)
@@ -301,6 +356,14 @@ export function RegrasPage() {
                     <button
                       type="button"
                       className="crud-table__actions--danger"
+                      onClick={() => openClearConfirm(rule)}
+                      disabled={checkingClearId === rule.id}
+                    >
+                      {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
+                    </button>
+                    <button
+                      type="button"
+                      className="crud-table__actions--danger"
                       onClick={() => handleDelete(rule)}
                       disabled={deletingId === rule.id}
                     >
@@ -337,6 +400,37 @@ export function RegrasPage() {
               {previewRuleMatch(testerText, activeTester.include_terms, activeTester.exclude_terms)
                 ? '✅ Bateria com esta regra'
                 : '❌ Não bateria com esta regra'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {clearConfirm && (
+        <div className="glass-card crud-form" style={{ marginTop: 'var(--space-4)' }}>
+          <h2>Limpar histórico: {clearConfirm.rule.name}</h2>
+          <p style={{ margin: 0, fontSize: 'var(--font-size-body)', color: 'var(--color-helper)' }}>
+            Isso apaga{' '}
+            {clearConfirm.count === 1 ? '1 match' : `${clearConfirm.count} matches`} desta
+            regra (e as entregas registradas neles) do Feed/Histórico — a regra em si continua
+            ativa e pronta pra gerar matches novos. Essa ação não pode ser desfeita.
+          </p>
+          <div className="crud-form__actions">
+            <button
+              type="button"
+              className="crud-form__submit fill-button"
+              onClick={confirmClear}
+              disabled={clearing}
+              onPointerDown={fillOrigin}
+            >
+              {clearing ? 'Apagando…' : 'Apagar histórico'}
+            </button>
+            <button type="button" className="crud-form__cancel" onClick={closeClearConfirm}>
+              Cancelar
+            </button>
+          </div>
+          {clearError && (
+            <p role="alert" className="crud-form__error">
+              {clearError}
             </p>
           )}
         </div>

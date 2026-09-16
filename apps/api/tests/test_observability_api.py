@@ -746,6 +746,72 @@ def test_rules_lowest_price_recalculates_without_reprocessing_old_matches(
     assert after_by_id[ids["rule_a"]]["lowest_price_cents"] == 2_000
 
 
+def test_clear_rule_matches_deletes_only_that_rules_matches_and_deliveries(
+    api: ApiContext,
+) -> None:
+    """S10-04: match_a/match_b belong to rule_a (2 + 1 deliveries between
+    them, per `_seed_matches`); match_c belongs to rule_b. Clearing rule_a's
+    history must delete match_a/match_b and every `Delivery` row pointing at
+    them, leave match_c (a different rule) completely untouched, and leave
+    rule_a itself active and still able to match new messages later.
+    """
+    ids = _seed_matches(api)
+    csrf = _login(api)
+
+    response = api.client.delete(
+        f"/rules/{ids['rule_a']}/matches", headers={"x-csrf-token": csrf}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 2}
+
+    remaining = api.client.get("/matches").json()
+    assert _response_ids(remaining) == {ids["match_c"]}
+
+    with api.session_factory() as session:
+        assert session.get(Match, ids["match_a"]) is None
+        assert session.get(Match, ids["match_b"]) is None
+        assert session.get(Match, ids["match_c"]) is not None
+        remaining_deliveries = session.query(Delivery).all()
+        assert all(delivery.match_id == ids["match_c"] for delivery in remaining_deliveries)
+
+    rule_after = api.client.get("/rules?include_inactive=true").json()
+    rule_a_after = next(rule for rule in rule_after if rule["id"] == ids["rule_a"])
+    assert rule_a_after["active"] is True
+
+
+def test_clear_rule_matches_on_a_rule_with_no_matches_deletes_nothing(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    csrf = _login(api)
+    with api.session_factory() as session:
+        empty_rule = Rule(name="Sem match nenhum", include_terms="nada-s10-04")
+        session.add(empty_rule)
+        session.commit()
+        empty_rule_id = empty_rule.id
+
+    response = api.client.delete(
+        f"/rules/{empty_rule_id}/matches", headers={"x-csrf-token": csrf}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 0}
+    assert _response_ids(api.client.get("/matches").json()) == {
+        ids["match_a"],
+        ids["match_b"],
+        ids["match_c"],
+    }
+
+
+def test_clear_rule_matches_for_a_missing_rule_becomes_404(api: ApiContext) -> None:
+    csrf = _login(api)
+
+    response = api.client.delete("/rules/999/matches", headers={"x-csrf-token": csrf})
+
+    assert response.status_code == 404
+
+
 def test_metrics_are_authenticated_and_contain_only_aggregates(api: ApiContext) -> None:
     with api.session_factory() as session:
         source = Source(name="Grupo", telegram_chat_id="-1009")

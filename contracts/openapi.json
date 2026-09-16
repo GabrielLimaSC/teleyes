@@ -34,6 +34,19 @@
         "title": "BotHealth",
         "type": "object"
       },
+      "ClearMatchesResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "ClearMatchesResponse",
+        "type": "object"
+      },
       "DeliveryResponse": {
         "properties": {
           "created_at": {
@@ -1956,6 +1969,65 @@
           }
         },
         "summary": "Update Rule",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
+    "/rules/{rule_id}/matches": {
+      "delete": {
+        "description": "S10-04: apaga todo o hist\u00f3rico de matches (e deliveries) de uma\nregra \u2014 pedido do Gabriel pra limpar regras antigas mal configuradas\nsem mexer em c\u00f3digo. A regra em si nunca \u00e9 apagada nem pausada, s\u00f3 o\nhist\u00f3rico. Auditoria m\u00ednima: registra no log quantos matches sa\u00edram e\nde qual regra.",
+        "operationId": "clear_rule_matches_rules__rule_id__matches_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearMatchesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Rule Matches",
         "tags": [
           "rules"
         ]

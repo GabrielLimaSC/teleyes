@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { apiLogin } from './helpers'
+import { apiLogin, apiPost } from './helpers'
 
 function rowByExactName(page: Page, name: string) {
   return page
@@ -99,4 +99,77 @@ test('creates and pauses a recipient from the Regras page', async ({ page }) => 
   await expect(row).toBeVisible()
   await row.getByRole('button', { name: 'ativa' }).click()
   await expect(row.getByRole('button', { name: 'pausada' })).toBeVisible()
+})
+
+test('clears a rule\'s match history against the real API, with a confirmation showing the real count (S10-04)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Limpeza',
+    telegram_chat_id: '-100556',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'RTX 5070 Limpeza E2E',
+    include_terms: 'gadgetlimpezae2e',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Limpeza',
+    telegram_chat_id: '985',
+    allowlisted: true,
+  })
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: 'gadgetlimpezae2e por R$ 199',
+  })
+
+  await page.goto('/feed')
+  await expect(page.getByText('gadgetlimpezae2e por R$ 199')).toBeVisible()
+
+  await page.goto('/regras')
+  const row = rowByExactName(page, 'RTX 5070 Limpeza E2E')
+  await row.getByRole('button', { name: 'Limpar histórico' }).click()
+
+  await expect(
+    page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
+  ).toBeVisible()
+  await expect(page.getByText('Isso apaga 1 match desta')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Apagar histórico' }).click()
+
+  await expect(page.getByRole('status')).toHaveText('1 match apagado.×')
+  await expect(
+    page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
+  ).not.toBeVisible()
+
+  // Gone from the Feed for real, and the rule itself is still there, active.
+  await page.goto('/feed')
+  await expect(page.getByText('gadgetlimpezae2e por R$ 199')).not.toBeVisible()
+  await page.goto('/regras')
+  await expect(rowByExactName(page, 'RTX 5070 Limpeza E2E').getByRole('button', { name: 'ativa' })).toBeVisible()
+})
+
+test('clearing a rule with no matches shows a toast directly, no confirmation dialog (S10-04)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  await apiPost(page, '/rules', csrfToken, {
+    name: 'Regra Sem Match E2E',
+    include_terms: 'termoquenuncabateu',
+  })
+
+  await page.goto('/regras')
+  const row = rowByExactName(page, 'Regra Sem Match E2E')
+  await row.getByRole('button', { name: 'Limpar histórico' }).click()
+
+  await expect(page.getByRole('status')).toContainText('Nenhum match encontrado')
+  await expect(
+    page.getByRole('heading', { name: 'Limpar histórico: Regra Sem Match E2E' }),
+  ).not.toBeVisible()
 })
