@@ -416,4 +416,33 @@ describe('MatchCard', () => {
 
     expect(screen.getByText(text)).toBeInTheDocument()
   })
+
+  it('shows a tooltip with the untruncated text when the S9-06 cut fires (S9-02)', () => {
+    const rtxRule: Rule = { ...rule, name: 'RTX 5070 TI', include_terms: 'rtx 5070 ti' }
+    const realTitle =
+      'Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd $ Valor:'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: realTitle })}
+        rule={rtxRule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent(realTitle)
+  })
+
+  it('has no tooltip when the title was not truncated (S9-02)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: 'Promoção iPhone 15 128GB por R$ 3.899' })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
 })

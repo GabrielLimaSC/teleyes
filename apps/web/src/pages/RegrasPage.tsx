@@ -7,6 +7,8 @@ import { ApiError } from '../api/auth'
 import type { Rule } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
 import { StatusToggle } from '../components/StatusToggle'
+import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { DestinatariosSection } from './DestinatariosSection'
 import '../components/GlassCard.css'
@@ -55,6 +57,7 @@ type FormTarget = { kind: 'create' } | { kind: 'edit'; rule: Rule }
 export function RegrasPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const { toast, showToast, dismiss } = useToast()
   const [rules, setRules] = useState<Rule[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -121,10 +124,12 @@ export function RegrasPage() {
         ? createRule(csrfToken, input)
         : updateRule(csrfToken, formTarget.rule.id, input)
 
+    const wasCreate = formTarget.kind === 'create'
     request
       .then(() => {
         closeForm()
         reload()
+        showToast(wasCreate ? 'Regra criada.' : 'Regra atualizada.')
       })
       .catch((error: unknown) => {
         setFormError(error instanceof ApiError ? error.message : 'Não foi possível salvar a regra.')
@@ -139,7 +144,10 @@ export function RegrasPage() {
     }
     setPausingId(rule.id)
     pauseRule(csrfToken, rule.id)
-      .then(reload)
+      .then(() => {
+        reload()
+        showToast('Regra pausada.')
+      })
       .catch(() => setListError('Não foi possível pausar a regra.'))
       .finally(() => setPausingId(null))
   }
@@ -151,7 +159,10 @@ export function RegrasPage() {
     }
     setDeletingId(rule.id)
     deleteRule(csrfToken, rule.id)
-      .then(reload)
+      .then(() => {
+        reload()
+        showToast('Regra excluída.')
+      })
       .catch((error: unknown) => {
         setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir a regra.')
       })
@@ -309,9 +320,11 @@ export function RegrasPage() {
       )}
 
       {activeTester && (
-        <div className="glass-card crud-form" style={{ marginTop: 16 }}>
+        <div className="glass-card crud-form" style={{ marginTop: 'var(--space-4)' }}>
           <h2>Testar regra: {activeTester.name}</h2>
-          <p style={{ margin: 0, fontSize: 13, color: '#4b4b52' }}>
+          {/* S9-01/S9-02 drive-by: was a hardcoded #4b4b52/13px, missed in
+              the S9-01 CSS-file sweep since this one's an inline style. */}
+          <p style={{ margin: 0, fontSize: 'var(--font-size-body)', color: 'var(--color-helper)' }}>
             Prévia local (não chama a API nem cria dado nenhum) — reproduz a mesma lógica de
             normalização e termos do backend.
           </p>
@@ -330,6 +343,7 @@ export function RegrasPage() {
       )}
 
       <DestinatariosSection />
+      <Toast toast={toast} onDismiss={dismiss} />
     </main>
   )
 }

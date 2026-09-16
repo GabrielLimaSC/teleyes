@@ -1,6 +1,7 @@
 import { CategoryIcon } from './CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND } from './matchCategory'
 import { summarizeDeliveryStatus } from './deliveryStatus'
+import { Tooltip } from './Tooltip'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 import './MatchCard.css'
 import '../components/GlassCard.css'
@@ -153,13 +154,24 @@ export function MatchCard({
     .map((delivery) => recipients.find((recipient) => recipient.id === delivery.recipient_id)?.name)
     .filter((name): name is string => Boolean(name))
 
+  // S9-02: the S9-06 cut never deletes information, only hides it from the
+  // card's face — surface it back on hover/focus instead of leaving no way
+  // to recover it. `linkCutText` is the pre-cut baseline (S8-02's own cut,
+  // never the raw `message_text` with its link/footer): comparing against
+  // it, not the final title, is what tells `wasTruncated` apart from the
+  // S8-02 cut it's already fine to leave unexplained.
+  const linkCutText = productText(match.message_text)
+  const title = cardTitle(match.message_text, rule)
+  const wasTruncated = title !== linkCutText
+  const productTitle = <p className="match-card__product">{title}</p>
+
   return (
     <article className={'glass-card match-card' + (isLowestPriceEver ? ' match-card--aurora' : '')}>
       <div className="match-card__icon" style={{ background: CATEGORY_BACKGROUND[category] }}>
         <CategoryIcon category={category} />
       </div>
       <div className="match-card__body">
-        <p className="match-card__product">{cardTitle(match.message_text, rule)}</p>
+        {wasTruncated ? <Tooltip label={linkCutText}>{productTitle}</Tooltip> : productTitle}
         <p className="match-card__meta">
           Fonte: {source?.name ?? `#${match.source_id}`} · Regra: {rule?.name ?? `#${match.rule_id}`}
           {recipientNames.length > 0 && <> · Para: {recipientNames.join(', ')}</>}
