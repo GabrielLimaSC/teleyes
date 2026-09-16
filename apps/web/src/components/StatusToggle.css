@@ -1,13 +1,16 @@
 .status-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--gap-element);
   border: none;
   background: transparent;
   cursor: pointer;
   padding: 0;
-  font-size: 13px;
-  color: #4b4b52;
+  /* S9-01: 13px -> body (14px), see the same tie-break note in
+     CrudTable.css. */
+  font-size: var(--font-size-body);
+  font-family: var(--font-body);
+  color: var(--color-helper);
 }
 
 .status-toggle:disabled {
@@ -17,8 +20,8 @@
 .status-toggle__knob {
   width: 36px;
   height: 20px;
-  border-radius: 999px;
-  background: #d8d8dc;
+  border-radius: var(--radius-pill);
+  background: var(--color-smoke);
   position: relative;
   transition: background-color 150ms ease;
   flex: 0 0 auto;
@@ -32,13 +35,15 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-sm);
   transition: transform 150ms ease;
 }
 
 .status-toggle--active .status-toggle__knob {
-  background: #1c8a4b;
+  /* Vivid Green — closest Dub accent to the previous #1c8a4b, same
+     "active/success" meaning. */
+  background: var(--color-success);
 }
 
 .status-toggle--active .status-toggle__knob::after {
