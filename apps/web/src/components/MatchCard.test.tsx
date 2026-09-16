@@ -63,6 +63,9 @@ describe('MatchCard', () => {
       />,
     )
 
+    // S9-06: the rule term ("iphone") ends at ~41% of the text — below the
+    // 50% cut threshold, so the title stays full (same shape as the real
+    // CMdias case, see the dedicated S9-06 tests below for both sides).
     expect(screen.getByText('Promoção iPhone 15 128GB por R$ 3.899')).toBeInTheDocument()
     expect(screen.getByText('R$ 3.899,00')).toBeInTheDocument()
     expect(screen.getByText(/Urubu das Promoções/)).toBeInTheDocument()
@@ -284,5 +287,133 @@ describe('MatchCard', () => {
     )
 
     expect(screen.getByText('RTX5070promocao')).toBeInTheDocument()
+  })
+
+  it('cuts the title right after the rule term when it ends past the 50% mark (S9-06, PC DO FAFA)', () => {
+    // Real message (Gabriel, fonte PC DO FAFA PROMOÇÕES, regra "RTX 5070
+    // TI") — the term ends at ~53% of the text, past the cut threshold.
+    const rtxRule: Rule = { ...rule, name: 'RTX 5070 TI', include_terms: 'rtx 5070 ti' }
+    const realTitle =
+      'Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd $ Valor:'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: realTitle })}
+        rule={rtxRule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(
+      screen.getByText('Placa de Video Geforce Nvidia Palit Rtx 5070 Ti'),
+    ).toBeInTheDocument()
+  })
+
+  it('does not cut when the rule term ends before the 50% mark (S9-06, CMdias — no regression on S8-02)', () => {
+    // Same real message the S8-02 tests use (fonte CMdias) — the rule term
+    // ("rtx 5070") ends at ~18% of the link-cut text, with real price/coupon
+    // content after it. Cutting there would destroy the S8-02 done_when, so
+    // this must stay untouched — reusing the S8-02 fixture/expectation
+    // rather than duplicating a new one, per the TASKS.md note.
+    const cmdiasRule: Rule = { ...rule, name: 'RTX 5070', include_terms: 'rtx 5070' }
+    const realCmdiasText =
+      '🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF: ' +
+      'https://s.shopee.com.br/abc ⚠️Cupom, preço e estoque por tempo limitado. Anúncio'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: realCmdiasText })}
+        rule={cmdiasRule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(
+      screen.getByText('🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF:'),
+    ).toBeInTheDocument()
+  })
+
+  it('matches the rule term case/accent-insensitively (S9-06)', () => {
+    const accentRule: Rule = { ...rule, include_terms: 'promoção' }
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: 'Achado RTX 5070 na PROMOÇÃO real hoje mesmo' })}
+        rule={accentRule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByText('Achado RTX 5070 na PROMOÇÃO')).toBeInTheDocument()
+  })
+
+  it('cuts on a tie, when the rule term ends exactly at the 50% mark (S9-06)', () => {
+    // "iPhone" (6 chars) ends exactly at index 6 of this 12-char text —
+    // ratio === 0.5 exactly. The threshold is `>= 0.5`, so a tie cuts.
+    const text = 'iPhone xxxxx'
+    render(
+      <MatchCard match={buildMatch({ message_text: text })} rule={rule} source={source} recipients={[]} />,
+    )
+
+    expect(screen.getByText('iPhone')).toBeInTheDocument()
+  })
+
+  it('shows the full text when the rule term is not found in the message (S9-06)', () => {
+    const unrelatedRule: Rule = { ...rule, include_terms: 'placa-mae b850' }
+    const text = 'RTX 5070 por R$ 4.516, sem termo da regra aqui'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: text })}
+        rule={unrelatedRule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it('shows the full text when there is no rule at all (S9-06)', () => {
+    const text = 'RTX 5070 por R$ 4.516, sem regra resolvida'
+    render(
+      <MatchCard match={buildMatch({ message_text: text })} rule={undefined} source={source} recipients={[]} />,
+    )
+
+    expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it('leaves the text unchanged when the rule term sits at the very end (S9-06)', () => {
+    const text = 'Promoção imperdível de iPhone'
+    render(
+      <MatchCard match={buildMatch({ message_text: text })} rule={rule} source={source} recipients={[]} />,
+    )
+
+    expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it('never cuts mid-word when the rule term is a substring of a longer word (S9-06)', () => {
+    const numericRule: Rule = { ...rule, include_terms: '5070' }
+    const text = 'Promoção RTX 50700X por R$ 4.516'
+    render(
+      <MatchCard match={buildMatch({ message_text: text })} rule={numericRule} source={source} recipients={[]} />,
+    )
+
+    // The term match ends mid-word (inside "50700X"), so the cut extends to
+    // the next whitespace instead of splitting the word — "50700X" stays
+    // whole, everything after that word is still dropped.
+    expect(screen.getByText('Promoção RTX 50700X')).toBeInTheDocument()
+  })
+
+  it('does not reintroduce the link when the term only appears after it (S9-06, combined with S8-02)', () => {
+    // The S8-02 "link near the start" fallback shows the whole message
+    // (including the link) rather than an empty card — the rule-term cut
+    // must never fire on top of that, or the link would resurface.
+    const linkFirstRule: Rule = { ...rule, include_terms: 'rtx 5070' }
+    const text = 'https://s.shopee.com.br/abc RTX 5070 por R$ 4.516'
+    render(
+      <MatchCard match={buildMatch({ message_text: text })} rule={linkFirstRule} source={source} recipients={[]} />,
+    )
+
+    expect(screen.getByText(text)).toBeInTheDocument()
   })
 })
