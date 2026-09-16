@@ -117,18 +117,40 @@ MatchSort = Literal["price_asc", "price_desc"]
 
 def _order_by(sort: MatchSort | None) -> list[Any]:
     """S7-07: ranks matches by price within (typically) a single filtered
-    rule. `Match.id.desc()` (most recent first) stays the default and the
-    tiebreaker for a price tie — same order the UI already showed before
-    this existed. `nulls_last()` keeps a match with no extracted price at the
+    rule. `Match.matched_at.desc()` (S10-03: real chronological order, not
+    insertion order — see below) is the default and the tiebreaker for a
+    price tie, with `Match.id.desc()` as the final tiebreaker for the rare
+    case of two matches sharing the exact same `matched_at` (real production
+    example: two different messages processed in the same historical-scan
+    batch). `nulls_last()` keeps a match with no extracted price at the
     bottom regardless of direction, since SQLite would otherwise sort NULL
     before every value in `price_asc` (the opposite of what "ascending"
     should mean for a price list a human is scanning).
+
+    S10-03: this used to be `Match.id.desc()` alone, which quietly assumed
+    insertion order tracks chronological order — true only until the first
+    listener restart after S6-02, whose historical re-scan inserts matches
+    from old messages out of order every time it runs. Confirmed against
+    real production data: zero correlation between `id` and `matched_at`
+    after a few restarts. `_apply_display_grouping` below reads `matched_at`
+    directly for its own grouping decisions (never the SQL row order), so
+    this is the only place "recency" was ever actually determined by `id`.
     """
     if sort == "price_asc":
-        return [Match.price_cents.asc().nulls_last(), Match.id.desc(), Delivery.id]
+        return [
+            Match.price_cents.asc().nulls_last(),
+            Match.matched_at.desc(),
+            Match.id.desc(),
+            Delivery.id,
+        ]
     if sort == "price_desc":
-        return [Match.price_cents.desc().nulls_last(), Match.id.desc(), Delivery.id]
-    return [Match.id.desc(), Delivery.id]
+        return [
+            Match.price_cents.desc().nulls_last(),
+            Match.matched_at.desc(),
+            Match.id.desc(),
+            Delivery.id,
+        ]
+    return [Match.matched_at.desc(), Match.id.desc(), Delivery.id]
 
 
 def _attach_group(chain: list[MatchResponse], hidden_ids: set[int]) -> None:
