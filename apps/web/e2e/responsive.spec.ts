@@ -14,15 +14,19 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height })
       await page.goto('/')
       await expect(page.getByLabel('Senha')).toBeVisible()
-      const mascot = page.getByRole('button', { name: 'Expandir navegação' })
+      const mascot = page.locator('.nav-mascot')
       const mascotBox = await mascot.boundingBox()
       expect(mascotBox).not.toBeNull()
       expect(Math.abs(mascotBox!.x + mascotBox!.width / 2 - viewport.width / 2)).toBeLessThan(1)
-      await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '0')
-
-      await mascot.click()
-      await expect(page.getByRole('button', { name: 'Recolher navegação' })).toBeVisible()
       await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
+
+      if (viewport.name === 'mobile') {
+        await mascot.click()
+        await expect(page.getByRole('button', { name: 'Recolher navegação' })).toBeVisible()
+        await expect(page.locator('.nav-capsule__menu')).toBeVisible()
+      } else {
+        await expect(mascot).toBeDisabled()
+      }
       for (const label of ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Saúde']) {
         await expect(page.getByRole('link', { name: label })).toBeVisible()
       }

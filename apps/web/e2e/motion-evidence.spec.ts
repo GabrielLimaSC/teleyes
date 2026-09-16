@@ -27,24 +27,24 @@ async function rafPumpWait(page: Page, totalMs: number, steps: number): Promise<
   }
 }
 
-test('nav capsule expands sideways from the mascot (mid-transition capture)', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 })
+test('mobile navigation drawer opens from the mascot (mid-transition capture)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
   await apiLogin(page)
   await page.goto('/feed')
 
-  const glass = page.locator('.nav-capsule__glass')
+  const menu = page.locator('.nav-capsule__menu')
   const mascot = page.getByRole('button', { name: 'Expandir navegação' })
-  const before = await glass.evaluate((el) => getComputedStyle(el).transform)
+  const before = await menu.evaluate((el) => getComputedStyle(el).transform)
 
   await page.addStyleTag({
-    content: '.nav-capsule__glass { transition-duration: 10000ms !important; }',
+    content: '.nav-capsule__menu { transition-duration: 10000ms !important; }',
   })
   await mascot.click()
   await rafPumpWait(page, 200, 4)
   await page.screenshot({ path: '.impeccable/review/motion-nav-expansion-mid-flight.png' })
-  const mid = await glass.evaluate((el) => getComputedStyle(el).transform)
-  const midAnimState = await glass.evaluate((el) => el.getAnimations().map((a) => a.playState))
+  const mid = await menu.evaluate((el) => getComputedStyle(el).transform)
+  const midAnimState = await menu.evaluate((el) => el.getAnimations().map((a) => a.playState))
 
   expect(mid).not.toBe(before)
   expect(mid).not.toBe('matrix(1, 0, 0, 1, 0, 0)')
@@ -68,7 +68,6 @@ test('page fade advances through intermediate frames without stalling', async ({
       'main { animation-duration: 1600ms !important; ' +
       'animation-timing-function: linear !important; }',
   })
-  await page.locator('.nav-mascot').hover()
   await page.getByRole('link', { name: 'Saúde' }).click()
 
   const opacities: number[] = []
@@ -112,7 +111,6 @@ test('all tabs remain responsive during rapid page-fade navigation', async ({ pa
     ['Saúde', '/saude'],
   ] as const
 
-  await page.locator('.nav-mascot').hover()
   for (const [label, path] of routeSequence) {
     await page.getByRole('link', { name: label }).click()
     await expect(page).toHaveURL(new RegExp(`${path === '/' ? '/$' : `${path}$`}`))
