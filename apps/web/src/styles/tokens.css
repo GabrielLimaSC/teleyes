@@ -1,0 +1,111 @@
+/**
+ * S9-01: design tokens from the Dub style system
+ * (https://styles.refero.design/style/b0d80806-b724-4ed1-a1d1-074edd3c9bc9),
+ * values extracted by the Tech Lead. Base for the *flat* functional UI only
+ * — tables, forms, common buttons on Regras/Fontes/Destinatários/Saúde.
+ *
+ * The liquid glass material (docs/SPRINT4_DIRECTION.md) stays exclusive to
+ * the hero surfaces already established — navbar, Feed/Histórico cards,
+ * Aurora Glow (GlassCard.css, NavCapsule.css, AuroraGlow.css, MatchCard.css)
+ * — this file never overrides them; Dub's own "1px borders over shadows"
+ * philosophy would fight the glass material's own depth, not stack with it.
+ *
+ * `--color-danger*` isn't part of the Dub set above — the accent palette the
+ * Tech Lead extracted has no red/error color (Electric Blue, Deep Sapphire,
+ * Soft Mint, Vivid Green, Tangerine, Lavender). Kept as a separate
+ * `--color-danger` custom property instead of bending a same-meaning accent
+ * (e.g. Tangerine) into a semantic it wasn't given for.
+ */
+
+:root {
+  /* ---- Cor: neutros (fundo/texto/borda) ---- */
+  --color-canvas: #ffffff; /* Canvas White */
+  --color-paper: #f5f5f5; /* Paper Mist */
+  --color-border: #e5e5e5; /* Ash — borda primária 1px */
+  --color-smoke: #d4d4d4; /* Smoke */
+  --color-pebble: #c8c8c8; /* Pebble */
+  --color-disabled: #a3a3a3; /* Silver — disabled */
+  --color-placeholder: #737373; /* Fog — placeholder */
+  --color-helper: #525252; /* Steel — helper/meta text */
+  --color-slate: #404040; /* Slate */
+  --color-graphite: #262626; /* Graphite */
+  --color-text: #171717; /* Charcoal — texto primário */
+  --color-emphasis: #0a0a0a; /* Midnight Ink */
+
+  /* ---- Cor: accent ---- */
+  --color-accent: #2563eb; /* Electric Blue — link/active */
+  --color-accent-strong: #1e40af; /* Deep Sapphire */
+  --color-success-bg: #dcfce7; /* Soft Mint */
+  --color-success: #16a34a; /* Vivid Green */
+  --color-warning: #ea580c; /* Tangerine */
+  --color-accent-alt: #7c3aed; /* Lavender */
+
+  /* ---- Cor: sem equivalente Dub, ver nota acima ---- */
+  --color-danger: #b3261e;
+
+  /* ---- Tipografia ---- */
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  /* Satoshi/Geist Mono: tokens declarados pro sistema já ficar completo, mas
+     nenhuma tela em território da S9-01 (tabelas/formulários/botões de
+     CRUD) usa texto "display" (36px+) ou dado técnico monoespaçado — nenhum
+     webfont carregado pra elas ainda, cai no fallback do sistema até uma
+     tela real precisar (candidato natural: um título hero da navbar na
+     S9-03, que não é território desta task). */
+  --font-display: 'Satoshi', var(--font-body);
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --font-size-caption: 11px;
+  --font-size-body: 14px;
+  --font-size-body-lg: 16px;
+  --font-size-body-xl: 18px;
+  --font-size-heading-sm: 24px;
+  --font-size-heading: 30px;
+  --font-size-heading-lg: 36px;
+  --font-size-display: 48px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* ---- Espaçamento (base 4px) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-28: 112px;
+
+  --gap-element: var(--space-2); /* 8px */
+  --padding-card: var(--space-4); /* 16px */
+  --gap-section: var(--space-16); /* 64px */
+  --page-max-width: 1200px;
+
+  /* ---- Raio ---- */
+  --radius-pill: 9999px;
+  --radius-card: 12px;
+  --radius-card-lg: 16px;
+  --radius-button: 8px;
+  --radius-input: 6px;
+
+  /* ---- Sombra ---- */
+  /* Só pros elementos flat (fora do glass, que já tem sombra/profundidade
+     própria do material — ver nota no topo do arquivo). `--shadow-subtle`
+     é o único valor exato que o Tech Lead extraiu da Dub; sm/md/lg não
+     vieram com valor exato ("ver PR se precisar do valor exato") — escala
+     razoável nos mesmos moldes, documentada aqui caso precise revisitar
+     contra o valor real da Dub depois. */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 6px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.06), 0 10px 15px rgba(0, 0, 0, 0.1);
+}
