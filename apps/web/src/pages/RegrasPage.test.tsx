@@ -218,4 +218,28 @@ describe('RegrasPage', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra atualizada.')
   })
+
+  it('deleting a rule shows a success toast (S9-02)', async () => {
+    let deleted = false
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (method === 'DELETE') {
+          deleted = true
+          return Promise.resolve(new Response(null, { status: 204 }))
+        }
+        if (method === 'GET') return Promise.resolve(jsonResponse(deleted ? [] : [baseRule]))
+        throw new Error(`unexpected ${method} ${url}`)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Regra excluída.')
+  })
 })
