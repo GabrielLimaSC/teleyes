@@ -101,19 +101,27 @@ considerar a instalação completa.
    Pede a senha duas vezes (mínimo 8 caracteres). Rodar de novo mais tarde redefine a senha em vez de criar
    um segundo administrador — o produto é single-admin por design (`apps/api/models/admin.py`).
 
-6. **Subir tudo**:
+6. **Semear as regras padrão da wishlist de hardware (opcional, S9-07)**: popula as 6 regras que o
+   Gabriel recria toda vez que o banco é zerado, em vez de cadastrar cada uma na mão pelo painel:
+   ```bash
+   docker compose -f docker-compose.prod.yml run --rm --entrypoint python api scripts/seed_rules.py
+   ```
+   Idempotente — rodar de novo não duplica, e nunca sobrescreve uma regra que você já editou pelo painel
+   (checa só por nome). Sem `max_price_cents`: ajuste um teto de preço pelo painel depois, se quiser.
+
+7. **Subir tudo**:
    ```bash
    docker compose -f docker-compose.prod.yml up -d
    ```
    Mantém a `api` já inicializada e sobe `listener`, `backup` e `web`. Em todo boot futuro, a API confere e
    aplica migrations pendentes automaticamente antes de aceitar tráfego.
 
-7. **Cadastrar fonte(s), regra(s) e destinatário(s) ativos e allowlisted pelo painel** (`http://localhost:8080`
-   nesta máquina, ou pela URL do Tailscale Serve quando configurado). Sem pelo menos um de cada, ativo, o
-   `listener` fica honestamente ocioso (ver [Diagnóstico](#diagnóstico)) — ele lê essa configuração do banco
-   uma vez, no start.
+8. **Cadastrar fonte(s) e destinatário(s) ativos e allowlisted pelo painel** (`http://localhost:8080` nesta
+   máquina, ou pela URL do Tailscale Serve quando configurado) — e as regras também, se você pulou o passo
+   6. Sem pelo menos um de cada, ativo, o `listener` fica honestamente ocioso (ver
+   [Diagnóstico](#diagnóstico)) — ele lê essa configuração do banco uma vez, no start.
 
-8. Reinicie `listener` pra ele pegar a configuração que você acabou de cadastrar:
+9. Reinicie `listener` pra ele pegar a configuração que você acabou de cadastrar:
    ```bash
    docker compose -f docker-compose.prod.yml restart listener
    ```
@@ -121,8 +129,9 @@ considerar a instalação completa.
 ## Operação do dia a dia
 
 - **Painel**: cadastro/edição de fontes, regras e destinatários é todo pelo painel web — não há CLI pra
-  isso em produção (`scripts/telegram_login.py`/`create_admin.py` são as únicas exceções, ambos setup
-  único). Mudanças feitas no painel só valem pro `listener` depois de reiniciá-lo
+  isso em produção (`scripts/telegram_login.py`/`create_admin.py` são setup único; `scripts/seed_rules.py`
+  é a única exceção repetível, idempotente, pra popular as regras padrão sem recriar na mão). Mudanças
+  feitas no painel só valem pro `listener` depois de reiniciá-lo
   (`docker compose -f docker-compose.prod.yml restart listener`) — ele lê a configuração ativa do banco
   uma vez, no start, não observa mudanças ao vivo (limitação conhecida, ver `TESTING.md`, evidência S5-09).
 - **Modelo de regras**: toda regra ativa é avaliada contra toda mensagem de toda fonte ativa; todo match
