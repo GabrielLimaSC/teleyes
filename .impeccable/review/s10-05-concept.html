@@ -1,0 +1,177 @@
+<!doctype html>
+<!-- impeccable-disable overused-font: Inter já é a tipografia adotada e carregada pelo app desde S9-01; comp exportável precisa reproduzi-la. -->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>teleyes — conceito S10-05</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    :root { font-family: Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#171717; background:#f5f5f7; font-synthesis:none; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(650px 390px at 10% 9%,rgba(91,141,251,.12),transparent 68%),radial-gradient(620px 430px at 90% 14%,rgba(163,91,251,.1),transparent 65%),#f5f5f7; }
+    .proof { position:fixed; z-index:30; right:18px; bottom:14px; color:#525866; background:#fff; border:1px solid #dfe2e8; border-radius:8px; font-size:11px; font-weight:600; padding:7px 10px; letter-spacing:.01em; }
+    .nav-wrap { height:120px; display:flex; justify-content:center; padding:18px 12px 0; }
+    .nav { position:relative; height:68px; width:min(720px,100%); display:grid; grid-template-columns:1fr 80px 1fr; align-items:center; padding:0 18px; border-radius:999px; background:linear-gradient(165deg,rgba(255,255,255,.83),rgba(232,234,239,.55) 57%,rgba(212,216,224,.65)); border:1px solid rgba(255,255,255,.91); box-shadow:0 18px 32px rgba(23,23,23,.13),0 4px 10px rgba(23,23,23,.09),inset 0 2px 2px rgba(255,255,255,.9),inset 0 -2px 3px rgba(58,61,70,.18); backdrop-filter:blur(8px) saturate(150%); }
+    .nav::after { content:""; position:absolute; inset:1px; border:1px solid rgba(73,77,86,.12); border-radius:inherit; pointer-events:none; }
+    .nav-group { display:flex; justify-content:space-between; align-items:center; gap:2px; }
+    .nav-link { min-width:58px; padding:14px 12px; text-align:center; border-radius:999px; color:#4b4b52; font-size:13px; font-weight:600; white-space:nowrap; }
+    .nav-link.active { color:#fff; background:#171717; box-shadow:0 4px 10px rgba(23,23,23,.2),inset 0 1px rgba(255,255,255,.2); }
+    .nav-badge { position:relative; z-index:2; width:60px; height:60px; border-radius:50%; justify-self:center; display:grid; place-items:center; overflow:hidden; background:linear-gradient(145deg,rgba(255,255,255,.7),rgba(213,216,225,.75)); border:1px solid rgba(255,255,255,.9); box-shadow:0 7px 14px rgba(23,23,23,.2),inset 0 1px 2px #fff; }
+    .nav-badge img { width:87%; height:87%; object-fit:contain; }
+    .mobile-brand,.mobile-current { display:none; }
+    .page { max-width:1120px; padding:0 24px 90px; margin:0 auto; }
+    .page.narrow { max-width:820px; }
+    .page.health { max-width:760px; }
+    .title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; margin:16px 0 26px; }
+    h1 { font-size:30px; line-height:1.14; letter-spacing:-.03em; margin:0 0 7px; font-weight:700; color:#171717; }
+    h2 { font-size:18px; letter-spacing:-.015em; margin:0; font-weight:700; }
+    p { margin:0; }
+    .sub { color:#525866; font-size:14px; line-height:1.55; }
+    .muted { color:#525866; }
+    .row { display:flex; align-items:center; gap:10px; }
+    .stack { display:grid; gap:16px; }
+    .panel { background:linear-gradient(165deg,#fff 0%,#fcfdff 100%); border:1px solid #d9dfe9; border-radius:16px; overflow:hidden; box-shadow:0 5px 18px rgba(23,23,23,.035),inset 0 1px rgba(255,255,255,.92); }
+    .panel.soft { background:linear-gradient(160deg,#fff 0%,#fafbfc 100%); }
+    .panel-pad { padding:24px; }
+    .btn { min-height:40px; padding:9px 15px; border-radius:10px; border:1px solid #dfe2e8; background:#fff; color:#171717; display:inline-flex; gap:8px; align-items:center; justify-content:center; font:600 13px Inter,sans-serif; white-space:nowrap; box-shadow:0 1px 2px rgba(23,23,23,.035); }
+    .btn.primary { background:#171717; color:#fff; border-color:#171717; box-shadow:0 3px 8px rgba(23,23,23,.13),inset 0 1px rgba(255,255,255,.16); }
+    .btn.tiny { min-height:32px; padding:6px 10px; border-radius:8px; font-size:12px; }
+    .btn.danger { color:#a32a24; }
+    .btn svg { width:15px; height:15px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    label { display:grid; gap:7px; font-size:13px; font-weight:600; color:#525866; }
+    input,.select { width:100%; height:42px; border:1px solid #ccd2db; border-radius:10px; padding:0 13px; background:#fff; color:#171717; font:500 14px Inter,sans-serif; outline:0; }
+    input::placeholder { color:#6b7280; }
+    .focused { border-color:#315ea8 !important; box-shadow:0 0 0 3px rgba(49,94,168,.16); }
+    .select { display:flex; justify-content:space-between; align-items:center; }
+    .chevron { width:8px; height:8px; border-right:2px solid #525866; border-bottom:2px solid #525866; transform:rotate(45deg) translateY(-2px); margin-right:3px; }
+    .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:17px; }
+    .field-actions { display:flex; gap:9px; margin-top:22px; }
+    .rule-form { padding:22px 24px 24px; }
+    .rule-form h2 { margin-bottom:18px; }
+    .table { width:100%; border-collapse:collapse; font-size:13px; }
+    .table th { height:42px; background:#f7f8fa; text-align:left; color:#525866; font-size:12px; font-weight:600; border-bottom:1px solid #e4e7ec; padding:0 14px; }
+    .table td { padding:14px; border-bottom:1px solid #edf0f3; vertical-align:middle; line-height:1.45; }
+    .table tr:last-child td { border-bottom:0; }
+    .table tbody tr:first-child { background:#f5f7fa; }
+    .table strong { font-weight:700; }
+    .table .actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .table .actions .btn { box-shadow:none; }
+    .table .secondary { color:#606875; }
+    .state { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; border-radius:999px; font-size:12px; font-weight:600; padding:5px 10px; }
+    .state::before { content:""; display:block; width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .state.good { color:#176945; background:#e8f5ec; }
+    .state.warn { color:#8b5a08; background:#fff2dc; }
+    .state.neutral { color:#47566e; background:#eef2f7; }
+    .section-row { display:flex; justify-content:space-between; align-items:baseline; gap:16px; margin:28px 0 14px; }
+    .section-row p { font-size:13px; color:#5b6470; }
+    .match-list { display:grid; gap:12px; }
+    .match { display:grid; grid-template-columns:46px minmax(0,1fr) auto; gap:15px; align-items:center; padding:20px; }
+    .match .tile { width:46px; height:46px; border-radius:12px; background:#e9eef8; display:grid; place-items:center; color:#415d89; }
+    .match .tile.violet { background:#eee9f6; color:#655082; }
+    .match .tile.peach { background:#f7eee7; color:#926346; }
+    .match .tile svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+    .match h2 { font-size:16px; line-height:1.45; margin-bottom:5px; }
+    .match .meta { color:#525866; font-size:12px; line-height:1.5; }
+    .match .foot { display:flex; gap:14px; align-items:center; margin-top:8px; font-size:12px; }
+    .match .foot a { color:#315ea8; text-decoration:underline; text-underline-offset:3px; font-weight:600; }
+    .match .side { text-align:right; display:grid; gap:11px; justify-items:end; }
+    .match .price { font-size:17px; font-weight:700; color:#0a0a0a; white-space:nowrap; }
+    .match .price span { display:block; color:#525866; font-size:12px; font-weight:500; }
+    .match.feature { border-color:#bbc9df; box-shadow:inset 0 1px rgba(255,255,255,.9); }
+    .match.feature .lowest { display:inline-flex; color:#5b4d88; font-weight:600; font-size:11px; margin:7px 0 0; }
+    .status-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .status-line { display:flex; justify-content:space-between; align-items:center; padding:15px 0; border-bottom:1px solid #e9ecf0; font-size:14px; }
+    .status-line:last-child { border-bottom:0; }
+    .status-line .label { color:#525866; }
+    .status-line strong { font-size:13px; font-weight:600; }
+    .login-stage { min-height:590px; display:grid; place-items:center; padding:0 18px 50px; }
+    .login-panel { width:min(430px,100%); padding:38px 36px 34px; background:#fff; border:1px solid #dfe2e8; border-radius:20px; box-shadow:0 16px 40px rgba(28,37,50,.07); text-align:center; }
+    .login-mascot { width:82px; height:82px; display:grid; place-items:center; margin:0 auto 10px; border-radius:50%; background:linear-gradient(150deg,#fff,#eaedf3); box-shadow:0 8px 20px rgba(23,23,23,.11),inset 0 1px #fff; }
+    .login-mascot img { width:75px; height:75px; object-fit:contain; }
+    .login-panel h1 { font-size:27px; font-weight:800; margin:0 0 3px; }
+    .login-panel .tag { font-size:13px; font-weight:500; color:#525866; }
+    .login-panel .hint { margin:28px 0 18px; font-size:14px; color:#525866; }
+    .login-panel label { text-align:left; }
+    .login-panel .btn { width:100%; height:44px; margin-top:22px; font-size:14px; }
+    .mobile-only { display:none; }
+    @media(max-width:760px) {
+      .nav-wrap { height:102px; padding:12px 8px 0; }
+      .nav { height:64px; grid-template-columns:1fr 70px 1fr; padding:0 18px; }
+      .nav-group { display:none; }
+      .mobile-brand,.mobile-current { display:block; font-size:13px; font-weight:700; }
+      .mobile-current { text-align:right; font-weight:600; color:#4b4b52; }
+      .nav-badge { width:56px; height:56px; }
+      .page { padding:0 16px 70px; }
+      .title-row { margin:10px 0 20px; gap:12px; }
+      h1 { font-size:27px; }
+      .title-row .btn { min-height:38px; font-size:12px; padding:8px 11px; }
+      .sub { font-size:13px; }
+      .field-grid,.status-grid { grid-template-columns:1fr; }
+      .panel-pad,.rule-form { padding:18px; }
+      .table thead { display:none; }
+      .table,.table tbody,.table tr,.table td { display:block; width:100%; }
+      .table tr { padding:15px 18px; border-bottom:1px solid #e6e9ed; }
+      .table tr:last-child { border-bottom:0; }
+      .table td { border:0; display:flex; justify-content:space-between; gap:16px; padding:6px 0; text-align:right; }
+      .table td::before { content:attr(data-label); color:#606875; font-size:12px; font-weight:600; flex:0 0 42%; text-align:left; }
+      .table td:first-child { font-weight:700; }
+      .table td.actions { display:flex; justify-content:flex-end; }
+      .table td.actions::before { display:none; }
+      .table .actions .btn { font-size:11px; }
+      .match { grid-template-columns:42px minmax(0,1fr); padding:16px; }
+      .match .tile { width:42px; height:42px; }
+      .match .side { grid-column:2; display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; }
+      .match .price { font-size:15px; }
+      .section-row { align-items:flex-start; }
+      .login-stage { min-height:650px; padding:0 16px 40px; }
+      .login-panel { padding:30px 24px; }
+      .proof { position:static; display:block; width:max-content; max-width:calc(100% - 32px); margin:0 auto 12px; text-align:center; }
+      .mobile-only { display:block; }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav-wrap"><nav class="nav" aria-label="Prévia da navegação">
+    <span class="mobile-brand">teleyes</span>
+    <div class="nav-group"><span class="nav-link" data-tab="login">Login</span><span class="nav-link" data-tab="feed">Feed</span><span class="nav-link" data-tab="regras">Regras</span></div>
+    <span class="nav-badge"><img src="../../apps/web/public/mascot.png" alt="" /></span>
+    <div class="nav-group"><span class="nav-link" data-tab="fontes">Fontes</span><span class="nav-link" data-tab="historico">Histórico</span><span class="nav-link" data-tab="saude">Saúde</span></div>
+    <span class="mobile-current" id="mobile-current"></span>
+  </nav></header>
+  <main id="screen"></main>
+  <div class="proof">CONCEITO S10-05 · dados ilustrativos · não implementado</div>
+  <template id="login"><div class="login-stage"><section class="login-panel">
+    <div class="login-mascot"><img src="../../apps/web/public/mascot.png" alt="" /></div><h1>teleyes</h1><p class="tag">Monitor pessoal de promoções do Telegram</p>
+    <p class="hint">Entre com a senha de administrador.</p><label>Senha<input class="focused" type="password" value="********" /></label>
+    <button class="btn primary">Entrar</button>
+  </section></div></template>
+  <template id="feed"><div class="page narrow"><div class="title-row"><div><h1>Feed ao vivo</h1><p class="sub">Ofertas encontradas pelas suas regras, em tempo real.</p></div><button class="btn"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.8 9a7 7 0 0 1 12-2L20 12M4 12l2.2 5a7 7 0 0 0 12-2"/></svg>Atualizar</button></div>
+    <div class="section-row" style="margin-top:0"><p><span class="state good">Conectado ao feed</span></p><p>Mais recentes primeiro</p></div>
+    <div class="match-list">
+      <article class="panel match feature"><div class="tile"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M10 18h4"/></svg></div><div><h2>Smartphone 128 GB com carregador</h2><p class="meta">Fonte: Grupo de ofertas · Regra: Celulares · Para: Gabriel</p><div class="foot"><span class="muted">Hoje, 12:42</span><a>Abrir promoção</a></div><span class="lowest">Menor preço já visto</span></div><div class="side"><div class="price">R$ 1.899,00 <span>À vista · cartão R$ 2.099,00</span></div><span class="state good">Entregue</span></div></article>
+      <article class="panel match"><div class="tile violet"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 22h8M12 18v4"/></svg></div><div><h2>Notebook 16 GB para trabalho e estudo</h2><p class="meta">Fonte: Promoções tech · Regra: Notebook · Para: Gabriel</p><div class="foot"><span class="muted">Hoje, 11:16</span><a>Abrir promoção</a></div></div><div class="side"><div class="price">R$ 3.299,00</div><span class="state neutral">Notificação desativada</span></div></article>
+      <article class="panel match"><div class="tile peach"><svg viewBox="0 0 24 24"><path d="M3 14v-3a9 9 0 0 1 18 0v3M3 14h3v6H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 1-2Zm18 0h-3v6h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-2Z"/></svg></div><div><h2>Fone sem fio com cancelamento de ruído</h2><p class="meta">Fonte: Grupo de ofertas · Regra: Fones · Para: Gabriel</p><div class="foot"><span class="muted">Ontem, 19:08</span><a>Abrir promoção</a></div></div><div class="side"><div class="price">R$ 349,90</div><span class="state good">Entregue</span></div></article>
+    </div></div></template>
+  <template id="regras"><div class="page"><div class="title-row"><div><h1>Regras</h1><p class="sub">Defina os termos e acompanhe as regras que monitoram suas fontes.</p></div><button class="btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nova regra</button></div>
+    <div class="panel rule-form"><h2>Nova regra</h2><div class="field-grid"><label>Nome<input class="focused" value="Celulares" /></label><label>Termos incluídos (separados por vírgula)<input value="smartphone, celular" /></label><label>Termos bloqueados<input placeholder="Ex.: usado, recondicionado" /></label><label>Preço máximo (R$)<input value="2.000,00" /></label></div><div class="field-actions"><button class="btn primary">Salvar</button><button class="btn">Cancelar</button></div></div>
+    <div class="section-row"><h2>Regras cadastradas</h2><p>2 regras · ações disponíveis em cada linha</p></div>
+    <div class="panel"><table class="table"><thead><tr><th>Regra</th><th>Termos incluídos</th><th>Termos bloqueados</th><th>Preço máximo</th><th>Menor preço já visto</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+      <tr><td data-label="Regra"><strong>Celulares</strong></td><td data-label="Termos incluídos">smartphone, celular</td><td data-label="Termos bloqueados" class="secondary">usado</td><td data-label="Preço máximo">R$ 2.000,00</td><td data-label="Menor preço">R$ 1.899,00</td><td data-label="Status"><span class="state good">Ativa</span></td><td class="actions"><button class="btn tiny">Editar</button><button class="btn tiny">Duplicar</button><button class="btn tiny">Testar</button><button class="btn tiny danger">Excluir</button></td></tr>
+      <tr><td data-label="Regra"><strong>Notebook</strong></td><td data-label="Termos incluídos">notebook, laptop</td><td data-label="Termos bloqueados" class="secondary">—</td><td data-label="Preço máximo">R$ 3.500,00</td><td data-label="Menor preço">—</td><td data-label="Status"><span class="state neutral">Pausada</span></td><td class="actions"><button class="btn tiny">Editar</button><button class="btn tiny">Duplicar</button><button class="btn tiny">Testar</button><button class="btn tiny danger">Excluir</button></td></tr>
+    </tbody></table></div>
+    <div class="section-row"><h2>Destinatários</h2><p>Quem recebe os alertas</p></div><div class="panel"><table class="table"><thead><tr><th>Nome</th><th>Chat ID</th><th>Status</th><th>Ações</th></tr></thead><tbody><tr><td data-label="Nome"><strong>Gabriel</strong></td><td data-label="Chat ID">Configuração privada</td><td data-label="Status"><span class="state good">Ativo</span></td><td class="actions"><button class="btn tiny">Editar</button></td></tr></tbody></table></div>
+  </div></template>
+  <template id="saude"><div class="page health"><div class="title-row"><div><h1>Saúde</h1><p class="sub">Estado do serviço e teste de notificação.</p></div></div>
+    <section class="panel panel-pad soft"><h2>Estado do sistema</h2><div class="status-line"><span class="label">Telegram</span><span class="state good">Conectado</span></div><div class="status-line"><span class="label">Bot</span><span class="state warn">Não configurado</span></div><div class="status-line"><span class="label">Feed em tempo real (SSE)</span><span class="state good">Conectado</span></div><div class="status-line"><span class="label">Versão</span><strong>Versão do app</strong></div><div class="status-line"><span class="label">Tempo ativo</span><strong>Disponível no painel real</strong></div><div class="status-line"><span class="label">Ambiente</span><strong>Ambiente configurado</strong></div></section>
+    <section class="panel panel-pad" style="margin-top:18px"><h2>Teste de notificação</h2><p class="sub" style="margin-top:7px;margin-bottom:22px">Aciona o envio real ou mostra “not_configured” se o bot ainda não estiver configurado.</p><div class="stack"><label>Destinatário<span class="select">Selecione…<i class="chevron"></i></span></label><label>Mensagem<input value="Teste de notificação do teleyes" /></label></div><div class="field-actions"><button class="btn primary">Enviar teste</button></div></section>
+  </div></template>
+  <script>
+    const screen = new URL(location.href).searchParams.get('screen') || 'login';
+    const current = ['login','feed','regras','saude'].includes(screen) ? screen : 'login';
+    document.getElementById('screen').append(document.getElementById(current).content.cloneNode(true));
+    document.querySelector('[data-tab="'+current+'"]').classList.add('active');
+    document.getElementById('mobile-current').textContent = ({login:'Login',feed:'Feed',regras:'Regras',saude:'Saúde'})[current];
+  </script>
+</body>
+</html>
