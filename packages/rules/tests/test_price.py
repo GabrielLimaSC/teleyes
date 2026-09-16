@@ -211,3 +211,66 @@ def test_coupon_noise_never_leaks_into_a_real_cash_and_card_split() -> None:
     assert result.price_cash_cents == 10000
     assert result.price_card_cents == 12000
     assert result.price_cents == 10000
+
+
+def test_real_pc_do_fafa_message_keeps_the_price_despite_a_percent_discount_mention() -> None:
+    """S10-01: production match id 91 — a regression from S8-01. "desconto"
+    sits right after the price itself ("R$6.991,08 8% desconto no Pix"),
+    describing a percentage discount *on* that price, not a coupon value —
+    only 4 characters away from the price, closer than the confirmed "cupom
+    de R$ 50 off" phrasing, so a raw distance threshold could never tell
+    these apart. The gap has a digit and a '%' in it, not a bare connector,
+    which is what actually tells them apart.
+    """
+    result = extract_price(
+        "👌 Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit "
+        "3-Dp Hd\n\n💲 Valor: R$6.991,08 8% desconto no Pix\n\n👉 Resgate o cupom\n"
+        "👀 https://pcdofafa.com.br/p/shopee/jb6gwx\n\n👀 https://pcdofafa.com.br/p/shopee/4bfbpd\n\n"
+        "✅BOT DE DESCONTOS: @FafaPromobot\n\n_________________________\n"
+        "__✅ Oferta verificada: conferimos manualmente o preço e cupom__"
+    )
+
+    assert result.price_cents == 699108
+    assert result.ambiguous is False
+
+
+def test_real_pc_do_fafa_message_id93_keeps_the_price_with_an_unrelated_coupon_code() -> None:
+    """S10-01: production match id 93 — "Cupom:" is immediately followed by
+    a coupon *code* (not a price value), and the two "desconto" mentions are
+    each a full sentence away from the price ("Link App com desconto em
+    moedas", pure navigation text). Neither anchor has a real coupon value
+    next to it, so the price must survive.
+    """
+    result = extract_price(
+        "👌Air Cooler METALFISH ZH-1400, 4 Heatpipes, 1700 1200 1150 1155 1156 1366 2011 "
+        "AM5 AM4 AM3 x99 x79\n\n💲Valor: R$85,70\n\n-Cupom: `PGXMHWY67VTZ` +671  Moedas no APP\n\n"
+        "✅ Link App com desconto em moedas:\n👀 https://a.aliexpress.com/_c4Wr0VO5\n\n"
+        "✅ Link para PC / sem super desconto moedas:\n👀 https://pcdofafa.com.br/p/aliexpress/3uad1x\n\n"
+        "✅BOT DE DESCONTOS: @FafaPromobot\n\n-Somente no APP, vai abrir na página de moedas e "
+        "clique no primeiro anúncio\n\n_________________________\n"
+        "__✅ Oferta verificada: conferimos manualmente o preço e cupon__"
+    )
+
+    assert result.price_cents == 8570
+    assert result.ambiguous is False
+
+
+def test_real_cmdias_message_keeps_price_when_coupon_amount_has_no_currency_marker() -> None:
+    """S10-01: production matches id 88/89 — "100 OFF" has no `R$`/comma, so
+    "100" never becomes a candidate at all (by design, see `extract_price`'s
+    own docstring on bare numbers). The old code let "OFF" reach straight
+    past it to the real price 25 characters earlier instead of leaving the
+    candidate alone when nothing valid sits next to the anchor.
+    """
+    result = extract_price(
+        "🔥 Placa de Vídeo NVIDIA GeForce MSI RTX5060 8GB GDDR7 128BITS SHADOW 2X\n\n"
+        "💵 R$ 2.542\n\n🎟 Resgate cupom de 100 OFF:\nhttps://s.shopee.com.br/2gB9kYURhz\n\n"
+        "🔗 LINK: https://s.shopee.com.br/2BEt9df9Gx?lp=aff\n\n"
+        "⚠️Cupom, preço e estoque por tempo limitado. \n\n"
+        "TEM ALGUMA DÚVIDA? ACESSE ESSE LINK ABAIXO E FAÇA SUA PERGUNTA, \n"
+        "marque a caixinha \"Me avise quando um ADM me responder\"\nhttps://bit.ly/3UWoxeu\n\n"
+        "📢 Anúncio"
+    )
+
+    assert result.price_cents == 254200
+    assert result.ambiguous is False

@@ -27,6 +27,22 @@ _CARD_ANCHOR_RE = re.compile(r"\b(?:cart[aã]o|parcelado)\b", re.IGNORECASE)
 _COUPON_PRECEDING_RE = re.compile(r"\bcupom\b", re.IGNORECASE)
 _COUPON_FOLLOWING_RE = re.compile(r"\b(?:off|desconto)\b", re.IGNORECASE)
 
+# S10-01: the text strictly between an anchor and the candidate it would
+# exclude must be nothing but a short connector — whitespace, punctuation, or
+# the linking word "de" — every confirmed real phrasing ("cupom de R$X",
+# "cupom: R$X", "R$X off", "R$X de desconto") has one. Real production
+# messages that regressed under S8-01 (see packages/rules/tests/test_price.py
+# and the S10-01 task) have unrelated content in that gap instead: a percent
+# sign describing a discount *on* the price itself ("R$6.991,08 8% desconto"),
+# a plain number that never became its own candidate ("100 OFF", "100" has no
+# R$/comma), or a whole unrelated sentence/paragraph — none of those are a
+# real coupon value next to the anchor, so the candidate must survive.
+_COUPON_GAP_RE = re.compile(r"^[\s,:-]*(?:de\s+)?[\s,:-]*$", re.IGNORECASE)
+
+
+def _is_connector_gap(text: str, start: int, end: int) -> bool:
+    return _COUPON_GAP_RE.match(text[start:end]) is not None
+
 
 @dataclass
 class PriceExtraction:
@@ -146,6 +162,14 @@ def _drop_coupon_candidates(text: str, candidates: list[_Candidate]) -> list[_Ca
     reuse the plain `_nearest_candidate` `_detect_cash_and_card` uses: "cupom
     de" there is often only a few characters past an unrelated, real price
     stated just before it).
+
+    S10-01: the nearest candidate on the confirmed side is only actually
+    excluded when the gap between it and the anchor is a real connector (see
+    `_is_connector_gap`) — otherwise it's not the anchor's own coupon value,
+    just whatever real candidate happened to be nearest in a message where
+    "cupom"/"off"/"desconto" shows up somewhere unrelated to it (a percentage
+    discount on the price itself, a plain number that isn't a real
+    candidate, or an unrelated sentence entirely).
     """
     excluded: list[_Candidate] = []
 
@@ -154,9 +178,13 @@ def _drop_coupon_candidates(text: str, candidates: list[_Candidate]) -> list[_Ca
             excluded.append(candidate)
 
     for anchor in _COUPON_PRECEDING_RE.finditer(text):
-        _exclude(_nearest_candidate_after(anchor.end(), candidates))
+        candidate = _nearest_candidate_after(anchor.end(), candidates)
+        if candidate is not None and _is_connector_gap(text, anchor.end(), candidate.span[0]):
+            _exclude(candidate)
     for anchor in _COUPON_FOLLOWING_RE.finditer(text):
-        _exclude(_nearest_candidate_before(anchor.start(), candidates))
+        candidate = _nearest_candidate_before(anchor.start(), candidates)
+        if candidate is not None and _is_connector_gap(text, candidate.span[1], anchor.start()):
+            _exclude(candidate)
 
     if not excluded:
         return candidates
