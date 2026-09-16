@@ -63,9 +63,10 @@ describe('MatchCard', () => {
       />,
     )
 
-    // S9-06: the rule term ("iphone") ends at ~41% of the text — below the
-    // 50% cut threshold, so the title stays full (same shape as the real
-    // CMdias case, see the dedicated S9-06 tests below for both sides).
+    // S9-06/S10-02: no blank line (`\n\n`) anywhere in this text, so the
+    // cut never fires — full text stays, same shape as the real CMdias/
+    // S8-02 case (see the dedicated S9-06/S10-02 tests below for both
+    // sides of the gate).
     expect(screen.getByText('Promoção iPhone 15 128GB por R$ 3.899')).toBeInTheDocument()
     expect(screen.getByText('R$ 3.899,00')).toBeInTheDocument()
     expect(screen.getByText(/Urubu das Promoções/)).toBeInTheDocument()
@@ -289,12 +290,18 @@ describe('MatchCard', () => {
     expect(screen.getByText('RTX5070promocao')).toBeInTheDocument()
   })
 
-  it('cuts the title right after the rule term when it ends past the 50% mark (S9-06, PC DO FAFA)', () => {
-    // Real message (Gabriel, fonte PC DO FAFA PROMOÇÕES, regra "RTX 5070
-    // TI") — the term ends at ~53% of the text, past the cut threshold.
-    const rtxRule: Rule = { ...rule, name: 'RTX 5070 TI', include_terms: 'rtx 5070 ti' }
+  it('cuts the title right after the rule term when a blank line follows it (S10-02, PC DO FAFA real id 91)', () => {
+    // Real production message (match id 91, fonte PC DO FAFA PROMOÇÕES,
+    // regra "RTX 5070 Ti") — the S9-06 position-based heuristic (>= 50%)
+    // never fired on this one (term ends at ~33%), which is what motivated
+    // S10-02: recalibrated against 87 real matches, a blank line (`\n\n`)
+    // after the term turned out to be the real, consistently-present signal
+    // position never was. Full real text, not a paraphrase.
+    const rtxRule: Rule = { ...rule, name: 'RTX 5070 Ti', include_terms: 'rtx 5070 ti,5070 ti' }
     const realTitle =
-      'Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd $ Valor:'
+      '👌 Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd\n\n' +
+      '💲 Valor: R$6.991,08 8% desconto no Pix\n\n👉 Resgate o cupom\n' +
+      '👀 https://pcdofafa.com.br/p/shopee/jb6gwx'
     render(
       <MatchCard
         match={buildMatch({ message_text: realTitle })}
@@ -305,16 +312,17 @@ describe('MatchCard', () => {
     )
 
     expect(
-      screen.getByText('Placa de Video Geforce Nvidia Palit Rtx 5070 Ti'),
+      screen.getByText('👌 Placa de Video Geforce Nvidia Palit Rtx 5070 Ti'),
     ).toBeInTheDocument()
   })
 
-  it('does not cut when the rule term ends before the 50% mark (S9-06, CMdias — no regression on S8-02)', () => {
-    // Same real message the S8-02 tests use (fonte CMdias) — the rule term
-    // ("rtx 5070") ends at ~18% of the link-cut text, with real price/coupon
-    // content after it. Cutting there would destroy the S8-02 done_when, so
-    // this must stay untouched — reusing the S8-02 fixture/expectation
-    // rather than duplicating a new one, per the TASKS.md note.
+  it('does not cut when no blank line follows the rule term (S9-06, CMdias — no regression on S8-02)', () => {
+    // Same real message the S8-02 tests use (fonte CMdias) — no `\n\n`
+    // anywhere in this specific fixture (unlike real CMdias messages pulled
+    // from production for S10-02, which do have one — see the dedicated
+    // real-CMdias test below). Cutting here would destroy the S8-02
+    // done_when, so this must stay untouched — reusing the S8-02 fixture/
+    // expectation rather than duplicating a new one, per the TASKS.md note.
     const cmdiasRule: Rule = { ...rule, name: 'RTX 5070', include_terms: 'rtx 5070' }
     const realCmdiasText =
       '🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF: ' +
@@ -333,11 +341,35 @@ describe('MatchCard', () => {
     ).toBeInTheDocument()
   })
 
+  it('cuts a real CMdias message once real paragraph structure is present (S10-02)', () => {
+    // Real production message (match id 88, fonte CMdias, regra "RTX
+    // 5060") — unlike the single-line S8-02 unit-test fixture above, real
+    // CMdias messages do have a `\n\n` separating the product name from the
+    // price/coupon block, so this one now cuts too (it didn't under S9-06's
+    // position gate either, same ~38% shape as the fixture above it).
+    const cmdiasRule: Rule = { ...rule, name: 'RTX 5060', include_terms: 'rtx5060, rtx 5060' }
+    const realCmdiasText =
+      '🔥 Placa de Vídeo NVIDIA GeForce MSI RTX5060 8GB GDDR7 128BITS SHADOW 2X\n\n' +
+      '💵 R$ 2.542\n\n🎟 Resgate cupom de 100 OFF:\nhttps://s.shopee.com.br/2gB9kYURhz'
+    render(
+      <MatchCard
+        match={buildMatch({ message_text: realCmdiasText })}
+        rule={cmdiasRule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(
+      screen.getByText('🔥 Placa de Vídeo NVIDIA GeForce MSI RTX5060'),
+    ).toBeInTheDocument()
+  })
+
   it('matches the rule term case/accent-insensitively (S9-06)', () => {
     const accentRule: Rule = { ...rule, include_terms: 'promoção' }
     render(
       <MatchCard
-        match={buildMatch({ message_text: 'Achado RTX 5070 na PROMOÇÃO real hoje mesmo' })}
+        match={buildMatch({ message_text: 'Achado RTX 5070 na PROMOÇÃO\n\nReal hoje mesmo, aproveite' })}
         rule={accentRule}
         source={source}
         recipients={[]}
@@ -347,15 +379,27 @@ describe('MatchCard', () => {
     expect(screen.getByText('Achado RTX 5070 na PROMOÇÃO')).toBeInTheDocument()
   })
 
-  it('cuts on a tie, when the rule term ends exactly at the 50% mark (S9-06)', () => {
-    // "iPhone" (6 chars) ends exactly at index 6 of this 12-char text —
-    // ratio === 0.5 exactly. The threshold is `>= 0.5`, so a tie cuts.
-    const text = 'iPhone xxxxx'
+  it('never anchors the cut on a blank line that sits before the rule term (S10-02)', () => {
+    // Real production message (match id 62, fonte CMdias) has a banner
+    // line ("ESTOQUE DISPONIVEL!!!") *before* the product name, with its
+    // own blank line separating them — cutting at the first `\n\n` in the
+    // text (a simpler rule considered and rejected for S10-02) would chop
+    // the product name off entirely. The cut always anchors on the rule
+    // term's own position; the blank-line check only looks *after* it.
+    const rtxRule: Rule = { ...rule, name: 'RTX 5060', include_terms: 'rtx5060, rtx 5060' }
+    const realText =
+      'ESTOQUE DISPONIVEL!!!\n\n\n🔥 Placa de Vídeo NVIDIA GeForce INNO3D RTX5060 8GB TWIN X2 OC V2 GDDR7\n\n' +
+      '💵 R$2.299,08\n\n🎟️ Cupom: `SH0PP1NG`'
     render(
-      <MatchCard match={buildMatch({ message_text: text })} rule={rule} source={source} recipients={[]} />,
+      <MatchCard match={buildMatch({ message_text: realText })} rule={rtxRule} source={source} recipients={[]} />,
     )
 
-    expect(screen.getByText('iPhone')).toBeInTheDocument()
+    // testing-library's default text matcher collapses whitespace (incl.
+    // newlines) before comparing — the DOM text itself still has the real
+    // `\n\n\n`, only this assertion's expected string is pre-collapsed.
+    expect(
+      screen.getByText('ESTOQUE DISPONIVEL!!! 🔥 Placa de Vídeo NVIDIA GeForce INNO3D RTX5060'),
+    ).toBeInTheDocument()
   })
 
   it('shows the full text when the rule term is not found in the message (S9-06)', () => {
@@ -382,7 +426,7 @@ describe('MatchCard', () => {
     expect(screen.getByText(text)).toBeInTheDocument()
   })
 
-  it('leaves the text unchanged when the rule term sits at the very end (S9-06)', () => {
+  it('leaves the text unchanged when the rule term sits at the very end, no blank line after it (S9-06)', () => {
     const text = 'Promoção imperdível de iPhone'
     render(
       <MatchCard match={buildMatch({ message_text: text })} rule={rule} source={source} recipients={[]} />,
@@ -393,7 +437,7 @@ describe('MatchCard', () => {
 
   it('never cuts mid-word when the rule term is a substring of a longer word (S9-06)', () => {
     const numericRule: Rule = { ...rule, include_terms: '5070' }
-    const text = 'Promoção RTX 50700X por R$ 4.516'
+    const text = 'Promoção RTX 50700X\n\npor R$ 4.516'
     render(
       <MatchCard match={buildMatch({ message_text: text })} rule={numericRule} source={source} recipients={[]} />,
     )
@@ -417,10 +461,11 @@ describe('MatchCard', () => {
     expect(screen.getByText(text)).toBeInTheDocument()
   })
 
-  it('shows a tooltip with the untruncated text when the S9-06 cut fires (S9-02)', () => {
-    const rtxRule: Rule = { ...rule, name: 'RTX 5070 TI', include_terms: 'rtx 5070 ti' }
+  it('shows a tooltip with the untruncated text when the S9-06/S10-02 cut fires (S9-02)', () => {
+    const rtxRule: Rule = { ...rule, name: 'RTX 5070 Ti', include_terms: 'rtx 5070 ti,5070 ti' }
     const realTitle =
-      'Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd $ Valor:'
+      '👌 Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd\n\n' +
+      '💲 Valor: R$6.991,08 8% desconto no Pix'
     render(
       <MatchCard
         match={buildMatch({ message_text: realTitle })}
@@ -430,7 +475,12 @@ describe('MatchCard', () => {
       />,
     )
 
-    expect(screen.getByRole('tooltip')).toHaveTextContent(realTitle)
+    // toHaveTextContent normalizes the received text but not the expected
+    // string, so the `\n\n` here is pre-collapsed to match it.
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      '👌 Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd ' +
+        '💲 Valor: R$6.991,08 8% desconto no Pix',
+    )
   })
 
   it('has no tooltip when the title was not truncated (S9-02)', () => {

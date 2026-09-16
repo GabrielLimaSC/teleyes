@@ -78,20 +78,38 @@ function ruleTermEndIndex(text: string, includeTerms: string): number | null {
   return lastEnd
 }
 
-// S9-06: two real messages from different sources disagreed on where the
-// rule term sits. CMdias (S8-02 fixture) has it near the *start*, with real
-// price/coupon content after it — cutting there would destroy the already-
-// shipped S8-02 behavior. PC DO FAFA has it near the *end* of a long product
-// name, with only SKU noise after it — cutting there is exactly the point of
-// this task. A content-based filter ("don't cut if what follows looks like a
-// price") doesn't separate them either — PC DO FAFA's trailing "$ Valor:..."
-// looks just as price-like as CMdias's coupon text. Resolved positionally
-// instead: only cut when the term's own end already sits in the second half
-// of the text (>= 50%), i.e. only when the "product name" already accounts
-// for most of it. Validated against both real examples (PC DO FAFA ~53% →
-// cuts, CMdias ~16% → doesn't) — conservative heuristic, revisit if a third
-// real example contradicts it. A tie at exactly 50% cuts (>=, not >).
-const CUT_POSITION_THRESHOLD = 0.5
+/**
+ * S10-02: S9-06 originally gated this cut on the term's relative position
+ * (>= 50% of the text) — validated against only 2 examples at the time
+ * (PC DO FAFA ~53%, the CMdias/S8-02 fixture ~16%), which broke on a third
+ * real example (PC DO FAFA id 91, ~33%) once more real production data
+ * became available. Pulled 87 real matches from PC DO FAFA/CMdias to
+ * recalibrate: almost every real message puts the rule term's own line at
+ * 20-45% (the "$ Valor .../💵 R$..." block after it is longer than the S9-06
+ * mockup assumed), so a 50% floor almost never fired in practice — position
+ * was never the right signal.
+ *
+ * What every one of those 87 messages *does* share: the rule term's own
+ * line is followed, somewhere before the link, by a blank line (`\n\n`)
+ * separating the product name from the price/coupon/footer block — present
+ * even in real CMdias messages, despite the original S8-02 unit-test
+ * fixture (single-line, no `\n\n` at all) not having one. Gating on real
+ * paragraph structure instead of position: fires correctly on all 87 real
+ * examples (including PC DO FAFA id 91), and the S8-02 fixture still falls
+ * through unchanged (no `\n\n` anywhere in it) — same result as before,
+ * confirmed against the exact fixture text, not just reasoned about.
+ *
+ * The gate only checks that a `\n\n` exists *somewhere after* the term ends
+ * — never used as the cut point itself. A real counter-example in the
+ * pulled data (a "ESTOQUE DISPONÍVEL!!!" banner line before the actual
+ * product name, its own `\n\n` sitting *before* the rule term) would have
+ * chopped the product name off entirely under a naive "cut at the first
+ * `\n\n`" rule; anchoring the cut on the term's own position, same as
+ * always, never has that failure mode.
+ */
+function hasBlankLineAfter(text: string, position: number): boolean {
+  return text.indexOf('\n\n', position) !== -1
+}
 
 /**
  * S9-06: real promo text keeps going well past the point a human recognizes
@@ -100,14 +118,14 @@ const CUT_POSITION_THRESHOLD = 0.5
  * whitespace so a term that's a substring of a longer word (rare, but
  * possible) never splits that word mid-way, same "never cut inside a word"
  * spirit as the S8-02 link cut. Falls back to `text` unchanged whenever the
- * term can't be found, or its end doesn't reach `CUT_POSITION_THRESHOLD` —
- * never hides information on a guess.
+ * term can't be found, or nothing after it looks like a paragraph break
+ * (S10-02) — never hides information on a guess.
  */
 function cutAtRuleTerm(text: string, rule: Rule | undefined): string {
   if (rule === undefined || text.length === 0) return text
   const termEnd = ruleTermEndIndex(text, rule.include_terms)
   if (termEnd === null) return text
-  if (termEnd / text.length < CUT_POSITION_THRESHOLD) return text
+  if (!hasBlankLineAfter(text, termEnd)) return text
 
   let end = termEnd
   while (end < text.length && !/\s/.test(text[end])) {
