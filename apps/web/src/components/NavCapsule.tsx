@@ -73,30 +73,6 @@ export function NavCapsule() {
               yChannelSelector="G"
             />
           </filter>
-          <filter
-            id="nav-mascot-refraction"
-            x="-15%"
-            y="-35%"
-            width="130%"
-            height="170%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.012 0.08"
-              numOctaves="1"
-              seed="7"
-              result="surface"
-            />
-            <feGaussianBlur in="surface" stdDeviation="1.4" result="softSurface" />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="softSurface"
-              scale="34"
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
-          </filter>
         </defs>
       </svg>
 

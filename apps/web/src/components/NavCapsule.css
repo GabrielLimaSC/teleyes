@@ -16,7 +16,10 @@
 .nav-capsule {
   position: relative;
   width: min(720px, calc(100vw - 24px));
-  height: 68px;
+  /* S9-05: named so `.nav-mascot` can size itself off the capsule's own
+     height instead of a magic number that drifts out of sync with it. */
+  --nav-capsule-height: 68px;
+  height: var(--nav-capsule-height);
   isolation: isolate;
 }
 
@@ -42,20 +45,24 @@
   pointer-events: none;
 }
 
+/* S9-05: the mascot badge is the same glass "piece" as the capsule, not a
+   second material with its own blur/tint recipe (that's what made it read
+   as a sticker floating on top instead of connected to the capsule) — same
+   refraction filter, background and backdrop-filter values as
+   `.nav-glass__*`, only the shape (circle vs. pill) differs. */
+.nav-glass__refraction,
 .nav-mascot__refraction {
-  background: rgba(20, 21, 27, 0.08);
-  -webkit-backdrop-filter: blur(6px) saturate(190%) contrast(112%);
-  backdrop-filter: blur(6px) saturate(190%) contrast(112%);
-  filter: url('#nav-mascot-refraction');
-}
-
-.nav-glass__refraction {
   background: rgba(255, 255, 255, 0.12);
   /* Plain blur remains when SVG backdrop displacement is unavailable. */
   -webkit-backdrop-filter: blur(8px) saturate(150%);
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(2px) url('#nav-glass-refraction') saturate(150%);
   backdrop-filter: blur(2px) url('#nav-glass-refraction') saturate(150%);
+}
+
+.nav-glass__refraction {
+  /* Fades the refraction at the pill's rounded ends — a small circle has no
+     equivalent "end" to fade, so this stays glass-only. */
   -webkit-mask-image: linear-gradient(
     to bottom,
     #000 0%,
@@ -72,7 +79,8 @@
   );
 }
 
-.nav-glass__tint {
+.nav-glass__tint,
+.nav-mascot__tint {
   background:
     linear-gradient(
       165deg,
@@ -83,7 +91,8 @@
     rgba(232, 234, 239, 0.42);
 }
 
-.nav-glass__shine {
+.nav-glass__shine,
+.nav-mascot__shine {
   border: 1px solid rgba(255, 255, 255, 0.84);
   border-radius: inherit;
   box-shadow:
@@ -174,8 +183,12 @@
   z-index: 4;
   top: 50%;
   left: 50%;
-  width: 76px;
-  height: 76px;
+  /* S9-05: sized off the capsule's own height (not a magic number) so it
+     fits inside the pill instead of poking out past its top/bottom edge —
+     8px total margin, the same breathing room `.nav-capsule__glass`'s own
+     2px inset already leaves relative to the capsule on each side. */
+  width: calc(var(--nav-capsule-height) - 8px);
+  height: calc(var(--nav-capsule-height) - 8px);
   overflow: hidden;
   appearance: none;
   border: 0;
@@ -206,27 +219,16 @@
   border-radius: 50%;
 }
 
-.nav-mascot__tint {
-  background:
-    radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.26), transparent 38%),
-    rgba(15, 17, 24, 0.38);
-}
-
-.nav-mascot__shine {
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  box-shadow:
-    inset 1px 1px 1px rgba(255, 255, 255, 0.34),
-    inset -1px -2px 2px rgba(0, 0, 0, 0.24),
-    inset 0 -1px 12px rgba(92, 132, 255, 0.08);
-}
-
 .nav-mascot img {
   position: relative;
   z-index: 2;
   display: block;
-  width: 66px;
-  height: 66px;
-  margin: 7px auto 0;
+  /* S9-05: percentage, not fixed px — scales with the calc()'d badge size
+     above instead of needing its own per-breakpoint magic number. Ratios
+     match what the old fixed 66px/7px looked like on the old 76px badge. */
+  width: 87%;
+  height: 87%;
+  margin: 6% auto 0;
   object-fit: contain;
   filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.26));
   transform: scale(1.05);
@@ -251,7 +253,8 @@
 
   .nav-capsule {
     width: min(480px, calc(100vw - 16px));
-    height: 64px;
+    --nav-capsule-height: 64px;
+    height: var(--nav-capsule-height);
   }
 
   .nav-capsule__glass {
@@ -352,16 +355,10 @@
     right: 18px;
   }
 
-  .nav-mascot {
-    width: 64px;
-    height: 64px;
-  }
-
-  .nav-mascot img {
-    width: 57px;
-    height: 57px;
-    margin-top: 6px;
-  }
+  /* S9-05: no mascot-size override needed here anymore — `--nav-capsule-
+     height` stays 64px from the 760px breakpoint above (only the capsule's
+     *width* keeps shrinking at this width), so `.nav-mascot`'s calc()
+     already resolves to the right size without a third magic number. */
 }
 
 @media (prefers-reduced-motion: reduce) {
