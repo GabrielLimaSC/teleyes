@@ -44,6 +44,10 @@ class RuleResponse(BaseModel):
     lowest_price_cents: int | None = None
 
 
+class ClearMatchesResponse(BaseModel):
+    deleted: int
+
+
 def _not_found(error: NotFoundError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
 
@@ -137,3 +141,24 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db)) -> Response:
         raise _not_found(error) from error
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/{rule_id}/matches",
+    response_model=ClearMatchesResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def clear_rule_matches(rule_id: int, db: Session = Depends(get_db)) -> ClearMatchesResponse:
+    """S10-04: apaga todo o histórico de matches (e deliveries) de uma
+    regra — pedido do Gabriel pra limpar regras antigas mal configuradas
+    sem mexer em código. A regra em si nunca é apagada nem pausada, só o
+    histórico. Auditoria mínima: registra no log quantos matches saíram e
+    de qual regra.
+    """
+    try:
+        deleted = rule_repo.clear_rule_matches(db, rule_id)
+    except NotFoundError as error:
+        raise _not_found(error) from error
+    db.commit()
+    print(f"[rules] histórico limpo: rule_id={rule_id} matches_apagados={deleted}")
+    return ClearMatchesResponse(deleted=deleted)

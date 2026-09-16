@@ -15,6 +15,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/rules": {"get", "post"},
     "/rules/{rule_id}": {"patch", "delete"},
     "/rules/{rule_id}/pause": {"post"},
+    "/rules/{rule_id}/matches": {"delete"},
     "/sources": {"get", "post"},
     "/sources/{source_id}": {"patch", "delete"},
     "/sources/{source_id}/pause": {"post"},

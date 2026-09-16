@@ -56,6 +56,7 @@ ANONYMOUS_ROUTES = [
     ("PATCH", "/rules/1", {"name": "Atualizada"}),
     ("POST", "/rules/1/pause", None),
     ("DELETE", "/rules/1", None),
+    ("DELETE", "/rules/1/matches", None),
     ("GET", "/sources", None),
     ("POST", "/sources", {"name": "Grupo", "telegram_chat_id": "-1001"}),
     ("PATCH", "/sources/1", {"name": "Atualizado"}),

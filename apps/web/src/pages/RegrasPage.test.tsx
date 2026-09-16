@@ -242,4 +242,100 @@ describe('RegrasPage', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra excluída.')
   })
+
+  it('clearing a rule history shows a confirmation with the real match count first (S10-04)', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (method === 'GET' && url.startsWith('/matches')) {
+          return Promise.resolve(jsonResponse([{ id: 1 }, { id: 2 }, { id: 3 }]))
+        }
+        if (method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+        throw new Error(`unexpected ${method} ${url}`)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+
+    expect(await screen.findByRole('heading', { name: 'Limpar histórico: iPhone' })).toBeInTheDocument()
+    expect(screen.getByText(/apaga 3 matches desta/)).toBeInTheDocument()
+    // Only checked the count so far — never called the destructive endpoint.
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
+  })
+
+  it('confirming clears the rule history and shows the real deleted count (S10-04)', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (method === 'DELETE' && url.includes('/matches')) {
+          return Promise.resolve(jsonResponse({ deleted: 3 }))
+        }
+        if (method === 'GET' && url.startsWith('/matches')) {
+          return Promise.resolve(jsonResponse([{ id: 1 }, { id: 2 }, { id: 3 }]))
+        }
+        if (method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+        throw new Error(`unexpected ${method} ${url}`)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+    await user.click(await screen.findByRole('button', { name: 'Apagar histórico' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('3 matches apagados.')
+    expect(screen.queryByRole('heading', { name: 'Limpar histórico: iPhone' })).not.toBeInTheDocument()
+  })
+
+  it('shows a toast directly, no confirmation, when the rule has no matches to clear (S10-04)', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (method === 'GET' && url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+        if (method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+        throw new Error(`unexpected ${method} ${url}`)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Nenhum match encontrado')
+    expect(screen.queryByRole('heading', { name: 'Limpar histórico: iPhone' })).not.toBeInTheDocument()
+  })
+
+  it('canceling the clear confirmation calls no destructive endpoint (S10-04)', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (method === 'GET' && url.startsWith('/matches')) return Promise.resolve(jsonResponse([{ id: 1 }]))
+        if (method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+        throw new Error(`unexpected ${method} ${url}`)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+    await screen.findByRole('heading', { name: 'Limpar histórico: iPhone' })
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('heading', { name: 'Limpar histórico: iPhone' })).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
+  })
 })

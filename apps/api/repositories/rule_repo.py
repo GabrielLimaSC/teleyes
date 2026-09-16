@@ -1,9 +1,9 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from models import Rule
+from models import Delivery, Match, Rule
 from repositories.errors import NotFoundError, ValidationError
 
 
@@ -80,3 +80,22 @@ def delete_rule(session: Session, rule_id: int) -> None:
     rule = _get_rule(session, rule_id)
     session.delete(rule)
     session.flush()
+
+
+def clear_rule_matches(session: Session, rule_id: int) -> int:
+    """S10-04: deletes every `Match` (and its `Delivery` rows) for one rule —
+    the rule itself, its config and its `active` state are untouched, only
+    its match history. `Delivery` rows are deleted first: `Match`/`Delivery`
+    have no DB-level cascade (no `ondelete="CASCADE"` on the FK), so a plain
+    delete of `Match` alone would leave orphaned `Delivery` rows behind.
+    Returns the number of matches deleted, for the frontend's confirmation
+    dialog and the success toast.
+    """
+    _get_rule(session, rule_id)
+    match_ids = list(session.scalars(select(Match.id).where(Match.rule_id == rule_id)))
+    if not match_ids:
+        return 0
+    session.execute(delete(Delivery).where(Delivery.match_id.in_(match_ids)))
+    session.execute(delete(Match).where(Match.rule_id == rule_id))
+    session.flush()
+    return len(match_ids)

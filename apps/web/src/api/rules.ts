@@ -30,3 +30,12 @@ export const pauseRule = (csrfToken: string, id: number): Promise<Rule> =>
 
 export const deleteRule = (csrfToken: string, id: number): Promise<void> =>
   apiRequest<void>(`/rules/${id}`, { method: 'DELETE', headers: jsonHeaders(csrfToken) })
+
+/** S10-04: apaga o histórico de matches (e deliveries) da regra — a regra
+ * em si nunca é apagada. Retorna quantos matches saíram, pro toast de
+ * confirmação. */
+export const clearRuleMatches = (csrfToken: string, id: number): Promise<{ deleted: number }> =>
+  apiRequest<{ deleted: number }>(`/rules/${id}/matches`, {
+    method: 'DELETE',
+    headers: jsonHeaders(csrfToken),
+  })
