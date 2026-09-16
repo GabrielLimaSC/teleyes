@@ -245,6 +245,37 @@ test('the nav capsule is fully reachable by keyboard with visible focus', async 
   await expect(page).toHaveURL('/regras')
 })
 
+test('the mascot badge fits inside the capsule and never overlaps a tab (S9-05)', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 400 })
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/feed')
+
+  const capsuleBox = await page.locator('.nav-capsule').boundingBox()
+  const mascotBox = await page.locator('.nav-mascot').boundingBox()
+  expect(capsuleBox).not.toBeNull()
+  expect(mascotBox).not.toBeNull()
+
+  // Proportion: the badge fits inside the capsule's own height, never
+  // taller than it — the old fixed 76px badge on a 68px capsule failed
+  // exactly this.
+  expect(mascotBox!.height).toBeLessThanOrEqual(capsuleBox!.height)
+  expect(mascotBox!.y).toBeGreaterThanOrEqual(capsuleBox!.y - 0.5)
+  expect(mascotBox!.y + mascotBox!.height).toBeLessThanOrEqual(capsuleBox!.y + capsuleBox!.height + 0.5)
+
+  // Never overlaps any tab — on desktop the six tabs sit in the wings
+  // either side of the mascot's reserved middle slot.
+  const tabs = page.locator('.nav-tab')
+  const tabCount = await tabs.count()
+  for (let i = 0; i < tabCount; i++) {
+    const tabBox = await tabs.nth(i).boundingBox()
+    expect(tabBox).not.toBeNull()
+    const overlapsHorizontally =
+      mascotBox!.x < tabBox!.x + tabBox!.width && tabBox!.x < mascotBox!.x + mascotBox!.width
+    expect(overlapsHorizontally).toBe(false)
+  }
+})
+
 test('respects prefers-reduced-motion: the nav expansion transition is disabled', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
