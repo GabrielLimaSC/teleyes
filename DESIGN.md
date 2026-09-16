@@ -5,8 +5,8 @@ colors:
   page-bg: "#f5f5f7"
   ink: "#08060d"
   ink-muted: "#4b4b52"
-  capsule-bg: "#17181c"
-  capsule-tab-inactive: "#b8b9bf"
+  capsule-bg: "rgba(232, 234, 239, 0.42)"
+  capsule-tab-inactive: "#4b4b52"
   glass-surface: "rgba(255, 255, 255, 0.6)"
   glass-edge-top: "rgba(255, 255, 255, 0.8)"
   glass-edge: "rgba(255, 255, 255, 0.4)"
@@ -63,20 +63,20 @@ spacing:
   xxl: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.capsule-bg}"
+    backgroundColor: "#171717"
     textColor: "#ffffff"
     rounded: "{rounded.pill}"
     padding: "10px 18px"
   button-primary-hover:
-    backgroundColor: "{colors.capsule-bg}"
+    backgroundColor: "#171717"
   button-ghost:
     backgroundColor: "#ffffff"
     textColor: "{colors.ink-muted}"
     rounded: "{rounded.pill}"
     padding: "6px 12px"
   nav-pill-active:
-    backgroundColor: "#ffffff"
-    textColor: "{colors.ink}"
+    backgroundColor: "#171717"
+    textColor: "#ffffff"
     rounded: "{rounded.pill}"
   nav-tab-inactive:
     backgroundColor: "transparent"
@@ -98,27 +98,27 @@ notification delivery. Nothing on screen is decoration standing in for a feature
 
 Legibility is a stated, non-negotiable acceptance criterion, not a preference: product name and price are
 always the darkest, heaviest thing in a row; source, rule, and other metadata recede in weight and color.
-Status is never color alone — every status pill carries a dot **and** a word. The one deliberately
-theatrical gesture — the floating dark navigation capsule with its gooey sliding pill and diagonal page
-transitions — exists precisely because it is the one piece of chrome Gabriel looks at on every single
-screen; everything downstream of it stays calm so the capsule's motion has room to be the signature.
+Status is never color alone — every status pill carries a dot **and** a word. The floating silver navigation
+capsule uses genuine SVG backdrop displacement at its edge, a dark active tab, and a compact drawer on
+small screens. It is the one piece of chrome Gabriel looks at on every screen; everything downstream of
+it stays calm so the material remains legible.
 
 **Key Characteristics:**
 - Light liquid-glass surfaces on an off-white canvas, never a dark theme.
-- A floating dark capsule is the only saturated, opaque shape in the whole system.
+- A floating silver capsule is the navigation landmark; its dark active tab carries the emphasis.
 - Weight and color encode hierarchy (product/price bold+dark, metadata light+gray) — never size alone.
 - Status is always a dot plus a word, never a color chip by itself.
-- Motion is confined to specific, purposeful moments (nav pill, page transition, button fill) and fully
+- Motion is confined to specific, purposeful moments (mobile drawer, page transition, button fill) and fully
   disabled under `prefers-reduced-motion` — it is never ambient or decorative.
 
 ## Colors
 
-The palette is almost monochrome by design — near-white surfaces, near-black text — with color spent only
-on two things: the navigation capsule's opacity and the small, purposeful status/category accents.
+The palette is almost monochrome by design — near-white surfaces, near-black text — with color spent on
+status/category accents and the restrained blue-violet focus treatment.
 
 ### Primary
-- **Ink** (`#08060d`): the only "loud" neutral — product names, prices, page titles, the active nav
-  pill's own label. Reserved for what the eye must land on first in any row.
+- **Ink** (`#08060d`): the strongest neutral for product names, prices, and page titles. Reserved for
+  what the eye must land on first in any row.
 
 ### Neutral
 - **Page Canvas** (`#f5f5f7`): the app's background on every page; never pure white, so the glass
@@ -134,15 +134,14 @@ on two things: the navigation capsule's opacity and the small, purposeful status
   metadata, health-panel labels. Chosen specifically to clear 4.5:1 contrast against both the page
   canvas and white card surfaces (`#7a7a82`, the first color tried here, measured 3.91–4.26:1 and was
   replaced during S4-08's accessibility pass).
-- **Capsule Black** (`#17181c`): the navigation capsule and every primary button's resting fill — the
-  system's one deliberately opaque, dark shape.
-- **Capsule Tab Gray** (`#b8b9bf`): inactive nav labels sitting directly on the dark capsule.
+- **Silver Glass** (translucent cool neutrals around `rgba(232, 234, 239, 0.42)`): the navigation
+  capsule and mobile drawer, with a bright top edge and subtle lower shadow.
+- **Action Black** (`#171717`): the active nav tab and primary actions.
+- **Tab Gray** (`#4b4b52`): inactive nav labels on the silver capsule.
 
 ### Named Rules (optional, powerful)
-**The One Dark Shape Rule.** Only the navigation capsule (and, by inheritance, primary buttons using
-its same fill) is ever a flat, opaque dark shape. Every other surface is glass, white, or the page
-canvas — the capsule's darkness stays legible as *the* navigation landmark because nothing else competes
-for that register.
+**Dark for action.** The active nav tab and primary buttons carry opaque near-black fills. The capsule
+itself remains translucent silver, so the current destination is clear without darkening the whole shell.
 
 ### Status & Category Accents
 Status pills and category-icon tiles are the only saturated color in the system, and both follow the
@@ -188,14 +187,14 @@ the hierarchy instead of using it.
 
 ## Layout
 
-Every page shares one shell: the navigation capsule fixed at the top (see Components → Navigation), then
+Every page shares one shell: the navigation capsule at the top (see Components → Navigation), then
 a single content column, `max-width: 640–900px` depending on the page's density (760px for card lists
 like Feed/Histórico, 900px for the wider CRUD tables on Regras/Fontes, 640px for the single-column Saúde
 panel), centered with side padding that never lets content touch the viewport edge. There is no sidebar
 anywhere in the system — this is a stated rejection from the approved direction, not an omission.
 
-**Responsive behavior:** at ≤640px the navigation capsule wraps its six tabs onto two rows rather than
-scrolling or collapsing into a menu — verified to introduce zero page-level horizontal scroll at 390px.
+**Responsive behavior:** at ≤760px the navigation capsule presents a compact bar and an expandable
+two-column drawer for its six tabs, with no page-level horizontal scroll at 390–400px.
 CRUD tables (Regras/Fontes/Destinatários) get their own horizontal scroll container
 (`overflow-x: auto` on a `.crud-table-wrap`, not the page) below that width, so a wide table degrades by
 scrolling in place rather than forcing the whole page to scroll sideways or truncating columns silently.
@@ -209,16 +208,15 @@ the page canvas), with exactly one real shadow vocabulary reserved for the two e
 as floating above everything else.
 
 ### Shadow Vocabulary
-- **Capsule float** (`box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18)`): the navigation capsule only — it is
-  the one element in the system that must read as physically hovering over the page.
+- **Capsule float** (two soft layers, `0 18px 32px rgba(23, 23, 23, 0.13)` and
+  `0 4px 10px rgba(23, 23, 23, 0.09)`): the silver navigation capsule.
 - **Glass lift** (`box-shadow: 0 8px 32px rgba(15, 15, 20, 0.08)`): every glass card (match cards, form
   panels, CRUD table containers) — a much softer lift than the capsule's, keeping cards feeling like they
   rest on the canvas rather than float above it.
 
 ### Named Rules (optional)
-**The Two-Shadow Rule.** There are exactly two shadow values in the whole system (capsule float, glass
-lift). A third shadow value is a sign a new component invented its own physics instead of joining one of
-the two existing depth planes.
+**Depth planes.** The capsule floats above the page; cards lift more softly. A new surface should join
+one of these planes rather than invent another elevation level.
 
 ## Shapes
 
@@ -235,7 +233,7 @@ glass surface's own soft top-edge highlight (`border-top-color: rgba(255, 255, 2
 ### Buttons
 - **Shape:** true pill (`border-radius: 999px`).
 - **Primary** (`.crud-page__new-button`, `.crud-form__submit`, the login submit, "Enviar teste"):
-  `{colors.capsule-bg}` fill, white text, `10px 18px` padding.
+  near-black fill, white text, `10px 18px` padding.
   - **Interaction — color fill from the click point:** every primary button also carries `.fill-button`
     (`FillButton.css`): a translucent white bloom (`rgba(255, 255, 255, 0.18)`) expands from wherever the
     pointer went down (`--fill-x`/`--fill-y`, set by `useFillOrigin()`), via `clip-path: circle()`
@@ -282,46 +280,22 @@ row, then price+status row) rather than shrinking text.
   backend's actual error `detail` string, never a generic "something went wrong".
 
 ### Navigation (signature)
-The floating capsule: `{colors.capsule-bg}`, true pill, `6px` internal padding, the wordmark "teleyes"
-(lowercase, 600 weight) sitting outside the capsule to its left. The six tabs (Login, Feed, Regras,
-Fontes, Histórico, Saúde) live inside it as plain text links; the active one sits under a solid white
-pill (`.nav-pill`) that is a single absolutely-positioned element, not a per-tab background, so it can
-slide.
-- **Motion — the gooey pill:** the pill lives inside `.nav-capsule__goo-layer`, a layer with
-  `filter: blur(6px) contrast(20)` applied only to that layer — never to the tab labels themselves, which
-  stay crisp. A first pass used an SVG `feGaussianBlur` + `feColorMatrix` filter for the same effect,
-  simplified to the plain CSS functions during the S4-09 finish pass (not the cause of any bug found
-  there, just one fewer moving part). The pill's `left/top/width/height`
-  transition on an ease-out-expo curve (`cubic-bezier(0.16, 1, 0.3, 1)`; a first pass used a bouncy
-  `cubic-bezier(0.6, -0.28, 0.44, 1.28)` that Impeccable's detector correctly flagged as dated
-  bounce/elastic easing during S4-09's finish pass). The blur+contrast filter deforms the pill's edges as
-  it moves, producing the gooey "metaball" read the direction called for from a single moving shape
-  rather than two blobs merging.
-- **Motion — page transitions:** tab clicks use React Router's native `viewTransition` (wraps navigation
-  in `document.startViewTransition()`), paired with a custom diagonal `clip-path` reveal keyframe
-  (`teleyes-diagonal-reveal`, 420ms) in place of the browser's default cross-fade. Falls back to a plain
-  swap automatically wherever `startViewTransition` doesn't exist. **Requires the data router**
-  (`createBrowserRouter` + `RouterProvider`, wired in `src/main.tsx`) — `viewTransition` on `NavLink` is a
-  silent no-op under the plain `<BrowserRouter>` component, which is what this app shipped with through
-  S4-08: the prop was set the whole time but `document.startViewTransition` was never actually called, so
-  the diagonal reveal never fired in production (found and fixed in the S4-09 finish pass, since the
-  original motion-evidence test never asserted the transition actually ran). Don't revert to
-  `<BrowserRouter>` without re-verifying this. Once that fix made the reveal actually run, it exposed a
-  second issue: the pill rendered as fully invisible for the reveal's whole duration, because it was being
-  flattened into the page-level `::view-transition-new(root)` snapshot. Fixed by giving `.nav-pill` its own
-  `view-transition-name: nav-pill` (NavCapsule.css), which tracks it as an independent named transition
-  group instead — a `::view-transition-group(nav-pill)` override retunes that group's default animation to
-  the same 320ms ease-out-expo curve so the slide still reads identically either way. That fix introduced a
-  third issue: naming the pill promotes it to the browser's top layer, which paints over normal-flow
-  content regardless of z-index — so the active tab's own label went invisible behind the pill for the
-  reveal's duration. Fixed by giving `.nav-tab--active` its own paired `view-transition-name: nav-tab-label`
-  and ranking the two named groups explicitly (`::view-transition-group(nav-tab-label) { z-index: 2 }` over
-  `nav-pill`'s `z-index: 1`), restoring the label-in-front-of-pill order the resting state already has.
-- **Mobile:** wraps to two rows at ≤640px; the pill's position is re-measured via
-  `getBoundingClientRect`-derived offsets on every route change and on `resize`, so it still finds the
-  right tab after a reflow.
-- **Reduced motion:** the goo filter, the pill's transition, and the page's clip-path keyframe are all
-  disabled under `prefers-reduced-motion: reduce`.
+The desktop capsule is a 720px maximum silver glass pill with six legible links visible at rest. Three
+tabs sit on each side of the existing mascot slot. The active destination is a near-black pill with white
+text; inactive links use muted ink and gain a pale highlight on hover. The mascot image and its own glass
+treatment remain independent of the navigation material.
+- **Material:** the silver tint, bright rim, and soft shadow frame a backdrop layer. An SVG
+  `feDisplacementMap` refracts the actual backdrop near the top and bottom edges. The plain blur
+  declaration is the fallback where SVG backdrop filters are unavailable. The displacement is subtle on
+  the nearly flat page wash but measurable when a patterned backdrop passes behind the bar.
+- **Compact layout:** at ≤760px the bar shows the product name, current route, and the mascot control.
+  The six links occupy a two-column glass drawer when the mascot opens it. The drawer stays within 400px
+  without horizontal scrolling and closes after route selection or Escape.
+- **Semantics:** desktop links are directly available by keyboard; the desktop mascot is decorative.
+  In compact layout the mascot exposes `aria-expanded` and `aria-controls`, and a live status names the
+  current route while the drawer is closed.
+- **Motion:** the compact drawer enters with restrained opacity and transform. Reduced-motion preference
+  removes those transitions. Page transitions outside the navbar keep their existing route behavior.
 
 ## Do's and Don'ts
 
@@ -331,19 +305,17 @@ slide.
 - **Do** pair every status indicator with a word, never ship a bare colored dot or chip.
 - **Do** wrap every new primary CTA in `.fill-button` and call `useFillOrigin()` on `onPointerDown`, so
   the click-fill motion stays consistent everywhere buttons commit an action.
-- **Do** guard every new motion (transition, animation, SVG filter) with a
+- **Do** guard every new motion (transition, animation, animated SVG filter) with a
   `prefers-reduced-motion: reduce` override that removes it, not just shortens it.
 - **Do** surface the backend's real error `detail` string in `role="alert"` text — never a generic
   fallback when the API already told you what went wrong.
 
 ### Don't:
-- **Don't** introduce a second dark, opaque fill anywhere outside the navigation capsule and primary
-  buttons — that darkness is the capsule's signature, and duplicating it elsewhere dilutes the one
-  landmark the whole nav depends on.
-- **Don't** invent a third shadow value — every elevated surface is either Capsule Float or Glass Lift.
+- **Don't** spread opaque dark fills beyond the active navigation state and primary actions; the silver
+  capsule should remain the navigation landmark.
+- **Don't** invent a new elevation plane without a functional reason.
 - **Don't** fabricate data a real field doesn't back: the category icon, the "Último match" column, and
   the Aurora Glow trigger are all explicitly either cosmetic-only or held inert until real data exists —
   follow that same discipline for any new derived or decorative field.
-- **Don't** use a bounce/elastic easing curve (`cubic-bezier` with any value outside `[0, 1]`) anywhere —
-  Impeccable's detector treats this as a hard finding, and the system's one motion signature (the gooey
-  pill) uses a smooth exponential decelerate specifically to avoid the dated, tacky read a bounce gives.
+- **Don't** use a bounce/elastic easing curve (`cubic-bezier` with any value outside `[0, 1]`) anywhere;
+  the compact drawer uses a smooth exponential deceleration.

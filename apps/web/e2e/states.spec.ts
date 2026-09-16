@@ -251,7 +251,7 @@ test('respects prefers-reduced-motion: the nav expansion transition is disabled'
   await apiLogin(page)
   await page.goto('/feed')
 
-  for (const selector of ['.nav-capsule__glass', '.nav-capsule__wing', '.nav-mascot']) {
+  for (const selector of ['.nav-capsule__menu', '.nav-tab', '.nav-mascot']) {
     const transition = await page.locator(selector).first().evaluate((el) => getComputedStyle(el).transitionDuration)
     expect(transition).toMatch(/^0s(,\s*0s)*$/)
   }

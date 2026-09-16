@@ -16,8 +16,7 @@ test('logs in against the real API, navigates the shell, and logs out', async ({
   await page.reload()
   await expect(page.getByText(/Sessão ativa/)).toBeVisible()
 
-  // the nav capsule switches pages, including the ones still empty in this task
-  await page.locator('.nav-mascot').hover()
+  // The desktop capsule keeps its links visible at rest.
   await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
   await nav.getByRole('link', { name: 'Feed' }).click()
   await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
@@ -33,6 +32,25 @@ test('redirects an anonymous visitor away from a gated page back to login', asyn
 
   await expect(page).toHaveURL('/')
   await expect(page.getByLabel('Senha')).toBeVisible()
+})
+
+test('mobile menu navigates and closes after choosing a page', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 900 })
+  await page.goto('/')
+  await page.getByLabel('Senha').fill('e2e-test-password')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+
+  await page.getByRole('button', { name: 'Expandir navegação' }).click()
+  await expect(page.locator('.nav-capsule__menu')).toBeVisible()
+  await page.getByRole('link', { name: 'Saúde' }).click()
+
+  await expect(page).toHaveURL('/saude')
+  await expect(page.getByRole('heading', { name: 'Saúde' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Expandir navegação' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  )
+  await expect(page.locator('.nav-capsule__menu')).toBeHidden()
 })
 
 test('shows an error and stays logged out on a wrong password', async ({ page }) => {
