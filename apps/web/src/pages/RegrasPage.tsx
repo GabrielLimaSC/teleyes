@@ -307,79 +307,93 @@ export function RegrasPage() {
       )}
 
       {!loading && !listError && (
-        <div className="glass-card crud-table-wrap">
-          <table className="crud-table">
-            <thead>
-              <tr>
-                <th>Regra</th>
-                <th>Termos incluídos</th>
-                <th>Termos bloqueados</th>
-                <th>Preço máximo</th>
-                <th>Menor preço já visto</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((rule) => (
-                <tr key={rule.id}>
-                  <td className="crud-table__name" data-label="Regra">
-                    {rule.name}
-                  </td>
-                  <td data-label="Termos incluídos">{rule.include_terms}</td>
-                  <td data-label="Termos bloqueados">{rule.exclude_terms ?? '—'}</td>
-                  <td data-label="Preço máximo">{formatPriceLimit(rule.max_price_cents)}</td>
-                  <td data-label="Menor preço já visto">{formatLowestPrice(rule.lowest_price_cents)}</td>
-                  <td data-label="Status">
-                    <StatusToggle
-                      active={rule.active}
-                      pausing={pausingId === rule.id}
-                      onPause={() => handlePause(rule)}
-                    />
-                  </td>
-                  <td className="crud-table__actions" data-label="Ações">
-                    <button type="button" onClick={() => openEdit(rule)}>
-                      Editar
-                    </button>
-                    <button type="button" onClick={() => openDuplicate(rule)}>
-                      Duplicar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTesterId(testerId === rule.id ? null : rule.id)
-                        setTesterText('')
-                      }}
-                    >
-                      Testar
-                    </button>
-                    <button
-                      type="button"
-                      className="crud-table__actions--danger"
-                      onClick={() => openClearConfirm(rule)}
-                      disabled={checkingClearId === rule.id}
-                    >
-                      {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
-                    </button>
-                    <button
-                      type="button"
-                      className="crud-table__actions--danger"
-                      onClick={() => handleDelete(rule)}
-                      disabled={deletingId === rule.id}
-                    >
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {rules.length === 0 && (
+        <>
+          {/* S10-07: section header above the table (S10-05 comp's
+              `.section-row`) — only position/structure, table itself
+              unchanged. */}
+          <div className="crud-section-row">
+            <h2>Regras cadastradas</h2>
+            <p>
+              {rules.length === 1 ? '1 regra' : `${rules.length} regras`} · ações disponíveis em
+              cada linha
+            </p>
+          </div>
+          <div className="glass-card crud-table-wrap">
+            <table className="crud-table">
+              <thead>
                 <tr>
-                  <td colSpan={7}>Nenhuma regra cadastrada ainda.</td>
+                  <th>Regra</th>
+                  <th>Termos incluídos</th>
+                  <th>Termos bloqueados</th>
+                  <th>Preço máximo</th>
+                  <th>Menor preço já visto</th>
+                  <th>Status</th>
+                  <th>Ações</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rules.map((rule) => (
+                  <tr key={rule.id}>
+                    <td className="crud-table__name" data-label="Regra">
+                      {rule.name}
+                    </td>
+                    <td data-label="Termos incluídos">{rule.include_terms}</td>
+                    <td data-label="Termos bloqueados">{rule.exclude_terms ?? '—'}</td>
+                    <td data-label="Preço máximo">{formatPriceLimit(rule.max_price_cents)}</td>
+                    <td data-label="Menor preço já visto">
+                      {formatLowestPrice(rule.lowest_price_cents)}
+                    </td>
+                    <td data-label="Status">
+                      <StatusToggle
+                        active={rule.active}
+                        pausing={pausingId === rule.id}
+                        onPause={() => handlePause(rule)}
+                      />
+                    </td>
+                    <td className="crud-table__actions" data-label="Ações">
+                      <button type="button" onClick={() => openEdit(rule)}>
+                        Editar
+                      </button>
+                      <button type="button" onClick={() => openDuplicate(rule)}>
+                        Duplicar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTesterId(testerId === rule.id ? null : rule.id)
+                          setTesterText('')
+                        }}
+                      >
+                        Testar
+                      </button>
+                      <button
+                        type="button"
+                        className="crud-table__actions--danger"
+                        onClick={() => openClearConfirm(rule)}
+                        disabled={checkingClearId === rule.id}
+                      >
+                        {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
+                      </button>
+                      <button
+                        type="button"
+                        className="crud-table__actions--danger"
+                        onClick={() => handleDelete(rule)}
+                        disabled={deletingId === rule.id}
+                      >
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {rules.length === 0 && (
+                  <tr>
+                    <td colSpan={7}>Nenhuma regra cadastrada ainda.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {activeTester && (

@@ -138,6 +138,36 @@ describe('HistoricoPage', () => {
     })
   })
 
+  it('shows a "Resultados" header repeating the current sort label (S10-07)', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    const { container } = render(<HistoricoPage />)
+    // Scoped to the "Resultados" header itself — "Ordenar por" always
+    // renders all 3 sort labels as <option> text too, so an unscoped query
+    // would find two matches for the same label once one is selected.
+    const resultsLabel = () => container.querySelector('.crud-section-row p')
+
+    expect(await screen.findByRole('heading', { name: 'Resultados' })).toBeInTheDocument()
+    expect(resultsLabel()).toHaveTextContent('Mais recentes primeiro')
+
+    const sortSelect = screen.getByLabelText('Ordenar por')
+    await user.selectOptions(sortSelect, 'price_asc')
+
+    // Both places update — the select itself and the repeated label above
+    // the results — using the exact same SORT_OPTIONS labels, never a
+    // second hardcoded copy that could drift out of sync.
+    await waitFor(() => expect(resultsLabel()).toHaveTextContent('Menor preço primeiro'))
+  })
+
   it('the "Atualizar" button reloads matches on demand without changing filters (S7-02)', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)

@@ -24,6 +24,37 @@
   margin: 0;
 }
 
+/* S10-07: subtitle paired with a `.crud-page__header` heading (S10-05
+   comp's title/section-row `.sub`) — same muted small text the comp uses
+   under every heading. */
+.crud-page__header-sub {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  color: var(--color-helper);
+}
+
+/* S10-07: section header above a table, distinct from the page-level
+   `.crud-page__header` above (S10-05 comp's `.section-row`) — heading +
+   a small count/description subtitle, no button on this row. */
+.crud-section-row {
+  margin: var(--space-10) 0 var(--space-4);
+}
+
+.crud-section-row h2 {
+  font-size: var(--font-size-heading-sm);
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.crud-section-row p {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  color: var(--color-helper);
+}
+
 .crud-page__new-button {
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-semibold);
