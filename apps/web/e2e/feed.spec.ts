@@ -169,8 +169,13 @@ test('the feed shows both prices when the message anchors cash and card explicit
   })
 
   await expect(page.getByText('gadgetduploe2e por R$ 3.899 no pix ou R$ 4.199 no cartão')).toBeVisible()
-  await expect(page.getByText('À vista: R$ 3.899,00')).toBeVisible()
-  await expect(page.getByText('Cartão: R$ 4.199,00')).toBeVisible()
+  // S10-06: cash/card price moved into one `.match-card__price` block —
+  // cash as the main value, card as a smaller sub-line under it. Scoped to
+  // this card specifically: the shared dev backend can already have other
+  // matches' price blocks on the page from earlier tests in this file.
+  const card = page.locator('.match-card', { hasText: 'gadgetduploe2e por R$ 3.899 no pix ou R$ 4.199 no cartão' })
+  await expect(card.locator('.match-card__price')).toContainText('R$ 3.899,00')
+  await expect(card.getByText('À vista · Cartão R$ 4.199,00')).toBeVisible()
 })
 
 test('two sources posting the exact same promotion collapse into one card (S7-11)', async ({
