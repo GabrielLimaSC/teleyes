@@ -145,8 +145,15 @@ export function DestinatariosSection() {
 
   return (
     <section className="crud-page__section">
+      {/* S10-07: subtitle added (S10-05 comp's section-row) — the button
+          stays paired with the heading, same as before, just now grouped
+          with its subtitle the way the comp groups a title with its own
+          `.sub`. */}
       <div className="crud-page__header">
-        <h2>Destinatários</h2>
+        <div>
+          <h2>Destinatários</h2>
+          <p className="crud-page__header-sub">Quem recebe os alertas</p>
+        </div>
         <button
           type="button"
           className="crud-page__new-button fill-button"

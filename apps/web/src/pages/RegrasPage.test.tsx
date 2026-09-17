@@ -70,6 +70,35 @@ describe('RegrasPage', () => {
     expect(row.querySelector('[data-label="Menor preço já visto"]')).toHaveTextContent('—')
   })
 
+  it('shows a section header with the real rule count above the table (S10-07)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule, { ...baseRule, id: 2, name: 'RTX 5070' }])))),
+    )
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Regras cadastradas' })).toBeInTheDocument()
+    expect(screen.getByText('2 regras · ações disponíveis em cada linha')).toBeInTheDocument()
+  })
+
+  it('the section header count uses the singular for exactly one rule (S10-07)', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))))
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText('1 regra · ações disponíveis em cada linha')).toBeInTheDocument()
+  })
+
+  it('shows the Destinatários section header with its subtitle (S10-07)', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([])))))
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Destinatários' })).toBeInTheDocument()
+    expect(screen.getByText('Quem recebe os alertas')).toBeInTheDocument()
+  })
+
   it('shows the real lowest price ever seen for a rule with a priced match (S7-06)', async () => {
     vi.stubGlobal(
       'fetch',

@@ -9,12 +9,26 @@
   margin: 16px 0 20px;
 }
 
+/* S10-07: filters live in their own panel now (S10-05 comp's
+   `.history-filters`) — `.glass-card` gives it the same panel treatment
+   already used everywhere else in the app (crud-form/crud-table-wrap),
+   nothing new invented. */
 .historico-page__filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
+  padding: 20px;
   margin-bottom: 24px;
+}
+
+/* S10-07: Regra/Fonte/Destinatário/Entrega in one row, Preço mínimo/
+   máximo/Ordenar por in the next (S10-05 comp's `.history-filter-grid`) —
+   same fields, same order the comp settled on. */
+.historico-page__filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.historico-page__filter-grid-span2 {
+  grid-column: span 2;
 }
 
 .historico-page__filters label {
@@ -34,7 +48,16 @@
   background: #fff;
 }
 
-.historico-page__filters button {
+/* S10-07: "Limpar filtros"/"Atualizar" on their own row below the grid
+   (S10-05 comp's `.field-actions`) — were inline with the filter fields
+   themselves before. */
+.historico-page__filter-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.historico-page__filter-actions button {
   font-size: 13px;
   font-weight: 600;
   padding: 8px 14px;
@@ -43,9 +66,18 @@
   background: #ececef;
   color: #4b4b52;
   cursor: pointer;
-  height: fit-content;
 }
 
 .historico-page__error {
   color: #b3261e;
+}
+
+@media (max-width: 640px) {
+  .historico-page__filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .historico-page__filter-grid-span2 {
+    grid-column: 1;
+  }
 }
