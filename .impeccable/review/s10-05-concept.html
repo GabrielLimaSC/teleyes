@@ -47,6 +47,13 @@
     .chevron { width:8px; height:8px; border-right:2px solid #525866; border-bottom:2px solid #525866; transform:rotate(45deg) translateY(-2px); margin-right:3px; }
     .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:17px; }
     .field-actions { display:flex; gap:9px; margin-top:22px; }
+    .history-filters { padding:22px 24px 24px; }
+    .history-filter-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:17px 14px; }
+    .history-filter-grid .span-two { grid-column:span 2; }
+    .history-filter-grid .select-wrap { display:block; position:relative; }
+    .history-filter-grid select { appearance:none; width:100%; height:42px; border:1px solid #ccd2db; border-radius:10px; padding:0 32px 0 13px; background:#fff; color:#171717; font:500 14px Inter,sans-serif; }
+    .history-filter-grid select:focus-visible { border-color:#315ea8; box-shadow:0 0 0 3px rgba(49,94,168,.16); outline:0; }
+    .history-filter-grid .chevron { position:absolute; top:17px; right:13px; pointer-events:none; }
     .rule-form { padding:22px 24px 24px; }
     .rule-form h2 { margin-bottom:18px; }
     .table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -108,6 +115,10 @@
       .title-row .btn { min-height:38px; font-size:12px; padding:8px 11px; }
       .sub { font-size:13px; }
       .field-grid,.status-grid { grid-template-columns:1fr; }
+      .history-filters { padding:18px; }
+      .history-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .history-filter-grid label:not(.price) { grid-column:1/-1; }
+      .history-filter-grid .span-two { grid-column:1/-1; }
       .panel-pad,.rule-form { padding:18px; }
       .table thead { display:none; }
       .table,.table tbody,.table tr,.table td { display:block; width:100%; }
@@ -153,6 +164,18 @@
       <article class="panel match"><div class="tile violet"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 22h8M12 18v4"/></svg></div><div><h2>Notebook 16 GB para trabalho e estudo</h2><p class="meta">Fonte: Promoções tech · Regra: Notebook · Para: Gabriel</p><div class="foot"><span class="muted">Hoje, 11:16</span><a>Abrir promoção</a></div></div><div class="side"><div class="price">R$ 3.299,00</div><span class="state neutral">Notificação desativada</span></div></article>
       <article class="panel match"><div class="tile peach"><svg viewBox="0 0 24 24"><path d="M3 14v-3a9 9 0 0 1 18 0v3M3 14h3v6H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 1-2Zm18 0h-3v6h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-2Z"/></svg></div><div><h2>Fone sem fio com cancelamento de ruído</h2><p class="meta">Fonte: Grupo de ofertas · Regra: Fones · Para: Gabriel</p><div class="foot"><span class="muted">Ontem, 19:08</span><a>Abrir promoção</a></div></div><div class="side"><div class="price">R$ 349,90</div><span class="state good">Entregue</span></div></article>
     </div></div></template>
+  <template id="historico"><div class="page narrow"><div class="title-row"><div><h1>Histórico</h1><p class="sub">Ofertas encontradas pelas suas regras.</p></div></div>
+    <section class="panel history-filters" aria-label="Filtros do histórico"><div class="history-filter-grid">
+      <label>Regra<span class="select-wrap"><select aria-label="Regra"><option>Todas</option><option>Celulares</option><option>Notebook</option></select><i class="chevron"></i></span></label>
+      <label>Fonte<span class="select-wrap"><select aria-label="Fonte"><option>Todas</option><option>Grupo de ofertas</option><option>Promoções tech</option></select><i class="chevron"></i></span></label>
+      <label>Destinatário<span class="select-wrap"><select aria-label="Destinatário"><option>Todos</option><option>Gabriel</option></select><i class="chevron"></i></span></label>
+      <label>Entrega<span class="select-wrap"><select aria-label="Entrega"><option>Qualquer status</option><option>Entregue</option><option>Histórico — sem alerta</option><option>Falha no envio</option><option>Notificação desativada</option><option>Destinatário não autorizado</option><option>Duplicado</option></select><i class="chevron"></i></span></label>
+      <label class="price">Preço mínimo (R$)<input type="number" min="0" step="0.01" placeholder="0,00" /></label>
+      <label class="price">Preço máximo (R$)<input type="number" min="0" step="0.01" placeholder="Sem limite" /></label>
+      <label class="span-two">Ordenar por<span class="select-wrap"><select aria-label="Ordenar por"><option>Mais recentes primeiro</option><option>Menor preço primeiro</option><option>Maior preço primeiro</option></select><i class="chevron"></i></span></label>
+    </div><div class="field-actions"><button class="btn">Limpar filtros</button><button class="btn">Atualizar</button></div></section>
+    <div class="section-row"><h2>Resultados</h2><p>Mais recentes primeiro</p></div><div class="history-results"></div>
+  </div></template>
   <template id="regras"><div class="page"><div class="title-row"><div><h1>Regras</h1><p class="sub">Defina os termos e acompanhe as regras que monitoram suas fontes.</p></div><button class="btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nova regra</button></div>
     <div class="panel rule-form"><h2>Nova regra</h2><div class="field-grid"><label>Nome<input class="focused" value="Celulares" /></label><label>Termos incluídos (separados por vírgula)<input value="smartphone, celular" /></label><label>Termos bloqueados<input placeholder="Ex.: usado, recondicionado" /></label><label>Preço máximo (R$)<input value="2.000,00" /></label></div><div class="field-actions"><button class="btn primary">Salvar</button><button class="btn">Cancelar</button></div></div>
     <div class="section-row"><h2>Regras cadastradas</h2><p>2 regras · ações disponíveis em cada linha</p></div>
@@ -168,10 +191,13 @@
   </div></template>
   <script>
     const screen = new URL(location.href).searchParams.get('screen') || 'login';
-    const current = ['login','feed','regras','saude'].includes(screen) ? screen : 'login';
+    const current = ['login','feed','historico','regras','saude'].includes(screen) ? screen : 'login';
     document.getElementById('screen').append(document.getElementById(current).content.cloneNode(true));
+    if (current === 'historico') {
+      document.querySelector('.history-results').append(document.getElementById('feed').content.querySelector('.match-list').cloneNode(true));
+    }
     document.querySelector('[data-tab="'+current+'"]').classList.add('active');
-    document.getElementById('mobile-current').textContent = ({login:'Login',feed:'Feed',regras:'Regras',saude:'Saúde'})[current];
+    document.getElementById('mobile-current').textContent = ({login:'Login',feed:'Feed',historico:'Histórico',regras:'Regras',saude:'Saúde'})[current];
   </script>
 </body>
 </html>
