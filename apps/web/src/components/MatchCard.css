@@ -1,13 +1,16 @@
+/* S10-06: icon | body | side — 3-column grid (S10-05 comp's `.match`),
+   replacing the old flat flex row where price/status/aurora-label were
+   loose siblings after the body. */
 .match-card {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
   gap: 16px;
+  align-items: center;
   padding: 16px 20px;
   margin-bottom: 12px;
 }
 
 .match-card__icon {
-  flex: 0 0 auto;
   width: 56px;
   height: 56px;
   border-radius: 14px;
@@ -18,7 +21,6 @@
 }
 
 .match-card__body {
-  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -47,13 +49,6 @@
   overflow-wrap: break-word;
 }
 
-.match-card__timestamp {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 400;
-  color: #8a8a92;
-}
-
 .match-card__grouped-sources {
   margin: 4px 0 0;
   font-size: 12px;
@@ -62,48 +57,70 @@
   overflow-wrap: break-word;
 }
 
-.match-card__link {
-  display: inline-block;
+/* S10-06: date + "Abrir promoção" on the same line (S10-05 comp's `.foot`)
+   — were two separate sibling paragraphs before. */
+.match-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
   margin-top: 8px;
+}
+
+.match-card__timestamp {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #8a8a92;
+}
+
+.match-card__link {
   font-size: 13px;
   font-weight: 600;
   color: #17181c;
   text-decoration: underline;
 }
 
+/* S10-06: moved from beside the price into the body, right after the foot
+   (S10-05 comp's `.lowest`, inside the same body block as the title). */
+.match-card__aurora-label {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6a3fbf;
+  white-space: nowrap;
+}
+
+/* S10-06: price + status share one right-hand column (S10-05 comp's
+   `.side`) instead of being loose siblings after the body. */
+.match-card__side {
+  display: grid;
+  gap: 11px;
+  justify-items: end;
+  text-align: right;
+}
+
 .match-card__price {
-  flex: 0 0 auto;
-  margin: 0 8px;
+  margin: 0;
   font-size: 18px;
   font-weight: 700;
   color: #08060d;
-  white-space: nowrap;
 }
 
-.match-card__price-split {
-  flex: 0 0 auto;
-  margin: 0 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  white-space: nowrap;
-}
-
-.match-card__price-cash {
-  font-size: 16px;
-  font-weight: 700;
-  color: #08060d;
-}
-
-.match-card__price-card {
-  font-size: 13px;
-  font-weight: 600;
-  color: #4b4b52;
+/* S10-06: replaces the old two-line `.match-card__price-split` (cash/card
+   as equal-weight sibling lines) — the card price now, with the à vista/
+   cartão note attached as a smaller sub-line under it, same price/status
+   grouping the comp uses. */
+.match-card__price-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #525866;
 }
 
 .match-card__status {
-  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -120,21 +137,28 @@
   border-radius: 50%;
 }
 
-.match-card__aurora-label {
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6a3fbf;
-  white-space: nowrap;
-}
-
 @media (max-width: 720px) {
   .match-card {
-    flex-wrap: wrap;
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 16px;
   }
 
-  .match-card__price,
-  .match-card__price-split {
-    margin-left: 72px;
+  .match-card__icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .match-card__side {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+  }
+
+  .match-card__price {
+    text-align: left;
   }
 }

@@ -16,8 +16,36 @@ function formatPrice(cents: number | null): string {
   return formatCurrency(cents)
 }
 
-function formatMatchedAt(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR')
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+/**
+ * S10-06: "Hoje"/"Ontem" per the S10-05 comps, falling back to the full
+ * date for anything older — Gabriel only specified the two relative labels,
+ * not an exact format for "older than yesterday" (Dev's call). `now`
+ * defaults to a real `new Date()` but is overridable for tests, so no test
+ * has to depend on the real wall clock. Day comparison uses the `Date`
+ * object's own local-timezone getters (`getFullYear`/`getMonth`/`getDate`),
+ * never the UTC ones — CLAUDE.md's binding decision is "apresentado no
+ * fuso configurado", and this app has no separate timezone setting
+ * anywhere, so "configured" here is the viewer's own local timezone, same
+ * as the `toLocaleString` call this replaces already used implicitly.
+ */
+function formatMatchedAt(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (isSameLocalDay(date, now)) return `Hoje, ${time}`
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (isSameLocalDay(date, yesterday)) return `Ontem, ${time}`
+
+  return date.toLocaleString('pt-BR')
 }
 
 const FIRST_LINK_RE = /https?:\/\//i
@@ -194,37 +222,49 @@ export function MatchCard({
           Fonte: {source?.name ?? `#${match.source_id}`} · Regra: {rule?.name ?? `#${match.rule_id}`}
           {recipientNames.length > 0 && <> · Para: {recipientNames.join(', ')}</>}
         </p>
-        <p className="match-card__timestamp">{formatMatchedAt(match.matched_at)}</p>
         {groupedSourceNames !== undefined && groupedSourceNames.length > 0 && (
           <p className="match-card__grouped-sources">Visto em: {groupedSourceNames.join(', ')}</p>
         )}
-        {match.message_link !== null && (
-          <a
-            className="match-card__link"
-            href={match.message_link}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Abrir promoção
-          </a>
-        )}
-      </div>
-      {match.price_cash_cents !== null && match.price_card_cents !== null ? (
-        <div className="match-card__price-split">
-          <span className="match-card__price-cash">À vista: {formatCurrency(match.price_cash_cents)}</span>
-          <span className="match-card__price-card">Cartão: {formatCurrency(match.price_card_cents)}</span>
+        {/* S10-06: date + link on the same line (S10-05 comp's `.foot`) —
+            were two separate sibling paragraphs before. */}
+        <div className="match-card__foot">
+          <span className="match-card__timestamp">{formatMatchedAt(match.matched_at)}</span>
+          {match.message_link !== null && (
+            <a
+              className="match-card__link"
+              href={match.message_link}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Abrir promoção
+            </a>
+          )}
         </div>
-      ) : (
-        <p className="match-card__price">{formatPrice(match.price_cents)}</p>
-      )}
-      {isLowestPriceEver && <span className="match-card__aurora-label">Menor preço já visto</span>}
-      <span
-        className="match-card__status"
-        style={{ background: status.background, color: status.foreground }}
-      >
-        <span className="match-card__status-dot" style={{ background: status.dotColor }} />
-        {status.label}
-      </span>
+        {/* S10-06: moved from beside the price into the body, right after
+            the foot — was a `.side` sibling before. */}
+        {isLowestPriceEver && <span className="match-card__aurora-label">Menor preço já visto</span>}
+      </div>
+      {/* S10-06: price + status now share one right-hand column (S10-05
+          comp's `.side`) instead of being loose siblings after the body. */}
+      <div className="match-card__side">
+        {match.price_cash_cents !== null && match.price_card_cents !== null ? (
+          <p className="match-card__price">
+            {formatCurrency(match.price_cash_cents)}
+            <span className="match-card__price-sub">
+              À vista · Cartão {formatCurrency(match.price_card_cents)}
+            </span>
+          </p>
+        ) : (
+          <p className="match-card__price">{formatPrice(match.price_cents)}</p>
+        )}
+        <span
+          className="match-card__status"
+          style={{ background: status.background, color: status.foreground }}
+        >
+          <span className="match-card__status-dot" style={{ background: status.dotColor }} />
+          {status.label}
+        </span>
+      </div>
     </article>
   )
 }

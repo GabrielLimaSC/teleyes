@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MatchCard } from './MatchCard'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 
@@ -137,7 +137,11 @@ describe('MatchCard', () => {
   })
 
   it('shows both prices when the message had explicit cash/card anchors (S7-05)', () => {
-    render(
+    // S10-06: cash/card moved from two equal-weight sibling lines into one
+    // `.match-card__price` block — the cash value as the main price, the
+    // card value as a smaller sub-line nested inside it (S10-05 comp's
+    // `.price span`), not a second price element next to it.
+    const { container } = render(
       <MatchCard
         match={buildMatch({ price_cash_cents: 389_900, price_card_cents: 419_900 })}
         rule={rule}
@@ -146,14 +150,13 @@ describe('MatchCard', () => {
       />,
     )
 
-    expect(screen.getByText('À vista: R$ 3.899,00')).toBeInTheDocument()
-    expect(screen.getByText('Cartão: R$ 4.199,00')).toBeInTheDocument()
-    // The single-price paragraph never renders alongside the split prices.
-    expect(screen.queryByText('R$ 3.899,00', { selector: '.match-card__price' })).not.toBeInTheDocument()
+    expect(container.querySelector('.match-card__price')).toHaveTextContent('R$ 3.899,00')
+    expect(screen.getByText('À vista · Cartão R$ 4.199,00')).toBeInTheDocument()
+    expect(container.querySelectorAll('.match-card__price')).toHaveLength(1)
   })
 
   it('shows only the single price when no cash/card split was found', () => {
-    render(
+    const { container } = render(
       <MatchCard
         match={buildMatch({ price_cents: 389_900, price_cash_cents: null, price_card_cents: null })}
         rule={rule}
@@ -163,8 +166,7 @@ describe('MatchCard', () => {
     )
 
     expect(screen.getByText('R$ 3.899,00')).toBeInTheDocument()
-    expect(screen.queryByText(/À vista:/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Cartão:/)).not.toBeInTheDocument()
+    expect(container.querySelector('.match-card__price-sub')).not.toBeInTheDocument()
   })
 
   it('shows the match date/time (S7-10)', () => {
@@ -178,6 +180,102 @@ describe('MatchCard', () => {
     )
 
     expect(screen.getByText(new Date('2026-03-05T14:30:00Z').toLocaleString('pt-BR'))).toBeInTheDocument()
+  })
+
+  describe('relative date (S10-06)', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    // `now`/`matchedAt` below are built from local date components (the
+    // `new Date(y, m, d, h)` form, never an ISO string) specifically so
+    // these tests pass under any machine/CI timezone: whatever "local May
+    // 10, 20:00" resolves to on the runner, that's what `now` becomes, and
+    // `matchedAt` is defined relative to it the same way — so the test
+    // never has to know or assume the runner's actual UTC offset. Only the
+    // ISO string handed to `MatchCard` (`.toISOString()`) crosses the UTC
+    // boundary, exactly like the API's real `matched_at` payload does.
+
+    it('shows "Hoje, HH:MM" when matched_at is today, in the viewer\'s local timezone', () => {
+      const now = new Date(2026, 4, 10, 20, 0, 0)
+      vi.useFakeTimers()
+      vi.setSystemTime(now)
+      const matchedAt = new Date(2026, 4, 10, 14, 30, 0)
+
+      render(
+        <MatchCard
+          match={buildMatch({ matched_at: matchedAt.toISOString() })}
+          rule={rule}
+          source={source}
+          recipients={[]}
+        />,
+      )
+
+      const expectedTime = matchedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      expect(screen.getByText(`Hoje, ${expectedTime}`)).toBeInTheDocument()
+    })
+
+    it('shows "Ontem, HH:MM" when matched_at was the local calendar day before now', () => {
+      const now = new Date(2026, 4, 10, 20, 0, 0)
+      vi.useFakeTimers()
+      vi.setSystemTime(now)
+      const matchedAt = new Date(2026, 4, 9, 14, 30, 0)
+
+      render(
+        <MatchCard
+          match={buildMatch({ matched_at: matchedAt.toISOString() })}
+          rule={rule}
+          source={source}
+          recipients={[]}
+        />,
+      )
+
+      const expectedTime = matchedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      expect(screen.getByText(`Ontem, ${expectedTime}`)).toBeInTheDocument()
+    })
+
+    it('falls back to the full date for anything older than yesterday', () => {
+      const now = new Date(2026, 4, 10, 20, 0, 0)
+      vi.useFakeTimers()
+      vi.setSystemTime(now)
+      const matchedAt = new Date(2026, 4, 1, 14, 30, 0)
+
+      render(
+        <MatchCard
+          match={buildMatch({ matched_at: matchedAt.toISOString() })}
+          rule={rule}
+          source={source}
+          recipients={[]}
+        />,
+      )
+
+      expect(screen.getByText(matchedAt.toLocaleString('pt-BR'))).toBeInTheDocument()
+      expect(screen.queryByText(/^Hoje,/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/^Ontem,/)).not.toBeInTheDocument()
+    })
+
+    it('"Ontem" is about the calendar day, not a rolling 24h window', () => {
+      // now = local 00:30 (just past local midnight); matchedAt = local
+      // 23:30 the local day before — under 2h apart in real time, but two
+      // distinct local calendar days, so this must read "Ontem", not
+      // "Hoje". A rolling-24h implementation would get this wrong.
+      const now = new Date(2026, 4, 10, 0, 30, 0)
+      vi.useFakeTimers()
+      vi.setSystemTime(now)
+      const matchedAt = new Date(2026, 4, 9, 23, 30, 0)
+
+      render(
+        <MatchCard
+          match={buildMatch({ matched_at: matchedAt.toISOString() })}
+          rule={rule}
+          source={source}
+          recipients={[]}
+        />,
+      )
+
+      const expectedTime = matchedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      expect(screen.getByText(`Ontem, ${expectedTime}`)).toBeInTheDocument()
+    })
   })
 
   it('has no "Abrir promoção" link when the match has no real link yet (S7-10)', () => {
