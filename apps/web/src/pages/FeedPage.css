@@ -1,48 +1,252 @@
 .feed-page {
-  max-width: 760px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 8px 16px 48px;
+  padding: 8px 24px 48px;
 }
 
 .feed-page__header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .feed-page h1 {
-  font-size: 32px;
-  margin: 16px 0 4px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 16px 0 6px;
+  color: var(--plane-text-heading);
 }
 
 .feed-page__subtitle {
   margin: 0 0 20px;
-  color: #4b4b52;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+.feed-page__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.feed-page__connection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff2dc;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+
+.feed-page__connection-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
 }
 
 .feed-page__refresh {
-  flex: 0 0 auto;
-  margin-top: 16px;
+  height: 40px;
+  padding: 0 16px;
   font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: none;
-  background: #ececef;
-  color: #4b4b52;
-  cursor: pointer;
 }
 
 .feed-page__error {
-  color: #b3261e;
+  color: var(--plane-status-danger);
 }
 
-.feed-page__connection-warning {
-  color: #8a6d00;
-  font-size: 14px;
+/* S11-03: trilha de regras/fontes | grid de matches | resumo — mesmas
+   larguras de trilha do concept aprovado (272px/312px), empilha abaixo de
+   1100px pra caber em telas estreitas sem overflow horizontal. */
+.feed-page__grid {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr) 312px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .feed-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feed-page__list {
+    order: 1;
+  }
+
+  .feed-rail {
+    order: 2;
+  }
+
+  .feed-summary {
+    order: 3;
+  }
 }
 
 .feed-page__list {
-  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-content: start;
+}
+
+/* Gives MatchCard.css's `@container` fallback something to measure — the
+   card's own cell width, not the viewport (see the comment there for why
+   that distinction matters at this grid's typical column widths). */
+.feed-page__card {
+  container-type: inline-size;
+}
+
+@media (max-width: 720px) {
+  .feed-page__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.feed-rail,
+.feed-summary {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.feed-rail__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+  margin-bottom: 12px;
+}
+
+.feed-rail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feed-rail__rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  color: var(--plane-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.feed-rail__rule span:last-child {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-eyebrow);
+}
+
+.feed-rail__rule--active {
+  background: var(--plane-action-primary-bg);
+  color: var(--plane-action-primary-color);
+  border-color: transparent;
+}
+
+.feed-rail__rule--active span:last-child {
+  color: inherit;
+  opacity: 0.86;
+}
+
+.feed-rail__rule:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.feed-rail__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 0 rgba(58, 61, 70, 0.08);
+}
+
+.feed-rail__sources {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feed-rail__source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--plane-text-primary);
+  font-weight: 600;
+}
+
+.feed-rail__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.feed-rail__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.feed-rail__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--plane-text-helper);
+}
+
+.feed-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.feed-summary__tile {
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.86);
+}
+
+.feed-summary__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+  margin-bottom: 4px;
+}
+
+.feed-summary__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-summary__value--price {
+  font-size: 16px;
+}
+
+.feed-summary__caption {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--plane-text-helper);
 }

@@ -162,3 +162,38 @@
     text-align: left;
   }
 }
+
+/* S11-03: the Feed's 2-column grid (FeedPage.css's `.feed-page__card`, a
+   `container-type: inline-size` wrapper around each card) can make a card
+   narrower than any real viewport-width breakpoint would predict — at a
+   1280px viewport the grid gives each card ~296px, well under what the
+   3-column layout above needs, which collapsed `minmax(0,1fr)` to 0 and
+   wrapped the product name one character per line. Same rules as the
+   720px viewport breakpoint, triggered by the card's own width instead —
+   inert everywhere MatchCard renders without a `container-type` ancestor
+   (Histórico's single-column list), so this never touches that layout. */
+@container (max-width: 420px) {
+  .match-card {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .match-card__icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .match-card__side {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+  }
+
+  .match-card__price {
+    text-align: left;
+  }
+}
