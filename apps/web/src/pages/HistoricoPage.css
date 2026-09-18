@@ -1,83 +1,304 @@
 .historico-page {
-  max-width: 760px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 8px 16px 48px;
+  padding: 8px 24px 48px;
+}
+
+.historico-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .historico-page h1 {
-  font-size: 32px;
-  margin: 16px 0 20px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 16px 0 6px;
+  color: var(--plane-text-heading);
 }
 
-/* S10-07: filters live in their own panel now (S10-05 comp's
-   `.history-filters`) — `.glass-card` gives it the same panel treatment
-   already used everywhere else in the app (crud-form/crud-table-wrap),
-   nothing new invented. */
-.historico-page__filters {
+.historico-page__subtitle {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+.historico-page__header-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.historico-page__header-actions .plane-action {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.historico-page__error {
+  color: var(--plane-status-danger);
+}
+
+/* S11-04: trilha de filtros | (stats + tabela) — mesma largura de trilha do
+   concept aprovado (316px), empilha abaixo de 1000px. */
+.historico-page__grid {
+  display: grid;
+  grid-template-columns: 316px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .historico-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.historico-rail {
   padding: 20px;
-  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-/* S10-07: Regra/Fonte/Destinatário/Entrega in one row, Preço mínimo/
-   máximo/Ordenar por in the next (S10-05 comp's `.history-filter-grid`) —
-   same fields, same order the comp settled on. */
-.historico-page__filter-grid {
+.historico-rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.historico-rail__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+}
+
+.historico-rail__clear {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-focus-color);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.historico-rail label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+.historico-rail select,
+.historico-rail input {
+  height: 42px;
+  font-size: 14px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #ccd2db;
+  background: #fff;
+  color: var(--plane-text-primary);
+  font-weight: 400;
+}
+
+.historico-rail select:focus-visible,
+.historico-rail input:focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.historico-rail__price-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.historico-rail__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 0 rgba(58, 61, 70, 0.08);
+}
+
+.historico-rail__apply {
+  height: 40px;
+  font-size: 13px;
+  width: 100%;
+}
+
+.historico-page__results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.historico-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
-.historico-page__filter-grid-span2 {
-  grid-column: span 2;
+@media (max-width: 720px) {
+  .historico-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.historico-page__filters label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: #4b4b52;
+.historico-stats__tile {
+  border-radius: var(--plane-pearl-radius);
+  background: var(--plane-pearl-bg);
+  border: var(--plane-pearl-border);
+  box-shadow: var(--plane-pearl-shadow);
+  padding: 16px;
 }
 
-.historico-page__filters select,
-.historico-page__filters input {
-  font-size: 14px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #fff;
-}
-
-/* S10-07: "Limpar filtros"/"Atualizar" on their own row below the grid
-   (S10-05 comp's `.field-actions`) — were inline with the filter fields
-   themselves before. */
-.historico-page__filter-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.historico-page__filter-actions button {
+.historico-stats__label {
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: none;
-  background: #ececef;
-  color: #4b4b52;
-  cursor: pointer;
+  color: var(--plane-text-secondary);
+  margin-bottom: 6px;
 }
 
-.historico-page__error {
-  color: #b3261e;
+.historico-stats__value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.historico-table {
+  overflow: hidden;
+}
+
+.historico-table__row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) 110px 150px 190px;
+  gap: 16px;
+  padding: 16px 20px;
+  align-items: center;
+  border-bottom: 1px solid #e9ecf0;
+}
+
+.historico-table__row:last-child {
+  border-bottom: none;
+}
+
+.historico-table__row--head {
+  padding: 14px 20px;
+  background: #f7f8fa;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.historico-table__cell--right {
+  text-align: right;
+}
+
+.historico-table__product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.historico-table__icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--plane-text-secondary);
+}
+
+.historico-table__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historico-table__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* S7-11: same "Visto em" note MatchCard shows for a grouped duplicate —
+   rare enough that letting the meta cell wrap for it is fine. */
+.historico-table__grouped-sources {
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.historico-table__time {
+  font-size: 13px;
+  color: var(--plane-text-helper);
+  font-variant-numeric: tabular-nums;
+}
+
+.historico-table__price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.historico-table__price-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.historico-table__price-note--lowest {
+  color: #5b4d88;
+  font-weight: 600;
+}
+
+.historico-table__delivery {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+@media (max-width: 900px) {
+  .historico-table__row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+  }
+
+  .historico-table__row--head {
+    display: none;
+  }
+
+  .historico-table__cell--right {
+    text-align: left;
+  }
 }
 
 @media (max-width: 640px) {
-  .historico-page__filter-grid {
+  .historico-rail__price-grid {
     grid-template-columns: 1fr;
-  }
-
-  .historico-page__filter-grid-span2 {
-    grid-column: 1;
   }
 }

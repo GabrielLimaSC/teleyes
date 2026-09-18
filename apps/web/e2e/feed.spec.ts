@@ -123,7 +123,7 @@ test('historico sorts matches by price within a rule (S7-07)', async ({ page }) 
 
   await page.getByLabel('Ordenar por').selectOption({ label: 'Menor preço primeiro' })
   await expect
-    .poll(() => page.locator('.match-card__product').allTextContents())
+    .poll(() => page.locator('.historico-table__title').allTextContents())
     .toEqual([
       'gadget e2e barato por R$ 100',
       'gadget e2e medio por R$ 500',
@@ -132,7 +132,7 @@ test('historico sorts matches by price within a rule (S7-07)', async ({ page }) 
 
   await page.getByLabel('Ordenar por').selectOption({ label: 'Maior preço primeiro' })
   await expect
-    .poll(() => page.locator('.match-card__product').allTextContents())
+    .poll(() => page.locator('.historico-table__title').allTextContents())
     .toEqual([
       'gadget e2e caro por R$ 900',
       'gadget e2e medio por R$ 500',
@@ -226,5 +226,5 @@ test('two sources posting the exact same promotion collapse into one card (S7-11
   await expect(page.getByText('gadgetdupe2e por R$ 4.000 no Grupo A')).toBeVisible()
   await expect(page.getByText('Visto em: Grupo E2E Duplicado B')).toBeVisible()
   await expect(page.getByText('gadgetdupe2e por R$ 4.000 no Grupo B')).not.toBeVisible()
-  await expect(page.locator('.match-card__product')).toHaveCount(1)
+  await expect(page.locator('.historico-table__title')).toHaveCount(1)
 })
