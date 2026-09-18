@@ -1,0 +1,160 @@
+/**
+ * S11-01: foundation for the Sprint 11 unified redesign — the "3 planos"
+ * material system from the approved Claude Design concept
+ * (`.impeccable/review/s11-design/Teleyes Unificado.dc.html`, section "1a",
+ * `NavCapsule.dc.html`). Every value below is copied from that file's own
+ * inline `style=` attributes (the task's own instruction: "seguir os style=
+ * inline como fonte da verdade") — checked against dozens of repeated
+ * instances across all 5 screens in the concept, not just the "1a" sample
+ * box, so these are the values actually used throughout, not an isolated
+ * example.
+ *
+ * Nothing in this file is applied to any real page yet — S11-02 through
+ * S11-06 are what actually adopt these classes/tokens per screen. This is
+ * additive only: `styles/tokens.css` (S9-01, the Dub-based flat CRUD
+ * system) is untouched, since existing pages still use it until their own
+ * S11 task migrates them.
+ *
+ * ---- Plano 3 — vidro (glass) ----
+ * Navbar, fixed side rails (filters/summary), toast, popover. The *same*
+ * material the navbar capsule already uses (`NavCapsule.css`'s
+ * `.nav-glass__tint`/`.nav-glass__shine` — same gradient stops, same border
+ * color, same shadow shape) minus the SVG refraction filter (`#nav-glass-
+ * refraction`), which only the navbar itself wires up — a plain
+ * `backdrop-filter: blur(14px) saturate(150%)` is what every other glass
+ * panel in the concept actually uses. Never glass under glass (concept's
+ * own rule, e.g. a rail never nests inside the navbar).
+ *
+ * ---- Plano 1 — perolado (pearl) ----
+ * Match cards, tables, forms, Saúde panels — dense content that must read
+ * the same regardless of what's behind it. Same neutral palette/radius
+ * spirit as the glass, but flat: a 1px border, near-zero shadow.
+ *
+ * ---- Plano 2 — ação (action) ----
+ * Buttons: always opaque (never glass or pearl), 10px radius (8px for the
+ * compact/tiny size), 3px blue focus ring. Status is always a dot + a word,
+ * never color alone.
+ */
+
+:root {
+  /* ---- Plano 3 — vidro ---- */
+  --plane-glass-radius: 18px;
+  --plane-glass-bg:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.78) 0%,
+      rgba(237, 239, 243, 0.44) 42%,
+      rgba(211, 214, 221, 0.56) 100%
+    ),
+    rgba(232, 234, 239, 0.42);
+  --plane-glass-blur: blur(14px) saturate(150%);
+  --plane-glass-border: 1px solid rgba(255, 255, 255, 0.84);
+  --plane-glass-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.92),
+    inset 0 -2px 3px rgba(58, 61, 70, 0.14),
+    0 0 0 1px rgba(70, 74, 83, 0.16),
+    0 14px 28px rgba(23, 23, 23, 0.09);
+
+  /* ---- Plano 1 — perolado ---- */
+  --plane-pearl-radius: 16px;
+  --plane-pearl-bg: linear-gradient(165deg, #ffffff 0%, #fcfdff 100%);
+  --plane-pearl-border: 1px solid #d9dfe9;
+  --plane-pearl-shadow: 0 5px 18px rgba(23, 23, 23, 0.035);
+
+  /* ---- Plano 2 — ação ---- */
+  --plane-action-radius: 10px;
+  --plane-action-radius-compact: 8px;
+  --plane-action-primary-bg: #171717;
+  --plane-action-primary-color: #ffffff;
+  --plane-action-primary-shadow: 0 3px 8px rgba(23, 23, 23, 0.13);
+  --plane-action-secondary-bg: #ffffff;
+  --plane-action-secondary-border: 1px solid #d9dfe9;
+  --plane-action-danger-color: #a32a24;
+  --plane-action-danger-border: 1px solid #e3c4c1;
+  --plane-focus-color: #315ea8;
+  --plane-focus-ring: 0 0 0 3px rgba(49, 94, 168, 0.16);
+
+  /* ---- Shared text colors (all 3 planes use the same ones) ---- */
+  --plane-text-primary: #171717;
+  --plane-text-heading: #0a0a0a;
+  --plane-text-eyebrow: #47566e; /* uppercase small labels ("PLANO 3 — VIDRO") */
+  --plane-text-secondary: #525866; /* body/paragraph secondary */
+  --plane-text-helper: #606875; /* smallest helper/caption text */
+
+  /* ---- Status (dot + word, never color alone) ---- */
+  --plane-status-good: #176945;
+  --plane-status-warn: #8b5a08;
+  --plane-status-warn-bg: #fff2dc;
+  --plane-status-neutral: #47566e;
+  --plane-status-danger: #a32a24;
+}
+
+/* Plano 3 — a fixed rail, the navbar, a toast/popover. `border-radius`
+   left as a settable custom property so a caller can override just the
+   radius (e.g. a pill-shaped toast) without redeclaring the whole recipe —
+   every other value is identical everywhere the concept uses this plane. */
+.plane-glass {
+  border-radius: var(--plane-glass-radius);
+  background: var(--plane-glass-bg);
+  backdrop-filter: var(--plane-glass-blur);
+  -webkit-backdrop-filter: var(--plane-glass-blur);
+  border: var(--plane-glass-border);
+  box-shadow: var(--plane-glass-shadow);
+}
+
+/* Plano 1 — a match card, a table wrapper, a form panel, a Saúde tile. */
+.plane-pearl {
+  border-radius: var(--plane-pearl-radius);
+  background: var(--plane-pearl-bg);
+  border: var(--plane-pearl-border);
+  box-shadow: var(--plane-pearl-shadow);
+}
+
+/* Plano 2 — buttons. `.plane-action` alone is the primary (solid dark)
+   variant; modifiers change the surface, never the shape/radius/focus
+   ring. Sizing (height/padding/font-size) is a deliberate choice per
+   instance in the concept (40px "Primário"/"Secundário" vs. 30px "Linha"/
+   "Excluir") — callers set their own height/padding/font-size, this only
+   owns color/border/radius/shadow/focus, which stay fixed across sizes. */
+.plane-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--plane-action-radius);
+  background: var(--plane-action-primary-bg);
+  color: var(--plane-action-primary-color);
+  border: none;
+  box-shadow: var(--plane-action-primary-shadow);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.plane-action--secondary {
+  background: var(--plane-action-secondary-bg);
+  color: var(--plane-text-primary);
+  border: var(--plane-action-secondary-border);
+  box-shadow: none;
+}
+
+.plane-action--danger {
+  background: var(--plane-action-secondary-bg);
+  color: var(--plane-action-danger-color);
+  border: var(--plane-action-danger-border);
+  box-shadow: none;
+}
+
+.plane-action--compact {
+  border-radius: var(--plane-action-radius-compact);
+}
+
+.plane-action:focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.plane-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}

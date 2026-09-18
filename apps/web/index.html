@@ -7,11 +7,15 @@
     <!-- S9-01: Inter, o corpo de texto do design system Dub (--font-body em
          styles/tokens.css). Satoshi/Geist Mono ficam sem webfont carregado
          por ora — nada em território da S9-01 usa texto display/mono, ver
-         nota em tokens.css. -->
+         nota em tokens.css.
+         S11-01: peso 700 adicionado — o concept.html do redesenho unificado
+         usa font-weight:700 em títulos/valores por toda parte (65
+         ocorrências), sem isso o navegador teria que sintetizar o negrito
+         a partir do 600 carregado, pior que o peso real. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <title>teleyes</title>
