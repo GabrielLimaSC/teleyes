@@ -30,9 +30,12 @@ test('feed shows a match live via SSE, without a page refresh', async ({ page })
     text: 'Promoção iPhone 15 por R$ 3.899',
   })
 
-  await expect(page.getByText('Promoção iPhone 15 por R$ 3.899')).toBeVisible()
-  await expect(page.getByText('R$ 3.899,00')).toBeVisible()
-  await expect(page.getByText('Notificação desativada')).toBeVisible()
+  const card = page.getByRole('article')
+  await expect(card.getByText('Promoção iPhone 15 por R$ 3.899')).toBeVisible()
+  // S11-03: the Resumo rail's "Menor preço" tile shows the same real value
+  // when there's only one match, so scope this to the card itself.
+  await expect(card.getByText('R$ 3.899,00')).toBeVisible()
+  await expect(card.getByText('Notificação desativada')).toBeVisible()
 })
 
 test('historico filters matches by rule', async ({ page }) => {
@@ -227,4 +230,61 @@ test('two sources posting the exact same promotion collapse into one card (S7-11
   await expect(page.getByText('Visto em: Grupo E2E Duplicado B')).toBeVisible()
   await expect(page.getByText('gadgetdupe2e por R$ 4.000 no Grupo B')).not.toBeVisible()
   await expect(page.locator('.match-card__product')).toHaveCount(1)
+})
+
+test('feed rail filters by rule and shows real counts, sources and a Resumo (S11-03)', async ({ page }) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Trilha',
+    telegram_chat_id: '-100812',
+  })
+  const ruleA = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra Trilha A',
+    include_terms: 'trilhaa',
+  })
+  const ruleB = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra Trilha B',
+    include_terms: 'trilhab',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Trilha',
+    telegram_chat_id: '812',
+    allowlisted: true,
+  })
+
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: ruleA.id,
+    recipient_ids: [recipient.id],
+    text: 'trilhaa e2e por R$ 100',
+  })
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: ruleB.id,
+    recipient_ids: [recipient.id],
+    text: 'trilhab e2e por R$ 200',
+  })
+
+  await page.goto('/feed')
+  await expect(page.getByText('trilhaa e2e por R$ 100')).toBeVisible()
+  await expect(page.getByText('trilhab e2e por R$ 200')).toBeVisible()
+
+  const rail = page.getByRole('button', { name: /Todas as regras/ })
+  await expect(rail).toBeVisible()
+
+  // Fonte real listada na trilha, com status ativo real — escopado à
+  // trilha porque o nome da fonte também aparece nos cards de match.
+  const sourceRow = page.locator('.feed-rail__source', { hasText: 'Grupo E2E Trilha' })
+  await expect(sourceRow).toBeVisible()
+  await expect(sourceRow).toContainText('ativa')
+
+  await page.getByRole('button', { name: /Regra Trilha A/ }).click()
+
+  await expect(page.getByText('trilhaa e2e por R$ 100')).toBeVisible()
+  await expect(page.getByText('trilhab e2e por R$ 200')).not.toBeVisible()
+
+  const matchesTile = page.locator('.feed-summary__tile', { hasText: 'Matches' })
+  await expect(matchesTile).toContainText('1')
 })

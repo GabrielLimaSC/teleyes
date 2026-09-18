@@ -123,4 +123,136 @@ describe('FeedPage', () => {
 
     expect(await screen.findByText('Visto em: CMdias, Menor Preço')).toBeInTheDocument()
   })
+
+  it('shows real numbers in the Resumo rail (S11-03)', async () => {
+    vi.stubGlobal('EventSource', InertEventSource)
+    const rules = [
+      { id: 1, name: 'Regra A', include_terms: 'a', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
+      { id: 2, name: 'Regra B', include_terms: 'b', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
+    ]
+    const matches = [
+      {
+        id: 1,
+        source_id: 1,
+        rule_id: 1,
+        message_text: 'Produto A1',
+        price_cents: 5000,
+        message_link: null,
+        matched_at: '2026-01-01T00:00:00Z',
+        created_at: '2026-01-01T00:00:00Z',
+        deliveries: [{ id: 1, recipient_id: 1, status: 'sent', delivered_at: '2026-01-01T00:00:00Z', created_at: '2026-01-01T00:00:00Z' }],
+        is_lowest_price_ever: false,
+      },
+      {
+        id: 2,
+        source_id: 1,
+        rule_id: 1,
+        message_text: 'Produto A2',
+        price_cents: 3000,
+        message_link: null,
+        matched_at: '2026-01-01T00:00:00Z',
+        created_at: '2026-01-01T00:00:00Z',
+        deliveries: [],
+        is_lowest_price_ever: false,
+      },
+      {
+        id: 3,
+        source_id: 1,
+        rule_id: 2,
+        message_text: 'Produto B1',
+        price_cents: 9000,
+        message_link: null,
+        matched_at: '2026-01-01T00:00:00Z',
+        created_at: '2026-01-01T00:00:00Z',
+        deliveries: [],
+        is_lowest_price_ever: false,
+      },
+    ]
+    const metrics = [
+      { source_id: 1, reason: 'vista', count: 40, updated_at: '2026-01-01T00:00:00Z' },
+      { source_id: 2, reason: 'vista', count: 12, updated_at: '2026-01-01T00:00:00Z' },
+      { source_id: 1, reason: 'bloqueado', count: 3, updated_at: '2026-01-01T00:00:00Z' },
+    ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
+        if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse(metrics))
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+
+    render(<FeedPage />)
+    await screen.findByText('Produto A1')
+
+    // Sem filtro: os 3 matches contam, 1 entregue, menor preço R$ 30,00.
+    const matchesTile = screen.getByText('Matches').closest('.feed-summary__tile')
+    expect(matchesTile).toHaveTextContent('3')
+    const sentTile = screen.getByText('Enviados').closest('.feed-summary__tile')
+    expect(sentTile).toHaveTextContent('1')
+    const priceTile = screen.getByText('Menor preço').closest('.feed-summary__tile')
+    expect(priceTile).toHaveTextContent('R$ 30,00')
+    // Mensagens lidas: soma de reason=vista em todas as fontes (40+12=52,
+    // nunca some "bloqueado") — cumulativo, rotulado como tal.
+    const readTile = screen.getByText('Mensagens lidas').closest('.feed-summary__tile')
+    expect(readTile).toHaveTextContent('52')
+    expect(readTile).toHaveTextContent('cumulativo, não é só hoje')
+  })
+
+  it('filters both the grid and the Resumo rail by the selected rule (S11-03)', async () => {
+    vi.stubGlobal('EventSource', InertEventSource)
+    const rules = [
+      { id: 1, name: 'Regra A', include_terms: 'a', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
+      { id: 2, name: 'Regra B', include_terms: 'b', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
+    ]
+    const matches = [
+      {
+        id: 1,
+        source_id: 1,
+        rule_id: 1,
+        message_text: 'Produto A1',
+        price_cents: 5000,
+        message_link: null,
+        matched_at: '2026-01-01T00:00:00Z',
+        created_at: '2026-01-01T00:00:00Z',
+        deliveries: [],
+        is_lowest_price_ever: false,
+      },
+      {
+        id: 2,
+        source_id: 1,
+        rule_id: 2,
+        message_text: 'Produto B1',
+        price_cents: 9000,
+        message_link: null,
+        matched_at: '2026-01-01T00:00:00Z',
+        created_at: '2026-01-01T00:00:00Z',
+        deliveries: [],
+        is_lowest_price_ever: false,
+      },
+    ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<FeedPage />)
+    await screen.findByText('Produto A1')
+    expect(screen.getByText('Produto B1')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Regra A/ }))
+
+    expect(screen.getByText('Produto A1')).toBeInTheDocument()
+    expect(screen.queryByText('Produto B1')).not.toBeInTheDocument()
+    const matchesTile = screen.getByText('Matches').closest('.feed-summary__tile')
+    expect(matchesTile).toHaveTextContent('1')
+  })
 })
