@@ -1,36 +1,74 @@
 .login-page {
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: 60vh;
-  padding: 48px 16px;
+  padding: 56px 16px 72px;
 }
 
-.login-card {
+/* S11-02: dois painéis lado a lado, sem coluna solta no centro — grid da
+   S11 (`minmax(0,1fr) 440px`) do concept aprovado, empilhando abaixo de
+   860px em vez de espremer o formulário. */
+.login-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  gap: 28px;
   width: 100%;
-  max-width: 380px;
-  padding: 36px 32px 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  max-width: 1120px;
+  align-items: stretch;
 }
 
-.login-card__brand {
+@media (max-width: 860px) {
+  .login-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.login-panel {
+  padding: 36px;
   display: flex;
   flex-direction: column;
+  gap: 22px;
+}
+
+/* Exceção de raio do concept pro painel de formulário (20px em vez dos
+   16px padrão do Plano 1 perolado). */
+.login-panel--form {
+  padding: 32px;
+  gap: 18px;
+  border-radius: 20px;
+}
+
+.login-panel__brand {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  text-align: center;
+  gap: 16px;
+}
+
+.login-panel__brand h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #08060d;
+}
+
+.login-card__tagline {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--plane-text-secondary);
 }
 
 /* Soft glass ring + a diffuse color-wash glow behind the mascot — same
-   material language as the glass cards themselves (S7-09: align the login
+   material language as the glass planes themselves (S7-09: align the login
    card with the mascot/vidro-real direction introduced by the nav bar,
-   S7-08), not a flat drop shadow. */
+   S7-08), not a flat drop shadow. Kept as-is through the S11-02 redesign —
+   already a real glass+glow treatment, strictly better than the concept's
+   generic placeholder circle. */
 .login-card__mascot-frame {
   position: relative;
-  width: 84px;
-  height: 84px;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -64,86 +102,144 @@
   object-fit: cover;
 }
 
-.login-card h1 {
-  margin: 2px 0 0;
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: #08060d;
+.login-panel__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 0 rgba(58, 61, 70, 0.08);
 }
 
-.login-card__tagline {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: #6b6b70;
+.login-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.login-card__field {
+.login-stats__tile {
+  border-radius: 12px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.86);
+}
+
+.login-stats__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+  margin-bottom: 6px;
+}
+
+.login-stats__value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.login-status {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-.login-card__hint {
-  margin: 0 0 2px;
+.login-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 13px;
-  color: #4b4b52;
-  text-align: center;
 }
 
-.login-card label {
+.login-status-row__label {
+  color: var(--plane-text-secondary);
+}
+
+.login-status-row__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.login-status-row__value--plain {
+  color: var(--plane-text-primary);
+}
+
+.login-status-row__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.login-panel__heading h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.login-panel__heading p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.login-field label {
   font-size: 13px;
   font-weight: 600;
-  color: #4b4b52;
+  color: var(--plane-text-secondary);
 }
 
-.login-card input {
-  font-size: 16px;
-  padding: 12px 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.7);
+.login-field input {
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid #d9dfe9;
+  background: #ffffff;
+  padding: 0 12px;
+  font-size: 14px;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;
 }
 
-/* Adds a soft color ring on top of the browser's own default focus
-   indicator — never replaces it (an explicit outline:none here would drop
-   the one accessible cue keyboard users get for free). */
-.login-card input:focus-visible {
-  border-color: rgba(91, 141, 251, 0.6);
-  box-shadow: 0 0 0 4px rgba(91, 141, 251, 0.18);
+/* Adds a soft focus ring on top of the browser's own default indicator —
+   never replaces it (an explicit outline:none here would drop the one
+   accessible cue keyboard users get for free). Uses the shared Plano 2
+   focus tokens (materials.css) rather than the previous page-local blue. */
+.login-field input:focus-visible {
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
 }
 
-.login-card button {
-  margin-top: 4px;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 12px 16px;
-  border-radius: 999px;
-  border: none;
-  background: #17181c;
-  color: #ffffff;
-  cursor: pointer;
+.login-field__helper {
+  font-size: 12px;
+  color: var(--plane-text-helper);
 }
 
-.login-card button:disabled {
-  background: #c7c7cc;
-  color: #6b6b70;
-  cursor: not-allowed;
+.login-field__helper code {
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.login-submit {
+  width: 100%;
+  height: 40px;
+  font-size: 14px;
 }
 
 .login-error {
-  color: #b3261e;
+  color: var(--plane-status-danger);
   font-size: 14px;
   margin: 0;
   text-align: center;
 }
 
 .login-warning {
-  color: #8a6d00;
+  color: var(--plane-status-warn);
   font-size: 13px;
   margin: 0;
   text-align: center;
