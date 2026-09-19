@@ -245,3 +245,72 @@ test('clearing a rule with no matches shows a toast directly, no confirmation di
     page.getByRole('heading', { name: 'Limpar histórico: Regra Sem Match E2E' }),
   ).not.toBeVisible()
 })
+
+for (const width of [1280, 1440]) {
+  test(`the Regras and Destinatários tables show every column and button, no clipping, at ${width}px (S11-05)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/')
+    const csrfToken = await apiLogin(page)
+    await apiPost(page, '/rules', csrfToken, {
+      name: `Placa de vídeo RTX 5070 Ti ${width}`,
+      include_terms: 'rtx 5070 ti, rtx 5070ti, placa de video rtx 5070 ti',
+      exclude_terms: 'usada, defeito, caixa aberta',
+      max_price_cents: 700_000,
+    })
+    await apiPost(page, '/recipients', csrfToken, {
+      name: `Destinatário com nome bem comprido ${width}`,
+      telegram_chat_id: `-100${width}77`,
+      allowlisted: true,
+    })
+    await page.goto('/regras')
+
+    const wraps = page.locator('.wide-table-wrap')
+    await expect(wraps).toHaveCount(2)
+
+    for (let index = 0; index < 2; index += 1) {
+      const wrap = wraps.nth(index)
+      const wrapBox = await wrap.boundingBox()
+      expect(wrapBox).not.toBeNull()
+
+      // Both the "Ações" header and every action button of every row sit
+      // fully inside the card — `click()` scrolls on its own, so only the
+      // boxes can catch a clipped column.
+      const targets = [
+        wrap.getByRole('columnheader', { name: 'Ações' }),
+        ...(await wrap.getByRole('button', { name: /^(Editar|Duplicar|Testar|Limpar histórico|Excluir)$/ }).all()),
+      ]
+      for (const target of targets) {
+        const box = await target.boundingBox()
+        expect(box).not.toBeNull()
+        const what = `"${(await target.textContent())?.trim()}" in table ${index + 1}`
+        expect(box!.x, `${what}: left edge`).toBeGreaterThanOrEqual(wrapBox!.x - 0.5)
+        expect(box!.x + box!.width, `${what}: right edge`).toBeLessThanOrEqual(wrapBox!.x + wrapBox!.width + 0.5)
+      }
+
+      const [scrollWidth, clientWidth] = await wrap.evaluate((el) => [el.scrollWidth, el.clientWidth])
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1)
+    }
+
+    const [pageScroll, pageClient] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ])
+    expect(pageScroll).toBeLessThanOrEqual(pageClient + 1)
+  })
+}
+
+test('the row loaded in the rail is highlighted while editing (S11-05)', async ({ page }) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+  await apiPost(page, '/rules', csrfToken, { name: 'Regra Destaque E2E', include_terms: 'destaquee2e' })
+  await page.goto('/regras')
+
+  const row = rowByExactName(page, 'Regra Destaque E2E')
+  await expect(row).not.toHaveClass(/wide-table__row--editing/)
+  await row.getByRole('button', { name: 'Editar' }).click()
+  await expect(row).toHaveClass(/wide-table__row--editing/)
+  await page.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(row).not.toHaveClass(/wide-table__row--editing/)
+})

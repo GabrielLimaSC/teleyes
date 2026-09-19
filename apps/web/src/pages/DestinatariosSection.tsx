@@ -237,7 +237,14 @@ export function DestinatariosSection() {
             </thead>
             <tbody>
               {recipients.map((recipient) => (
-                <tr key={recipient.id}>
+                <tr
+                  key={recipient.id}
+                  className={
+                    formTarget?.kind === 'edit' && formTarget.recipient.id === recipient.id
+                      ? 'wide-table__row--editing'
+                      : undefined
+                  }
+                >
                   <td className="crud-table__name" data-label="Destinatário">
                     {recipient.name}
                   </td>
@@ -251,21 +258,23 @@ export function DestinatariosSection() {
                     />
                   </td>
                   <td className="wide-table__actions" data-label="Ações">
-                    <button
-                      type="button"
-                      className="plane-action plane-action--secondary plane-action--compact"
-                      onClick={() => openEdit(recipient)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="plane-action plane-action--danger plane-action--compact"
-                      onClick={() => handleDelete(recipient)}
-                      disabled={deletingId === recipient.id}
-                    >
-                      Excluir
-                    </button>
+                    <div className="wide-table__actions-inner">
+                      <button
+                        type="button"
+                        className="plane-action plane-action--secondary plane-action--compact"
+                        onClick={() => openEdit(recipient)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="plane-action plane-action--danger plane-action--compact"
+                        onClick={() => handleDelete(recipient)}
+                        disabled={deletingId === recipient.id}
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

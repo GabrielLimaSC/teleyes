@@ -75,17 +75,16 @@ main.regras-page {
 }
 
 .crud-table.wide-table th {
-  padding: 14px 20px;
+  padding: 14px 10px;
   background: #f7f8fa;
   border-bottom: 1px solid #e9ecf0;
   font-size: 12px;
   font-weight: 600;
   color: var(--plane-text-secondary);
-  white-space: nowrap;
 }
 
 .crud-table.wide-table td {
-  padding: 18px 20px;
+  padding: 16px 10px;
   border-bottom: 1px solid #e9ecf0;
   font-size: 13px;
   color: var(--plane-text-secondary);
@@ -93,6 +92,23 @@ main.regras-page {
 
 .crud-table.wide-table tr:last-child td {
   border-bottom: none;
+}
+
+/* Same 20px edge inset the concept's rows have, without spending it on
+   every inner column. */
+.crud-table.wide-table th:first-child,
+.crud-table.wide-table td:first-child {
+  padding-left: 20px;
+}
+
+.crud-table.wide-table th:last-child,
+.crud-table.wide-table td:last-child {
+  padding-right: 20px;
+}
+
+/* The rule/recipient currently loaded in the rail. */
+.crud-table.wide-table tr.wide-table__row--editing td {
+  background: #f5f7fa;
 }
 
 .crud-table.wide-table .crud-table__name {
@@ -117,7 +133,7 @@ td.wide-table__num {
 
 @media (min-width: 641px) {
   .crud-table.wide-table .crud-table__name {
-    min-width: 140px;
+    min-width: 104px;
   }
 }
 
@@ -125,12 +141,22 @@ td.wide-table__num {
   overflow-wrap: anywhere;
 }
 
+/* The buttons live in a wrapper: a `display: flex` on the <td> itself would
+   take the cell out of the table layout and let it overflow the card. The
+   cell asks for ~2 rows of buttons and the terms columns give way. */
 .crud-table.wide-table td.wide-table__actions {
+  width: 1%;
+}
+
+.wide-table__actions-inner {
+  /* Room for three buttons per row (Editar + Duplicar + Testar): two rows for five
+     actions instead of one button per line when the terms columns are wide;
+     the other columns (headers wrap) give way for it. */
+  min-width: 204px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
-  min-width: 230px;
 }
 
 .wide-table__actions button {
@@ -350,11 +376,17 @@ td.wide-table__num {
     padding: 8px 16px 40px;
   }
 
-  .crud-table.wide-table td {
+  .crud-table.wide-table td,
+  .crud-table.wide-table td:first-child,
+  .crud-table.wide-table td:last-child {
     padding: 8px 0;
   }
 
   .crud-table.wide-table td.wide-table__actions {
+    width: 100%;
+  }
+
+  .wide-table__actions-inner {
     min-width: 0;
   }
 }

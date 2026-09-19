@@ -316,7 +316,14 @@ export function RegrasPage() {
                 </thead>
                 <tbody>
                   {rules.map((rule) => (
-                    <tr key={rule.id}>
+                    <tr
+                      key={rule.id}
+                      className={
+                        formTarget.kind === 'edit' && formTarget.rule.id === rule.id
+                          ? 'wide-table__row--editing'
+                          : undefined
+                      }
+                    >
                       <td className="crud-table__name" data-label="Regra">
                         {rule.name}
                       </td>
@@ -340,46 +347,48 @@ export function RegrasPage() {
                         />
                       </td>
                       <td className="wide-table__actions" data-label="Ações">
-                        <button
-                          type="button"
-                          className="plane-action plane-action--secondary plane-action--compact"
-                          onClick={() => openEdit(rule)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="plane-action plane-action--secondary plane-action--compact"
-                          onClick={() => openDuplicate(rule)}
-                        >
-                          Duplicar
-                        </button>
-                        <button
-                          type="button"
-                          className="plane-action plane-action--secondary plane-action--compact"
-                          onClick={() => {
-                            setTesterId(testerId === rule.id ? null : rule.id)
-                            setTesterText('')
-                          }}
-                        >
-                          Testar
-                        </button>
-                        <button
-                          type="button"
-                          className="plane-action plane-action--danger plane-action--compact"
-                          onClick={() => openClearConfirm(rule)}
-                          disabled={checkingClearId === rule.id}
-                        >
-                          {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
-                        </button>
-                        <button
-                          type="button"
-                          className="plane-action plane-action--danger plane-action--compact"
-                          onClick={() => handleDelete(rule)}
-                          disabled={deletingId === rule.id}
-                        >
-                          Excluir
-                        </button>
+                        <div className="wide-table__actions-inner">
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => openEdit(rule)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => openDuplicate(rule)}
+                          >
+                            Duplicar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => {
+                              setTesterId(testerId === rule.id ? null : rule.id)
+                              setTesterText('')
+                            }}
+                          >
+                            Testar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--danger plane-action--compact"
+                            onClick={() => openClearConfirm(rule)}
+                            disabled={checkingClearId === rule.id}
+                          >
+                            {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--danger plane-action--compact"
+                            onClick={() => handleDelete(rule)}
+                            disabled={deletingId === rule.id}
+                          >
+                            Excluir
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
