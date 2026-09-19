@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HistoricoPage, toApiFilters } from './HistoricoPage'
@@ -331,11 +331,143 @@ describe('HistoricoPage', () => {
     expect(clickSpy).toHaveBeenCalledTimes(1)
     expect(capturedBlob).not.toBeNull()
     const text = await capturedBlob!.text()
-    expect(text).toContain('Produto,Regra,Fonte,Hora,Preço,Entrega')
+    expect(text).toContain('Produto,Regra,Fonte,Hora,Preço,Detalhe do preço,Entrega,Para')
     expect(text).toContain('produto csv')
     expect(text).toContain('Regra CSV')
     expect(text).toContain('Fonte CSV')
     expect(text).toContain('50,00')
     clickSpy.mockRestore()
+  })
+
+  it('shows cash/card prices and the recipients on the row, and the CSV carries the exact same texts (S11-04 review)', async () => {
+    const rule = {
+      id: 1,
+      name: 'Regra RTX',
+      include_terms: 'rtx',
+      exclude_terms: null,
+      max_price_cents: 500_000,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+    }
+    const source = { id: 1, name: 'Fonte RTX', telegram_chat_id: '-1001', active: true, created_at: '2026-01-01T00:00:00Z' }
+    const recipient = { id: 7, name: 'Gabriel', telegram_chat_id: '901', allowlisted: true, active: true, created_at: '2026-01-01T00:00:00Z' }
+    const matches = [
+      {
+        id: 1,
+        source_id: 1,
+        rule_id: 1,
+        message_text: 'rtx 5070 a vista no pix',
+        price_cents: 451_600,
+        price_cash_cents: 451_600,
+        price_card_cents: 499_900,
+        message_link: null,
+        matched_at: '2026-01-01T10:00:00Z',
+        created_at: '2026-01-01T10:00:00Z',
+        deliveries: [
+          { id: 1, recipient_id: 7, status: 'sent', delivered_at: '2026-01-01T10:00:00Z', created_at: '2026-01-01T10:00:00Z' },
+        ],
+        is_lowest_price_ever: true,
+        grouped_source_ids: null,
+      },
+    ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([rule]))
+        if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([source]))
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([recipient]))
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+    let capturedBlob: Blob | null = null
+    vi.stubGlobal(
+      'URL',
+      Object.assign(Object.create(URL), {
+        createObjectURL: vi.fn((blob: Blob) => {
+          capturedBlob = blob
+          return 'blob:test'
+        }),
+        revokeObjectURL: vi.fn(),
+      }),
+    )
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const user = userEvent.setup()
+
+    render(<HistoricoPage />)
+    await screen.findByText('rtx 5070 a vista no pix')
+
+    // On screen: cash price leads, card price on the "À vista · Cartão" line
+    // (same lines MatchCard shows), lowest-ever note, and "Para: <recipient>".
+    // Scoped to the row: the stat tiles above also show R$ 4.516,00.
+    const row = screen.getByText('rtx 5070 a vista no pix').closest('.historico-table__row') as HTMLElement
+    const priceLine = row.querySelector('.historico-table__price') as HTMLElement
+    expect(priceLine).toHaveTextContent('R$ 4.516,00')
+    const cardLine = within(row).getByText('À vista · Cartão R$ 4.999,00')
+    expect(within(row).getByText('Menor já visto')).toBeInTheDocument()
+    const recipientLine = within(row).getByText('Para: Gabriel')
+
+    await user.click(screen.getByRole('button', { name: 'Exportar CSV' }))
+
+    const text = await capturedBlob!.text()
+    // The CSV repeats those exact strings, not the raw API fields.
+    // (comma-bearing fields are quoted, hence the quotes around the price)
+    // (textContent, not a literal: pt-BR currency uses a non-breaking space)
+    expect(text).toContain(`"${priceLine.textContent}"`)
+    expect(text).toContain(`"${cardLine.textContent} · Menor já visto"`)
+    expect(text).toContain(`,Entregue,${recipientLine.textContent!.replace('Para: ', '')}`)
+    clickSpy.mockRestore()
+  })
+
+  it('has no separate "Aplicar filtros" button — filters apply on change, "Atualizar" reloads (S11-04 review)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse([]))),
+    )
+
+    render(<HistoricoPage />)
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+    expect(screen.queryByRole('button', { name: 'Aplicar filtros' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument()
+  })
+
+  it('a title long enough to be clipped by the 2-line clamp keeps its full text in a Tooltip (S11-04 review)', async () => {
+    const longText = `rtx ${'placa de video gamer muito potente '.repeat(4)}fim`
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/matches')) {
+          return Promise.resolve(
+            jsonResponse([
+              {
+                id: 1,
+                source_id: 1,
+                rule_id: 1,
+                message_text: longText,
+                price_cents: 100_000,
+                price_cash_cents: null,
+                price_card_cents: null,
+                message_link: null,
+                matched_at: '2026-01-01T10:00:00Z',
+                created_at: '2026-01-01T10:00:00Z',
+                deliveries: [],
+                is_lowest_price_ever: false,
+                grouped_source_ids: null,
+              },
+            ]),
+          )
+        }
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+
+    render(<HistoricoPage />)
+
+    // The tooltip bubble carries the untouched text; the row title is the
+    // (possibly clipped) face of it.
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(longText)
   })
 })

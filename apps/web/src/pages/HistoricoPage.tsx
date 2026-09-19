@@ -99,17 +99,26 @@ function csvField(value: string): string {
   return value
 }
 
-/** S11-04: gera o CSV a partir do que já está calculado pra tela — mesmos
- * valores exibidos (título cortado, nomes de regra/fonte, hora formatada,
- * preço formatado, status de entrega), não os campos crus da API. Sem
- * endpoint novo: é puramente client-side a partir de `matches` já
- * carregados. */
+/** S11-04: gera o CSV a partir do que já está calculado pra tela — os mesmos
+ * textos exibidos (título cortado, nomes de regra/fonte/destinatário, hora
+ * formatada, preço + detalhe de preço, status de entrega), não os campos
+ * crus da API. Sem endpoint novo: é puramente client-side a partir de
+ * `matches` já carregados. */
 function buildCsv(rows: HistoricoRow[]): string {
-  const header = ['Produto', 'Regra', 'Fonte', 'Hora', 'Preço', 'Entrega']
+  const header = ['Produto', 'Regra', 'Fonte', 'Hora', 'Preço', 'Detalhe do preço', 'Entrega', 'Para']
   const lines = [header.map(csvField).join(',')]
   for (const row of rows) {
     lines.push(
-      [row.title, row.ruleName, row.sourceName, row.time, row.priceText, row.deliveryLabel]
+      [
+        row.title,
+        row.ruleName,
+        row.sourceName,
+        row.time,
+        row.priceText,
+        row.priceDetails.join(' · '),
+        row.deliveryLabel,
+        row.recipientNames.join(', '),
+      ]
         .map(csvField)
         .join(','),
     )
@@ -129,18 +138,31 @@ function downloadCsv(csv: string): void {
   URL.revokeObjectURL(url)
 }
 
+// About two lines of the title column at the widest layout — past this the
+// 2-line clamp may clip the title, so the full text rides on a Tooltip.
+const MAY_CLIP_TITLE_LENGTH = 80
+
 interface HistoricoRow {
   match: Match
   rule: Rule | undefined
   title: string
-  wasTruncated: boolean
+  /** True when the full text is worth a Tooltip: the S9-06 cut shortened it,
+   * or it is long enough that the 2-line CSS clamp could clip it. */
+  hasFullText: boolean
   linkCutText: string
   ruleName: string
   sourceName: string
   groupedSourceNames: string[]
   time: string
+  /** Main price line — what the table's price cell and the CSV's "Preço"
+   * column both show. */
   priceText: string
+  /** Extra lines under the price (S7-05 "À vista · Cartão", S7-06 "Menor já
+   * visto" or the rule's "Teto") — the same lines the price cell renders
+   * and the CSV joins into "Detalhe do preço". */
+  priceDetails: string[]
   deliveryLabel: string
+  recipientNames: string[]
 }
 
 export function HistoricoPage() {
@@ -204,15 +226,26 @@ export function HistoricoPage() {
         const source = sources.find((candidate) => candidate.id === match.source_id)
         const linkCutText = productText(match.message_text)
         const title = cardTitle(match.message_text, rule)
-        const priceText =
-          match.price_cash_cents !== null && match.price_card_cents !== null
-            ? `${formatCurrency(match.price_cash_cents)} (à vista) / ${formatCurrency(match.price_card_cents)} (cartão)`
-            : formatPrice(match.price_cents)
+        // S7-05: same split MatchCard shows — the à vista price leads, the
+        // card price rides on a "À vista · Cartão" line.
+        const hasCashAndCard = match.price_cash_cents !== null && match.price_card_cents !== null
+        const priceText = hasCashAndCard
+          ? formatCurrency(match.price_cash_cents as number)
+          : formatPrice(match.price_cents)
+        const priceDetails: string[] = []
+        if (hasCashAndCard) {
+          priceDetails.push(`À vista · Cartão ${formatCurrency(match.price_card_cents as number)}`)
+        }
+        if (match.is_lowest_price_ever) {
+          priceDetails.push('Menor já visto')
+        } else if (rule?.max_price_cents != null) {
+          priceDetails.push(`Teto ${formatCurrency(rule.max_price_cents)}`)
+        }
         return {
           match,
           rule,
           title,
-          wasTruncated: title !== linkCutText,
+          hasFullText: title !== linkCutText || title.length > MAY_CLIP_TITLE_LENGTH,
           linkCutText,
           ruleName: rule?.name ?? `#${match.rule_id}`,
           sourceName: source?.name ?? `#${match.source_id}`,
@@ -224,10 +257,15 @@ export function HistoricoPage() {
             .filter((name): name is string => Boolean(name)),
           time: formatMatchedAt(match.matched_at),
           priceText,
+          priceDetails,
           deliveryLabel: summarizeDeliveryStatus(match.deliveries).label,
+          // Same "Para:" MatchCard shows — who each delivery of this match went to.
+          recipientNames: match.deliveries
+            .map((delivery) => recipients.find((recipient) => recipient.id === delivery.recipient_id)?.name)
+            .filter((name): name is string => Boolean(name)),
         }
       }),
-    [matches, rules, sources],
+    [matches, rules, sources, recipients],
   )
 
   const stats = useMemo(() => {
@@ -366,9 +404,6 @@ export function HistoricoPage() {
               ))}
             </select>
           </label>
-          <button type="button" className="plane-action fill-button historico-rail__apply" onClick={loadMatches}>
-            Aplicar filtros
-          </button>
         </form>
 
         <div className="historico-page__results">
@@ -425,7 +460,7 @@ export function HistoricoPage() {
                           >
                             <CategoryIcon category={category} />
                           </span>
-                          {row.wasTruncated ? (
+                          {row.hasFullText ? (
                             <Tooltip label={row.linkCutText}>{titleNode}</Tooltip>
                           ) : (
                             titleNode
@@ -441,19 +476,26 @@ export function HistoricoPage() {
                         </span>
                         <span className="historico-table__time">{row.time}</span>
                         <div className="historico-table__cell--right">
-                          <div className="historico-table__price">{formatPrice(row.match.price_cents)}</div>
-                          {row.match.is_lowest_price_ever ? (
-                            <span className="historico-table__price-note historico-table__price-note--lowest">
-                              Menor já visto
+                          <div className="historico-table__price">{row.priceText}</div>
+                          {row.priceDetails.map((detail) => (
+                            <span
+                              key={detail}
+                              className={
+                                'historico-table__price-note' +
+                                (detail === 'Menor já visto' ? ' historico-table__price-note--lowest' : '')
+                              }
+                            >
+                              {detail}
                             </span>
-                          ) : row.rule?.max_price_cents != null ? (
-                            <span className="historico-table__price-note">
-                              Teto {formatCurrency(row.rule.max_price_cents)}
-                            </span>
-                          ) : null}
+                          ))}
                         </div>
                         <div className="historico-table__cell--right">
                           <span className="historico-table__delivery">{row.deliveryLabel}</span>
+                          {row.recipientNames.length > 0 && (
+                            <span className="historico-table__price-note">
+                              Para: {row.recipientNames.join(', ')}
+                            </span>
+                          )}
                         </div>
                       </div>
                     )

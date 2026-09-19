@@ -85,9 +85,12 @@ test('Histórico exports a CSV whose rows match the real matches on screen (S11-
   for await (const chunk of stream) chunks.push(chunk as Buffer)
   const csv = Buffer.concat(chunks).toString('utf-8')
 
-  expect(csv).toContain('Produto,Regra,Fonte,Hora,Preço,Entrega')
+  expect(csv).toContain('Produto,Regra,Fonte,Hora,Preço,Detalhe do preço,Entrega,Para')
   expect(csv).toContain('csvitem exportado por R$ 250')
   expect(csv).toContain('Regra E2E CSV')
   expect(csv).toContain('Grupo E2E CSV')
   expect(csv).toContain('250,00')
+  // Recipient shown on the row ("Para:") is in the CSV too.
+  await expect(page.getByText('Para: Gabriel E2E CSV')).toBeVisible()
+  expect(csv).toContain('Gabriel E2E CSV')
 })

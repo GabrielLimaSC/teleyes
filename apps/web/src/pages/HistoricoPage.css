@@ -130,12 +130,6 @@
   box-shadow: 0 1px 0 rgba(58, 61, 70, 0.08);
 }
 
-.historico-rail__apply {
-  height: 40px;
-  font-size: 13px;
-  width: 100%;
-}
-
 .historico-page__results {
   display: flex;
   flex-direction: column;
@@ -223,13 +217,24 @@
   color: var(--plane-text-secondary);
 }
 
+/* S7-02 removed the single-line CSS ellipsis on purpose: it cut a title
+   mid-phrase with no way to read the rest. Two wrapped lines cover every
+   title the S9-06 cut produces; the clamp is only the same safety net
+   MatchCard's title has, and the Tooltip (any title the S9-06 cut shortened)
+   carries the full text. */
 .historico-table__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 14px;
   font-weight: 700;
   color: var(--plane-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.historico-table__product > .tooltip {
+  min-width: 0;
 }
 
 .historico-table__meta {
