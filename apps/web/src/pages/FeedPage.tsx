@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MatchCard } from '../components/MatchCard'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
-import { fetchMetrics } from '../api/metrics'
 import { useLiveMatches } from '../hooks/useLiveMatches'
 import type { FeedConnectionState } from '../hooks/useLiveMatches'
 import type { Match, Recipient, Rule, Source } from '../api/types'
@@ -24,24 +23,12 @@ export function FeedPage() {
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
-  const [readCount, setReadCount] = useState<number | null>(null)
   const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchRules().then(setRules).catch(() => setRules([]))
     fetchSources().then(setSources).catch(() => setSources([]))
     fetchRecipients().then(setRecipients).catch(() => setRecipients([]))
-    // S11-03: "Mensagens lidas" é cumulativo desde sempre (soma de
-    // reason=vista em todas as fontes) — não existe endpoint por período,
-    // então o painel rotula isso explicitamente em vez de sugerir "hoje".
-    fetchMetrics()
-      .then((counters) => {
-        const total = counters
-          .filter((counter) => counter.reason === 'vista')
-          .reduce((sum, counter) => sum + counter.count, 0)
-        setReadCount(total)
-      })
-      .catch(() => setReadCount(null))
   }, [])
 
   // Contagem por regra vem sempre da lista completa (não filtrada) — é o que
@@ -193,16 +180,15 @@ export function FeedPage() {
                 <div className="feed-summary__label">Enviados</div>
                 <div className="feed-summary__value">{summary.sent}</div>
               </div>
-              <div className="feed-summary__tile">
+              {/* S11-07: sem tile de "Mensagens lidas" — nenhum contador
+                  existente conta mensagens (`vista` conta matches
+                  persistidos, por par mensagem×regra), então o número seria
+                  falso. Volta na Fase 2, com um contador por mensagem. */}
+              <div className="feed-summary__tile feed-summary__tile--wide">
                 <div className="feed-summary__label">Menor preço</div>
                 <div className="feed-summary__value feed-summary__value--price">
                   {summary.lowestPrice !== null ? formatCurrency(summary.lowestPrice) : '—'}
                 </div>
-              </div>
-              <div className="feed-summary__tile">
-                <div className="feed-summary__label">Mensagens lidas</div>
-                <div className="feed-summary__value">{readCount ?? '…'}</div>
-                <div className="feed-summary__caption">cumulativo, não é só hoje</div>
               </div>
             </div>
           </aside>
