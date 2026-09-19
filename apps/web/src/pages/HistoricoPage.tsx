@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
-import { MatchCard } from '../components/MatchCard'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CategoryIcon } from '../components/CategoryIcon'
+import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
+import { summarizeDeliveryStatus } from '../components/deliveryStatus'
+import { Tooltip } from '../components/Tooltip'
+import { cardTitle, productText } from '../components/matchTitle'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import type { MatchFilters, MatchSort } from '../api/matches'
 import type { Match, Recipient, Rule, Source } from '../api/types'
-import '../components/GlassCard.css'
-import '../components/CrudTable.css'
+import '../styles/materials.css'
+import '../components/FillButton.css'
 import './HistoricoPage.css'
 
 const DELIVERY_STATUS_OPTIONS = [
@@ -57,6 +61,108 @@ export function toApiFilters(form: FilterForm): MatchFilters {
   if (form.deliveryStatus !== '') filters.deliveryStatus = form.deliveryStatus
   if (form.sort !== '') filters.sort = form.sort
   return filters
+}
+
+function formatCurrency(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatPrice(cents: number | null): string {
+  if (cents === null) return 'Preço não identificado'
+  return formatCurrency(cents)
+}
+
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+// Mesma regra da S10-06 (MatchCard) — "Hoje"/"Ontem" em fuso local, data
+// completa daí em diante.
+function formatMatchedAt(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (isSameLocalDay(date, now)) return `Hoje, ${time}`
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (isSameLocalDay(date, yesterday)) return `Ontem, ${time}`
+
+  return date.toLocaleString('pt-BR')
+}
+
+function csvField(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+  return value
+}
+
+/** S11-04: gera o CSV a partir do que já está calculado pra tela — os mesmos
+ * textos exibidos (título cortado, nomes de regra/fonte/destinatário, hora
+ * formatada, preço + detalhe de preço, status de entrega), não os campos
+ * crus da API. Sem endpoint novo: é puramente client-side a partir de
+ * `matches` já carregados. */
+function buildCsv(rows: HistoricoRow[]): string {
+  const header = ['Produto', 'Regra', 'Fonte', 'Hora', 'Preço', 'Detalhe do preço', 'Entrega', 'Para']
+  const lines = [header.map(csvField).join(',')]
+  for (const row of rows) {
+    lines.push(
+      [
+        row.title,
+        row.ruleName,
+        row.sourceName,
+        row.time,
+        row.priceText,
+        row.priceDetails.join(' · '),
+        row.deliveryLabel,
+        row.recipientNames.join(', '),
+      ]
+        .map(csvField)
+        .join(','),
+    )
+  }
+  return lines.join('\r\n')
+}
+
+function downloadCsv(csv: string): void {
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `historico-teleyes-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+// About two lines of the title column at the widest layout — past this the
+// 2-line clamp may clip the title, so the full text rides on a Tooltip.
+const MAY_CLIP_TITLE_LENGTH = 80
+
+interface HistoricoRow {
+  match: Match
+  rule: Rule | undefined
+  title: string
+  /** True when the full text is worth a Tooltip: the S9-06 cut shortened it,
+   * or it is long enough that the 2-line CSS clamp could clip it. */
+  hasFullText: boolean
+  linkCutText: string
+  ruleName: string
+  sourceName: string
+  groupedSourceNames: string[]
+  time: string
+  /** Main price line — what the table's price cell and the CSV's "Preço"
+   * column both show. */
+  priceText: string
+  /** Extra lines under the price (S7-05 "À vista · Cartão", S7-06 "Menor já
+   * visto" or the rule's "Teto") — the same lines the price cell renders
+   * and the CSV joins into "Detalhe do preço". */
+  priceDetails: string[]
+  deliveryLabel: string
+  recipientNames: string[]
 }
 
 export function HistoricoPage() {
@@ -111,19 +217,108 @@ export function HistoricoPage() {
   // shows, just surfaced without having to look back up at the filter panel.
   const sortLabel = SORT_OPTIONS.find((option) => option.value === form.sort)?.label ?? SORT_OPTIONS[0].label
 
+  // S11-04: tudo calculado no cliente a partir de `matches` — o conjunto já
+  // filtrado/buscado (fetchMatches(toApiFilters(form))), sem endpoint novo.
+  const rows: HistoricoRow[] = useMemo(
+    () =>
+      matches.map((match) => {
+        const rule = rules.find((candidate) => candidate.id === match.rule_id)
+        const source = sources.find((candidate) => candidate.id === match.source_id)
+        const linkCutText = productText(match.message_text)
+        const title = cardTitle(match.message_text, rule)
+        // S7-05: same split MatchCard shows — the à vista price leads, the
+        // card price rides on a "À vista · Cartão" line.
+        const hasCashAndCard = match.price_cash_cents !== null && match.price_card_cents !== null
+        const priceText = hasCashAndCard
+          ? formatCurrency(match.price_cash_cents as number)
+          : formatPrice(match.price_cents)
+        const priceDetails: string[] = []
+        if (hasCashAndCard) {
+          priceDetails.push(`À vista · Cartão ${formatCurrency(match.price_card_cents as number)}`)
+        }
+        if (match.is_lowest_price_ever) {
+          priceDetails.push('Menor já visto')
+        } else if (rule?.max_price_cents != null) {
+          priceDetails.push(`Teto ${formatCurrency(rule.max_price_cents)}`)
+        }
+        return {
+          match,
+          rule,
+          title,
+          hasFullText: title !== linkCutText || title.length > MAY_CLIP_TITLE_LENGTH,
+          linkCutText,
+          ruleName: rule?.name ?? `#${match.rule_id}`,
+          sourceName: source?.name ?? `#${match.source_id}`,
+          // S7-11: the same "Visto em" info MatchCard shows — the other
+          // sources that posted this exact promotion within the grouping
+          // window (chained), never lost even though only this row exists.
+          groupedSourceNames: (match.grouped_source_ids ?? [])
+            .map((sourceId) => sources.find((candidate) => candidate.id === sourceId)?.name)
+            .filter((name): name is string => Boolean(name)),
+          time: formatMatchedAt(match.matched_at),
+          priceText,
+          priceDetails,
+          deliveryLabel: summarizeDeliveryStatus(match.deliveries).label,
+          // Same "Para:" MatchCard shows — who each delivery of this match went to.
+          recipientNames: match.deliveries
+            .map((delivery) => recipients.find((recipient) => recipient.id === delivery.recipient_id)?.name)
+            .filter((name): name is string => Boolean(name)),
+        }
+      }),
+    [matches, rules, sources, recipients],
+  )
+
+  const stats = useMemo(() => {
+    const prices = matches.map((match) => match.price_cents).filter((price): price is number => price !== null)
+    const deliveriesDone = matches.reduce(
+      (count, match) => count + match.deliveries.filter((delivery) => delivery.status === 'sent').length,
+      0,
+    )
+    return {
+      count: matches.length,
+      avgPrice: prices.length > 0 ? Math.round(prices.reduce((sum, price) => sum + price, 0) / prices.length) : null,
+      lowestPrice: prices.length > 0 ? Math.min(...prices) : null,
+      deliveriesDone,
+    }
+  }, [matches])
+
+  const exportCsv = () => downloadCsv(buildCsv(rows))
+
   return (
     <main className="historico-page">
-      <h1>Histórico</h1>
-      {/* S10-07: filters grouped in their own panel (S10-05 comp's
-          `.history-filters`/`.history-filter-grid`) — Regra/Fonte/
-          Destinatário/Entrega in one row, Preço mínimo/máximo/Ordenar por
-          in the next, "Limpar filtros"/"Atualizar" on their own row after.
-          Same fields, same filtering logic — reordered/regrouped only. */}
-      <form
-        className="glass-card historico-page__filters"
-        onSubmit={(event) => event.preventDefault()}
-      >
-        <div className="historico-page__filter-grid">
+      <div className="historico-page__header">
+        <div>
+          <h1>Histórico</h1>
+          <p className="historico-page__subtitle">
+            {matches.length} {matches.length === 1 ? 'resultado' : 'resultados'} · {sortLabel.toLowerCase()}
+          </p>
+        </div>
+        <div className="historico-page__header-actions">
+          <button
+            type="button"
+            className="plane-action plane-action--secondary"
+            onClick={exportCsv}
+            disabled={rows.length === 0}
+          >
+            Exportar CSV
+          </button>
+          <button type="button" className="plane-action fill-button" onClick={loadMatches}>
+            Atualizar
+          </button>
+        </div>
+      </div>
+
+      <div className="historico-page__grid">
+        {/* S10-07: mesmos campos de filtro de sempre (Regra/Fonte/
+            Destinatário/Entrega/Preço/Ordenar por), só restilizados pro
+            plano vidro — nenhum campo novo, nenhum removido. */}
+        <form className="plane-glass historico-rail" onSubmit={(event) => event.preventDefault()}>
+          <div className="historico-rail__head">
+            <span className="historico-rail__eyebrow">Filtros</span>
+            <button type="button" className="historico-rail__clear" onClick={() => setForm(EMPTY_FILTERS)}>
+              Limpar filtros
+            </button>
+          </div>
           <label>
             Regra
             <select value={form.ruleId} onChange={(event) => updateField('ruleId')(event.target.value)}>
@@ -176,27 +371,30 @@ export function HistoricoPage() {
               ))}
             </select>
           </label>
+          <div className="historico-rail__price-grid">
+            <label>
+              Preço mínimo (R$)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.minPriceReais}
+                onChange={(event) => updateField('minPriceReais')(event.target.value)}
+              />
+            </label>
+            <label>
+              Preço máximo (R$)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.maxPriceReais}
+                onChange={(event) => updateField('maxPriceReais')(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="historico-rail__divider" />
           <label>
-            Preço mínimo (R$)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.minPriceReais}
-              onChange={(event) => updateField('minPriceReais')(event.target.value)}
-            />
-          </label>
-          <label>
-            Preço máximo (R$)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.maxPriceReais}
-              onChange={(event) => updateField('maxPriceReais')(event.target.value)}
-            />
-          </label>
-          <label className="historico-page__filter-grid-span2">
             Ordenar por
             <select value={form.sort} onChange={(event) => updateField('sort')(event.target.value)}>
               {SORT_OPTIONS.map((option) => (
@@ -206,47 +404,108 @@ export function HistoricoPage() {
               ))}
             </select>
           </label>
-        </div>
-        <div className="historico-page__filter-actions">
-          <button type="button" onClick={() => setForm(EMPTY_FILTERS)}>
-            Limpar filtros
-          </button>
-          <button type="button" onClick={loadMatches}>
-            Atualizar
-          </button>
-        </div>
-      </form>
+        </form>
 
-      {loading && <p>Carregando…</p>}
-      {error && (
-        <p role="alert" className="historico-page__error">
-          {error}
-        </p>
-      )}
-      {!loading && !error && (
-        <>
-          <div className="crud-section-row">
-            <h2>Resultados</h2>
-            <p>{sortLabel}</p>
-          </div>
-          {matches.length === 0 && <p>Nenhum match encontrado com esses filtros.</p>}
-          <div className="historico-page__list">
-            {matches.map((match) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                rule={rules.find((rule) => rule.id === match.rule_id)}
-                source={sources.find((source) => source.id === match.source_id)}
-                recipients={recipients}
-                isLowestPriceEver={match.is_lowest_price_ever}
-                groupedSourceNames={match.grouped_source_ids
-                  ?.map((sourceId) => sources.find((source) => source.id === sourceId)?.name)
-                  .filter((name): name is string => Boolean(name))}
-              />
-            ))}
-          </div>
-        </>
-      )}
+        <div className="historico-page__results">
+          {loading && <p>Carregando…</p>}
+          {error && (
+            <p role="alert" className="historico-page__error">
+              {error}
+            </p>
+          )}
+          {!loading && !error && (
+            <>
+              <div className="historico-stats">
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Matches no período</div>
+                  <div className="historico-stats__value">{stats.count}</div>
+                </div>
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Preço médio</div>
+                  <div className="historico-stats__value">
+                    {stats.avgPrice !== null ? formatCurrency(stats.avgPrice) : '—'}
+                  </div>
+                </div>
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Menor preço</div>
+                  <div className="historico-stats__value">
+                    {stats.lowestPrice !== null ? formatCurrency(stats.lowestPrice) : '—'}
+                  </div>
+                </div>
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Entregas feitas</div>
+                  <div className="historico-stats__value">{stats.deliveriesDone}</div>
+                </div>
+              </div>
+
+              {rows.length === 0 && <p>Nenhum match encontrado com esses filtros.</p>}
+              {rows.length > 0 && (
+                <div className="plane-pearl historico-table">
+                  <div className="historico-table__row historico-table__row--head">
+                    <span>Produto</span>
+                    <span>Regra · fonte</span>
+                    <span>Hora</span>
+                    <span className="historico-table__cell--right">Preço</span>
+                    <span className="historico-table__cell--right">Entrega</span>
+                  </div>
+                  {rows.map((row) => {
+                    const category = categorize(row.match.message_text)
+                    const titleNode = <span className="historico-table__title">{row.title}</span>
+                    return (
+                      <div key={row.match.id} className="historico-table__row">
+                        <div className="historico-table__product">
+                          <span
+                            className="historico-table__icon"
+                            style={{ background: CATEGORY_BACKGROUND[category] }}
+                          >
+                            <CategoryIcon category={category} />
+                          </span>
+                          {row.hasFullText ? (
+                            <Tooltip label={row.linkCutText}>{titleNode}</Tooltip>
+                          ) : (
+                            titleNode
+                          )}
+                        </div>
+                        <span className="historico-table__meta">
+                          {row.ruleName} · {row.sourceName}
+                          {row.groupedSourceNames.length > 0 && (
+                            <span className="historico-table__grouped-sources">
+                              Visto em: {row.groupedSourceNames.join(', ')}
+                            </span>
+                          )}
+                        </span>
+                        <span className="historico-table__time">{row.time}</span>
+                        <div className="historico-table__cell--right">
+                          <div className="historico-table__price">{row.priceText}</div>
+                          {row.priceDetails.map((detail) => (
+                            <span
+                              key={detail}
+                              className={
+                                'historico-table__price-note' +
+                                (detail === 'Menor já visto' ? ' historico-table__price-note--lowest' : '')
+                              }
+                            >
+                              {detail}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="historico-table__cell--right">
+                          <span className="historico-table__delivery">{row.deliveryLabel}</span>
+                          {row.recipientNames.length > 0 && (
+                            <span className="historico-table__price-note">
+                              Para: {row.recipientNames.join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </main>
   )
 }
