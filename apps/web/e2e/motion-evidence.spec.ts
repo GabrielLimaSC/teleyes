@@ -139,7 +139,7 @@ test('primary button fill expands from the click point', async ({ page }) => {
   await apiLogin(page)
   await page.goto('/regras')
 
-  const button = page.locator('.crud-page__new-button').first()
+  const button = page.locator('.regras-page__new-button')
   const box = await button.boundingBox()
   expect(box).not.toBeNull()
 

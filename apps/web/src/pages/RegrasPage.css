@@ -1,0 +1,392 @@
+/**
+ * S11-05: Regras/Destinatários redesign. Values come from the approved
+ * concept (`.impeccable/review/s11-design/Teleyes Unificado.dc.html`,
+ * "04 Regras") inline `style=`: wide pearl tables on the left, a fixed
+ * 352px rail on the right (glass creation form + pearl "Como uma regra
+ * casa" panel). Planes/colors come from `styles/materials.css`.
+ */
+
+/* `main.regras-page` outranks the shared `.crud-page` (1200px, Dub
+   spacing) from CrudTable.css, which Fontes still uses as is. */
+main.regras-page {
+  max-width: 1440px;
+  padding: 8px 24px 48px;
+}
+
+.regras-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin: 16px 0 24px;
+}
+
+.regras-page__header h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.14;
+  margin: 0 0 6px;
+  color: var(--plane-text-heading);
+}
+
+.regras-page__subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+.regras-page__new-button {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.regras-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 352px;
+  gap: 20px;
+  align-items: start;
+}
+
+.regras-page__main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.regras-page__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .regras-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- Wide tables (Regras + Destinatários) ---- */
+.wide-table-wrap {
+  overflow-x: auto;
+}
+
+.crud-table.wide-table th {
+  padding: 14px 10px;
+  background: #f7f8fa;
+  border-bottom: 1px solid #e9ecf0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.crud-table.wide-table td {
+  padding: 16px 10px;
+  border-bottom: 1px solid #e9ecf0;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.crud-table.wide-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Same 20px edge inset the concept's rows have, without spending it on
+   every inner column. */
+.crud-table.wide-table th:first-child,
+.crud-table.wide-table td:first-child {
+  padding-left: 20px;
+}
+
+.crud-table.wide-table th:last-child,
+.crud-table.wide-table td:last-child {
+  padding-right: 20px;
+}
+
+/* The rule/recipient currently loaded in the rail. */
+.crud-table.wide-table tr.wide-table__row--editing td {
+  background: #f5f7fa;
+}
+
+.crud-table.wide-table .crud-table__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+/* Needs the table's own specificity: `.crud-table th` (CrudTable.css)
+   left-aligns every header. */
+.crud-table.wide-table th.wide-table__num,
+.crud-table.wide-table td.wide-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+td.wide-table__num {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plane-text-heading);
+}
+
+@media (min-width: 641px) {
+  .crud-table.wide-table .crud-table__name {
+    min-width: 104px;
+  }
+}
+
+.wide-table__terms {
+  overflow-wrap: anywhere;
+}
+
+/* The buttons live in a wrapper: a `display: flex` on the <td> itself would
+   take the cell out of the table layout and let it overflow the card. The
+   cell asks for ~2 rows of buttons and the terms columns give way. */
+.crud-table.wide-table td.wide-table__actions {
+  width: 1%;
+}
+
+.wide-table__actions-inner {
+  /* Room for three buttons per row (Editar + Duplicar + Testar): two rows for five
+     actions instead of one button per line when the terms columns are wide;
+     the other columns (headers wrap) give way for it. */
+  min-width: 204px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.wide-table__actions button {
+  height: 30px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+/* ---- Section row above Destinatários ---- */
+.regras-section {
+  margin: 0;
+}
+
+.regras-section-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.regras-section-row h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.regras-section-row p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.regras-section-row__button {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+/* ---- Panels under the table (tester, clear-history confirm, recipient
+   form) — pearl, same dense-content plane as the tables ---- */
+.regras-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.regras-panel h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.regras-panel__note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+.regras-panel__verdict {
+  margin: 0;
+  font-weight: 600;
+}
+
+.regras-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.regras-panel__field,
+.regras-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+.regras-panel__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+.regras-panel input:not([type='checkbox']),
+.regras-form input:not(.term-chips__input) {
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #ccd2db;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--plane-text-primary);
+}
+
+.regras-panel input:not([type='checkbox']):focus-visible,
+.regras-form input:not(.term-chips__input):focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.regras-panel input::placeholder,
+.regras-form input:not(.term-chips__input)::placeholder {
+  color: #6b7280;
+}
+
+.regras-panel__actions,
+.regras-form__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.regras-panel__button,
+.regras-form__submit,
+.regras-form__cancel {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.regras-form__submit {
+  flex: 1;
+}
+
+.regras-panel__error,
+.regras-form__error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--plane-status-danger);
+}
+
+/* ---- Rail ---- */
+.regras-form {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.regras-rail__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+}
+
+.regras-how {
+  padding: 18px;
+}
+
+.regras-how .regras-rail__eyebrow {
+  margin-bottom: 12px;
+}
+
+.regras-how__text {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--plane-text-secondary);
+  text-wrap: pretty;
+}
+
+.regras-how__stats {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regras-how__stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.regras-how__stat + .regras-how__stat {
+  padding-top: 8px;
+  border-top: 1px solid #e9ecf0;
+}
+
+.regras-how__stat dt {
+  color: var(--plane-text-secondary);
+}
+
+.regras-how__stat dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.regras-how__caption {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--plane-text-helper);
+}
+
+/* Below 640px the tables degrade to stacked cards (CrudTable.css) — the
+   action buttons then sit on the right of their own row. */
+@media (max-width: 640px) {
+  main.regras-page {
+    padding: 8px 16px 40px;
+  }
+
+  .crud-table.wide-table td,
+  .crud-table.wide-table td:first-child,
+  .crud-table.wide-table td:last-child {
+    padding: 8px 0;
+  }
+
+  .crud-table.wide-table td.wide-table__actions {
+    width: 100%;
+  }
+
+  .wide-table__actions-inner {
+    min-width: 0;
+  }
+}

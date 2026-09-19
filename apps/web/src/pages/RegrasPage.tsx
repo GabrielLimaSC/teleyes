@@ -1,20 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
 import { clearRuleMatches, createRule, deleteRule, listRules, pauseRule, updateRule } from '../api/rules'
 import type { RuleInput } from '../api/rules'
 import { fetchMatches } from '../api/matches'
+import { fetchMetrics } from '../api/metrics'
 import { ApiError } from '../api/auth'
 import type { Rule } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
+import { parseTermList } from '../utils/termList'
 import { StatusToggle } from '../components/StatusToggle'
+import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { DestinatariosSection } from './DestinatariosSection'
-import '../components/GlassCard.css'
 import '../components/CrudTable.css'
 import '../components/FillButton.css'
+import './RegrasPage.css'
 
 interface RuleForm {
   name: string
@@ -24,6 +27,8 @@ interface RuleForm {
 }
 
 const EMPTY_FORM: RuleForm = { name: '', includeTerms: '', excludeTerms: '', maxPriceReais: '' }
+
+const NO_TERMS_MESSAGE = 'Informe ao menos um termo incluído.'
 
 function ruleToForm(rule: Rule, { asCopy }: { asCopy: boolean }): RuleForm {
   return {
@@ -63,10 +68,16 @@ export function RegrasPage() {
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
 
-  const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
+  // S11-05: the form is a permanent rail beside the table, not a panel that
+  // opens above it — `create` is its resting state, Editar/Duplicar load a
+  // rule into it. `formVersion` remounts the chips input on every load so a
+  // half-typed term never leaks from one rule into the next.
+  const [formTarget, setFormTarget] = useState<FormTarget>({ kind: 'create' })
   const [form, setForm] = useState<RuleForm>(EMPTY_FORM)
+  const [formVersion, setFormVersion] = useState(0)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const [pausingId, setPausingId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -79,6 +90,11 @@ export function RegrasPage() {
   const [clearing, setClearing] = useState(false)
   const [clearError, setClearError] = useState<string | null>(null)
 
+  // `null` = not loaded (or failed to load) — the panel shows "—", never a
+  // made-up zero.
+  const [matchedCount, setMatchedCount] = useState<number | null>(null)
+  const [ceilingDiscards, setCeilingDiscards] = useState<number | null>(null)
+
   const reload = () => {
     setLoading(true)
     listRules(true)
@@ -90,36 +106,61 @@ export function RegrasPage() {
       .finally(() => setLoading(false))
   }
 
+  // S11-05: both numbers are system-wide and cumulative — `GET /matches`
+  // returns every stored match (grouped duplicates collapsed, same count the
+  // Feed shows) and `GET /metrics` is a since-forever counter with no
+  // per-rule or per-period breakdown, so the panel labels them as such
+  // instead of implying "hoje" or a per-rule figure.
+  const loadStats = () => {
+    fetchMatches()
+      .then((matches) => setMatchedCount(matches.length))
+      .catch(() => setMatchedCount(null))
+    fetchMetrics()
+      .then((counters) =>
+        setCeilingDiscards(
+          counters
+            .filter((counter) => counter.reason === 'preco_acima_teto')
+            .reduce((sum, counter) => sum + counter.count, 0),
+        ),
+      )
+      .catch(() => setCeilingDiscards(null))
+  }
+
   useEffect(reload, [])
+  useEffect(loadStats, [])
+
+  const loadForm = (target: FormTarget, next: RuleForm) => {
+    setFormTarget(target)
+    setForm(next)
+    setFormVersion((version) => version + 1)
+    setFormError(null)
+  }
 
   const openCreate = () => {
-    setFormTarget({ kind: 'create' })
-    setForm(EMPTY_FORM)
-    setFormError(null)
+    loadForm({ kind: 'create' }, EMPTY_FORM)
+    nameInputRef.current?.focus()
   }
 
   const openEdit = (rule: Rule) => {
-    setFormTarget({ kind: 'edit', rule })
-    setForm(ruleToForm(rule, { asCopy: false }))
-    setFormError(null)
+    loadForm({ kind: 'edit', rule }, ruleToForm(rule, { asCopy: false }))
+    nameInputRef.current?.focus()
   }
 
   const openDuplicate = (rule: Rule) => {
-    setFormTarget({ kind: 'create' })
-    setForm(ruleToForm(rule, { asCopy: true }))
-    setFormError(null)
+    loadForm({ kind: 'create' }, ruleToForm(rule, { asCopy: true }))
+    nameInputRef.current?.focus()
   }
 
-  const closeForm = () => {
-    setFormTarget(null)
-    setFormError(null)
-  }
+  const resetForm = () => loadForm({ kind: 'create' }, EMPTY_FORM)
 
   const submitForm = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (formTarget === null) return
     if (csrfToken === null) {
       setFormError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    if (parseTermList(form.includeTerms).length === 0) {
+      setFormError(NO_TERMS_MESSAGE)
       return
     }
     setSubmitting(true)
@@ -133,7 +174,7 @@ export function RegrasPage() {
     const wasCreate = formTarget.kind === 'create'
     request
       .then(() => {
-        closeForm()
+        resetForm()
         reload()
         showToast(wasCreate ? 'Regra criada.' : 'Regra atualizada.')
       })
@@ -211,6 +252,7 @@ export function RegrasPage() {
     clearRuleMatches(csrfToken, clearConfirm.rule.id)
       .then(({ deleted }) => {
         reload()
+        loadStats()
         setClearConfirm(null)
         showToast(
           deleted === 1 ? '1 match apagado.' : `${deleted} matches apagados.`,
@@ -225,14 +267,23 @@ export function RegrasPage() {
   }
 
   const activeTester = rules.find((rule) => rule.id === testerId)
+  const isEditing = formTarget.kind === 'edit'
 
   return (
-    <main className="crud-page">
-      <div className="crud-page__header">
-        <h1>Regras</h1>
+    <main className="crud-page regras-page">
+      <div className="regras-page__header">
+        <div>
+          <h1>Regras</h1>
+          {!loading && !listError && (
+            <p className="regras-page__subtitle">
+              {rules.length === 1 ? '1 regra' : `${rules.length} regras`} · ações disponíveis em
+              cada linha
+            </p>
+          )}
+        </div>
         <button
           type="button"
-          className="crud-page__new-button fill-button"
+          className="plane-action fill-button regras-page__new-button"
           onClick={openCreate}
           onPointerDown={fillOrigin}
         >
@@ -240,34 +291,206 @@ export function RegrasPage() {
         </button>
       </div>
 
-      {formTarget && (
-        <form className="glass-card crud-form" onSubmit={submitForm}>
-          <h2>{formTarget.kind === 'create' ? 'Nova regra' : 'Editar regra'}</h2>
-          <div className="crud-form__grid">
-            <label>
+      <div className="regras-page__grid">
+        <div className="regras-page__main">
+          {loading && <p>Carregando…</p>}
+          {listError && (
+            <p role="alert" className="crud-page__error">
+              {listError}
+            </p>
+          )}
+
+          {!loading && !listError && (
+            <div className="plane-pearl crud-table-wrap wide-table-wrap">
+              <table className="crud-table wide-table">
+                <thead>
+                  <tr>
+                    <th>Regra</th>
+                    <th>Termos incluídos</th>
+                    <th>Bloqueados</th>
+                    <th className="wide-table__num">Preço máximo</th>
+                    <th className="wide-table__num">Menor já visto</th>
+                    <th>Status</th>
+                    <th className="wide-table__num">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rules.map((rule) => (
+                    <tr
+                      key={rule.id}
+                      className={
+                        formTarget.kind === 'edit' && formTarget.rule.id === rule.id
+                          ? 'wide-table__row--editing'
+                          : undefined
+                      }
+                    >
+                      <td className="crud-table__name" data-label="Regra">
+                        {rule.name}
+                      </td>
+                      <td className="wide-table__terms" data-label="Termos incluídos">
+                        {rule.include_terms}
+                      </td>
+                      <td className="wide-table__terms" data-label="Termos bloqueados">
+                        {rule.exclude_terms ?? '—'}
+                      </td>
+                      <td className="wide-table__num" data-label="Preço máximo">
+                        {formatPriceLimit(rule.max_price_cents)}
+                      </td>
+                      <td className="wide-table__num" data-label="Menor preço já visto">
+                        {formatLowestPrice(rule.lowest_price_cents)}
+                      </td>
+                      <td data-label="Status">
+                        <StatusToggle
+                          active={rule.active}
+                          pausing={pausingId === rule.id}
+                          onPause={() => handlePause(rule)}
+                        />
+                      </td>
+                      <td className="wide-table__actions" data-label="Ações">
+                        <div className="wide-table__actions-inner">
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => openEdit(rule)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => openDuplicate(rule)}
+                          >
+                            Duplicar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => {
+                              setTesterId(testerId === rule.id ? null : rule.id)
+                              setTesterText('')
+                            }}
+                          >
+                            Testar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--danger plane-action--compact"
+                            onClick={() => openClearConfirm(rule)}
+                            disabled={checkingClearId === rule.id}
+                          >
+                            {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--danger plane-action--compact"
+                            onClick={() => handleDelete(rule)}
+                            disabled={deletingId === rule.id}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {rules.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>Nenhuma regra cadastrada ainda.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTester && (
+            <div className="plane-pearl regras-panel">
+              <h2>Testar regra: {activeTester.name}</h2>
+              <p className="regras-panel__note">
+                Prévia local (não chama a API nem cria dado nenhum) — reproduz a mesma lógica de
+                normalização e termos do backend.
+              </p>
+              <label className="regras-panel__field">
+                Mensagem de exemplo
+                <input value={testerText} onChange={(event) => setTesterText(event.target.value)} />
+              </label>
+              {testerText.trim() !== '' && (
+                <p className="regras-panel__verdict">
+                  {previewRuleMatch(testerText, activeTester.include_terms, activeTester.exclude_terms)
+                    ? '✅ Bateria com esta regra'
+                    : '❌ Não bateria com esta regra'}
+                </p>
+              )}
+            </div>
+          )}
+
+          {clearConfirm && (
+            <div className="plane-pearl regras-panel">
+              <h2>Limpar histórico: {clearConfirm.rule.name}</h2>
+              <p className="regras-panel__note">
+                Isso apaga{' '}
+                {clearConfirm.count === 1 ? '1 match' : `${clearConfirm.count} matches`} desta
+                regra (e as entregas registradas neles) do Feed/Histórico — a regra em si continua
+                ativa e pronta pra gerar matches novos. Essa ação não pode ser desfeita.
+              </p>
+              <div className="regras-panel__actions">
+                <button
+                  type="button"
+                  className="plane-action fill-button regras-panel__button"
+                  onClick={confirmClear}
+                  disabled={clearing}
+                  onPointerDown={fillOrigin}
+                >
+                  {clearing ? 'Apagando…' : 'Apagar histórico'}
+                </button>
+                <button
+                  type="button"
+                  className="plane-action plane-action--secondary regras-panel__button"
+                  onClick={closeClearConfirm}
+                >
+                  Cancelar
+                </button>
+              </div>
+              {clearError && (
+                <p role="alert" className="regras-panel__error">
+                  {clearError}
+                </p>
+              )}
+            </div>
+          )}
+
+          <DestinatariosSection />
+        </div>
+
+        <aside className="regras-page__rail">
+          <form className="plane-glass regras-form" onSubmit={submitForm}>
+            <h2 className="regras-rail__eyebrow">{isEditing ? 'Editar regra' : 'Nova regra'}</h2>
+            <label className="regras-form__field">
               Nome
               <input
+                ref={nameInputRef}
                 value={form.name}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
+                placeholder='ex.: Monitor 27" 165Hz'
                 required
               />
             </label>
-            <label>
-              Termos incluídos (separados por vírgula)
-              <input
-                value={form.includeTerms}
-                onChange={(event) => setForm({ ...form, includeTerms: event.target.value })}
-                required
-              />
-            </label>
-            <label>
+            <TermChipsInput
+              key={formVersion}
+              id="rule-include-terms"
+              label="Termos incluídos"
+              value={form.includeTerms}
+              onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
+              helper="Enter ou vírgula pra adicionar."
+            />
+            <label className="regras-form__field">
               Termos bloqueados
               <input
                 value={form.excludeTerms}
                 onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
+                placeholder="usado, caixa aberta…"
               />
             </label>
-            <label>
+            <label className="regras-form__field">
               Preço máximo (R$)
               <input
                 type="number"
@@ -275,182 +498,55 @@ export function RegrasPage() {
                 step="0.01"
                 value={form.maxPriceReais}
                 onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
+                placeholder="sem teto"
               />
             </label>
-          </div>
-          <div className="crud-form__actions">
-            <button
-              type="submit"
-              className="crud-form__submit fill-button"
-              disabled={submitting}
-              onPointerDown={fillOrigin}
-            >
-              {submitting ? 'Salvando…' : 'Salvar'}
-            </button>
-            <button type="button" className="crud-form__cancel" onClick={closeForm}>
-              Cancelar
-            </button>
-          </div>
-          {formError && (
-            <p role="alert" className="crud-form__error">
-              {formError}
+            <div className="regras-form__actions">
+              <button
+                type="submit"
+                className="plane-action fill-button regras-form__submit"
+                disabled={submitting}
+                onPointerDown={fillOrigin}
+              >
+                {submitting ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Criar regra'}
+              </button>
+              <button
+                type="button"
+                className="plane-action plane-action--secondary regras-form__cancel"
+                onClick={resetForm}
+              >
+                {isEditing ? 'Cancelar' : 'Limpar campos'}
+              </button>
+            </div>
+            {formError && (
+              <p role="alert" className="regras-form__error">
+                {formError}
+              </p>
+            )}
+          </form>
+
+          <section className="plane-pearl regras-how">
+            <h2 className="regras-rail__eyebrow">Como uma regra casa</h2>
+            <p className="regras-how__text">
+              Basta um dos termos incluídos aparecer na mensagem; qualquer termo bloqueado descarta.
+              Se o preço achado passa do teto da regra, a mensagem também é descartada.
             </p>
-          )}
-        </form>
-      )}
-
-      {loading && <p>Carregando…</p>}
-      {listError && (
-        <p role="alert" className="crud-page__error">
-          {listError}
-        </p>
-      )}
-
-      {!loading && !listError && (
-        <>
-          {/* S10-07: section header above the table (S10-05 comp's
-              `.section-row`) — only position/structure, table itself
-              unchanged. */}
-          <div className="crud-section-row">
-            <h2>Regras cadastradas</h2>
-            <p>
-              {rules.length === 1 ? '1 regra' : `${rules.length} regras`} · ações disponíveis em
-              cada linha
+            <dl className="regras-how__stats">
+              <div className="regras-how__stat">
+                <dt>Casaram</dt>
+                <dd>{matchedCount ?? '—'}</dd>
+              </div>
+              <div className="regras-how__stat">
+                <dt>Descartadas por teto</dt>
+                <dd>{ceilingDiscards ?? '—'}</dd>
+              </div>
+            </dl>
+            <p className="regras-how__caption">
+              Totais acumulados de todas as regras, desde o início — não são do dia.
             </p>
-          </div>
-          <div className="glass-card crud-table-wrap">
-            <table className="crud-table">
-              <thead>
-                <tr>
-                  <th>Regra</th>
-                  <th>Termos incluídos</th>
-                  <th>Termos bloqueados</th>
-                  <th>Preço máximo</th>
-                  <th>Menor preço já visto</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rules.map((rule) => (
-                  <tr key={rule.id}>
-                    <td className="crud-table__name" data-label="Regra">
-                      {rule.name}
-                    </td>
-                    <td data-label="Termos incluídos">{rule.include_terms}</td>
-                    <td data-label="Termos bloqueados">{rule.exclude_terms ?? '—'}</td>
-                    <td data-label="Preço máximo">{formatPriceLimit(rule.max_price_cents)}</td>
-                    <td data-label="Menor preço já visto">
-                      {formatLowestPrice(rule.lowest_price_cents)}
-                    </td>
-                    <td data-label="Status">
-                      <StatusToggle
-                        active={rule.active}
-                        pausing={pausingId === rule.id}
-                        onPause={() => handlePause(rule)}
-                      />
-                    </td>
-                    <td className="crud-table__actions" data-label="Ações">
-                      <button type="button" onClick={() => openEdit(rule)}>
-                        Editar
-                      </button>
-                      <button type="button" onClick={() => openDuplicate(rule)}>
-                        Duplicar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTesterId(testerId === rule.id ? null : rule.id)
-                          setTesterText('')
-                        }}
-                      >
-                        Testar
-                      </button>
-                      <button
-                        type="button"
-                        className="crud-table__actions--danger"
-                        onClick={() => openClearConfirm(rule)}
-                        disabled={checkingClearId === rule.id}
-                      >
-                        {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
-                      </button>
-                      <button
-                        type="button"
-                        className="crud-table__actions--danger"
-                        onClick={() => handleDelete(rule)}
-                        disabled={deletingId === rule.id}
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {rules.length === 0 && (
-                  <tr>
-                    <td colSpan={7}>Nenhuma regra cadastrada ainda.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {activeTester && (
-        <div className="glass-card crud-form" style={{ marginTop: 'var(--space-4)' }}>
-          <h2>Testar regra: {activeTester.name}</h2>
-          {/* S9-01/S9-02 drive-by: was a hardcoded #4b4b52/13px, missed in
-              the S9-01 CSS-file sweep since this one's an inline style. */}
-          <p style={{ margin: 0, fontSize: 'var(--font-size-body)', color: 'var(--color-helper)' }}>
-            Prévia local (não chama a API nem cria dado nenhum) — reproduz a mesma lógica de
-            normalização e termos do backend.
-          </p>
-          <label>
-            Mensagem de exemplo
-            <input value={testerText} onChange={(event) => setTesterText(event.target.value)} />
-          </label>
-          {testerText.trim() !== '' && (
-            <p style={{ fontWeight: 600 }}>
-              {previewRuleMatch(testerText, activeTester.include_terms, activeTester.exclude_terms)
-                ? '✅ Bateria com esta regra'
-                : '❌ Não bateria com esta regra'}
-            </p>
-          )}
-        </div>
-      )}
-
-      {clearConfirm && (
-        <div className="glass-card crud-form" style={{ marginTop: 'var(--space-4)' }}>
-          <h2>Limpar histórico: {clearConfirm.rule.name}</h2>
-          <p style={{ margin: 0, fontSize: 'var(--font-size-body)', color: 'var(--color-helper)' }}>
-            Isso apaga{' '}
-            {clearConfirm.count === 1 ? '1 match' : `${clearConfirm.count} matches`} desta
-            regra (e as entregas registradas neles) do Feed/Histórico — a regra em si continua
-            ativa e pronta pra gerar matches novos. Essa ação não pode ser desfeita.
-          </p>
-          <div className="crud-form__actions">
-            <button
-              type="button"
-              className="crud-form__submit fill-button"
-              onClick={confirmClear}
-              disabled={clearing}
-              onPointerDown={fillOrigin}
-            >
-              {clearing ? 'Apagando…' : 'Apagar histórico'}
-            </button>
-            <button type="button" className="crud-form__cancel" onClick={closeClearConfirm}>
-              Cancelar
-            </button>
-          </div>
-          {clearError && (
-            <p role="alert" className="crud-form__error">
-              {clearError}
-            </p>
-          )}
-        </div>
-      )}
-
-      <DestinatariosSection />
+          </section>
+        </aside>
+      </div>
       <Toast toast={toast} onDismiss={dismiss} />
     </main>
   )
