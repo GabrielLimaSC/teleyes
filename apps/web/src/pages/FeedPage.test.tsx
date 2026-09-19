@@ -168,21 +168,13 @@ describe('FeedPage', () => {
         is_lowest_price_ever: false,
       },
     ]
-    const metrics = [
-      { source_id: 1, reason: 'vista', count: 40, updated_at: '2026-01-01T00:00:00Z' },
-      { source_id: 2, reason: 'vista', count: 12, updated_at: '2026-01-01T00:00:00Z' },
-      { source_id: 1, reason: 'bloqueado', count: 3, updated_at: '2026-01-01T00:00:00Z' },
-    ]
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((input: RequestInfo | URL) => {
-        const url = String(input)
-        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
-        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
-        if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse(metrics))
-        return Promise.resolve(jsonResponse([]))
-      }),
-    )
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
+      if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
+      return Promise.resolve(jsonResponse([]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     render(<FeedPage />)
     await screen.findByText('Produto A1')
@@ -194,11 +186,11 @@ describe('FeedPage', () => {
     expect(sentTile).toHaveTextContent('1')
     const priceTile = screen.getByText('Menor preço').closest('.feed-summary__tile')
     expect(priceTile).toHaveTextContent('R$ 30,00')
-    // Mensagens lidas: soma de reason=vista em todas as fontes (40+12=52,
-    // nunca some "bloqueado") — cumulativo, rotulado como tal.
-    const readTile = screen.getByText('Mensagens lidas').closest('.feed-summary__tile')
-    expect(readTile).toHaveTextContent('52')
-    expect(readTile).toHaveTextContent('cumulativo, não é só hoje')
+    // Nenhum contador existente conta mensagens (`vista` = matches persistidos
+    // por par mensagem×regra), então não há tile "Mensagens lidas/vistas" —
+    // e o Resumo nem consulta /metrics.
+    expect(screen.queryByText(/Mensagens (lidas|vistas)/)).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith('/metrics'))).toBe(false)
   })
 
   it('filters both the grid and the Resumo rail by the selected rule (S11-03)', async () => {
