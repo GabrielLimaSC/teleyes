@@ -25,3 +25,27 @@ test('saude page reflects the real not_configured state and tests a notification
 
   await expect(page.getByText('Não entregue — status: not_configured.')).toBeVisible()
 })
+
+test('saude summary shows the real totals from the API (S11-06)', async ({ page }) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  await apiPost(page, '/sources', csrfToken, { name: 'Grupo E2E Saude Resumo', telegram_chat_id: '-100840' })
+
+  const real = await page.evaluate(async () => {
+    const json = async (path: string) =>
+      (await (await fetch(path, { credentials: 'same-origin' })).json()) as unknown[]
+    return {
+      sources: (await json('/sources')).length,
+      matches: (await json('/matches')).length,
+    }
+  })
+  expect(real.sources).toBeGreaterThanOrEqual(1)
+
+  await page.goto('/saude')
+  const stat = (label: string) => page.locator('.saude-stats__item', { hasText: label })
+  await expect(stat('Fontes ativas')).toContainText(String(real.sources))
+  await expect(page.getByText('Mensagens lidas')).toHaveCount(0)
+  await expect(stat('Matches gerados')).toContainText(String(real.matches))
+  await expect(page.getByText(/Contagens de agora/)).toBeVisible()
+})

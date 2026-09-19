@@ -1,74 +1,219 @@
+/**
+ * S11-06: Saúde redesign. Values come from the approved concept
+ * (`.impeccable/review/s11-design/Teleyes Unificado.dc.html`, "05 Saúde")
+ * inline `style=`: four pearl status tiles across, then a collector summary
+ * and the notification test side by side. Planes/colors from
+ * `styles/materials.css`.
+ */
 .saude-page {
-  /* S9-01: page-specific width, not the general 1200px page-max-width token
-     — Saúde's single narrow panel isn't meant to stretch as wide as the
-     CRUD list pages. */
-  max-width: 640px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: var(--space-2) var(--space-4) var(--space-12);
+  padding: 8px 24px 48px;
+}
+
+.saude-page__header {
+  margin: 16px 0 24px;
 }
 
 .saude-page h1 {
-  font-size: var(--font-size-heading);
-  font-family: var(--font-body);
-  font-weight: var(--font-weight-semibold);
-  margin: var(--space-4) 0 var(--space-5);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.14;
+  margin: 0 0 6px;
+  color: var(--plane-text-heading);
+}
+
+.saude-page__subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
 }
 
 .saude-page__error {
-  color: var(--color-danger);
+  color: var(--plane-status-danger);
 }
 
 .saude-page__result {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+/* ---- Status tiles ---- */
+.saude-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.saude-tile {
+  padding: 18px;
+}
+
+.saude-tile__label {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.saude-tile__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.saude-tile__dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.saude-tile__detail {
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.saude-page code,
+.saude-tile__detail code {
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+/* ---- Panels ---- */
+.saude-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
 }
 
 .saude-panel {
-  padding: var(--padding-card);
+  padding: 22px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  font-family: var(--font-body);
+  gap: 16px;
 }
 
-.saude-panel label {
+.saude-panel h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.saude-panel__sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+  text-wrap: pretty;
+}
+
+.saude-stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.saude-stats__item {
+  border-radius: 12px;
+  padding: 14px;
+  background: #f7f8fa;
+  border: 1px solid #e9ecf0;
+}
+
+.saude-stats__item dt {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.saude-stats__item dd {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.saude-panel__field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--font-size-body);
-  color: var(--color-helper);
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
 }
 
 .saude-panel select,
 .saude-panel input {
-  font-size: var(--font-size-body);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-input);
-  border: 1px solid var(--color-border);
-  background: var(--color-canvas);
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #ccd2db;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--plane-text-primary);
 }
 
-.saude-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: var(--font-size-body);
+.saude-panel select:focus-visible,
+.saude-panel input:focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
 }
 
-.saude-row__label {
-  color: var(--color-helper);
+.saude-panel__send {
+  height: 40px;
+  font-size: 14px;
 }
 
-.saude-row__value {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gap-element);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
+.saude-panel__send:disabled {
+  background: #e9ecf0;
+  color: var(--plane-text-helper);
+  opacity: 1;
 }
 
-.saude-row__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.saude-panel__hint {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #eef2f7;
+  border: 1px solid #dde3ec;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--plane-text-eyebrow);
+}
+
+@media (max-width: 1100px) {
+  .saude-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .saude-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .saude-page {
+    padding: 8px 16px 40px;
+  }
+
+  .saude-tiles,
+  .saude-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
