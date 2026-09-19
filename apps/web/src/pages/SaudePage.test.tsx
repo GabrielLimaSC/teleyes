@@ -47,13 +47,13 @@ const health = {
   bot: { configured: false, state: 'not_configured' },
 }
 
-// S11-06: the summary panel also reads /metrics, /sources and /matches.
+// S11-06: the summary panel also reads /sources and /matches.
 // Empty by default; a test that cares passes its own.
 function summaryEndpoints(url: string, overrides: Record<string, () => Response> = {}): Response | null {
   for (const [prefix, respond] of Object.entries(overrides)) {
     if (url.startsWith(prefix)) return respond()
   }
-  if (url.startsWith('/metrics') || url.startsWith('/sources') || url.startsWith('/matches')) {
+  if (url.startsWith('/sources') || url.startsWith('/matches')) {
     return jsonResponse([])
   }
   return null
@@ -170,7 +170,7 @@ describe('SaudePage', () => {
     expect(screen.getAllByText('BOT_TOKEN')).toHaveLength(2)
   })
 
-  it('shows the real cumulative numbers in the collector summary (S11-06)', async () => {
+  it('shows the real numbers in the collector summary (S11-06)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
@@ -179,12 +179,6 @@ describe('SaudePage', () => {
         if (url === '/recipients') return Promise.resolve(jsonResponse([]))
         return Promise.resolve(
           summaryEndpoints(url, {
-            '/metrics': () =>
-              jsonResponse([
-                { source_id: 1, reason: 'vista', count: 100, updated_at: '2026-01-01T00:00:00Z' },
-                { source_id: 2, reason: 'vista', count: 32, updated_at: '2026-01-01T00:00:00Z' },
-                { source_id: 1, reason: 'bloqueado', count: 9, updated_at: '2026-01-01T00:00:00Z' },
-              ]),
             '/sources': () =>
               jsonResponse([
                 { id: 1, name: 'A', telegram_chat_id: '-1', active: true, created_at: '2026-01-01T00:00:00Z' },
@@ -199,13 +193,19 @@ describe('SaudePage', () => {
     render(<SaudePage />)
 
     const panel = (await screen.findByRole('heading', { name: 'Resumo do coletor' })).closest('section') as HTMLElement
-    // only `vista` counts as "lida", summed across sources: 100 + 32.
-    await waitFor(() => expect(within(panel).getByText('Mensagens lidas').nextElementSibling).toHaveTextContent('132'))
-    expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('2')
+    await waitFor(() => expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('2'))
     expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('4')
     // cumulative, not "hoje", and none of the concept's uninstrumented numbers.
-    expect(within(panel).getByText(/acumulados desde o início/)).toBeInTheDocument()
-    for (const invented of ['Última reconexão', 'Fila de envio', 'Erros na última hora', 'Atividade do coletor']) {
+    expect(within(panel).getByText(/Contagens de agora/)).toBeInTheDocument()
+    // No label claims a per-message count nor any number the app does not track.
+    for (const invented of [
+      'Mensagens lidas',
+      'Mensagens vistas',
+      'Última reconexão',
+      'Fila de envio',
+      'Erros na última hora',
+      'Atividade do coletor',
+    ]) {
       expect(screen.queryByText(invented)).not.toBeInTheDocument()
     }
   })
@@ -224,8 +224,7 @@ describe('SaudePage', () => {
     render(<SaudePage />)
 
     const panel = (await screen.findByRole('heading', { name: 'Resumo do coletor' })).closest('section') as HTMLElement
-    await waitFor(() => expect(within(panel).getByText('Mensagens lidas').nextElementSibling).toHaveTextContent('—'))
-    expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('—')
+    await waitFor(() => expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('—'))
     expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('—')
   })
 

@@ -6,7 +6,6 @@ import type { SseState } from '../hooks/useHealth'
 import { listRecipients } from '../api/recipients'
 import { fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
-import { fetchMetrics } from '../api/metrics'
 import { testNotification } from '../api/notifications'
 import { ApiError } from '../api/auth'
 import type { AdapterState } from '../api/health'
@@ -83,24 +82,15 @@ export function SaudePage() {
   const [testError, setTestError] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<string | null>(null)
 
-  const [messagesRead, setMessagesRead] = useState<number | null>(null)
   const [activeSources, setActiveSources] = useState<number | null>(null)
   const [matchCount, setMatchCount] = useState<number | null>(null)
 
   useEffect(() => {
     listRecipients().then(setRecipients).catch(() => setRecipients([]))
-    // S11-06: only what existing endpoints really return. "Mensagens lidas" is
-    // the since-forever `vista` counter (no per-period endpoint exists), so
-    // the panel labels the whole block as cumulative instead of "hoje".
-    fetchMetrics()
-      .then((counters) =>
-        setMessagesRead(
-          counters
-            .filter((counter) => counter.reason === 'vista')
-            .reduce((sum, counter) => sum + counter.count, 0),
-        ),
-      )
-      .catch(() => setMessagesRead(null))
+    // S11-06: only what existing endpoints really return. There is no
+    // "mensagens lidas" number: the `vista` metric counts persisted matches
+    // per (message, rule) pair, not messages, so it stays out until a real
+    // per-message counter exists (Fase 2).
     fetchSources()
       .then((sources) => setActiveSources(sources.filter((source) => source.active).length))
       .catch(() => setActiveSources(null))
@@ -190,13 +180,9 @@ export function SaudePage() {
         <section className="plane-pearl saude-panel">
           <div>
             <h2>Resumo do coletor</h2>
-            <p className="saude-panel__sub">Totais acumulados desde o início — não são do dia.</p>
+            <p className="saude-panel__sub">Contagens de agora — não são do dia.</p>
           </div>
           <dl className="saude-stats">
-            <div className="saude-stats__item">
-              <dt>Mensagens lidas</dt>
-              <dd>{formatCount(messagesRead)}</dd>
-            </div>
             <div className="saude-stats__item">
               <dt>Fontes ativas</dt>
               <dd>{formatCount(activeSources)}</dd>

@@ -26,7 +26,7 @@ test('saude page reflects the real not_configured state and tests a notification
   await expect(page.getByText('Não entregue — status: not_configured.')).toBeVisible()
 })
 
-test('saude summary shows the real cumulative totals from the API (S11-06)', async ({ page }) => {
+test('saude summary shows the real totals from the API (S11-06)', async ({ page }) => {
   await page.goto('/')
   const csrfToken = await apiLogin(page)
 
@@ -35,9 +35,7 @@ test('saude summary shows the real cumulative totals from the API (S11-06)', asy
   const real = await page.evaluate(async () => {
     const json = async (path: string) =>
       (await (await fetch(path, { credentials: 'same-origin' })).json()) as unknown[]
-    const counters = (await json('/metrics')) as Array<{ reason: string; count: number }>
     return {
-      read: counters.filter((c) => c.reason === 'vista').reduce((sum, c) => sum + c.count, 0),
       sources: (await json('/sources')).length,
       matches: (await json('/matches')).length,
     }
@@ -47,7 +45,7 @@ test('saude summary shows the real cumulative totals from the API (S11-06)', asy
   await page.goto('/saude')
   const stat = (label: string) => page.locator('.saude-stats__item', { hasText: label })
   await expect(stat('Fontes ativas')).toContainText(String(real.sources))
-  await expect(stat('Mensagens lidas')).toContainText(String(real.read))
+  await expect(page.getByText('Mensagens lidas')).toHaveCount(0)
   await expect(stat('Matches gerados')).toContainText(String(real.matches))
-  await expect(page.getByText(/acumulados desde o início/)).toBeVisible()
+  await expect(page.getByText(/Contagens de agora/)).toBeVisible()
 })
