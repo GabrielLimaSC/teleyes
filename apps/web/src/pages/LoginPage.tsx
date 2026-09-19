@@ -15,9 +15,9 @@ import '../components/FillButton.css'
 import './LoginPage.css'
 
 const SSE_STATE_LABELS: Record<SseState, { label: string; color: string }> = {
-  connecting: { label: 'Conectando…', color: '#8b5a08' },
-  open: { label: 'Conectado', color: '#176945' },
-  error: { label: 'Desconectado', color: '#a32a24' },
+  connecting: { label: 'Conectando…', color: 'var(--plane-status-warn)' },
+  open: { label: 'Conectado', color: 'var(--plane-status-good)' },
+  error: { label: 'Desconectado', color: 'var(--plane-status-danger)' },
 }
 
 interface DashboardStats {
