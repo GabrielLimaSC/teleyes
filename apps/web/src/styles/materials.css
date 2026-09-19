@@ -87,6 +87,139 @@
   --plane-status-warn-bg: #fff2dc;
   --plane-status-neutral: #47566e;
   --plane-status-danger: #a32a24;
+
+  /* ==== S12-01: every color that used to be a literal in a component/page
+     stylesheet or a TS object. Light values are copied verbatim from where
+     they were used (the light theme is pixel-identical); a dark value for
+     each is S12-03's job. Composite values (gradients, shadows) are whole
+     tokens so a theme can change geometry and colors together. ==== */
+
+  /* ---- Plano 1/2 — surfaces, borders and fields of the flat content ---- */
+  --plane-border-color: #d9dfe9;
+  --plane-input-border-color: #ccd2db;
+  --plane-input-bg: #ffffff;
+  --plane-text-placeholder: #6b7280;
+  --plane-divider-color: #e9ecf0;
+  --plane-surface-sunken: #f7f8fa; /* table head, stat wells */
+  --plane-row-highlight: #f5f7fa; /* row loaded in the rail */
+  --plane-tint-bg: #eef2f7; /* chips, hint boxes */
+  --plane-tint-border-color: #dde3ec;
+  --plane-disabled-bg: #e9ecf0;
+  --plane-chip-remove-hover-bg: rgba(71, 86, 110, 0.16);
+
+  /* ---- Neutral text on the glass-era surfaces (cards, navbar, notes) ---- */
+  --text-strong: #08060d;
+  --text-body: #17181c;
+  --text-muted: #4b4b52;
+  --text-faint: #8a8a92;
+  --text-violet: #6a3fbf; /* "Menor preço já visto" on the card */
+  --text-violet-quiet: #5b4d88; /* the same note in Histórico's price cell */
+
+  /* ---- Delivery-status / adapter-state pills: dot + background + text ---- */
+  --pill-neutral-dot: #8a8a92;
+  --pill-neutral-bg: #ececef;
+  --pill-neutral-fg: #4b4b52;
+  --pill-good-dot: #1c8a4b;
+  --pill-good-bg: #e2f5e9;
+  --pill-good-fg: #166b3a;
+  --pill-info-dot: #5b5bd6;
+  --pill-info-bg: #e9e9fb;
+  --pill-info-fg: #3f3fb0;
+  --pill-danger-dot: #b3261e;
+  --pill-danger-bg: #fbe4e2;
+  --pill-danger-fg: #8c1d17;
+  --pill-warn-dot: #8a6d00;
+  --pill-warn-bg: #fbf1d6;
+  --pill-warn-fg: #6b5400;
+
+  /* ---- Category tiles behind a match card's icon ---- */
+  --category-phone-bg: #e3ecfb;
+  --category-laptop-bg: #ece3fb;
+  --category-headphones-bg: #fbeee3;
+  --category-gaming-bg: #fbe3ef;
+  --category-generic-bg: #e9e9ec;
+
+  /* ---- Aurora Glow ("menor preço já visto") ---- */
+  --aurora-1: #5b8dfb;
+  --aurora-2: #a35bfb;
+  --aurora-3: #fb5ba0;
+  --aurora-4: #4ce8a8;
+  --aurora-card-bg: #ffffff;
+
+  /* ---- Body wash behind the glass (fixed, pastel) ---- */
+  --body-wash:
+    radial-gradient(640px circle at 12% 8%, rgba(91, 141, 251, 0.16), transparent 60%),
+    radial-gradient(560px circle at 88% 12%, rgba(163, 91, 251, 0.14), transparent 60%),
+    radial-gradient(600px circle at 50% 95%, rgba(251, 91, 160, 0.1), transparent 60%);
+
+  /* ---- Legacy .glass-card (Fontes form/table, Toast, Tooltip) ---- */
+  --glass-card-bg: rgba(255, 255, 255, 0.6);
+  --glass-card-border-color: rgba(255, 255, 255, 0.4);
+  --glass-card-border-top-color: rgba(255, 255, 255, 0.8);
+  --glass-card-shadow: 0 8px 32px rgba(15, 15, 20, 0.08);
+
+  /* ---- Pieces sitting inside a glass rail/panel ---- */
+  --glass-chip-bg: rgba(255, 255, 255, 0.62); /* rule chips in Feed's rail */
+  --glass-tile-bg: rgba(255, 255, 255, 0.66); /* stat tiles */
+  --glass-inner-border-color: rgba(255, 255, 255, 0.86);
+  --glass-divider-bg: rgba(255, 255, 255, 0.7);
+  --glass-divider-shadow: 0 1px 0 rgba(58, 61, 70, 0.08);
+
+  /* ---- Login ---- */
+  --login-frame-bg: rgba(255, 255, 255, 0.55); /* disc behind the mascot */
+  --login-frame-border-color: rgba(255, 255, 255, 0.7);
+  --login-frame-shadow: 0 8px 20px rgba(15, 15, 20, 0.1);
+  --login-frame-glow: radial-gradient(
+    circle,
+    rgba(91, 141, 251, 0.35),
+    rgba(163, 91, 251, 0.22) 55%,
+    transparent 75%
+  );
+
+  /* ---- Fill button bloom, offline banner ---- */
+  --fill-bloom-bg: rgba(255, 255, 255, 0.18);
+  --offline-banner-bg: #8a6d00;
+  --offline-banner-text: #fffaf0;
+
+  /* ---- Navbar glass (its own recipe: slightly different alphas than
+     --plane-glass-*, plus the SVG refraction that only it wires up) ---- */
+  --nav-capsule-shadow: 0 18px 32px rgba(23, 23, 23, 0.13), 0 4px 10px rgba(23, 23, 23, 0.09);
+  --nav-refraction-bg: rgba(255, 255, 255, 0.12);
+  --nav-refraction-mask: linear-gradient(
+    to bottom,
+    #000 0%,
+    transparent 27%,
+    transparent 73%,
+    #000 100%
+  );
+  --nav-tint:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.76) 0%,
+      rgba(237, 239, 243, 0.42) 42%,
+      rgba(211, 214, 221, 0.55) 100%
+    ),
+    rgba(232, 234, 239, 0.42);
+  --nav-shine-border-color: rgba(255, 255, 255, 0.84);
+  --nav-shine-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.92), inset 0 -2px 3px rgba(58, 61, 70, 0.18),
+    0 0 0 1px rgba(70, 74, 83, 0.19);
+  --nav-tab-text: #4b4b52;
+  --nav-tab-hover-text: #171717;
+  --nav-tab-hover-bg: rgba(255, 255, 255, 0.62);
+  --nav-tab-active-text: #ffffff;
+  --nav-tab-active-bg: #171717;
+  --nav-tab-active-shadow: 0 4px 10px rgba(23, 23, 23, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  --nav-focus-ring-color: #3f3fb0;
+  --nav-brand-text: #171717;
+  --nav-mascot-shadow: 0 12px 28px rgba(8, 6, 13, 0.28), 0 0 22px rgba(255, 255, 255, 0.32);
+  --nav-mascot-shadow-hover: 0 14px 32px rgba(8, 6, 13, 0.3), 0 0 28px rgba(255, 255, 255, 0.44);
+  --nav-mascot-image-shadow: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.26));
+  --nav-menu-border-color: rgba(255, 255, 255, 0.88);
+  --nav-menu-bg: rgba(237, 238, 242, 0.77);
+  --nav-menu-shadow:
+    0 18px 34px rgba(23, 23, 23, 0.14), inset 0 1px 1px rgba(255, 255, 255, 0.96),
+    inset 0 -1px 1px rgba(79, 82, 91, 0.12);
 }
 
 /* Plano 3 — a fixed rail, the navbar, a toast/popover. `border-radius`

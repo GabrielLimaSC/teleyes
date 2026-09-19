@@ -6,12 +6,22 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   testDir: './e2e',
+  // S12-01 visual baseline (opt-in, VISUAL=1): one folder, no platform suffix.
+  snapshotPathTemplate: '{testDir}/visual-baseline/{arg}{ext}',
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
   use: {
     baseURL: 'http://127.0.0.1:5183',
+    // S12-01 visual baseline (VISUAL=1): software rasterization, so the
+    // blur/contrast/backdrop filters render the same pixels on every run.
+    launchOptions: {
+      args:
+        process.env.VISUAL === '1'
+          ? ['--disable-gpu', '--disable-gpu-rasterization', '--force-color-profile=srgb', '--disable-lcd-text', '--font-render-hinting=none']
+          : [],
+    },
   },
   webServer: [
     {

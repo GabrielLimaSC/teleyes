@@ -1,6 +1,6 @@
 .offline-banner {
-  background: #8a6d00;
-  color: #fffaf0;
+  background: var(--offline-banner-bg);
+  color: var(--offline-banner-text);
   text-align: center;
   font-size: 13px;
   font-weight: 600;

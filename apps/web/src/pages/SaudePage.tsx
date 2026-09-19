@@ -27,9 +27,9 @@ function formatUptime(seconds: number): string {
 }
 
 const SSE_STATE_LABELS: Record<SseState, StateLabel> = {
-  connecting: { label: 'Conectando…', color: '#8a6d00' },
-  open: { label: 'Conectado', color: '#1c8a4b' },
-  error: { label: 'Desconectado', color: '#b3261e' },
+  connecting: { label: 'Conectando…', color: 'var(--pill-warn-dot)' },
+  open: { label: 'Conectado', color: 'var(--pill-good-dot)' },
+  error: { label: 'Desconectado', color: 'var(--pill-danger-dot)' },
 }
 
 // Only what each state really means (`packages/telegram/adapter.py`,
@@ -170,7 +170,7 @@ export function SaudePage() {
           />
           <StatusTile
             label="Ambiente"
-            state={{ label: health.env, color: '#176945' }}
+            state={{ label: health.env, color: 'var(--plane-status-good)' }}
             detail={`v${health.version} · tempo ativo ${formatUptime(health.uptime_seconds)}`}
           />
         </div>

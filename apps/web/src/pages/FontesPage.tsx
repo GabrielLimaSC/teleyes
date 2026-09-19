@@ -154,7 +154,7 @@ export function FontesPage() {
           + Nova fonte
         </button>
       </div>
-      <p style={{ marginTop: -12, marginBottom: 20, fontSize: 13, color: '#4b4b52' }}>
+      <p style={{ marginTop: -12, marginBottom: 20, fontSize: 13, color: 'var(--text-muted)' }}>
         Cadastro manual pelo chat_id do grupo — ainda não há um jeito de listar os grupos que a conta já
         acessa direto por aqui.
       </p>

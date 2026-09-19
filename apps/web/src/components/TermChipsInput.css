@@ -22,8 +22,8 @@
   min-height: 42px;
   box-sizing: border-box;
   border-radius: 10px;
-  border: 1px solid #ccd2db;
-  background: #fff;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -44,7 +44,7 @@
   height: 26px;
   padding: 0 4px 0 10px;
   border-radius: 999px;
-  background: #eef2f7;
+  background: var(--plane-tint-bg);
   color: var(--plane-text-eyebrow);
   font-size: 12px;
   font-weight: 600;
@@ -64,7 +64,7 @@
 }
 
 .term-chips__remove:hover {
-  background: rgba(71, 86, 110, 0.16);
+  background: var(--plane-chip-remove-hover-bg);
 }
 
 .term-chips__remove:focus-visible {
@@ -85,5 +85,5 @@
 }
 
 .term-chips__input::placeholder {
-  color: #6b7280;
+  color: var(--plane-text-placeholder);
 }

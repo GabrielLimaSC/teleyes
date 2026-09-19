@@ -105,8 +105,8 @@
   font-size: 14px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #ccd2db;
-  background: #fff;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
   color: var(--plane-text-primary);
   font-weight: 400;
 }
@@ -126,8 +126,8 @@
 
 .historico-rail__divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 1px 0 rgba(58, 61, 70, 0.08);
+  background: var(--glass-divider-bg);
+  box-shadow: var(--glass-divider-shadow);
 }
 
 .historico-page__results {
@@ -180,7 +180,7 @@
   gap: 16px;
   padding: 16px 20px;
   align-items: center;
-  border-bottom: 1px solid #e9ecf0;
+  border-bottom: 1px solid var(--plane-divider-color);
 }
 
 .historico-table__row:last-child {
@@ -189,7 +189,7 @@
 
 .historico-table__row--head {
   padding: 14px 20px;
-  background: #f7f8fa;
+  background: var(--plane-surface-sunken);
   font-size: 12px;
   font-weight: 600;
   color: var(--plane-text-secondary);
@@ -275,7 +275,7 @@
 }
 
 .historico-table__price-note--lowest {
-  color: #5b4d88;
+  color: var(--text-violet-quiet);
   font-weight: 600;
 }
 
