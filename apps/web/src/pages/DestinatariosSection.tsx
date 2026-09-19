@@ -13,9 +13,9 @@ import { ApiError } from '../api/auth'
 import type { Recipient } from '../api/types'
 import { StatusToggle } from '../components/StatusToggle'
 import { useFillOrigin } from '../utils/useFillOrigin'
-import '../components/GlassCard.css'
 import '../components/CrudTable.css'
 import '../components/FillButton.css'
+import './RegrasPage.css'
 
 interface RecipientForm {
   name: string
@@ -144,19 +144,17 @@ export function DestinatariosSection() {
   }
 
   return (
-    <section className="crud-page__section">
-      {/* S10-07: subtitle added (S10-05 comp's section-row) — the button
-          stays paired with the heading, same as before, just now grouped
-          with its subtitle the way the comp groups a title with its own
-          `.sub`. */}
-      <div className="crud-page__header">
+    <section className="regras-section">
+      {/* S11-05: heading + subtitle on the left, the secondary "novo" button
+          on the right (concept's "04 Regras" Destinatários row). */}
+      <div className="regras-section-row">
         <div>
           <h2>Destinatários</h2>
-          <p className="crud-page__header-sub">Quem recebe os alertas</p>
+          <p>Quem recebe os alertas</p>
         </div>
         <button
           type="button"
-          className="crud-page__new-button fill-button"
+          className="plane-action plane-action--secondary fill-button regras-section-row__button"
           onClick={openCreate}
           onPointerDown={fillOrigin}
         >
@@ -165,10 +163,10 @@ export function DestinatariosSection() {
       </div>
 
       {formTarget && (
-        <form className="glass-card crud-form" onSubmit={submitForm}>
+        <form className="plane-pearl regras-panel" onSubmit={submitForm}>
           <h2>{formTarget.kind === 'create' ? 'Novo destinatário' : 'Editar destinatário'}</h2>
-          <div className="crud-form__grid">
-            <label>
+          <div className="regras-panel__grid">
+            <label className="regras-panel__field">
               Nome
               <input
                 value={form.name}
@@ -176,7 +174,7 @@ export function DestinatariosSection() {
                 required
               />
             </label>
-            <label>
+            <label className="regras-panel__field">
               Chat ID do Telegram
               <input
                 value={form.telegramChatId}
@@ -184,7 +182,7 @@ export function DestinatariosSection() {
                 required
               />
             </label>
-            <label>
+            <label className="regras-panel__check">
               <input
                 type="checkbox"
                 checked={form.allowlisted}
@@ -193,21 +191,25 @@ export function DestinatariosSection() {
               Autorizado a receber alertas
             </label>
           </div>
-          <div className="crud-form__actions">
+          <div className="regras-panel__actions">
             <button
               type="submit"
-              className="crud-form__submit fill-button"
+              className="plane-action fill-button regras-panel__button"
               disabled={submitting}
               onPointerDown={fillOrigin}
             >
               {submitting ? 'Salvando…' : 'Salvar'}
             </button>
-            <button type="button" className="crud-form__cancel" onClick={closeForm}>
+            <button
+              type="button"
+              className="plane-action plane-action--secondary regras-panel__button"
+              onClick={closeForm}
+            >
               Cancelar
             </button>
           </div>
           {formError && (
-            <p role="alert" className="crud-form__error">
+            <p role="alert" className="regras-panel__error">
               {formError}
             </p>
           )}
@@ -222,15 +224,15 @@ export function DestinatariosSection() {
       )}
 
       {!loading && !listError && (
-        <div className="glass-card crud-table-wrap">
-          <table className="crud-table">
+        <div className="plane-pearl crud-table-wrap wide-table-wrap">
+          <table className="crud-table wide-table">
             <thead>
               <tr>
                 <th>Destinatário</th>
                 <th>Chat ID</th>
                 <th>Autorizado</th>
                 <th>Status</th>
-                <th>Ações</th>
+                <th className="wide-table__num">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -248,13 +250,17 @@ export function DestinatariosSection() {
                       onPause={() => handlePause(recipient)}
                     />
                   </td>
-                  <td className="crud-table__actions" data-label="Ações">
-                    <button type="button" onClick={() => openEdit(recipient)}>
+                  <td className="wide-table__actions" data-label="Ações">
+                    <button
+                      type="button"
+                      className="plane-action plane-action--secondary plane-action--compact"
+                      onClick={() => openEdit(recipient)}
+                    >
                       Editar
                     </button>
                     <button
                       type="button"
-                      className="crud-table__actions--danger"
+                      className="plane-action plane-action--danger plane-action--compact"
                       onClick={() => handleDelete(recipient)}
                       disabled={deletingId === recipient.id}
                     >

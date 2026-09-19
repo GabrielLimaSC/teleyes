@@ -13,36 +13,106 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   await apiLogin(page)
   await page.goto('/regras')
 
-  await page.getByRole('button', { name: '+ Nova regra' }).click()
+  // S11-05: the creation form is a permanent rail, and include terms are
+  // chips — Enter or a comma closes one.
   await page.getByLabel(/Nome/).fill('RTX 5070 E2E')
   await page.getByLabel(/Termos incluídos/).fill('rtx 5070')
+  await page.getByLabel(/Termos incluídos/).press('Enter')
+  await page.getByLabel(/Termos incluídos/).fill('rtx 5070 super,')
   await page.getByLabel('Termos bloqueados').fill('usada')
   await page.getByLabel(/Preço máximo/).fill('5500')
-  await page.getByRole('button', { name: 'Salvar' }).click()
+  await page.getByRole('button', { name: 'Criar regra' }).click()
 
   const createdRow = rowByExactName(page, 'RTX 5070 E2E')
   await expect(createdRow).toBeVisible()
-  await expect(createdRow.getByRole('cell', { name: 'rtx 5070', exact: true })).toBeVisible()
+  // Chips are only how it is edited: the API/table keep the comma string.
+  await expect(createdRow.getByRole('cell', { name: 'rtx 5070, rtx 5070 super', exact: true })).toBeVisible()
   await expect(createdRow.getByRole('cell', { name: 'R$ 5.500,00' })).toBeVisible()
   await expect(createdRow.getByRole('button', { name: 'ativa' })).toBeVisible()
 
-  // edit
+  // edit: the terms come back as chips; drop one and save
   await createdRow.getByRole('button', { name: 'Editar' }).click()
+  await expect(page.getByRole('heading', { name: 'Editar regra' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Remover termo rtx 5070 super' })).toBeVisible()
+  await page.getByRole('button', { name: 'Remover termo rtx 5070 super' }).click()
   await page.getByLabel(/Nome/).fill('RTX 5070 Ti E2E')
-  await page.getByRole('button', { name: 'Salvar' }).click()
+  await page.getByRole('button', { name: 'Salvar alterações' }).click()
   const editedRow = rowByExactName(page, 'RTX 5070 Ti E2E')
   await expect(editedRow).toBeVisible()
+  await expect(editedRow.getByRole('cell', { name: 'rtx 5070', exact: true })).toBeVisible()
 
   // duplicate
   await editedRow.getByRole('button', { name: 'Duplicar' }).click()
   await expect(page.getByRole('heading', { name: 'Nova regra' })).toBeVisible()
   await expect(page.getByLabel(/Nome/)).toHaveValue('RTX 5070 Ti E2E (cópia)')
-  await page.getByRole('button', { name: 'Salvar' }).click()
+  await page.getByRole('button', { name: 'Criar regra' }).click()
   await expect(rowByExactName(page, 'RTX 5070 Ti E2E \\(cópia\\)')).toBeVisible()
 
   // pause the original — one-directional per the API (no reactivate endpoint)
   await editedRow.getByRole('button', { name: 'ativa' }).click()
   await expect(editedRow.getByRole('button', { name: 'pausada' })).toBeVisible()
+})
+
+test('a term still typed when "Criar regra" is clicked is not lost (S11-05)', async ({ page }) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/regras')
+
+  await page.getByLabel(/Nome/).fill('Termo Pendente E2E')
+  await page.getByLabel(/Termos incluídos/).fill('termopendentee2e')
+  await page.getByRole('button', { name: 'Criar regra' }).click()
+
+  await expect(
+    rowByExactName(page, 'Termo Pendente E2E').getByRole('cell', { name: 'termopendentee2e', exact: true }),
+  ).toBeVisible()
+})
+
+test('the "Como uma regra casa" numbers are the real totals from the API (S11-05)', async ({ page }) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Painel',
+    telegram_chat_id: '-100830',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra E2E Painel',
+    include_terms: 'painelitem',
+    max_price_cents: 10_000,
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Painel',
+    telegram_chat_id: '830',
+    allowlisted: true,
+  })
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: 'painelitem barato por R$ 50',
+  })
+
+  // What the API itself says right now, read the same way the page does.
+  const real = await page.evaluate(async () => {
+    const matches = (await (await fetch('/matches', { credentials: 'same-origin' })).json()) as unknown[]
+    const counters = (await (await fetch('/metrics', { credentials: 'same-origin' })).json()) as Array<{
+      reason: string
+      count: number
+    }>
+    const ceiling = counters
+      .filter((counter) => counter.reason === 'preco_acima_teto')
+      .reduce((sum, counter) => sum + counter.count, 0)
+    return { matches: matches.length, ceiling }
+  })
+  expect(real.matches).toBeGreaterThanOrEqual(1)
+
+  await page.goto('/regras')
+  const panel = page.locator('.regras-how')
+  await expect(panel.locator('.regras-how__stat', { hasText: 'Casaram' })).toContainText(String(real.matches))
+  await expect(panel.locator('.regras-how__stat', { hasText: 'Descartadas por teto' })).toContainText(
+    String(real.ceiling),
+  )
+  await expect(panel).toContainText('acumulados')
 })
 
 test('creating a source with a duplicate chat id shows the real 409 as feedback', async ({ page }) => {
@@ -90,10 +160,12 @@ test('creates and pauses a recipient from the Regras page', async ({ page }) => 
   await apiLogin(page)
   await page.goto('/regras')
 
+  // Scoped: the rule creation rail (S11-05) has its own "Nome" field.
+  const recipients = page.locator('section.regras-section')
   await page.getByRole('button', { name: '+ Novo destinatário' }).click()
-  await page.getByLabel('Nome').fill('Namorada E2E')
-  await page.getByLabel('Chat ID do Telegram').fill('555444')
-  await page.getByRole('button', { name: 'Salvar' }).click()
+  await recipients.getByLabel('Nome').fill('Namorada E2E')
+  await recipients.getByLabel('Chat ID do Telegram').fill('555444')
+  await recipients.getByRole('button', { name: 'Salvar' }).click()
 
   const row = rowByExactName(page, 'Namorada E2E')
   await expect(row).toBeVisible()

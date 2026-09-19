@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RegrasPage } from './RegrasPage'
@@ -30,19 +30,27 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 /**
- * S7-01: `RegrasPage` now renders `DestinatariosSection` inline (same
- * `.crud-page` container, no longer a sibling route element), so every test
- * here also has to answer its `GET /recipients` call — otherwise it either
- * throws on an unhandled URL or, worse, silently reuses the rules mock data
- * as if it were recipients (a rule named "iPhone" becomes a fake "ativa"
- * recipient row, breaking `getByRole('button', { name: 'ativa' })`
- * uniqueness). Always empty here: no test in this file exercises recipients.
+ * `RegrasPage` renders more than the rules list on its own: `DestinatariosSection`
+ * (S7-01) answers `GET /recipients`, and the "Como uma regra casa" panel
+ * (S11-05) calls `GET /metrics` and an unfiltered `GET /matches`. Every test
+ * here has to answer those too — otherwise it either throws on an unhandled
+ * URL or, worse, silently reuses the rules mock data as if it were a
+ * recipient/metric/match row (a rule named "iPhone" becomes a fake "ativa"
+ * recipient, breaking `getByRole('button', { name: 'ativa' })` uniqueness).
+ * They answer empty here, except a `GET /matches?rule_id=…` (the S10-04 clear
+ * check) which goes to the test's own handler; the stats panel has its own
+ * tests below with real numbers.
  */
 function withEmptyRecipients(
   handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
 ) {
   return (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+    const url = String(input)
+    if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+    if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+    if (url.startsWith('/matches') && !url.includes('rule_id=') && (init?.method ?? 'GET') === 'GET') {
+      return Promise.resolve(jsonResponse([]))
+    }
     return handler(input, init)
   }
 }
@@ -70,7 +78,7 @@ describe('RegrasPage', () => {
     expect(row.querySelector('[data-label="Menor preço já visto"]')).toHaveTextContent('—')
   })
 
-  it('shows a section header with the real rule count above the table (S10-07)', async () => {
+  it('shows the real rule count as the page subtitle (S10-07, moved to the header in S11-05)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule, { ...baseRule, id: 2, name: 'RTX 5070' }])))),
@@ -78,11 +86,10 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    expect(await screen.findByRole('heading', { name: 'Regras cadastradas' })).toBeInTheDocument()
-    expect(screen.getByText('2 regras · ações disponíveis em cada linha')).toBeInTheDocument()
+    expect(await screen.findByText('2 regras · ações disponíveis em cada linha')).toBeInTheDocument()
   })
 
-  it('the section header count uses the singular for exactly one rule (S10-07)', async () => {
+  it('the subtitle count uses the singular for exactly one rule (S10-07)', async () => {
     vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))))
 
     render(<RegrasPage />)
@@ -121,7 +128,7 @@ describe('RegrasPage', () => {
         const method = init?.method ?? 'GET'
         if (method === 'GET') return Promise.resolve(jsonResponse([]))
         if (method === 'POST') {
-          return Promise.resolve(jsonResponse({ detail: 'include_terms must not be blank' }, 422))
+          return Promise.resolve(jsonResponse({ detail: 'name must not be blank' }, 422))
         }
         throw new Error(`unexpected ${method} ${String(input)}`)
       }),
@@ -131,12 +138,27 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: '+ Nova regra' }))
-    await user.type(screen.getByLabelText(/Nome/), 'Regra sem termo')
-    await user.type(screen.getByLabelText(/Termos incluídos/), ' ')
-    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    // S11-05: the creation form is a permanent rail — no "+ Nova regra" click
+    // needed before typing.
+    await user.type(await screen.findByLabelText(/Nome/), ' ')
+    await user.type(screen.getByLabelText(/Termos incluídos/), 'termo')
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('include_terms must not be blank')
+    expect(await screen.findByRole('alert')).toHaveTextContent('name must not be blank')
+  })
+
+  it('blocks a rule with no include terms before calling the API (S11-05)', async () => {
+    const fetchMock = vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([]))))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.type(await screen.findByLabelText(/Nome/), 'Sem termo')
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Informe ao menos um termo incluído.')
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'POST' }))
   })
 
   it('duplicating a rule pre-fills the create form with a copy suffix', async () => {
@@ -152,7 +174,9 @@ describe('RegrasPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Nova regra' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Nome/)).toHaveValue('iPhone (cópia)')
-    expect(screen.getByLabelText(/Termos incluídos/)).toHaveValue('iphone')
+    // S11-05: the terms load as chips, not as text in an input.
+    expect(screen.getByRole('button', { name: 'Remover termo iphone' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Termos incluídos/)).toHaveValue('')
   })
 
   it('the rule tester previews a match without calling the API', async () => {
@@ -167,10 +191,10 @@ describe('RegrasPage', () => {
     await user.type(screen.getByLabelText('Mensagem de exemplo'), 'Promoção iPhone 15')
 
     expect(await screen.findByText('✅ Bateria com esta regra')).toBeInTheDocument()
-    // Only the initial mount calls — GET /rules and DestinatariosSection's own
-    // GET /recipients (S7-01: it now renders inline, inside the same page) —
-    // the tester itself never touches the network.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    // Only the initial mount calls — GET /rules, DestinatariosSection's own
+    // GET /recipients (S7-01) and the stats panel's GET /matches + GET
+    // /metrics (S11-05) — the tester itself never touches the network.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
   })
 
   it('pausing a rule calls the pause endpoint and reloads the list', async () => {
@@ -220,10 +244,9 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: '+ Nova regra' }))
-    await user.type(screen.getByLabelText(/Nome/), 'Nova regra')
+    await user.type(await screen.findByLabelText(/Nome/), 'Nova regra')
     await user.type(screen.getByLabelText(/Termos incluídos/), 'novo termo')
-    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra criada.')
   })
@@ -243,7 +266,7 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     await user.click(await screen.findByRole('button', { name: 'Editar' }))
-    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra atualizada.')
   })
@@ -366,5 +389,154 @@ describe('RegrasPage', () => {
 
     expect(screen.queryByRole('heading', { name: 'Limpar histórico: iPhone' })).not.toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
+  })
+
+  it('creates a rule from chips and sends include_terms as the comma-separated string (S11-05)', async () => {
+    let postedBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn(
+      withEmptyRecipients((_input, init) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'POST') {
+          postedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+          return Promise.resolve(jsonResponse({ ...baseRule, id: 2 }, 201))
+        }
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.type(await screen.findByLabelText(/Nome/), 'Monitor')
+    const terms = screen.getByLabelText(/Termos incluídos/)
+    await user.type(terms, 'monitor 27{Enter}165hz,')
+    // Still typed (no Enter/comma) when the button is clicked: not lost.
+    await user.type(terms, 'ips')
+    await user.type(screen.getByLabelText('Termos bloqueados'), 'usado')
+    await user.type(screen.getByLabelText(/Preço máximo/), '1500')
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
+
+    await waitFor(() => expect(postedBody).not.toBeNull())
+    expect(postedBody).toEqual({
+      name: 'Monitor',
+      include_terms: 'monitor 27, 165hz, ips',
+      exclude_terms: 'usado',
+      max_price_cents: 150_000,
+    })
+  })
+
+  it('editing a rule loads its terms as chips; removing one saves the shorter string (S11-05)', async () => {
+    let patchedBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn(
+      withEmptyRecipients((_input, init) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'PATCH') {
+          patchedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+          return Promise.resolve(jsonResponse(baseRule))
+        }
+        return Promise.resolve(jsonResponse([{ ...baseRule, include_terms: 'iphone 15,iphone 16' }]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }))
+    expect(screen.getByRole('heading', { name: 'Editar regra' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remover termo iphone 15' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
+
+    await waitFor(() => expect(patchedBody).not.toBeNull())
+    expect(patchedBody).toMatchObject({ include_terms: 'iphone 16' })
+  })
+
+  it('shows the real cumulative stats in the "Como uma regra casa" panel (S11-05)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([{ id: 1 }, { id: 2 }, { id: 3 }]))
+        if (url.startsWith('/metrics')) {
+          return Promise.resolve(
+            jsonResponse([
+              { source_id: 1, reason: 'preco_acima_teto', count: 4, updated_at: '2026-01-01T00:00:00Z' },
+              { source_id: 2, reason: 'preco_acima_teto', count: 5, updated_at: '2026-01-01T00:00:00Z' },
+              { source_id: 1, reason: 'vista', count: 100, updated_at: '2026-01-01T00:00:00Z' },
+              { source_id: 1, reason: 'bloqueado', count: 7, updated_at: '2026-01-01T00:00:00Z' },
+            ]),
+          )
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+
+    render(<RegrasPage />)
+
+    const panel = (await screen.findByRole('heading', { name: 'Como uma regra casa' })).closest('section') as HTMLElement
+    await waitFor(() => expect(within(panel).getByText('Casaram').nextElementSibling).toHaveTextContent('3'))
+    // Only preco_acima_teto, summed across sources: 4 + 5 — not "vista"/"bloqueado".
+    expect(within(panel).getByText('Descartadas por teto').nextElementSibling).toHaveTextContent('9')
+    // Honest label: cumulative, not "hoje".
+    expect(within(panel).getByText(/acumulados.*não são do dia/)).toBeInTheDocument()
+    expect(within(panel).queryByText(/hoje/i)).not.toBeInTheDocument()
+  })
+
+  it('shows "—" instead of a made-up number when the stats cannot load (S11-05)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/matches') || url.startsWith('/metrics')) {
+          return Promise.resolve(new Response('boom', { status: 500 }))
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+
+    render(<RegrasPage />)
+
+    const panel = (await screen.findByRole('heading', { name: 'Como uma regra casa' })).closest('section') as HTMLElement
+    await waitFor(() => expect(within(panel).getByText('Casaram').nextElementSibling).toHaveTextContent('—'))
+    expect(within(panel).getByText('Descartadas por teto').nextElementSibling).toHaveTextContent('—')
+  })
+
+  it('explains matching the way the backend really works: any include term, not all (S11-05)', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([])))))
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText(/Basta um dos termos incluídos/)).toBeInTheDocument()
+  })
+
+  it('keeps "Limpar histórico" on every row and does not offer "Testar todas" (S11-05)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule, { ...baseRule, id: 2, name: 'RTX' }])))),
+    )
+
+    render(<RegrasPage />)
+
+    expect(await screen.findAllByRole('button', { name: 'Limpar histórico' })).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /Testar todas/ })).not.toBeInTheDocument()
+  })
+
+  it('"+ Nova regra" resets an edit in progress back to an empty creation form (S11-05)', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))))
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }))
+    expect(screen.getByLabelText(/Nome/)).toHaveValue('iPhone')
+
+    await user.click(screen.getByRole('button', { name: '+ Nova regra' }))
+
+    expect(screen.getByRole('heading', { name: 'Nova regra' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Nome/)).toHaveValue('')
+    expect(screen.queryByRole('button', { name: 'Remover termo iphone' })).not.toBeInTheDocument()
   })
 })
