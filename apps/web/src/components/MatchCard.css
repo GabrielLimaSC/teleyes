@@ -90,6 +90,9 @@
   font-weight: 600;
   color: var(--text-violet);
   white-space: nowrap;
+  /* S12-05: underlined, as in the concept (it is a label, not a link). */
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* S10-06: price + status share one right-hand column (S10-05 comp's

@@ -277,6 +277,9 @@
 .historico-table__price-note--lowest {
   color: var(--text-violet-quiet);
   font-weight: 600;
+  /* S12-05: same underlined treatment as the card's "Menor preço já visto". */
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .historico-table__delivery {
