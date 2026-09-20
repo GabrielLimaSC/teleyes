@@ -10,14 +10,15 @@ import { listRules } from '../api/rules'
 import { listSources } from '../api/sources'
 import { fetchMatches } from '../api/matches'
 import { botStateLabel } from '../components/adapterStateLabel'
+import type { StateLabel } from '../components/adapterStateLabel'
 import '../styles/materials.css'
 import '../components/FillButton.css'
 import './LoginPage.css'
 
-const SSE_STATE_LABELS: Record<SseState, { label: string; color: string }> = {
-  connecting: { label: 'Conectando…', color: 'var(--plane-status-warn)' },
-  open: { label: 'Conectado', color: 'var(--plane-status-good)' },
-  error: { label: 'Desconectado', color: 'var(--plane-status-danger)' },
+const SSE_STATE_LABELS: Record<SseState, StateLabel> = {
+  connecting: { label: 'Conectando…', color: 'var(--plane-status-warn)', dot: 'var(--plane-status-warn-dot)' },
+  open: { label: 'Conectado', color: 'var(--plane-status-good)', dot: 'var(--plane-status-good-dot)' },
+  error: { label: 'Desconectado', color: 'var(--plane-status-danger)', dot: 'var(--plane-status-danger-dot)' },
 }
 
 interface DashboardStats {
@@ -53,7 +54,7 @@ function StatusRow({
   state,
 }: {
   label: string
-  state: { label: string; color: string } | string
+  state: StateLabel | string
 }) {
   return (
     <div className="login-status-row">
@@ -62,7 +63,7 @@ function StatusRow({
         <span className="login-status-row__value login-status-row__value--plain">{state}</span>
       ) : (
         <span className="login-status-row__value" style={{ color: state.color }}>
-          <span className="login-status-row__dot" style={{ background: state.color }} />
+          <span className="login-status-row__dot" style={{ background: state.dot }} />
           {state.label}
         </span>
       )}

@@ -8,10 +8,14 @@ import '../styles/materials.css'
 import '../components/FillButton.css'
 import './FeedPage.css'
 
-const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: string }> = {
-  connecting: { label: 'SSE conectando…', color: 'var(--plane-status-warn)' },
-  open: { label: 'SSE conectado', color: 'var(--plane-status-good)' },
-  error: { label: 'SSE caiu — tentando reconectar…', color: 'var(--plane-status-danger)' },
+const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: string; dot: string }> = {
+  connecting: { label: 'SSE conectando…', color: 'var(--plane-status-warn)', dot: 'var(--plane-status-warn-dot)' },
+  open: { label: 'SSE conectado', color: 'var(--plane-status-good)', dot: 'var(--plane-status-good-dot)' },
+  error: {
+    label: 'SSE caiu — tentando reconectar…',
+    color: 'var(--plane-status-danger)',
+    dot: 'var(--plane-status-danger-dot)',
+  },
 }
 
 function formatCurrency(cents: number): string {
@@ -77,7 +81,7 @@ export function FeedPage() {
             role="status"
             style={{ color: connectionLabel.color, borderColor: connectionLabel.color }}
           >
-            <span className="feed-page__connection-dot" style={{ background: connectionLabel.color }} />
+            <span className="feed-page__connection-dot" style={{ background: connectionLabel.dot }} />
             {connectionLabel.label}
           </span>
           <button
@@ -137,7 +141,11 @@ export function FeedPage() {
                     >
                       <span
                         className="feed-rail__status-dot"
-                        style={{ background: source.active ? 'var(--plane-status-good)' : 'var(--plane-status-neutral)' }}
+                        style={{
+                          background: source.active
+                            ? 'var(--plane-status-good-dot)'
+                            : 'var(--plane-status-neutral-dot)',
+                        }}
                       />
                       {source.active ? 'ativa' : 'inativa'}
                     </span>

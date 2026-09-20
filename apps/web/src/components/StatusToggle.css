@@ -13,6 +13,11 @@
   color: var(--color-helper);
 }
 
+.status-toggle--active {
+  /* The state word turns green in the dark concept (gray in light). */
+  color: var(--toggle-label-active-color);
+}
+
 .status-toggle:disabled {
   cursor: default;
 }
@@ -35,7 +40,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--color-canvas);
+  background: var(--toggle-knob-bg);
   box-shadow: var(--shadow-sm);
   transition: transform 150ms ease;
 }

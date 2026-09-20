@@ -79,6 +79,13 @@
   box-shadow: var(--nav-shine-shadow);
 }
 
+/* The mascot disc has its own border/shadow values in the dark concept
+   (slightly brighter than the capsule's). */
+.nav-mascot__shine {
+  border-color: var(--nav-mascot-shine-border-color);
+  box-shadow: var(--nav-mascot-shine-shadow);
+}
+
 .nav-capsule__brand,
 .nav-capsule__current {
   display: none;

@@ -27,9 +27,9 @@ function formatUptime(seconds: number): string {
 }
 
 const SSE_STATE_LABELS: Record<SseState, StateLabel> = {
-  connecting: { label: 'Conectando…', color: 'var(--pill-warn-dot)' },
-  open: { label: 'Conectado', color: 'var(--pill-good-dot)' },
-  error: { label: 'Desconectado', color: 'var(--pill-danger-dot)' },
+  connecting: { label: 'Conectando…', color: 'var(--state-warn-text)', dot: 'var(--state-warn-dot)' },
+  open: { label: 'Conectado', color: 'var(--state-good-text)', dot: 'var(--state-good-dot)' },
+  error: { label: 'Desconectado', color: 'var(--state-danger-text)', dot: 'var(--state-danger-dot)' },
 }
 
 // Only what each state really means (`packages/telegram/adapter.py`,
@@ -57,7 +57,7 @@ function StatusTile({ label, state, detail }: { label: string; state: StateLabel
     <div className="plane-pearl saude-tile">
       <div className="saude-tile__label">{label}</div>
       <div className="saude-tile__state">
-        <span className="saude-tile__dot" style={{ background: state.color }} />
+        <span className="saude-tile__dot" style={{ background: state.dot }} />
         <span>{state.label}</span>
       </div>
       <div className="saude-tile__detail">{detail}</div>
@@ -170,7 +170,11 @@ export function SaudePage() {
           />
           <StatusTile
             label="Ambiente"
-            state={{ label: health.env, color: 'var(--plane-status-good)' }}
+            state={{
+              label: health.env,
+              color: 'var(--plane-status-good)',
+              dot: 'var(--plane-status-good-dot)',
+            }}
             detail={`v${health.version} · tempo ativo ${formatUptime(health.uptime_seconds)}`}
           />
         </div>

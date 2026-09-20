@@ -1,5 +1,5 @@
 import { CategoryIcon } from './CategoryIcon'
-import { categorize, CATEGORY_BACKGROUND } from './matchCategory'
+import { categorize, CATEGORY_BACKGROUND, CATEGORY_ICON_COLOR } from './matchCategory'
 import { summarizeDeliveryStatus } from './deliveryStatus'
 import { Tooltip } from './Tooltip'
 import { cardTitle, productText } from './matchTitle'
@@ -91,7 +91,7 @@ export function MatchCard({
 
   return (
     <article className={'glass-card match-card' + (isLowestPriceEver ? ' match-card--aurora' : '')}>
-      <div className="match-card__icon" style={{ background: CATEGORY_BACKGROUND[category] }}>
+      <div className="match-card__icon" style={{ background: CATEGORY_BACKGROUND[category], color: CATEGORY_ICON_COLOR[category] }}>
         <CategoryIcon category={category} />
       </div>
       <div className="match-card__body">

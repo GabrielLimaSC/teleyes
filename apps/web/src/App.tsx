@@ -15,7 +15,6 @@ function App() {
     <>
       <OfflineBanner />
       <NavCapsule />
-      <ThemeToggle />
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route
@@ -59,6 +58,8 @@ function App() {
           }
         />
       </Routes>
+      {/* Last, so the page's own elements keep their positions in the tree. */}
+      <ThemeToggle />
     </>
   )
 }
