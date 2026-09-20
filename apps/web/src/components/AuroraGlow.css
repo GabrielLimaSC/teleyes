@@ -1,55 +1,50 @@
-/* "Menor preço histórico já visto" badge (docs/SPRINT4_DIRECTION.md, Apple
- * Intelligence/Siri-style aurora ring). Backlog: Match/Rule have no price
- * history yet, so nothing in the real app ever sets `isLowestPriceEver` true
- * today — the component/CSS exists and is tested (AuroraGlow.test), just
- * without a live trigger until that data exists. */
-.match-card--aurora {
+/* "Menor preço histórico já visto" (S7-06, Claude Design concept "5" / S12-05):
+ * the card wears a 1.5px gradient RING and nothing else — no blur, no halo,
+ * no shadow, no animation, nothing painted outside the card's own box. The
+ * ring IS the card's border, so this card drops the normal card's border and
+ * shadow.
+ *
+ * Without extra markup: the card's own box is the "wrapper" (18px outer
+ * radius) and a pseudo-element pinned to its edges (`inset: 0`, never
+ * outside) paints the gradient through a mask that keeps only the outer
+ * 1.5px band, leaving the inner 16.5px-radius fill untouched. A CSS border
+ * would be simpler, but Chromium snaps border widths to whole device pixels
+ * (1.5px becomes 1px at 100% zoom, 0.8px at 125%); the mask stays exactly
+ * 1.5px everywhere. */
+.glass-card.match-card--aurora {
   position: relative;
-  z-index: 0;
+  border: 0;
+  /* The normal card's 1px border, as padding, so the content does not move. */
+  padding: 17px 21px;
+  border-radius: 18px;
+  background: var(--plane-pearl-bg);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .match-card--aurora::before {
   content: '';
   position: absolute;
-  inset: -3px;
-  border-radius: inherit;
-  z-index: -1;
-  background: conic-gradient(
-    from var(--aurora-angle, 0deg),
-    var(--aurora-1),
-    var(--aurora-2),
-    var(--aurora-3),
-    var(--aurora-4),
-    var(--aurora-1)
-  );
-  filter: blur(10px);
-  opacity: 0.75;
-  animation: aurora-rotate 6s linear infinite;
-}
-
-.match-card--aurora::after {
-  content: '';
-  position: absolute;
   inset: 0;
   border-radius: inherit;
-  z-index: -1;
-  background: var(--aurora-card-bg);
-}
-
-@keyframes aurora-rotate {
-  to {
-    --aurora-angle: 360deg;
-  }
-}
-
-@property --aurora-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .match-card--aurora::before {
-    animation: none;
-  }
+  padding: 1.5px;
+  background: linear-gradient(
+    120deg,
+    var(--aurora-ring-1),
+    var(--aurora-ring-2),
+    var(--aurora-ring-3),
+    var(--aurora-ring-4)
+  );
+  /* Keep only the band between the border box and the content box (padding
+     = the ring width): the classic "gradient border" mask. */
+  -webkit-mask:
+    linear-gradient(currentColor 0 0) content-box,
+    linear-gradient(currentColor 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(currentColor 0 0) content-box,
+    linear-gradient(currentColor 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }

@@ -139,12 +139,12 @@
   --category-gaming-bg: #fbe3ef;
   --category-generic-bg: #e9e9ec;
 
-  /* ---- Aurora Glow ("menor preço já visto") ---- */
-  --aurora-1: #5b8dfb;
-  --aurora-2: #a35bfb;
-  --aurora-3: #fb5ba0;
-  --aurora-4: #4ce8a8;
-  --aurora-card-bg: #ffffff;
+  /* ---- "Menor preço já visto": the 1.5px ring on the card's edge, four
+     stops of a static 120deg gradient (Claude Design concept, S12-05) ---- */
+  --aurora-ring-1: #a7e8c8;
+  --aurora-ring-2: #bcd2f5;
+  --aurora-ring-3: #d8bdf0;
+  --aurora-ring-4: #f4c2d7;
 
   /* ---- Body wash behind the glass (fixed, pastel) ---- */
   --body-wash:

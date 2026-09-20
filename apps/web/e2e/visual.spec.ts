@@ -40,6 +40,11 @@ import { apiLogin, apiPost } from './helpers'
  */
 test.skip(process.env.VISUAL !== '1', 'visual baseline is opt-in: set VISUAL=1')
 test.describe.configure({ mode: 'serial', timeout: 300_000 })
+// The API returns naive UTC timestamps that the app reads as local time (S13-01),
+// so what a shot shows depends on the machine's timezone. Pin it, and stop the
+// page clock at the start of each test, so a baseline does not depend on the
+// hour it was taken (e.g. "Matches hoje" between 21h and 24h in UTC-3).
+test.use({ timezoneId: 'UTC' })
 
 const VIEWPORTS = [
   { name: '1440', width: 1440, height: 900 },
@@ -191,6 +196,7 @@ const FREEZE_MOTION = `
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(FAKE_EVENT_SOURCE)
   await page.addInitScript(FREEZE_MOTION)
+  await page.clock.setFixedTime(new Date())
 })
 
 test('empty states, before anything is seeded', async ({ page }) => {
