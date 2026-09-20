@@ -26,9 +26,26 @@ const SCANNED_DIRS = ['src', 'public']
 const SCANNED_FILES = ['index.html']
 const SCANNED_EXTENSIONS = new Set(['.css', '.ts', '.tsx', '.html', '.svg'])
 
+// The 148 named colors of CSS Color 4 (`transparent`/`currentColor` are keywords, not colors).
 const NAMED_COLORS = [
-  'white', 'black', 'red', 'green', 'blue', 'gray', 'grey', 'orange', 'yellow', 'purple', 'pink', 'silver',
-  'navy', 'teal', 'aqua', 'maroon', 'lime', 'olive', 'fuchsia', 'brown', 'gold', 'coral',
+  'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond',
+  'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue',
+  'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey',
+  'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen',
+  'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue',
+  'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro',
+  'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred',
+  'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral',
+  'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon',
+  'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime',
+  'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple',
+  'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue',
+  'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange',
+  'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff',
+  'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown',
+  'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray',
+  'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet',
+  'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen',
 ]
 
 const COLOR_LITERAL = new RegExp(
@@ -86,6 +103,8 @@ describe('findColorLiterals (the detector itself)', () => {
     expect(findColorLiterals('a { background: rgba(0, 0, 0, 0.1); }', '.css')).toEqual(['rgba('])
     expect(findColorLiterals('a { color: hsl(10 20% 30%); }', '.css')).toEqual(['hsl('])
     expect(findColorLiterals('a { color: white; }', '.css')).toEqual(['white'])
+    expect(findColorLiterals('a { color: whitesmoke; border-color: rebeccapurple; }', '.css')).toEqual(['whitesmoke', 'rebeccapurple'])
+    expect(findColorLiterals('a { background: lightgray; }', '.css')).toEqual(['lightgray'])
     expect(findColorLiterals("const c = { color: '#8a8a92' }", '.ts')).toEqual(['#8a8a92'])
   })
 
@@ -95,7 +114,7 @@ describe('findColorLiterals (the detector itself)', () => {
     expect(findColorLiterals('a { white-space: nowrap; filter: url("#nav-glass-refraction"); }', '.css')).toEqual([])
     expect(findColorLiterals('a { border-color: color-mix(in srgb, var(--x) 30%, transparent); }', '.css')).toEqual([])
     expect(findColorLiterals("const c = { color: 'var(--pill-good-dot)' }", '.ts')).toEqual([])
-    expect(findColorLiterals('.tab-white { }', '.css')).toEqual([])
+    expect(findColorLiterals('.tab-white { } .tan-x { }', '.css')).toEqual([])
   })
 
   it('ignores comments', () => {

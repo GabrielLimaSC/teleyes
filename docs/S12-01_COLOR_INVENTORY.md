@@ -44,10 +44,13 @@ erro de health) e uma tela com todas as pílulas de entrega e os 5 tiles de cate
 semeado real, exceto as duas telas de estados forçados (pílulas e Saúde), que usam resposta simulada só para alcançar
 estados que a API de teste não produz.
 
+As fotos **não são versionadas** (`apps/web/e2e/visual-baseline/` está no `.gitignore`): dependem do SO/navegador que as
+renderizou e o app roda em Windows em produção. O baseline é gerado localmente no commit de referência e comparado depois:
+
 ```
-VISUAL=1 npx playwright test e2e/visual.spec.ts                       # compara com e2e/visual-baseline/
-VISUAL=1 VISUAL_STYLES_OUT=<dir> npx playwright test e2e/visual.spec.ts
-node scripts/compare-computed-styles.mjs <dir-antes> <dir-depois>     # comparação exata
+VISUAL=1 VISUAL_STYLES_OUT=/tmp/before npx playwright test e2e/visual.spec.ts --update-snapshots=all   # no commit de referência
+VISUAL=1 VISUAL_STYLES_OUT=/tmp/after  npx playwright test e2e/visual.spec.ts                          # no commit testado
+node scripts/compare-computed-styles.mjs /tmp/before /tmp/after                                        # comparação exata
 ```
 
 - **Estilos computados (exato):** `62 shots, 8463 element comparisons, 0 differences` — cor, fundo, gradientes, bordas,
@@ -59,7 +62,6 @@ node scripts/compare-computed-styles.mjs <dir-antes> <dir-depois>     # compara�
 - Para o resultado ser repetível foi preciso: raster por software (`--disable-gpu`), animações congeladas (o Aurora Glow gira
   sem parar), textos que dependem do relógio trocados por constantes (hora do card, "Último match", uptime) e o relógio da
   página parado enquanto o toast é fotografado.
-- Baselines pesam ~22 MB (PNG de página inteira); foram tiradas no macOS/Chromium e precisam ser refeitas em outro SO.
 
 ## Literais trocados, arquivo a arquivo
 

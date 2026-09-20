@@ -6,27 +6,37 @@ import { apiLogin, apiPost } from './helpers'
 
 /**
  * S12-01: visual baseline of the light theme. Opt-in (`VISUAL=1`) so the
- * everyday suite stays free of font/platform-sensitive pixel comparisons:
+ * everyday suite stays free of font/platform-sensitive pixel comparisons.
  *
- *   VISUAL=1 npx playwright test e2e/visual.spec.ts                    # compare
- *   VISUAL=1 npx playwright test e2e/visual.spec.ts --update-snapshots  # rebase
+ * The screenshots are NOT versioned (`e2e/visual-baseline/` is git-ignored):
+ * they depend on the OS/browser that rendered them, and the app runs on
+ * Windows in production. The baseline is generated locally, at a reference
+ * commit, and compared after the change under test:
  *
- * Baselines live in `e2e/visual-baseline/` and are rendered by the machine that
- * created them (macOS/Chromium here) — regenerate them on a different OS.
+ *   git checkout <reference commit>            # e.g. the tip of dev before a theme change
+ *   VISUAL=1 VISUAL_STYLES_OUT=/tmp/before npx playwright test e2e/visual.spec.ts --update-snapshots=all
+ *   git checkout <commit under test>
+ *   VISUAL=1 VISUAL_STYLES_OUT=/tmp/after npx playwright test e2e/visual.spec.ts        # pixels, threshold 0.02
+ *   node scripts/compare-computed-styles.mjs /tmp/before /tmp/after                    # exact
+ *
+ * (S12-03: generate the baseline on the tip of dev BEFORE the dark palette
+ * lands, then compare after it, light theme only.)
  *
  * Pixels alone cannot prove a refactor "identical": Chromium's blur/backdrop
- * filters leave a few pixels off by 1-2 levels between runs of the same page.
- * So the screenshot check uses a small colour threshold, and a second, exact
- * check exists: with VISUAL_STYLES_OUT=<dir> every shot also dumps the computed
- * colour-bearing styles of every element (and the navbar's SVG filter markup)
- * to <dir>/<shot>.json, which `scripts/compare-computed-styles.mjs` diffs
- * between two runs. Same computed values = same paint, regardless of raster noise.
+ * filters leave a few pixels off by 1 level between runs of the same page.
+ * So the screenshot check uses a small colour threshold, and the exact proof is
+ * the computed-style dump: with VISUAL_STYLES_OUT=<dir> every shot also writes
+ * the computed colour-bearing styles of every element (and the navbar's SVG
+ * filter markup) to <dir>/<shot>.json, which `scripts/compare-computed-styles.mjs`
+ * diffs between two runs. Same computed values = same paint, regardless of
+ * raster noise.
  *
  * One serial run over one fresh database: empty states first, then a seeded
  * dataset that covers every visual variant (all status pills, all category
  * tiles, Aurora Glow, grouped "Visto em", rule in edit, toast, tooltip, error
- * and empty states). Dynamic text (clock times, uptime) is overwritten with constants; the SSE
- * connection is a controllable fake so its three states are deterministic.
+ * and empty states). Dynamic text (clock times, uptime) is overwritten with
+ * constants; the SSE connection is a controllable fake so its three states are
+ * deterministic.
  */
 test.skip(process.env.VISUAL !== '1', 'visual baseline is opt-in: set VISUAL=1')
 test.describe.configure({ mode: 'serial', timeout: 300_000 })
