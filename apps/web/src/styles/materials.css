@@ -291,3 +291,18 @@
   opacity: 0.6;
   box-shadow: none;
 }
+
+/* ---- S12-02: theme mechanism. `<html data-theme>` is set before first paint
+   (index.html) and by src/theme/theme.ts; the dark palette (S12-03) is layered
+   on `[data-theme='dark']`. `color-scheme` makes native controls, scrollbars
+   and default canvas follow the theme; `--browser-chrome-color` is what the
+   `<meta name="theme-color">` shows (the address bar on phones). ---- */
+:root {
+  color-scheme: light;
+  --browser-chrome-color: #f5f5f5;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --browser-chrome-color: #0f1116;
+}

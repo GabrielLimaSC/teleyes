@@ -15,7 +15,9 @@
 
 .nav-capsule {
   position: relative;
-  width: min(720px, calc(100vw - 24px));
+  /* S12-02: 72px each side = the theme button (40px) + its 24px margin + a
+     gap, so the fixed button never sits on the capsule. */
+  width: min(720px, calc(100vw - 144px));
   /* S9-05: named so `.nav-mascot` can size itself off the capsule's own
      height instead of a magic number that drifts out of sync with it. */
   --nav-capsule-height: 68px;
@@ -222,7 +224,8 @@
   }
 
   .nav-capsule {
-    width: min(480px, calc(100vw - 16px));
+    /* 52px each side = the 36px theme button + 8px margin + 8px gap. */
+    width: min(480px, calc(100vw - 104px));
     --nav-capsule-height: 64px;
     height: var(--nav-capsule-height);
   }
