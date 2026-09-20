@@ -14,7 +14,14 @@
   inset: -3px;
   border-radius: inherit;
   z-index: -1;
-  background: conic-gradient(from var(--aurora-angle, 0deg), #5b8dfb, #a35bfb, #fb5ba0, #4ce8a8, #5b8dfb);
+  background: conic-gradient(
+    from var(--aurora-angle, 0deg),
+    var(--aurora-1),
+    var(--aurora-2),
+    var(--aurora-3),
+    var(--aurora-4),
+    var(--aurora-1)
+  );
   filter: blur(10px);
   opacity: 0.75;
   animation: aurora-rotate 6s linear infinite;
@@ -26,7 +33,7 @@
   inset: 0;
   border-radius: inherit;
   z-index: -1;
-  background: #ffffff;
+  background: var(--aurora-card-bg);
 }
 
 @keyframes aurora-rotate {

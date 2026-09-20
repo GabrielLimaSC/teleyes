@@ -6,11 +6,11 @@ export interface StateLabel {
 }
 
 const TELEGRAM_STATE_LABELS: Record<AdapterState, StateLabel> = {
-  not_configured: { label: 'Não configurado', color: '#8a8a92' },
-  connecting: { label: 'Conectando…', color: '#8a6d00' },
-  connected: { label: 'Conectado', color: '#1c8a4b' },
-  reconnecting: { label: 'Reconectando…', color: '#8a6d00' },
-  blocked: { label: 'Bloqueado', color: '#b3261e' },
+  not_configured: { label: 'Não configurado', color: 'var(--pill-neutral-dot)' },
+  connecting: { label: 'Conectando…', color: 'var(--pill-warn-dot)' },
+  connected: { label: 'Conectado', color: 'var(--pill-good-dot)' },
+  reconnecting: { label: 'Reconectando…', color: 'var(--pill-warn-dot)' },
+  blocked: { label: 'Bloqueado', color: 'var(--pill-danger-dot)' },
 }
 
 export function telegramStateLabel(state: AdapterState): StateLabel {
@@ -19,6 +19,6 @@ export function telegramStateLabel(state: AdapterState): StateLabel {
 
 export function botStateLabel(state: 'configured' | 'not_configured'): StateLabel {
   return state === 'configured'
-    ? { label: 'Configurado', color: '#1c8a4b' }
-    : { label: 'Não configurado', color: '#8a8a92' }
+    ? { label: 'Configurado', color: 'var(--pill-good-dot)' }
+    : { label: 'Não configurado', color: 'var(--pill-neutral-dot)' }
 }

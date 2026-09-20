@@ -9,9 +9,9 @@ import '../components/FillButton.css'
 import './FeedPage.css'
 
 const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: string }> = {
-  connecting: { label: 'SSE conectando…', color: '#8b5a08' },
-  open: { label: 'SSE conectado', color: '#176945' },
-  error: { label: 'SSE caiu — tentando reconectar…', color: '#a32a24' },
+  connecting: { label: 'SSE conectando…', color: 'var(--plane-status-warn)' },
+  open: { label: 'SSE conectado', color: 'var(--plane-status-good)' },
+  error: { label: 'SSE caiu — tentando reconectar…', color: 'var(--plane-status-danger)' },
 }
 
 function formatCurrency(cents: number): string {
@@ -133,11 +133,11 @@ export function FeedPage() {
                     <span>{source.name}</span>
                     <span
                       className="feed-rail__status"
-                      style={{ color: source.active ? '#176945' : '#47566e' }}
+                      style={{ color: source.active ? 'var(--plane-status-good)' : 'var(--plane-status-neutral)' }}
                     >
                       <span
                         className="feed-rail__status-dot"
-                        style={{ background: source.active ? '#176945' : '#47566e' }}
+                        style={{ background: source.active ? 'var(--plane-status-good)' : 'var(--plane-status-neutral)' }}
                       />
                       {source.active ? 'ativa' : 'inativa'}
                     </span>

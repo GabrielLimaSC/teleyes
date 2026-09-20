@@ -27,9 +27,9 @@ export function categorize(messageText: string): MatchCategory {
 }
 
 export const CATEGORY_BACKGROUND: Record<MatchCategory, string> = {
-  phone: '#e3ecfb',
-  laptop: '#ece3fb',
-  headphones: '#fbeee3',
-  gaming: '#fbe3ef',
-  generic: '#e9e9ec',
+  phone: 'var(--category-phone-bg)',
+  laptop: 'var(--category-laptop-bg)',
+  headphones: 'var(--category-headphones-bg)',
+  gaming: 'var(--category-gaming-bg)',
+  generic: 'var(--category-generic-bg)',
 }

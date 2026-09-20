@@ -15,43 +15,43 @@ export interface StatusPill {
  */
 export function summarizeDeliveryStatus(deliveries: Delivery[]): StatusPill {
   if (deliveries.length === 0) {
-    return { label: 'Sem destinatário', dotColor: '#8a8a92', background: '#ececef', foreground: '#4b4b52' }
+    return { label: 'Sem destinatário', dotColor: 'var(--pill-neutral-dot)', background: 'var(--pill-neutral-bg)', foreground: 'var(--pill-neutral-fg)' }
   }
   if (deliveries.some((delivery) => delivery.status === 'sent')) {
-    return { label: 'Entregue', dotColor: '#1c8a4b', background: '#e2f5e9', foreground: '#166b3a' }
+    return { label: 'Entregue', dotColor: 'var(--pill-good-dot)', background: 'var(--pill-good-bg)', foreground: 'var(--pill-good-fg)' }
   }
   if (deliveries.some((delivery) => delivery.status === 'historical')) {
     return {
       label: 'Histórico — sem alerta',
-      dotColor: '#5b5bd6',
-      background: '#e9e9fb',
-      foreground: '#3f3fb0',
+      dotColor: 'var(--pill-info-dot)',
+      background: 'var(--pill-info-bg)',
+      foreground: 'var(--pill-info-fg)',
     }
   }
   if (deliveries.some((delivery) => delivery.status === 'grouped')) {
     return {
       label: 'Agrupado — mesma promoção já alertada',
-      dotColor: '#5b5bd6',
-      background: '#e9e9fb',
-      foreground: '#3f3fb0',
+      dotColor: 'var(--pill-info-dot)',
+      background: 'var(--pill-info-bg)',
+      foreground: 'var(--pill-info-fg)',
     }
   }
   if (deliveries.some((delivery) => delivery.status === 'failed')) {
-    return { label: 'Falha no envio', dotColor: '#b3261e', background: '#fbe4e2', foreground: '#8c1d17' }
+    return { label: 'Falha no envio', dotColor: 'var(--pill-danger-dot)', background: 'var(--pill-danger-bg)', foreground: 'var(--pill-danger-fg)' }
   }
   if (deliveries.some((delivery) => delivery.status === 'not_allowlisted')) {
     return {
       label: 'Destinatário não autorizado',
-      dotColor: '#8a6d00',
-      background: '#fbf1d6',
-      foreground: '#6b5400',
+      dotColor: 'var(--pill-warn-dot)',
+      background: 'var(--pill-warn-bg)',
+      foreground: 'var(--pill-warn-fg)',
     }
   }
   if (deliveries.every((delivery) => delivery.status === 'not_configured')) {
-    return { label: 'Notificação desativada', dotColor: '#5b5bd6', background: '#e9e9fb', foreground: '#3f3fb0' }
+    return { label: 'Notificação desativada', dotColor: 'var(--pill-info-dot)', background: 'var(--pill-info-bg)', foreground: 'var(--pill-info-fg)' }
   }
   if (deliveries.some((delivery) => delivery.status === 'duplicate')) {
-    return { label: 'Duplicado', dotColor: '#8a8a92', background: '#ececef', foreground: '#4b4b52' }
+    return { label: 'Duplicado', dotColor: 'var(--pill-neutral-dot)', background: 'var(--pill-neutral-bg)', foreground: 'var(--pill-neutral-fg)' }
   }
-  return { label: 'Pendente', dotColor: '#8a8a92', background: '#ececef', foreground: '#4b4b52' }
+  return { label: 'Pendente', dotColor: 'var(--pill-neutral-dot)', background: 'var(--pill-neutral-bg)', foreground: 'var(--pill-neutral-fg)' }
 }

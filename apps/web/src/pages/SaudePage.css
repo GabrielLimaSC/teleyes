@@ -127,8 +127,8 @@
 .saude-stats__item {
   border-radius: 12px;
   padding: 14px;
-  background: #f7f8fa;
-  border: 1px solid #e9ecf0;
+  background: var(--plane-surface-sunken);
+  border: 1px solid var(--plane-divider-color);
 }
 
 .saude-stats__item dt {
@@ -160,8 +160,8 @@
   box-sizing: border-box;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #ccd2db;
-  background: #fff;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
   font-family: inherit;
   font-size: 14px;
   font-weight: 400;
@@ -181,7 +181,7 @@
 }
 
 .saude-panel__send:disabled {
-  background: #e9ecf0;
+  background: var(--plane-disabled-bg);
   color: var(--plane-text-helper);
   opacity: 1;
 }
@@ -190,8 +190,8 @@
   margin: 0;
   padding: 12px;
   border-radius: 10px;
-  background: #eef2f7;
-  border: 1px solid #dde3ec;
+  background: var(--plane-tint-bg);
+  border: 1px solid var(--plane-tint-border-color);
   font-size: 12px;
   line-height: 1.55;
   color: var(--plane-text-eyebrow);

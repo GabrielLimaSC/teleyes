@@ -76,8 +76,8 @@ main.regras-page {
 
 .crud-table.wide-table th {
   padding: 14px 10px;
-  background: #f7f8fa;
-  border-bottom: 1px solid #e9ecf0;
+  background: var(--plane-surface-sunken);
+  border-bottom: 1px solid var(--plane-divider-color);
   font-size: 12px;
   font-weight: 600;
   color: var(--plane-text-secondary);
@@ -85,7 +85,7 @@ main.regras-page {
 
 .crud-table.wide-table td {
   padding: 16px 10px;
-  border-bottom: 1px solid #e9ecf0;
+  border-bottom: 1px solid var(--plane-divider-color);
   font-size: 13px;
   color: var(--plane-text-secondary);
 }
@@ -108,7 +108,7 @@ main.regras-page {
 
 /* The rule/recipient currently loaded in the rail. */
 .crud-table.wide-table tr.wide-table__row--editing td {
-  background: #f5f7fa;
+  background: var(--plane-row-highlight);
 }
 
 .crud-table.wide-table .crud-table__name {
@@ -256,8 +256,8 @@ td.wide-table__num {
   box-sizing: border-box;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #ccd2db;
-  background: #fff;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
   font-family: inherit;
   font-size: 14px;
   font-weight: 400;
@@ -273,7 +273,7 @@ td.wide-table__num {
 
 .regras-panel input::placeholder,
 .regras-form input:not(.term-chips__input)::placeholder {
-  color: #6b7280;
+  color: var(--plane-text-placeholder);
 }
 
 .regras-panel__actions,
@@ -350,7 +350,7 @@ td.wide-table__num {
 
 .regras-how__stat + .regras-how__stat {
   padding-top: 8px;
-  border-top: 1px solid #e9ecf0;
+  border-top: 1px solid var(--plane-divider-color);
 }
 
 .regras-how__stat dt {
