@@ -12,6 +12,19 @@
   pointer-events: none;
 }
 
+.glass-card.toast {
+  /* Overlay glass: the popover tokens equal .glass-card's in the light theme. */
+  background: var(--popover-bg);
+  -webkit-backdrop-filter: var(--popover-blur);
+  backdrop-filter: var(--popover-blur);
+  /* Not the `border-color` shorthand: `.toast--success/--error` colour the
+     left edge. */
+  border-right-color: var(--popover-border-color);
+  border-bottom-color: var(--popover-border-color);
+  border-top-color: var(--popover-border-top-color);
+  box-shadow: var(--popover-shadow);
+}
+
 .toast {
   pointer-events: auto;
   display: flex;

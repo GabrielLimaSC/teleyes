@@ -211,7 +211,7 @@
 .feed-rail__empty {
   margin: 0;
   font-size: 13px;
-  color: var(--plane-text-helper);
+  color: var(--plane-text-helper-on-glass);
 }
 
 .feed-summary__grid {
@@ -234,7 +234,7 @@
 .feed-summary__label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--plane-text-eyebrow);
+  color: var(--plane-text-eyebrow-on-glass);
   margin-bottom: 4px;
 }
 
@@ -252,5 +252,5 @@
 .feed-summary__caption {
   margin-top: 4px;
   font-size: 11px;
-  color: var(--plane-text-helper);
+  color: var(--plane-text-helper-on-glass);
 }

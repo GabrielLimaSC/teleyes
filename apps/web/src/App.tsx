@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { NavCapsule } from './components/NavCapsule'
 import { OfflineBanner } from './components/OfflineBanner'
+import { ThemeToggle } from './components/ThemeToggle'
 import { RequireAuth } from './auth/RequireAuth'
 import { LoginPage } from './pages/LoginPage'
 import { FeedPage } from './pages/FeedPage'
@@ -57,6 +58,8 @@ function App() {
           }
         />
       </Routes>
+      {/* Last, so the page's own elements keep their positions in the tree. */}
+      <ThemeToggle />
     </>
   )
 }

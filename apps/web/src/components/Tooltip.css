@@ -10,6 +10,15 @@
   display: block;
 }
 
+.glass-card.tooltip__bubble {
+  background: var(--popover-bg);
+  -webkit-backdrop-filter: var(--popover-blur);
+  backdrop-filter: var(--popover-blur);
+  border-color: var(--popover-border-color);
+  border-top-color: var(--popover-border-top-color);
+  box-shadow: var(--popover-shadow);
+}
+
 .tooltip__bubble {
   position: absolute;
   left: 0;

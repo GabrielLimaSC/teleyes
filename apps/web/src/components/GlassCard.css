@@ -2,7 +2,7 @@
   background: var(--glass-card-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px;
+  border-radius: var(--glass-card-radius);
   border: 1px solid var(--glass-card-border-color);
   border-top-color: var(--glass-card-border-top-color);
   box-shadow: var(--glass-card-shadow);

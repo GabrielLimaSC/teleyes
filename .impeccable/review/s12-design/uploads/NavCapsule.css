@@ -15,9 +15,7 @@
 
 .nav-capsule {
   position: relative;
-  /* S12-02: 72px each side = the theme button (40px) + its 24px margin + a
-     gap, so the fixed button never sits on the capsule. */
-  width: min(720px, calc(100vw - 144px));
+  width: min(720px, calc(100vw - 24px));
   /* S9-05: named so `.nav-mascot` can size itself off the capsule's own
      height instead of a magic number that drifts out of sync with it. */
   --nav-capsule-height: 68px;
@@ -30,7 +28,9 @@
   inset: 2px 0;
   overflow: hidden;
   border-radius: 999px;
-  box-shadow: var(--nav-capsule-shadow);
+  box-shadow:
+    0 18px 32px rgba(23, 23, 23, 0.13),
+    0 4px 10px rgba(23, 23, 23, 0.09);
   pointer-events: none;
 }
 
@@ -52,7 +52,7 @@
    `.nav-glass__*`, only the shape (circle vs. pill) differs. */
 .nav-glass__refraction,
 .nav-mascot__refraction {
-  background: var(--nav-refraction-bg);
+  background: rgba(255, 255, 255, 0.12);
   /* Plain blur remains when SVG backdrop displacement is unavailable. */
   -webkit-backdrop-filter: blur(8px) saturate(150%);
   backdrop-filter: blur(8px) saturate(150%);
@@ -63,27 +63,42 @@
 .nav-glass__refraction {
   /* Fades the refraction at the pill's rounded ends — a small circle has no
      equivalent "end" to fade, so this stays glass-only. */
-  -webkit-mask-image: var(--nav-refraction-mask);
-  mask-image: var(--nav-refraction-mask);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    transparent 27%,
+    transparent 73%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    transparent 27%,
+    transparent 73%,
+    #000 100%
+  );
 }
 
 .nav-glass__tint,
 .nav-mascot__tint {
-  background: var(--nav-tint);
+  background:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.76) 0%,
+      rgba(237, 239, 243, 0.42) 42%,
+      rgba(211, 214, 221, 0.55) 100%
+    ),
+    rgba(232, 234, 239, 0.42);
 }
 
 .nav-glass__shine,
 .nav-mascot__shine {
-  border: 1px solid var(--nav-shine-border-color);
+  border: 1px solid rgba(255, 255, 255, 0.84);
   border-radius: inherit;
-  box-shadow: var(--nav-shine-shadow);
-}
-
-/* The mascot disc has its own border/shadow values in the dark concept
-   (slightly brighter than the capsule's). */
-.nav-mascot__shine {
-  border-color: var(--nav-mascot-shine-border-color);
-  box-shadow: var(--nav-mascot-shine-shadow);
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.92),
+    inset 0 -2px 3px rgba(58, 61, 70, 0.18),
+    0 0 0 1px rgba(70, 74, 83, 0.19);
 }
 
 .nav-capsule__brand,
@@ -127,7 +142,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  color: var(--nav-tab-text);
+  color: #4b4b52;
   font-size: 13px;
   font-weight: 550;
   line-height: 1;
@@ -142,22 +157,24 @@
 }
 
 .nav-tab:hover {
-  color: var(--nav-tab-hover-text);
-  background: var(--nav-tab-hover-bg);
+  color: #171717;
+  background: rgba(255, 255, 255, 0.62);
   transform: translateY(-1px);
 }
 
 .nav-tab--active,
 .nav-tab--active:hover {
-  color: var(--nav-tab-active-text);
-  background: var(--nav-tab-active-bg);
-  box-shadow: var(--nav-tab-active-shadow);
+  color: #ffffff;
+  background: #171717;
+  box-shadow:
+    0 4px 10px rgba(23, 23, 23, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
   transform: none;
 }
 
 .nav-tab:focus-visible,
 .nav-mascot:focus-visible {
-  outline: 3px solid var(--nav-focus-ring-color);
+  outline: 3px solid #3f3fb0;
   outline-offset: 3px;
 }
 
@@ -178,7 +195,9 @@
   border-radius: 50%;
   padding: 0;
   background: transparent;
-  box-shadow: var(--nav-mascot-shadow);
+  box-shadow:
+    0 12px 28px rgba(8, 6, 13, 0.28),
+    0 0 22px rgba(255, 255, 255, 0.32);
   cursor: pointer;
   pointer-events: auto;
   transform: translate(-50%, -50%);
@@ -189,7 +208,9 @@
 
 .nav-mascot:hover {
   transform: translate(-50%, -50%) scale(1.035);
-  box-shadow: var(--nav-mascot-shadow-hover);
+  box-shadow:
+    0 14px 32px rgba(8, 6, 13, 0.3),
+    0 0 28px rgba(255, 255, 255, 0.44);
 }
 
 .nav-mascot__refraction,
@@ -209,7 +230,7 @@
   height: 87%;
   margin: 6% auto 0;
   object-fit: contain;
-  filter: var(--nav-mascot-image-shadow);
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.26));
   transform: scale(1.05);
 }
 
@@ -231,8 +252,7 @@
   }
 
   .nav-capsule {
-    /* 52px each side = the 36px theme button + 8px margin + 8px gap. */
-    width: min(480px, calc(100vw - 104px));
+    width: min(480px, calc(100vw - 16px));
     --nav-capsule-height: 64px;
     height: var(--nav-capsule-height);
   }
@@ -249,7 +269,7 @@
     display: block;
     max-width: calc(50% - 45px);
     overflow: hidden;
-    color: var(--nav-brand-text);
+    color: #171717;
     font-size: 13px;
     line-height: 1;
     text-overflow: ellipsis;
@@ -265,7 +285,7 @@
 
   .nav-capsule__current {
     right: 22px;
-    color: var(--nav-tab-text);
+    color: #4b4b52;
     font-weight: 600;
   }
 
@@ -276,11 +296,14 @@
     height: auto;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
-    border: 1px solid var(--nav-menu-border-color);
+    border: 1px solid rgba(255, 255, 255, 0.88);
     border-radius: 20px;
     padding: 13px;
-    background: var(--nav-menu-bg);
-    box-shadow: var(--nav-menu-shadow);
+    background: rgba(237, 238, 242, 0.77);
+    box-shadow:
+      0 18px 34px rgba(23, 23, 23, 0.14),
+      inset 0 1px 1px rgba(255, 255, 255, 0.96),
+      inset 0 -1px 1px rgba(79, 82, 91, 0.12);
     -webkit-backdrop-filter: blur(4px) url('#nav-glass-refraction') saturate(145%);
     backdrop-filter: blur(4px) url('#nav-glass-refraction') saturate(145%);
     opacity: 0;
