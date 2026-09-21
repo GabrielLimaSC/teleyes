@@ -106,6 +106,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/listener/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reload Listener
+         * @description Ask the listener to reload its configuration.
+         *
+         *     Only writes a request into the database; the listener process picks it up
+         *     by polling and applies it in process (no Docker socket, no restart). A
+         *     request made while another is `pending`/`applying` is ignored — the answer
+         *     is the same 202 with the current state, so a double click is harmless.
+         */
+        post: operations["reload_listener_listener_reload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/listener/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listener Status */
+        get: operations["get_listener_status_listener_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/matches": {
         parameters: {
             query?: never;
@@ -406,6 +448,42 @@ export interface components {
             uptime_seconds: number;
             /** Version */
             version: string;
+        };
+        /**
+         * ListenerStatusResponse
+         * @description What the panel shows about "Aplicar regras" (S13-06).
+         *
+         *     `error` is the class name of the last failure, never a message: nothing that
+         *     could quote a Telegram message leaves the listener.
+         */
+        ListenerStatusResponse: {
+            /** Error */
+            error: string | null;
+            /** Has Unapplied Changes */
+            has_unapplied_changes: boolean;
+            /** Listener Online */
+            listener_online: boolean;
+            /** Listener Seen At */
+            listener_seen_at: string | null;
+            /** New Matches */
+            new_matches: number | null;
+            /** Recipients Loaded */
+            recipients_loaded: number | null;
+            /** Reload Applied At */
+            reload_applied_at: string | null;
+            /** Reload Requested At */
+            reload_requested_at: string | null;
+            /** Rules Loaded */
+            rules_loaded: number | null;
+            /** Scan Failures */
+            scan_failures: number | null;
+            /** Sources Loaded */
+            sources_loaded: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "idle" | "pending" | "applying" | "failed";
         };
         /** LoginRequest */
         LoginRequest: {
@@ -846,6 +924,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    reload_listener_listener_reload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenerStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listener_status_listener_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenerStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

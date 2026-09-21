@@ -12,9 +12,18 @@ O schema não tem relação estática regra<->fonte nem regra<->destinatário
 (conferido em apps/api/models/*.py e nos routers de CRUD antes de escrever
 isto) — é "toda regra ativa contra toda mensagem de toda fonte ativa, entrega
 pra todo destinatário ativo e allowlisted", modelo consistente com um único
-administrador (CLAUDE.md). Configuração é lida uma vez no start: adicionar ou
-mudar fonte/regra/destinatário pelo painel exige reiniciar este processo pra
-valer — limitação conhecida, documentada aqui e em TESTING.md, não escondida.
+administrador (CLAUDE.md).
+
+S13-06: a configuração é lida no boot e relida em processo quando o painel
+pede ("Aplicar regras"): o painel só grava um pedido na tabela
+`listener_control`, este processo o percebe por polling curto
+(app/listener_reload.py) e troca a configuração sem sair, sem derrubar a
+conexão MTProto e sem refazer o catch-up do boot. O handler ao vivo consulta
+`lifecycle.source_for_chat` a cada mensagem em vez de fechar sobre listas fixas,
+e filtra por chat dentro dele (um único handler, sem `chats=`), então mudar as
+fontes nunca deixa uma janela sem handler. Sem nenhuma fonte, regra ou
+destinatário ativo o processo continua vivo e conectado, escutando nada até o
+primeiro pedido.
 
 Faz catch-up (packages/telegram/cursor.py, S5-02) uma vez no boot — cobre
 reiniciar o processo — e de novo sempre que a conexão cair e voltar — cobre uma
@@ -50,9 +59,8 @@ BACKFILL_MAX_AGE abaixo, que continua em 24h — propósito diferente, o teto
 de uma reconexão curta de verdade, não de quanto histórico uma fonte nova
 ganha na primeira instalação.
 
-Sem TG_API_ID/TG_API_HASH/BOT_TOKEN configurados, encerra imediatamente com
-uma mensagem clara — nunca finge ter conectado. Sem nenhuma fonte, regra ou
-destinatário ativo cadastrado, também encerra (nada pra escutar).
+Sem TG_API_ID/TG_API_HASH/BOT_TOKEN configurados, fica ocioso com uma mensagem
+clara — nunca finge ter conectado.
 
 Migrations não são aplicadas aqui: docker-compose.prod.yml garante, via
 `depends_on: api: condition: service_healthy`, que o serviço `api` (que já
@@ -69,18 +77,17 @@ from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 from telethon import TelegramClient, events
 
-from app.listener_lifecycle import ListenerLifecycle
-from app.pipeline import (
-    HISTORICAL_WINDOW,
-    IncomingMessage,
-    ListenerSource,
-    process_message,
+from app.listener_control import (
+    config_fingerprint,
+    load_active_config,
+    record_applied,
+    record_boot_scan,
 )
-from models import Recipient, Rule, Source
+from app.listener_lifecycle import ListenerLifecycle, build_listener_sources
+from app.listener_reload import ReloadWorker
+from app.pipeline import HISTORICAL_WINDOW
 from models.db import get_engine, get_sessionmaker
 from packages.monitoring.heartbeat import load_heartbeat_config, run_heartbeat
 from packages.notifications.bot import BotNotifier
@@ -93,7 +100,6 @@ from packages.telegram.connection_supervisor import (
     SupervisorOutcome,
     install_stop_signal_handlers,
 )
-from packages.telegram.links import build_message_link
 from packages.telegram.reconnect_watch import supervise_reconnects
 from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
 
@@ -119,19 +125,7 @@ def _configure_logging() -> None:
     )
     logging.getLogger("packages.telegram.connection_supervisor").setLevel(logging.INFO)
     logging.getLogger("app.listener_lifecycle").setLevel(logging.INFO)
-
-
-def _load_active_config(session: Session) -> tuple[list[Source], list[Rule], list[Recipient]]:
-    sources = list(session.scalars(select(Source).where(Source.active.is_(True))))
-    rules = list(session.scalars(select(Rule).where(Rule.active.is_(True))))
-    recipients = list(
-        session.scalars(
-            select(Recipient).where(
-                Recipient.active.is_(True), Recipient.allowlisted.is_(True)
-            )
-        )
-    )
-    return sources, rules, recipients
+    logging.getLogger("app.listener_reload").setLevel(logging.INFO)
 
 
 async def _idle_until_stopped(
@@ -189,17 +183,27 @@ async def main() -> int:
     session_factory = get_sessionmaker(get_engine())
 
     with session_factory() as session:
-        sources, rules, recipients = _load_active_config(session)
-
-    if not sources or not rules or not recipients:
-        await _idle_until_stopped(
-            stop_event,
-            "Sem fonte, regra ou destinatário (ativo e allowlisted) cadastrado — nada pra "
-            "escutar. Cadastre pelo painel e reinicie este processo pra pegar a mudança.",
+        sources, rules, recipients = load_active_config(session)
+        # Tell the panel what this process is running with (S13-06). Also
+        # settles any request left `applying` by a previous process: this fresh
+        # read already is the reload.
+        record_applied(
+            session,
+            sources_loaded=len(sources),
+            rules_loaded=len(rules),
+            recipients_loaded=len(recipients),
+            config_hash=config_fingerprint(sources, rules, recipients),
         )
-        return 0
 
-    print(f"{len(sources)} fonte(s), {len(rules)} regra(s), {len(recipients)} destinatário(s).")
+    listener_sources = build_listener_sources(sources, rules, recipients)
+    if listener_sources:
+        print(f"{len(sources)} fonte(s), {len(rules)} regra(s), {len(recipients)} destinatário(s).")
+    else:
+        print(
+            "Sem fonte, regra ou destinatário (ativo e allowlisted) cadastrado — nada pra "
+            "escutar por enquanto. Cadastre pelo painel e use \"Aplicar regras\"; este processo "
+            "continua vivo e passa a escutar sem reiniciar."
+        )
 
     client = TelegramClient(str(SESSION_PATH), int(api_id), api_hash)
     adapter = TelegramAdapter(
@@ -213,45 +217,20 @@ async def main() -> int:
     )
     dedupe_cache = DedupeCache()
     fetcher = TelethonMessageFetcher(client)
-    listener_sources = [
-        ListenerSource(
-            source_id=source.id,
-            chat_id=source.telegram_chat_id,
-            rules=rules,
-            recipients=recipients,
-        )
-        for source in sources
-    ]
-
-    sources_by_chat_id = {int(source.telegram_chat_id): source for source in sources}
-    chat_ids = list(sources_by_chat_id.keys())
 
     def register_live_handler() -> None:
-        @client.on(events.NewMessage(chats=chat_ids))
+        # One handler, no `chats=` filter: which chats matter is decided per
+        # message from the lifecycle's *current* configuration, so an applied
+        # reload (S13-06) takes effect immediately and never leaves a window
+        # with no handler registered. Messages from chats that are not sources
+        # are dropped here, before anything is read from them or stored.
+        @client.on(events.NewMessage())
         async def handler(event: events.NewMessage.Event) -> None:
-            source = sources_by_chat_id[event.chat_id]
-            telegram_message = to_telegram_message(event.message)
-            for rule in rules:
-                with session_factory() as message_session:
-                    incoming = IncomingMessage(
-                        source_id=source.id,
-                        message_id=telegram_message.id,
-                        text=telegram_message.text,
-                        link=build_message_link(source.telegram_chat_id, telegram_message.id),
-                        received_at=telegram_message.date,
-                    )
-                    result = await process_message(
-                        message_session, incoming, rule, recipients, notifier, dedupe_cache
-                    )
-                    message_session.commit()
+            if lifecycle.source_for_chat(event.chat_id) is None:
+                return
+            await lifecycle.handle_live_message(event.chat_id, to_telegram_message(event.message))
 
-                    if result.match is not None:
-                        print(
-                            f"Match! fonte={source.name} regra={rule.name} "
-                            f"match_id={result.match.id} entregas={result.deliveries_sent}"
-                        )
-
-        print(f"Conectado. Escutando {len(chat_ids)} grupo(s)... (Ctrl+C para sair)")
+        print(f"Conectado. Escutando {len(lifecycle.sources)} grupo(s)... (Ctrl+C para sair)")
 
     lifecycle = ListenerLifecycle(
         session_factory=session_factory,
@@ -264,12 +243,28 @@ async def main() -> int:
         backfill_max_age=BACKFILL_MAX_AGE,
         historical_window=HISTORICAL_WINDOW,
     )
+    reload_worker = ReloadWorker(
+        session_factory=session_factory,
+        lifecycle=lifecycle,
+        is_connected=client.is_connected,
+    )
 
     watchdog: asyncio.Task[None] | None = None
 
     async def on_connected() -> None:
         nonlocal watchdog
+        first_connection = not lifecycle.started
         await lifecycle.on_connected()
+        if first_connection:
+            try:
+                with session_factory() as session:
+                    record_boot_scan(
+                        session,
+                        new_matches=lifecycle.boot_scan.matches,
+                        scan_failures=lifecycle.boot_scan.failures,
+                    )
+            except Exception as error:  # a status write must never look like a lost connection
+                print(f"Não foi possível registrar o resultado do boot ({type(error).__name__}).")
         if watchdog is None:
             # Covers a *silent* short drop: this Telethon version's own
             # auto-reconnect doesn't catch up on missed updates by itself (see
@@ -297,11 +292,14 @@ async def main() -> int:
     heartbeat = asyncio.create_task(
         run_heartbeat(load_heartbeat_config(), client.is_connected, stop_event)
     )
+    # Started with the process, not after the first connection: it also keeps
+    # the panel's "listener online" beat alive while Telegram is unreachable.
+    reload_task = asyncio.create_task(reload_worker.run(stop_event))
     try:
         outcome = await supervisor.run()
     finally:
         stop_event.set()
-        background = [task for task in (watchdog, heartbeat) if task is not None]
+        background = [task for task in (watchdog, heartbeat, reload_task) if task is not None]
         for task in background:
             task.cancel()
         await asyncio.gather(*background, return_exceptions=True)

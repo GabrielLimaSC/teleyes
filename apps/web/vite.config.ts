@@ -13,6 +13,7 @@ const API_PREFIXES = [
   '/metrics',
   '/notifications',
   '/events',
+  '/listener',
   '/demo',
   '/openapi.json',
 ]

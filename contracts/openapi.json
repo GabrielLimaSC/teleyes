@@ -139,6 +139,147 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "ListenerStatusResponse": {
+        "description": "What the panel shows about \"Aplicar regras\" (S13-06).\n\n`error` is the class name of the last failure, never a message: nothing that\ncould quote a Telegram message leaves the listener.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "has_unapplied_changes": {
+            "title": "Has Unapplied Changes",
+            "type": "boolean"
+          },
+          "listener_online": {
+            "title": "Listener Online",
+            "type": "boolean"
+          },
+          "listener_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listener Seen At"
+          },
+          "new_matches": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Matches"
+          },
+          "recipients_loaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipients Loaded"
+          },
+          "reload_applied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reload Applied At"
+          },
+          "reload_requested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reload Requested At"
+          },
+          "rules_loaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Loaded"
+          },
+          "scan_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Failures"
+          },
+          "sources_loaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources Loaded"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "pending",
+              "applying",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "reload_requested_at",
+          "reload_applied_at",
+          "sources_loaded",
+          "rules_loaded",
+          "recipients_loaded",
+          "new_matches",
+          "scan_failures",
+          "error",
+          "has_unapplied_changes",
+          "listener_online",
+          "listener_seen_at"
+        ],
+        "title": "ListenerStatusResponse",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "password": {
@@ -1133,6 +1274,105 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/listener/reload": {
+      "post": {
+        "description": "Ask the listener to reload its configuration.\n\nOnly writes a request into the database; the listener process picks it up\nby polling and applies it in process (no Docker socket, no restart). A\nrequest made while another is `pending`/`applying` is ignored \u2014 the answer\nis the same 202 with the current state, so a double click is harmless.",
+        "operationId": "reload_listener_listener_reload_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListenerStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reload Listener",
+        "tags": [
+          "listener"
+        ]
+      }
+    },
+    "/listener/status": {
+      "get": {
+        "operationId": "get_listener_status_listener_status_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListenerStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Listener Status",
+        "tags": [
+          "listener"
         ]
       }
     },

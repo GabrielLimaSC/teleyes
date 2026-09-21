@@ -67,6 +67,8 @@ ANONYMOUS_ROUTES = [
     ("PATCH", "/recipients/1", {"name": "Atualizado"}),
     ("POST", "/recipients/1/pause", None),
     ("DELETE", "/recipients/1", None),
+    ("GET", "/listener/status", None),
+    ("POST", "/listener/reload", None),
 ]
 
 
