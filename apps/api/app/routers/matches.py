@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,6 +7,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.main import get_current_session, get_db
 from app.pipeline import GROUPING_WINDOW
+from app.utc import UtcDatetime
 from models import Delivery, Match
 
 router = APIRouter(
@@ -23,8 +23,8 @@ class DeliveryResponse(BaseModel):
     id: int
     recipient_id: int
     status: str
-    delivered_at: datetime | None
-    created_at: datetime
+    delivered_at: UtcDatetime | None
+    created_at: UtcDatetime
 
 
 class MatchResponse(BaseModel):
@@ -39,8 +39,8 @@ class MatchResponse(BaseModel):
     price_cash_cents: int | None
     price_card_cents: int | None
     message_link: str | None
-    matched_at: datetime
-    created_at: datetime
+    matched_at: UtcDatetime
+    created_at: UtcDatetime
     deliveries: list[DeliveryResponse]
     is_lowest_price_ever: bool
     # S7-11 mechanism 2: other sources' ids that posted this same rule+price

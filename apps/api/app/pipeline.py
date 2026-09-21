@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.utc import format_utc
 from models import Delivery, Match, Recipient, Rule
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
@@ -576,7 +577,7 @@ def build_match_event(result: ProcessResult) -> dict[str, Any] | None:
         "rule_id": result.match.rule_id,
         "price_cents": result.match.price_cents,
         "message_link": result.match.message_link,
-        "matched_at": result.match.matched_at.isoformat(),
+        "matched_at": format_utc(result.match.matched_at),
         "deliveries_sent": result.deliveries_sent,
     }
 

@@ -1,4 +1,3 @@
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict
@@ -6,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.main import get_current_session, get_db, require_csrf
+from app.utc import UtcDatetime
 from models import Match, Rule
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
@@ -40,7 +40,7 @@ class RuleResponse(BaseModel):
     exclude_terms: str | None
     max_price_cents: int | None
     active: bool
-    created_at: datetime
+    created_at: UtcDatetime
     lowest_price_cents: int | None = None
 
 
