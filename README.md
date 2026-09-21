@@ -118,22 +118,28 @@ considerar a instalação completa.
 
 8. **Cadastrar fonte(s) e destinatário(s) ativos e allowlisted pelo painel** (`http://localhost:8080` nesta
    máquina, ou pela URL do Tailscale Serve quando configurado) — e as regras também, se você pulou o passo
-   6. Sem pelo menos um de cada, ativo, o `listener` fica honestamente ocioso (ver
-   [Diagnóstico](#diagnóstico)) — ele lê essa configuração do banco uma vez, no start.
+   6. Sem pelo menos um de cada, ativo, o `listener` fica vivo mas sem escutar nada (ver
+   [Diagnóstico](#diagnóstico)) — ele lê essa configuração do banco no start e quando você pede.
 
-9. Reinicie `listener` pra ele pegar a configuração que você acabou de cadastrar:
-   ```bash
-   docker compose -f docker-compose.prod.yml restart listener
-   ```
+9. Na página **Regras**, clique em **Aplicar regras**: o `listener` relê a configuração e passa a escutar
+   sem reiniciar o container (ver "Operação do dia a dia"). Não é preciso `docker compose restart`.
 
 ## Operação do dia a dia
 
 - **Painel**: cadastro/edição de fontes, regras e destinatários é todo pelo painel web — não há CLI pra
   isso em produção (`scripts/telegram_login.py`/`create_admin.py` são setup único; `scripts/seed_rules.py`
-  é a única exceção repetível, idempotente, pra popular as regras padrão sem recriar na mão). Mudanças
-  feitas no painel só valem pro `listener` depois de reiniciá-lo
-  (`docker compose -f docker-compose.prod.yml restart listener`) — ele lê a configuração ativa do banco
-  uma vez, no start, não observa mudanças ao vivo (limitação conhecida, ver `TESTING.md`, evidência S5-09).
+  é a única exceção repetível, idempotente, pra popular as regras padrão sem recriar na mão).
+- **Aplicar mudanças (S13-06)**: o `listener` é outro processo e lê fontes, regras e destinatários ativos do
+  banco no start e quando o painel pede. Depois de criar, editar, pausar ou excluir qualquer um deles, a
+  página **Regras** avisa "Há mudanças ainda não aplicadas"; o botão **Aplicar regras** grava um pedido no
+  banco (nenhum acesso ao Docker: a `api` não monta o `docker.sock`), o `listener` o percebe em alguns
+  segundos e troca a configuração em processo — sem sair, sem derrubar a conexão com o Telegram e sem repetir
+  o catch-up do boot. Ao aplicar, o histórico da janela (`HISTORICAL_WINDOW`) é reavaliado contra as regras
+  novas **sem alerta retroativo**; só mensagens novas depois do pedido alertam. Repetir é seguro (não duplica
+  match nem alerta). Se falhar (ex.: Telegram fora do ar), a configuração anterior continua ativa e o painel
+  mostra "Falha ao aplicar" com a classe do erro; é só tentar de novo. A aba Saúde mostra o estado do
+  `listener` (aplicado, aplicando, mudanças pendentes, sem sinal). Reiniciar o container continua funcionando
+  e também relê tudo.
 - **Modelo de regras**: toda regra ativa é avaliada contra toda mensagem de toda fonte ativa; todo match
   vai pra todo destinatário ativo e allowlisted. Não existe associação seletiva regra↔fonte ou
   regra↔destinatário no schema atual — é fan-out total, não subscrição (decisão registrada em S5-09).
@@ -209,9 +215,10 @@ conectados. Os campos que importam pra isso:
 | `configured` | Token presente — não significa que o último envio teve sucesso, só que o notifier consegue tentar |
 
 **`listener` ocioso ou não escutando de verdade**: cheque os logs (`docker compose logs listener`) — ele
-imprime, no boot, quantas fontes/regras/destinatários ativos encontrou e por que ficou ocioso quando é o
-caso (credencial ausente, ou nenhuma fonte/regra/destinatário ativo cadastrado). Reiniciá-lo depois de
-cadastrar algo pelo painel resolve o segundo caso.
+imprime, no boot, quantas fontes/regras/destinatários ativos encontrou e por que ficou sem escutar quando é o
+caso (credencial ausente, ou nenhuma fonte/regra/destinatário ativo cadastrado). No segundo caso ele continua
+vivo e conectado: cadastre pelo painel e use **Aplicar regras**, sem reiniciar. "Listener sem sinal" na Saúde
+significa que ele não fala com o painel há mais de ~90 s (parado, reiniciando ou sem credenciais).
 
 ### Heartbeat externo opcional
 

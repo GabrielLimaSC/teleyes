@@ -51,6 +51,19 @@ export function formatMatchedAt(iso: string, now: Date = new Date()): string {
   return date.toLocaleString('pt-BR')
 }
 
+/**
+ * "às 14:32" for a moment today, "em 20/09 às 14:32" otherwise (local zone) —
+ * the tail of "Aplicado às 14:32". `now` is overridable so no test depends on
+ * the wall clock.
+ */
+export function formatClockMoment(iso: string, now: Date = new Date()): string {
+  const date = parseApiDate(iso)
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (isSameLocalDay(date, now)) return `às ${time}`
+  const day = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  return `em ${day} às ${time}`
+}
+
 /** Full local date and time, e.g. "20/09/2026, 22:43:00". */
 export function formatDateTime(iso: string): string {
   return parseApiDate(iso).toLocaleString('pt-BR')

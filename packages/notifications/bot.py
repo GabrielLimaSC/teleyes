@@ -37,6 +37,14 @@ class BotNotifier:
         self._allowlisted_chat_ids = allowlisted_chat_ids or set()
         self._delivered: set[tuple[int, int]] = set()
 
+    def set_allowlisted_chat_ids(self, chat_ids: set[str]) -> None:
+        """Replace the allowlist as a whole (S13-06: the listener reloads its
+        recipients in process). A new set is assigned, never edited in place,
+        so a delivery in flight sees either the old or the new list, not a mix.
+        The `_delivered` memory is kept: a reload never re-sends anything.
+        """
+        self._allowlisted_chat_ids = set(chat_ids)
+
     def is_configured(self) -> bool:
         return bool(self._bot_token)
 

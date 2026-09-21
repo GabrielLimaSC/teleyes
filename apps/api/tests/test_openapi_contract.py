@@ -26,6 +26,8 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/metrics": {"get"},
     "/notifications/test": {"post"},
     "/events": {"get"},
+    "/listener/status": {"get"},
+    "/listener/reload": {"post"},
     "/demo/messages": {"post"},
 }
 
@@ -39,6 +41,7 @@ EXPECTED_RESPONSE_SCHEMAS = [
     "MetricResponse",
     "TestNotificationResponse",
     "SimulateMessageResponse",
+    "ListenerStatusResponse",
 ]
 
 

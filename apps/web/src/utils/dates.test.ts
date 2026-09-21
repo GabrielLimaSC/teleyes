@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  formatClockMoment,
   formatDateTime,
   formatMatchedAt,
   isLater,
@@ -101,5 +102,21 @@ describe('isLater', () => {
   it('treats a zone-less and a Z value as the same instant', () => {
     expect(isLater('2026-09-20T01:43:00', '2026-09-20T01:43:00Z')).toBe(false)
     expect(isLater('2026-09-20T01:43:01', '2026-09-20T01:43:00Z')).toBe(true)
+  })
+})
+
+describe('formatClockMoment (S13-06)', () => {
+  // 17:32 UTC on 2026-09-21 is 14:32 in Brasília.
+  const applied = '2026-09-21T17:32:00Z'
+
+  it('says only the local clock time for a moment today', () => {
+    const now = new Date(Date.UTC(2026, 8, 21, 20, 0, 0))
+    expect(formatClockMoment(applied, now)).toBe('às 14:32')
+  })
+
+  it('adds the local day for another day, and reads a zone-less API value as UTC', () => {
+    const now = new Date(Date.UTC(2026, 8, 23, 20, 0, 0))
+    expect(formatClockMoment(applied, now)).toBe('em 21/09 às 14:32')
+    expect(formatClockMoment('2026-09-21T17:32:00', now)).toBe('em 21/09 às 14:32')
   })
 })

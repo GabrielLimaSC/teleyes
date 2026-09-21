@@ -45,7 +45,7 @@ type FormTarget = { kind: 'create' } | { kind: 'edit'; recipient: Recipient }
  * Recipient management lives here, on the Regras page, since that's where
  * alert routing is actually configured.
  */
-export function DestinatariosSection() {
+export function DestinatariosSection({ onChanged }: { onChanged?: () => void }) {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -71,6 +71,13 @@ export function DestinatariosSection() {
   }
 
   useEffect(reload, [])
+
+  // S13-06: tells the page that the active recipients may differ from what the
+  // listener loaded ("há mudanças não aplicadas").
+  const changed = () => {
+    reload()
+    onChanged?.()
+  }
 
   const openCreate = () => {
     setFormTarget({ kind: 'create' })
@@ -107,7 +114,7 @@ export function DestinatariosSection() {
     request
       .then(() => {
         closeForm()
-        reload()
+        changed()
       })
       .catch((error: unknown) => {
         setFormError(
@@ -124,7 +131,7 @@ export function DestinatariosSection() {
     }
     setPausingId(recipient.id)
     pauseRecipient(csrfToken, recipient.id)
-      .then(reload)
+      .then(changed)
       .catch(() => setListError('Não foi possível pausar o destinatário.'))
       .finally(() => setPausingId(null))
   }
@@ -136,7 +143,7 @@ export function DestinatariosSection() {
     }
     setDeletingId(recipient.id)
     deleteRecipient(csrfToken, recipient.id)
-      .then(reload)
+      .then(changed)
       .catch((error: unknown) => {
         setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir o destinatário.')
       })

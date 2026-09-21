@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import { useHealth } from '../hooks/useHealth'
+import { useListenerStatus } from '../hooks/useListenerStatus'
 import type { SseState } from '../hooks/useHealth'
 import { listRecipients } from '../api/recipients'
 import { fetchSources } from '../api/lookups'
@@ -9,9 +10,11 @@ import { fetchMatches } from '../api/matches'
 import { testNotification } from '../api/notifications'
 import { ApiError } from '../api/auth'
 import type { AdapterState } from '../api/health'
+import type { ListenerStatus } from '../api/listener'
 import type { Recipient } from '../api/types'
 import { botStateLabel, telegramStateLabel } from '../components/adapterStateLabel'
 import type { StateLabel } from '../components/adapterStateLabel'
+import { describeLoaded, describeListener } from '../components/listenerState'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../styles/materials.css'
 import '../components/FillButton.css'
@@ -65,6 +68,30 @@ function StatusTile({ label, state, detail }: { label: string; state: StateLabel
   )
 }
 
+/**
+ * S13-06: what the listener process is running with. The button that applies
+ * changes lives on Regras; here Gabriel only sees the state and is pointed there.
+ */
+function ListenerTile({ status }: { status: ListenerStatus }) {
+  const view = describeListener(status)
+  const loaded = describeLoaded(status)
+  return (
+    <StatusTile
+      label="Listener"
+      state={{ ...view, label: view.shortLabel }}
+      detail={
+        <>
+          {view.detail}
+          {loaded !== null && status.state === 'idle' && !status.has_unapplied_changes && (
+            <> {loaded}.</>
+          )}
+          {view.needsApply && !view.busy && !view.failed && <> Aplique na página Regras.</>}
+        </>
+      }
+    />
+  )
+}
+
 /** `null` while unknown or failed to load: shown as "—", never a made-up 0. */
 function formatCount(value: number | null): string {
   return value === null ? '—' : String(value)
@@ -74,6 +101,7 @@ export function SaudePage() {
   const { csrfToken } = useAuth()
   const { health, loading, error, sseState } = useHealth()
   const fillOrigin = useFillOrigin()
+  const listener = useListenerStatus()
 
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [recipientId, setRecipientId] = useState('')
@@ -163,6 +191,7 @@ export function SaudePage() {
               )
             }
           />
+          {listener.status && <ListenerTile status={listener.status} />}
           <StatusTile
             label="Feed em tempo real (SSE)"
             state={SSE_STATE_LABELS[sseState]}
