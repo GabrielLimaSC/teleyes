@@ -7,10 +7,10 @@ dropped connection no longer restarts the process:
 
 - first connection of the process: `_startup` — cursor preparation (S6-04),
   the live handler registration, then the non-notifying historical scan
-  (S6-02/S7-04, 7 days);
+  (S6-02/S7-04, 15 days since S13-05);
 - every later connection (in-process reconnect after a drop): only `catch_up`,
   the cursor-based backfill of S5-02 bounded by `max_messages`/`max_age`. The
-  7-day scan is deliberately not repeated — that repeated scan on every
+  15-day scan is deliberately not repeated — that repeated scan on every
   Docker restart was part of the real cost this task removes. The single
   exception is a source whose scan was cut short by a connection failure: only
   that source is scanned again on the next connection.
@@ -31,6 +31,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.pipeline import (
+    HISTORICAL_WINDOW,
     ListenerFetcherProtocol,
     ListenerSource,
     catch_up_since_cursor,
@@ -58,7 +59,7 @@ class ListenerLifecycle:
         register_live_handler: Callable[[], None],
         backfill_max_messages: int = 100,
         backfill_max_age: timedelta = timedelta(hours=24),
-        historical_window: timedelta = timedelta(days=7),
+        historical_window: timedelta = HISTORICAL_WINDOW,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
         printer: Printer = print,
     ) -> None:

@@ -60,9 +60,18 @@ class TelethonMessageFetcher:
 
         No `min_id`/`limit` here on purpose (S6-02): a homologation scan is
         independent of the per-source cursor, and must not stop early on a
-        fixed count — only `fetch_messages_since`'s time window (7 days by
-        default, S7-04) decides when to stop consuming this newest-to-oldest
+        fixed count — only `fetch_messages_since`'s time window (15 days by
+        default, S13-05) decides when to stop consuming this newest-to-oldest
         iterator.
+
+        S13-05 audit: there is no message ceiling anywhere on this path.
+        Telethon treats `limit=None` as "the whole history" and pages it 100
+        messages per request; because the effective limit is above 3000 it
+        also sleeps 1s between pages (`wait_time`), so a busy group is walked
+        gently, not in a tight loop. A `FloodWaitError` up to Telethon's
+        `flood_sleep_threshold` (60s) is slept through by the library itself;
+        a longer one escapes and the lifecycle re-queues that source for the
+        next connection (`is_transient_connection_error`).
         """
         async for message in self._client.iter_messages(int(chat_id)):
             yield to_telegram_message(message)

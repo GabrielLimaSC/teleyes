@@ -28,6 +28,10 @@ async def fetch_messages_since(
     falls at or before the cutoff, so a long-lived group is never paged
     through further than the window actually requires.
 
+    The only stop conditions are the date cutoff and the end of the chat's
+    history — there is no message-count cap (S13-05 audit), so a group busier
+    than a fixed page size still reaches the full window.
+
     `before` is the caller's job to fix, not `datetime.now()` taken internally
     here: the listener captures it once, right after the live handler is
     already registered, so a message that arrives while this scan is still

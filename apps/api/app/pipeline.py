@@ -47,6 +47,11 @@ HISTORICAL_DELIVERY_STATUS = "historical"
 # margin over that.
 GROUPED_DELIVERY_STATUS = "grouped"
 GROUPING_WINDOW = timedelta(minutes=15)
+# S13-05: how far back the non-notifying historical scan looks (S6-02/S7-04),
+# widened from 7 to 15 days at Gabriel's request. The single source of truth:
+# `run_historical_scan`, `ListenerLifecycle` and `scripts/run_listener.py` all
+# default to it. Unrelated to the reconnect catch-up's `max_age` (24h).
+HISTORICAL_WINDOW = timedelta(days=15)
 
 
 def parse_terms(raw: str | None) -> list[str]:
@@ -453,7 +458,7 @@ async def prepare_source_at_startup(
     live-processed at all, so nothing was actually "missed" there: its cursor
     is initialized at the chat's current head instead, with no notification.
     Never both for the same source. Either way, that source's historical-
-    window (S7-04: 7 days by default) history still surfaces through S6-02's
+    window (S13-05: 15 days by default) history still surfaces through S6-02's
     non-notifying `run_historical_scan` — this function never replaces that,
     only decides what the *notifying* startup path does.
     """
@@ -526,13 +531,13 @@ async def run_historical_scan(
     fetcher: RecentMessageFetcherProtocol,
     source: ListenerSource,
     *,
-    window: timedelta = timedelta(days=7),
+    window: timedelta = HISTORICAL_WINDOW,
     before: datetime,
 ) -> list[ProcessResult]:
     """Reevaluate `source`'s last `window` of messages against every active rule.
 
-    Default window is 7 days (S7-04, widened from the original 24h of S6-02's
-    first homologation pass) — unrelated to `catch_up_since_cursor`'s own
+    Default window is `HISTORICAL_WINDOW`, 15 days (S13-05; 7 days since S7-04,
+    24h in S6-02's first homologation pass) — unrelated to `catch_up_since_cursor`'s own
     `max_age` (still 24h), which bounds a *reconnect*'s gap, not how far back
     a fresh source's first historical scan looks.
 

@@ -1,3 +1,4 @@
+import inspect
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -5,7 +6,14 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.pipeline import IncomingMessage, ListenerSource, process_message, run_historical_scan
+from app.listener_lifecycle import ListenerLifecycle
+from app.pipeline import (
+    HISTORICAL_WINDOW,
+    IncomingMessage,
+    ListenerSource,
+    process_message,
+    run_historical_scan,
+)
 from models import Delivery, Match, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
 from packages.metrics.counters import MetricCounter
@@ -69,22 +77,27 @@ async def test_historical_scan_persists_matches_without_advancing_cursor(
     assert get_cursor(session, fixture.source.id) == 0
 
 
-async def test_historical_scan_defaults_to_a_7_day_window(db_path: Path, session: Session) -> None:
-    """S7-04: widened from S6-02's original 24h default. A message 3 days old
-    would have been silently dropped under the old default — this proves the
-    real default `run_historical_scan` uses now, not just what
-    `fetch_messages_since` supports when a caller passes `window` explicitly.
+async def test_historical_scan_defaults_to_a_15_day_window(
+    db_path: Path, session: Session
+) -> None:
+    """S13-05: widened from 7 to 15 days. A message 8 days old was silently
+    dropped under the old default and now enters; 14 days is still inside, 16
+    is outside. Exercises the real default `run_historical_scan` uses, not just
+    what `fetch_messages_since` supports when a caller passes `window`.
     """
+    assert HISTORICAL_WINDOW == timedelta(days=15)
     fixture = _fixture(db_path, session)
     now = datetime.now(UTC)
     # FakeTelegramClient.iter_recent yields by id descending as a stand-in for
     # newest-first (packages/telegram/fakes.py) — id must correlate with
-    # recency here exactly like real Telegram message ids do, so the newer
-    # (3 days old) message needs the higher id.
+    # recency here exactly like real Telegram message ids do, so newer
+    # messages need higher ids.
     client = FakeTelegramClient(
         messages=[
-            _msg(1, "Promoção iphone por R$ 100", date=now - timedelta(days=8)),
-            _msg(2, "Promoção iphone por R$ 200", date=now - timedelta(days=3)),
+            _msg(1, "Promoção iphone por R$ 100", date=now - timedelta(days=16)),
+            _msg(2, "Promoção iphone por R$ 200", date=now - timedelta(days=14)),
+            _msg(3, "Promoção iphone por R$ 300", date=now - timedelta(days=8)),
+            _msg(4, "Promoção iphone por R$ 400", date=now - timedelta(days=3)),
         ]
     )
     listener_source = ListenerSource(
@@ -100,7 +113,20 @@ async def test_historical_scan_defaults_to_a_7_day_window(db_path: Path, session
     )
 
     matched_ids = {r.match.telegram_message_id for r in results if r.match is not None}
-    assert matched_ids == {2}
+    assert matched_ids == {2, 3, 4}
+    # Still no retroactive alert: every delivery from the scan is `historical`.
+    deliveries = list(session.scalars(select(Delivery)))
+    assert len(deliveries) == 3
+    assert {d.status for d in deliveries} == {"historical"}
+
+
+def test_lifecycle_and_scan_defaults_share_the_single_window_constant() -> None:
+    """S13-05: one value, not three — a default that drifts from the constant
+    would silently make the production listener scan a different window."""
+    for function in (run_historical_scan, ListenerLifecycle.__init__):
+        parameters = inspect.signature(function).parameters
+        name = "window" if function is run_historical_scan else "historical_window"
+        assert parameters[name].default is HISTORICAL_WINDOW
 
 
 async def test_historical_scan_creates_one_delivery_per_recipient_never_sent(

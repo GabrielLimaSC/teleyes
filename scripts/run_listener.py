@@ -31,17 +31,17 @@ S13-02: perder a conexão com o Telegram NÃO encerra o processo. O Telethon
 desiste depois do orçamento curto dele (5 tentativas, ~7s) e levanta
 `ConnectionError`; antes isso escapava (no boot, de `adapter.connect()`; em
 execução, de `run_until_disconnected()`, cuja exceção ninguém recuperava) e o
-processo terminava, o Docker o reiniciava e o scan de 7 dias era refeito a cada
+processo terminava, o Docker o reiniciava e o scan de 15 dias era refeito a cada
 queda.
 Agora `packages/telegram/connection_supervisor.py` reconecta dentro do
 processo com backoff exponencial (5s -> 300s, com jitter), registra o motivo
 de cada tentativa e só escala a `blocked` (e encerra) depois de
 `CONNECT_BACKOFF.max_consecutive_failures` falhas seguidas. Reconexão só faz o
-catch-up por cursor (`app.listener_lifecycle`), nunca o scan de 7 dias.
+catch-up por cursor (`app.listener_lifecycle`), nunca o scan de 15 dias.
 
 Também roda, uma vez por fonte logo após registrar o handler ao vivo, um scan
 histórico independente do cursor (S6-02): reavalia os últimos
-HISTORICAL_WINDOW (7 dias por padrão desde a S7-04; era 24h na S6-02
+HISTORICAL_WINDOW (15 dias desde a S13-05; 7 dias na S7-04 e 24h na S6-02
 original) de cada fonte ativa contra toda regra ativa, persiste os matches e
 cria Delivery(status="historical") por destinatário aplicável, mas nunca
 chama o BotNotifier — sem alerta retroativo. Repetir esse scan num restart
@@ -75,6 +75,7 @@ from telethon import TelegramClient, events
 
 from app.listener_lifecycle import ListenerLifecycle
 from app.pipeline import (
+    HISTORICAL_WINDOW,
     IncomingMessage,
     ListenerSource,
     process_message,
@@ -100,10 +101,10 @@ SESSION_PATH = Path("data/teleyes.session")
 BACKFILL_MAX_MESSAGES = 100
 BACKFILL_MAX_AGE = timedelta(hours=24)
 RECONNECT_POLL_SECONDS = 15.0
-# S7-04: 7 days, not 24h — widened after Gabriel's homologation feedback.
+# The historical scan window (15 days, S13-05) lives in `app.pipeline`
+# (`HISTORICAL_WINDOW`, imported above) so there is one value, not three.
 # Unrelated to BACKFILL_MAX_AGE above, which stays 24h on purpose (a real
 # reconnect's gap, not a fresh source's first historical scan).
-HISTORICAL_WINDOW = timedelta(days=7)
 # S13-02: 5s doubling up to 5min between attempts, 30 failures in a row (a bit
 # over two hours of continuous outage) before escalating to `blocked`.
 CONNECT_BACKOFF = BackoffPolicy(base_seconds=5.0, max_seconds=300.0, max_consecutive_failures=30)
