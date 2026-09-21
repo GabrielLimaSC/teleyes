@@ -170,8 +170,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* S12-04: no `overflow: hidden` here: it clipped the tooltip of the first row
+   (the top lines of the full message were cut off by the table's edge). The
+   header row takes the table's top corners itself instead. */
 .historico-table {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .historico-table__row {
@@ -188,6 +191,8 @@
 }
 
 .historico-table__row--head {
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
   padding: 14px 20px;
   background: var(--plane-surface-sunken);
   font-size: 12px;

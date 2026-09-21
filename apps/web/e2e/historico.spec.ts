@@ -209,3 +209,56 @@ test('Histórico row opens the promotion, with a named link, a touch target and 
   expect(csv).toContain('Detalhe do preço,Entrega,Para,Link')
   expect(csv).toContain('https://t.me/c/123456/830')
 })
+
+test('the tooltip of the FIRST Histórico row is not cut off by the table edge (S12-04)', async ({ page }) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Tooltip',
+    telegram_chat_id: '-100840',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra E2E Tooltip',
+    include_terms: 'tooltipit',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Tooltip',
+    telegram_chat_id: '840',
+    allowlisted: true,
+  })
+  // The title is cut at the rule term; the rest of the message rides on the tooltip.
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: 'Placa tooltipit gamer com resfriamento triplo\n\nEdição especial limitada com frete grátis para todo o Brasil e garantia estendida R$ 5.990',
+  })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/historico')
+  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Tooltip' })
+  const firstTitle = page.locator('.historico-table__row:not(.historico-table__row--head) .tooltip').first()
+  await firstTitle.hover()
+  const bubble = firstTitle.locator('.tooltip__bubble')
+  await expect(bubble).toBeVisible()
+  await expect(bubble).toHaveCSS('opacity', '1')
+
+  // No ancestor clips the bubble: every ancestor that hides overflow must
+  // still contain the whole bubble (the bubble ignores the pointer, so this
+  // reads the geometry instead of hit-testing it).
+  const clippedBy = await bubble.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    const clippers: string[] = []
+    for (let node = element.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+      const style = getComputedStyle(node)
+      const hides = [style.overflowX, style.overflowY].some((value) => value !== 'visible')
+      if (!hides) continue
+      const outer = node.getBoundingClientRect()
+      if (box.top < outer.top || box.left < outer.left || box.right > outer.right || box.bottom > outer.bottom) {
+        clippers.push(`${node.tagName.toLowerCase()}.${node.className}`)
+      }
+    }
+    return clippers
+  })
+  expect(clippedBy).toEqual([])
+})
