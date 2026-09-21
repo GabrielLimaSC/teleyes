@@ -46,7 +46,9 @@ test('the "Abrir promoção" button opens the real link in a new tab (S7-10)', a
     link: 'https://t.me/c/123456/99',
   })
 
-  const openButton = page.getByRole('link', { name: 'Abrir promoção' })
+  // Other specs share this backend and leave their own linked matches in the
+  // feed (S13-03), so pick this test's card by its own link.
+  const openButton = page.locator('a.match-card__link[href="https://t.me/c/123456/99"]')
   await expect(openButton).toBeVisible()
   await expect(openButton).toHaveAttribute('href', 'https://t.me/c/123456/99')
   await expect(openButton).toHaveAttribute('target', '_blank')
