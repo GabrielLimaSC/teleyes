@@ -470,4 +470,86 @@ describe('HistoricoPage', () => {
     // (possibly clipped) face of it.
     expect(await screen.findByRole('tooltip')).toHaveTextContent(longText)
   })
+
+  describe('"Abrir promoção" on every row (S13-03)', () => {
+    const baseMatch = {
+      source_id: 1,
+      rule_id: 1,
+      price_cents: 100_000,
+      price_cash_cents: null,
+      price_card_cents: null,
+      matched_at: '2026-01-01T10:00:00Z',
+      created_at: '2026-01-01T10:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: false,
+      grouped_source_ids: null,
+    }
+    const matches = [
+      { ...baseMatch, id: 1, message_text: 'Notebook gamer com link', message_link: 'https://t.me/c/123456/77' },
+      { ...baseMatch, id: 2, message_text: 'Fone antigo do grupo', message_link: null },
+    ]
+
+    function stubFetch() {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          if (String(input).startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
+          return Promise.resolve(jsonResponse([]))
+        }),
+      )
+    }
+
+    it('links the row to the real message in a new tab, named after the row', async () => {
+      stubFetch()
+      render(<HistoricoPage />)
+
+      const link = await screen.findByRole('link', { name: 'Abrir promoção: Notebook gamer com link' })
+      expect(link).toHaveAttribute('href', 'https://t.me/c/123456/77')
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      expect(link).toHaveTextContent('Abrir promoção')
+    })
+
+    it('a row without a link says so, with the reason, and offers no dead link', async () => {
+      stubFetch()
+      render(<HistoricoPage />)
+
+      await screen.findByText('Fone antigo do grupo')
+      // Exactly one link: the row that has one. The other is explicit text.
+      expect(screen.getAllByRole('link')).toHaveLength(1)
+      expect(screen.queryByRole('link', { name: /Fone antigo do grupo/ })).not.toBeInTheDocument()
+      const noLink = screen.getByText('Sem link', { exact: false })
+      expect(noLink).toHaveAttribute('title', 'o Telegram não forneceu o endereço desta mensagem')
+      expect(noLink).toHaveTextContent('Sem link: o Telegram não forneceu o endereço desta mensagem')
+    })
+
+    it('the CSV carries the link column, empty when there is no link', async () => {
+      stubFetch()
+      let capturedBlob: Blob | null = null
+      vi.stubGlobal(
+        'URL',
+        Object.assign(Object.create(URL), {
+          createObjectURL: vi.fn((blob: Blob) => {
+            capturedBlob = blob
+            return 'blob:test'
+          }),
+          revokeObjectURL: vi.fn(),
+        }),
+      )
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      const user = userEvent.setup()
+      render(<HistoricoPage />)
+      await screen.findByText('Fone antigo do grupo')
+
+      await user.click(screen.getByRole('button', { name: 'Exportar CSV' }))
+
+      const lines = (await capturedBlob!.text()).replace('\uFEFF', '').split('\r\n')
+      expect(lines[0].split(',').at(-1)).toBe('Link')
+      const withLink = lines.find((line) => line.startsWith('Notebook gamer com link'))!
+      const withoutLink = lines.find((line) => line.startsWith('Fone antigo do grupo'))!
+      expect(withLink.endsWith(',https://t.me/c/123456/77')).toBe(true)
+      expect(withoutLink.endsWith(',')).toBe(true)
+      clickSpy.mockRestore()
+    })
+  })
 })

@@ -105,7 +105,7 @@ function csvField(value: string): string {
  * crus da API. Sem endpoint novo: é puramente client-side a partir de
  * `matches` já carregados. */
 function buildCsv(rows: HistoricoRow[]): string {
-  const header = ['Produto', 'Regra', 'Fonte', 'Hora', 'Preço', 'Detalhe do preço', 'Entrega', 'Para']
+  const header = ['Produto', 'Regra', 'Fonte', 'Hora', 'Preço', 'Detalhe do preço', 'Entrega', 'Para', 'Link']
   const lines = [header.map(csvField).join(',')]
   for (const row of rows) {
     lines.push(
@@ -118,6 +118,8 @@ function buildCsv(rows: HistoricoRow[]): string {
         row.priceDetails.join(' · '),
         row.deliveryLabel,
         row.recipientNames.join(', '),
+        // S13-03: empty when Telegram gave no address for the message.
+        row.match.message_link ?? '',
       ]
         .map(csvField)
         .join(','),
@@ -137,6 +139,11 @@ function downloadCsv(csv: string): void {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
+
+// S13-03: shown (tooltip + screen-reader text) on a row with no "Abrir
+// promoção" link — old matches saved before the message id was kept, and chats
+// that are not a `-100…` supergroup, for which Telegram has no message address.
+const NO_LINK_REASON = 'o Telegram não forneceu o endereço desta mensagem'
 
 // About two lines of the title column at the widest layout — past this the
 // 2-line clamp may clip the title, so the full text rides on a Tooltip.
@@ -447,6 +454,7 @@ export function HistoricoPage() {
                     <span>Hora</span>
                     <span className="historico-table__cell--right">Preço</span>
                     <span className="historico-table__cell--right">Entrega</span>
+                    <span className="historico-table__cell--right">Promoção</span>
                   </div>
                   {rows.map((row) => {
                     const category = categorize(row.match.message_text)
@@ -494,6 +502,25 @@ export function HistoricoPage() {
                           {row.recipientNames.length > 0 && (
                             <span className="historico-table__price-note">
                               Para: {row.recipientNames.join(', ')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="historico-table__cell--right">
+                          {row.match.message_link !== null ? (
+                            <a
+                              className="plane-action plane-action--secondary plane-action--compact historico-table__open"
+                              href={row.match.message_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`Abrir promoção: ${row.title}`}
+                            >
+                              Abrir promoção
+                              <span aria-hidden="true">↗</span>
+                            </a>
+                          ) : (
+                            <span className="historico-table__no-link" title={NO_LINK_REASON}>
+                              Sem link
+                              <span className="historico-table__sr-only">: {NO_LINK_REASON}</span>
                             </span>
                           )}
                         </div>

@@ -176,7 +176,7 @@
 
 .historico-table__row {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) 110px 150px 190px;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) 110px 150px 170px 160px;
   gap: 16px;
   padding: 16px 20px;
   align-items: center;
@@ -288,6 +288,40 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--plane-text-eyebrow);
+}
+
+/* S13-03: "Abrir promoção" on every row — the same secondary button the
+   page header uses (tokens, focus ring in both themes), 40px tall so it is a
+   comfortable touch target. Sized here because `.plane-action` leaves sizing
+   to the caller. */
+.historico-table__open {
+  height: 40px;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* No link: an honest text state (never a dead button). The dashed underline
+   marks it as explained by the tooltip; the word itself carries the state. */
+.historico-table__no-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-helper);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+  position: relative;
+}
+
+.historico-table__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {
