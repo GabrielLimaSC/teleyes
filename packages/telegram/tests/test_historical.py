@@ -77,7 +77,7 @@ async def test_fetch_messages_since_never_reads_or_needs_a_cursor() -> None:
 async def test_latest_message_id_returns_the_newest_id_regardless_of_age() -> None:
     """S6-04: unlike `fetch_messages_since`, this has no time window at all —
     a brand-new source's cursor is initialized to the chat's true current
-    head even if that head is older than the historical window (7 days by
+    head even if that head is older than the historical window (15 days by
     default, S7-04).
     """
     now = datetime(2026, 9, 13, 12, 0, tzinfo=UTC)

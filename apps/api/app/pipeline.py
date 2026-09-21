@@ -458,7 +458,7 @@ async def prepare_source_at_startup(
     live-processed at all, so nothing was actually "missed" there: its cursor
     is initialized at the chat's current head instead, with no notification.
     Never both for the same source. Either way, that source's historical-
-    window (S7-04: 7 days by default) history still surfaces through S6-02's
+    window (S13-05: 15 days by default) history still surfaces through S6-02's
     non-notifying `run_historical_scan` — this function never replaces that,
     only decides what the *notifying* startup path does.
     """
