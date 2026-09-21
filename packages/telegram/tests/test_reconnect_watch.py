@@ -61,3 +61,27 @@ async def test_a_glitch_that_self_heals_within_one_poll_is_missed() -> None:
     )
 
     assert reconnects == 0
+
+
+async def test_a_failing_catch_up_does_not_kill_the_watchdog_and_is_retried() -> None:
+    # S13-02: the link often drops again *during* the catch-up right after a
+    # reconnect. That ConnectionError used to escape the watchdog task and end
+    # all future gap recovery silently.
+    states = iter([True, False, True, True, True, True])
+    attempts = 0
+
+    async def flaky_catch_up() -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise ConnectionError("Connection to Telegram failed 5 time(s)")
+
+    await supervise_reconnects(
+        lambda: next(states),
+        flaky_catch_up,
+        poll_seconds=0,
+        sleep=_fake_sleep,
+        iterations=5,
+    )
+
+    assert attempts == 2  # failed once, retried on the next poll, then not repeated
