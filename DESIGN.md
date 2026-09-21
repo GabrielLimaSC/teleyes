@@ -37,6 +37,32 @@ colors:
   neutral-status-bg: "#eef2f7"
   danger: "#a32a24"
   danger-bg: "#fbe9e7"
+colors-dark:
+  canvas: "#0f1116"
+  surface: "#1b1f27"
+  surface-end: "#171a21"
+  surface-sunken: "#1e222a"
+  surface-border: "#2b313b"
+  input-bg: "#14171c"
+  input-border: "#333a46"
+  divider: "#272c35"
+  ink: "#e9edf4"
+  ink-strong: "#ffffff"
+  ink-muted: "#a3acbb"
+  ink-soft: "#8f98a8"
+  placeholder: "#79808d"
+  eyebrow: "#a2b6d6"
+  action: "#f2f4f8"
+  action-ink: "#14171c"
+  focus: "#7aa6f7"
+  focus-ring: "rgba(122, 166, 247, 0.28)"
+  success: "#5ee08f"
+  warning: "#f5c26b"
+  danger: "#ff9b91"
+  danger-bg: "#2a1d1d"
+  neutral-status: "#a2b6d6"
+  lowest-ink: "#c6b3f2"
+  ring-lowest: "linear-gradient(120deg, #2e7f5c, #3d5a94, #5a4287, #8c4266)"
 typography:
   family: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
   page-title: "700 30px/1.14"
@@ -70,6 +96,8 @@ shadows:
 # Sistema visual proposto — S10-05
 
 **Status: conceito para escolha do Gabriel; este documento especifica o estado-alvo, não descreve o CSS já entregue.**
+(Atualização S12-04: o tema escuro e o mecanismo de tema já estão implementados; ver a seção "Tema escuro e
+mecanismo de tema (Sprint 12)" no fim deste arquivo. A tabela `colors` acima descreve o tema claro.)
 Nenhum estilo desta proposta deve ser aplicado a todas as páginas antes dessa escolha. Os comps usam
 conteúdo ilustrativo identificado na imagem; não representam conexão, entregas, preços ou métricas reais.
 
@@ -176,3 +204,114 @@ a existente para contextualizar; o componente real permanece na S9-03/S9-05. Alg
 composição ajudam a mostrar hierarquia e devem ser conferidos pelo Dev contra a cópia atual antes do
 rollout. Após a escolha do Gabriel, criar uma task do Dev para migrar os CSS e componentes, com teste
 visual nas seis páginas e estados. Até lá, a diferença entre CSS atual e esta especificação é esperada.
+
+## Tema escuro e mecanismo de tema (Sprint 12)
+
+**Estado: implementado** (S12-01 tokens, S12-02 mecanismo, S12-03 paleta escura, S12-05 menor preço, S12-04 QA).
+Fonte da verdade do escuro: o concept do Gabriel gerado no Claude Design (seção `2a` de
+`Teleyes Unificado.dc.html`), medido em `docs/SPRINT12_DARK_FROM_DESIGN.md` (worktree do Tech Lead). Onde o
+documento e o arquivo divergem, vale o arquivo. O escuro **não** é uma inversão do claro: é o mesmo sistema de
+três planos (vidro, grafite, ação) com valores próprios.
+
+### Como o tema funciona
+
+- **Um atributo, dois blocos de tokens.** `<html data-theme="light|dark">` é o único gatilho. Os tokens do claro
+  ficam em `:root` (`src/styles/tokens.css` e `src/styles/materials.css`); o escuro sobrescreve os MESMOS nomes
+  em `[data-theme='dark']`. Componente nenhum tem valor de cor próprio: a guarda `src/styles/colorLiterals.test.ts`
+  falha o build se aparecer cor literal fora dos arquivos de token.
+- **Preferência do usuário:** `Sistema` (padrão) → `Claro` → `Escuro`, guardada em `localStorage`
+  (`teleyes.theme`) e espelhada em `<html data-theme-preference>`. Com `Sistema`, o tema segue
+  `prefers-color-scheme` ao vivo (troca do SO sem recarregar). Outra aba que mude a preferência atualiza esta.
+- **Sem flash:** um script inline no `<head>` de `index.html` resolve o tema ANTES da primeira pintura, com a
+  mesma lógica de `src/theme/theme.ts`. O `theme.spec.ts` prova isso segurando o bundle do app.
+- **Sem armazenamento, o app funciona:** todo acesso a `localStorage`/`matchMedia` está em `try/catch`; sem
+  eles o tema vale só para a sessão. (S12-04: a autenticação também deixou de depender de `sessionStorage`,
+  ver `src/auth/AuthContext.tsx`.)
+- **Seletor:** botão de vidro circular (~40px) fixo no canto superior direito, fora da cápsula da navbar, em
+  todas as telas. Um clique cicla Sistema → Claro → Escuro; o estado vai no `aria-label`
+  ("Tema: Escuro") e no tooltip em pt-BR, nunca só no ícone.
+- **Navegador:** `color-scheme` acompanha o tema (controles nativos, barras de rolagem) e
+  `<meta name="theme-color">` vem do token `--browser-chrome-color` (`#f5f5f5` claro, `#0f1116` escuro).
+
+### Fundo da página
+
+Canvas `#0f1116` mais três washes elípticos ancorados nas bordas (token `--body-wash`): azul
+`rgba(84,116,210,.30)` 900×420 em 12% 0%, violeta `rgba(150,104,205,.26)` 780×420 em 88% 4% e rosa
+`rgba(205,110,155,.18)` 700×500 em 60% 100%. O vidro só se lê sobre esse fundo variado; por isso o contraste
+do vidro é medido sobre o pior wash, não sobre o canvas liso.
+
+### Tokens escuros por plano
+
+| Plano | Token | Valor |
+| --- | --- | --- |
+| 3, vidro (trilhas, popover, toast) | `--plane-glass-bg` | `linear-gradient(165deg, rgba(255,255,255,.14), .05 a 42%, .09)` sobre `rgba(26,29,36,.62)` |
+| | borda / sombra | `1px solid rgba(255,255,255,.14)`; `inset` claro no topo e escuro na base, aro preto e `0 16px 32px rgba(0,0,0,.42)` |
+| | popover (toast/tooltip) | mesmo vidro, mais opaco (`rgba(30,34,42,.78)`) e `blur(18px)` para leitura |
+| 3, navbar | `--nav-tint` | vidro `.16/.05/.10` sobre `rgba(26,29,36,.62)`; aba ativa `#f2f4f8` com texto `#14171c`; inativa `#c4cbd8` |
+| 1, grafite (cartões, tabelas, formulários) | `--plane-pearl-bg` | `linear-gradient(165deg, #1b1f27, #171a21)`; borda `#2b313b`; sombra `0 8px 22px rgba(0,0,0,.34)` |
+| | superfícies internas | cabeçalho de tabela/poço `#1e222a`; linha em destaque `#1d2028`; tile neutro `#242a34`; divisor `#272c35` |
+| 2, ação | primário | fundo `#f2f4f8`, texto `#14171c` (ação invertida em relação ao claro) |
+| | secundário / perigo | `#20242c` com borda `#2f3540`; perigo `#2a1d1d`, texto `#ff9b91`, borda `#57332f` |
+| | campo | fundo `#14171c` (mais escuro que o cartão), borda `#333a46`, altura mínima 42px |
+| | foco | `#7aa6f7` com anel externo de 3px `rgba(122,166,247,.28)` |
+
+**Texto** (sobre cartão `#1b1f27`): principal `#e9edf4` (14.06:1), secundário `#a3acbb` (7.21), helper `#8f98a8`
+(5.68), eyebrow `#a2b6d6` (8.02), título/preço `#ffffff`. **Placeholder** `#79808d` mede 4.52:1 SÓ sobre o campo
+`#14171c`; sobre o cartão daria 4.16 e reprova: nunca usar fora do campo.
+**Estado** (ponto + palavra, nunca só cor): bom `#5ee08f`, aviso `#f5c26b`, perigo `#ff9b91`, neutro `#a2b6d6`;
+"menor preço" e links de destaque em violeta `#c6b3f2`.
+**Categorias** (tile translúcido + traço do ícone): telefone `rgba(84,116,210,.30)`/`#8fb2ef`, notebook
+`rgba(150,104,205,.26)`/`#b9a6e8`, fone `rgba(245,181,68,.20)`/`#f5c26b`, gamer `rgba(205,110,155,.18)`/`#e6a3c4`,
+genérico `#242a34`/`#a3acbb`.
+
+### Menor preço já visto (S12-05, vale para os dois temas)
+
+O sinal é **só um anel de 1,5px na borda do cartão**: sem blur, sem halo, sem `box-shadow`, sem animação, nada
+pintado fora da caixa do cartão (o Gabriel pediu que o arco-íris não vaze). O cartão com anel perde a borda e a
+sombra normais (o anel é a borda), mantém o raio externo de 18px e o conteúdo não se move. O anel é um
+pseudo-elemento fixado às bordas (`inset: 0`) com máscara que deixa só a faixa de 1,5px: uma `border` CSS
+arredondaria para 1px em zoom 100% no Chromium. Gradiente `120deg`: escuro `#2e7f5c → #3d5a94 → #5a4287 →
+#8c4266`; claro `#a7e8c8 → #bcd2f5 → #d8bdf0 → #f4c2d7`. Além do anel, o cartão traz o texto sublinhado
+"Menor preço já visto" (`#c6b3f2` no escuro): o estado nunca depende da cor.
+
+### Onde o escuro difere do concept (justificado)
+
+- `--plane-text-eyebrow-on-glass` é `#b4c5e0`, um pouco mais claro que o `#a2b6d6` do concept: sobre um tile
+  dentro de uma trilha de vidro sobre o wash, o valor do concept mede 4.23:1 e reprovaria.
+- **Mascote:** o concept põe o gato num disco de vidro escuro, mas o gato é PRETO. Decisão delegada pelo
+  Gabriel ao Tech Lead: o disco de vidro do concept fica como está e o `<img>` ganha, só no escuro, um contorno
+  claro (`drop-shadow(0 0 1px rgba(255,255,255,.55)) drop-shadow(0 0 6px rgba(255,255,255,.18))`). O PNG não é
+  editado nem recolorido.
+
+### Contraste e dívida de acessibilidade conhecida (registrada, decisão do Gabriel)
+
+`src/styles/contrast.test.ts` mede, a cada execução, os tokens declarados dos dois temas (pares de texto a
+4.5:1, ícones e anel de foco a 3:1; fundos translúcidos compostos sobre o pior wash; gradientes em todos os
+stops). O que NÃO cumpre, por decisão do Gabriel de manter fidelidade ao concept aprovado:
+
+1. **Bordas de campo e de cartão não chegam a 3:1 (WCAG 1.4.11, contraste não textual):** claro 1.52:1 (campo
+   `#ccd2db` sobre branco; cartão e botão secundário `#d9dfe9` 1.34:1) e escuro 1.44:1 (campo `#333a46` sobre o
+   cartão). Mitigação que o próprio concept tem: no escuro o campo é MAIS ESCURO que o cartão (`#14171c` sobre
+   `#1b1f27`) e o foco tem anel de 3px. Corrigir muda o visual aprovado nos dois temas; só com pedido do Gabriel.
+2. **Quatro pares de texto do tema CLARO ficam abaixo de 4.5:1** (`LIGHT_DEBT` em `contrast.test.ts`, com a
+   medida de cada um): `state-good-text` `#1c8a4b` 4.31:1 (palavra de estado de Saúde/Login),
+   `state-neutral-text` `#8a8a92` 3.37:1 ("Não configurado"), `text-faint` `#8a8a92` 3.37:1 (metadado de cartão)
+   e `plane-text-helper-on-glass` `#606875` 4.23:1 (estado vazio da trilha do Feed). O teste trava a lista:
+   um par NOVO que reprove derruba o build, e corrigir um dos quatro obriga a apagar a entrada.
+   No escuro todos os pares de texto medidos passam.
+
+### Como verificar os dois temas (S12-04)
+
+- **Foco por teclado:** `e2e/focus-visible.spec.ts` percorre com Tab todas as telas, em 1440 e 390, nos dois
+  temas, e falha se algum controle não muda de aparência ao receber foco.
+- **Fidelidade ao concept (escuro):** `e2e/dark-fidelity.spec.ts`, opt-in, compara estilos computados do app
+  com os do `.dc.html` renderizado.
+- **Estabilidade visual por estilo computado, sem PNG no Git:** `VISUAL=1 VISUAL_THEME=light|dark
+  VISUAL_STYLES_OUT=<pasta> npx playwright test e2e/visual.spec.ts` grava, por tela e por viewport (1440 e 390),
+  o estilo computado de cada elemento; `node scripts/compare-computed-styles.mjs <antes> <depois>` compara e sai
+  com 1 se algo mudou. Os PNGs de `e2e/visual-baseline/` são locais e ignorados pelo Git (dependem do SO e do
+  navegador): servem de apoio por pixel, a prova exata é o estilo computado. O spec fixa fuso UTC e relógio da
+  página e congela o texto que muda com o relógio, então a comparação não depende da hora em que roda.
+- **Movimento:** `e2e/motion-evidence.spec.ts` (drawer, transição de página, preenchimento do botão); roda nos
+  dois temas (`MOTION_THEME=dark` para o escuro; as capturas ficam em `.impeccable/review/`, ignorada pelo Git).
+  Com `prefers-reduced-motion` as transições são removidas (coberto em `states.spec.ts`).
