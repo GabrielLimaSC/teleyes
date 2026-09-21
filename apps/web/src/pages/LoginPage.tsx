@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { isSameLocalDay, parseApiDate } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { useHealth } from '../hooks/useHealth'
 import type { SseState } from '../hooks/useHealth'
@@ -25,14 +26,6 @@ interface DashboardStats {
   activeRules: number
   activeSources: number
   matchesToday: number
-}
-
-function isSameLocalDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
 }
 
 function Brand() {
@@ -115,7 +108,7 @@ export function LoginPage() {
         setStats({
           activeRules: rules.filter((rule) => rule.active).length,
           activeSources: sources.filter((source) => source.active).length,
-          matchesToday: matches.filter((match) => isSameLocalDay(new Date(match.matched_at), now))
+          matchesToday: matches.filter((match) => isSameLocalDay(parseApiDate(match.matched_at), now))
             .length,
         })
       })

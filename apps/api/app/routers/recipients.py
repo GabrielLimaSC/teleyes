@@ -1,10 +1,10 @@
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.main import get_current_session, get_db, require_csrf
+from app.utc import UtcDatetime
 from models import Recipient
 from repositories import recipient_repo
 from repositories.errors import NotFoundError, ValidationError
@@ -36,7 +36,7 @@ class RecipientResponse(BaseModel):
     telegram_chat_id: str
     allowlisted: bool
     active: bool
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 def _not_found(error: NotFoundError) -> HTTPException:

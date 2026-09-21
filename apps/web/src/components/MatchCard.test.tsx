@@ -278,6 +278,45 @@ describe('MatchCard', () => {
     })
   })
 
+  describe('the API instant is UTC, the display is local (S13-01)', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    // 01:43 UTC on 20 Sep is 22:43 on 19 Sep in America/Sao_Paulo (vitest.config.ts
+    // pins TZ). The API used to send it with no zone, which the browser read as
+    // local 01:43 of the 20th: 3h early and on the wrong day.
+    it.each(['2026-09-20T01:43:00Z', '2026-09-20T01:43:00'])(
+      'shows "Hoje, 22:43" for %s at local 23:00 of the day before UTC rolled over',
+      (matchedAt) => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date(2026, 8, 19, 23, 0, 0))
+
+        render(
+          <MatchCard match={buildMatch({ matched_at: matchedAt })} rule={rule} source={source} recipients={[]} />,
+        )
+
+        expect(screen.getByText('Hoje, 22:43')).toBeInTheDocument()
+      },
+    )
+
+    it('shows "Ontem, 22:43" once local midnight has passed', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 8, 20, 0, 30, 0))
+
+      render(
+        <MatchCard
+          match={buildMatch({ matched_at: '2026-09-20T01:43:00' })}
+          rule={rule}
+          source={source}
+          recipients={[]}
+        />,
+      )
+
+      expect(screen.getByText('Ontem, 22:43')).toBeInTheDocument()
+    })
+  })
+
   it('has no "Abrir promoção" link when the match has no real link yet (S7-10)', () => {
     render(
       <MatchCard match={buildMatch({ message_link: null })} rule={rule} source={source} recipients={[]} />,

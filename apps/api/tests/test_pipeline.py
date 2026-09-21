@@ -193,13 +193,17 @@ async def test_publish_match_event_is_only_meant_to_run_after_commit(
     event = subscription.backlog[0]
     assert event.type == "match"
     assert result.match is not None
+    matched_at = event.data["matched_at"]
+    assert isinstance(matched_at, str)
+    assert matched_at.endswith("Z"), "a bare timestamp is read by the browser as local time"
+    assert datetime.fromisoformat(matched_at) == result.match.matched_at.replace(tzinfo=UTC)
     assert event.data == {
         "match_id": result.match.id,
         "source_id": source.id,
         "rule_id": rule.id,
         "price_cents": result.match.price_cents,
         "message_link": None,
-        "matched_at": result.match.matched_at.isoformat(),
+        "matched_at": matched_at,
         "deliveries_sent": 1,
     }
 

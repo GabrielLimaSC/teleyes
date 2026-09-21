@@ -46,6 +46,7 @@ function jsonResponse(body: unknown): Response {
 describe('HistoricoPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('refetches with the rule filter when the selection changes', async () => {
@@ -336,6 +337,79 @@ describe('HistoricoPage', () => {
     expect(text).toContain('Regra CSV')
     expect(text).toContain('Fonte CSV')
     expect(text).toContain('50,00')
+    clickSpy.mockRestore()
+  })
+
+  it('shows the row time in local time and exports the CSV time unambiguously (S13-01)', async () => {
+    // 01:43 UTC on 20 Sep = 22:43 on 19 Sep in America/Sao_Paulo (vitest.config.ts pins TZ).
+    // The API used to send it with no zone, and the page read that as local 01:43.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 19, 23, 0, 0))
+    const rule = {
+      id: 1,
+      name: 'Regra TZ',
+      include_terms: 'produto',
+      exclude_terms: null,
+      max_price_cents: null,
+      active: true,
+      created_at: '2026-01-01T00:00:00',
+    }
+    const match = {
+      id: 1,
+      source_id: 1,
+      rule_id: 1,
+      message_text: 'produto tz',
+      price_cents: 5000,
+      price_cash_cents: null,
+      price_card_cents: null,
+      message_link: null,
+      matched_at: '2026-09-20T01:43:00',
+      created_at: '2026-09-20T01:43:00',
+      deliveries: [],
+      is_lowest_price_ever: false,
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([rule]))
+        if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([match]))
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+    let capturedBlob: Blob | null = null
+    vi.stubGlobal(
+      'URL',
+      Object.assign(Object.create(URL), {
+        createObjectURL: vi.fn((blob: Blob) => {
+          capturedBlob = blob
+          return 'blob:test'
+        }),
+        revokeObjectURL: vi.fn(),
+      }),
+    )
+    let downloadName = ''
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloadName = this.download
+    })
+    const user = userEvent.setup({ advanceTimers: () => {} })
+
+    render(<HistoricoPage />)
+    await screen.findByText('produto tz')
+
+    const row = screen.getByText('produto tz').closest('.historico-table__row') as HTMLElement
+    expect(within(row).getByText('Hoje, 22:43')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Exportar CSV' }))
+
+    const csv = await capturedBlob!.text()
+    // Absolute local date and time, quoted because it contains a comma.
+    expect(csv).toContain('"19/09/2026, 22:43:00"')
+    expect(csv).not.toContain('Hoje')
+    // The file is named by the LOCAL day (19), not the UTC day (20).
+    expect(downloadName).toBe('historico-teleyes-2026-09-19.csv')
     clickSpy.mockRestore()
   })
 

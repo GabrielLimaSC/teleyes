@@ -8,6 +8,7 @@ import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import type { MatchFilters, MatchSort } from '../api/matches'
 import type { Match, Recipient, Rule, Source } from '../api/types'
+import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
 import '../styles/materials.css'
 import '../components/FillButton.css'
 import './HistoricoPage.css'
@@ -72,38 +73,17 @@ function formatPrice(cents: number | null): string {
   return formatCurrency(cents)
 }
 
-function isSameLocalDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
-// Mesma regra da S10-06 (MatchCard) — "Hoje"/"Ontem" em fuso local, data
-// completa daí em diante.
-function formatMatchedAt(iso: string, now: Date = new Date()): string {
-  const date = new Date(iso)
-  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  if (isSameLocalDay(date, now)) return `Hoje, ${time}`
-
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (isSameLocalDay(date, yesterday)) return `Ontem, ${time}`
-
-  return date.toLocaleString('pt-BR')
-}
-
 function csvField(value: string): string {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
   return value
 }
 
 /** S11-04: gera o CSV a partir do que já está calculado pra tela — os mesmos
- * textos exibidos (título cortado, nomes de regra/fonte/destinatário, hora
- * formatada, preço + detalhe de preço, status de entrega), não os campos
- * crus da API. Sem endpoint novo: é puramente client-side a partir de
- * `matches` já carregados. */
+ * textos exibidos (título cortado, nomes de regra/fonte/destinatário, preço +
+ * detalhe de preço, status de entrega), não os campos crus da API. A exceção é
+ * a "Hora" (S13-01): data e hora locais completas, sem "Hoje"/"Ontem", que não
+ * dizem nada quando o arquivo é aberto no dia seguinte. Sem endpoint novo: é
+ * puramente client-side a partir de `matches` já carregados. */
 function buildCsv(rows: HistoricoRow[]): string {
   const header = ['Produto', 'Regra', 'Fonte', 'Hora', 'Preço', 'Detalhe do preço', 'Entrega', 'Para', 'Link']
   const lines = [header.map(csvField).join(',')]
@@ -113,7 +93,7 @@ function buildCsv(rows: HistoricoRow[]): string {
         row.title,
         row.ruleName,
         row.sourceName,
-        row.time,
+        row.csvTime,
         row.priceText,
         row.priceDetails.join(' · '),
         row.deliveryLabel,
@@ -133,7 +113,7 @@ function downloadCsv(csv: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `historico-teleyes-${new Date().toISOString().slice(0, 10)}.csv`
+  link.download = `historico-teleyes-${localDateStamp()}.csv`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -161,6 +141,10 @@ interface HistoricoRow {
   sourceName: string
   groupedSourceNames: string[]
   time: string
+  /** CSV "Hora": the absolute local date and time ("20/09/2026, 22:43:00"), in
+   * the exporting browser's timezone — not `time`'s "Hoje, 22:43", which stops
+   * meaning anything once the file is opened the next day. */
+  csvTime: string
   /** Main price line — what the table's price cell and the CSV's "Preço"
    * column both show. */
   priceText: string
@@ -263,6 +247,7 @@ export function HistoricoPage() {
             .map((sourceId) => sources.find((candidate) => candidate.id === sourceId)?.name)
             .filter((name): name is string => Boolean(name)),
           time: formatMatchedAt(match.matched_at),
+          csvTime: formatDateTime(match.matched_at),
           priceText,
           priceDetails,
           deliveryLabel: summarizeDeliveryStatus(match.deliveries).label,
