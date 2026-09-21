@@ -12,7 +12,7 @@ time(s)` in two places our old code let escape:
   `main()` returned normally (exit code 0).
 
 Either way the process ended, Docker restarted it, and every restart repeated
-the full 7-day historical scan. Here a connection failure is a *state*, not an
+the full 15-day historical scan. Here a connection failure is a *state*, not an
 exit: reconnect with exponential backoff (jittered, capped), log why, and only
 after a ceiling of consecutive failures escalate to `blocked` and give up.
 

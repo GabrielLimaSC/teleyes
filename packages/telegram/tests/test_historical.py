@@ -10,18 +10,18 @@ def _msg(message_id: int, *, date: datetime) -> TelegramMessage:
 
 
 async def test_fetch_messages_since_excludes_messages_at_or_beyond_the_window() -> None:
-    """S7-04: the real-world window widened from 24h to 7 days — boundary
-    still checked at whatever `window` the caller passes, here 7 days.
+    """S13-05: the real-world window is now 15 days (7 since S7-04, 24h before) —
+    boundary still checked at whatever `window` the caller passes, here 15 days.
     """
     now = datetime(2026, 9, 13, 12, 0, tzinfo=UTC)
     client = FakeTelegramClient(
         messages=[
-            _msg(1, date=now - timedelta(days=7)),  # exactly 7 days old: excluded
-            _msg(2, date=now - timedelta(days=7) + timedelta(seconds=1)),  # 1s inside: included
+            _msg(1, date=now - timedelta(days=15)),  # exactly 15 days old: excluded
+            _msg(2, date=now - timedelta(days=15) + timedelta(seconds=1)),  # 1s inside: included
         ]
     )
 
-    result = await fetch_messages_since(client, "-100123", window=timedelta(days=7), before=now)
+    result = await fetch_messages_since(client, "-100123", window=timedelta(days=15), before=now)
 
     assert [m.id for m in result] == [2]
 
@@ -35,7 +35,7 @@ async def test_fetch_messages_since_has_no_fixed_message_count_ceiling() -> None
         messages=[_msg(i, date=now - timedelta(minutes=i)) for i in range(1, 151)]
     )
 
-    result = await fetch_messages_since(client, "-100123", window=timedelta(days=7), before=now)
+    result = await fetch_messages_since(client, "-100123", window=timedelta(days=15), before=now)
 
     assert len(result) == 150
 
@@ -54,7 +54,7 @@ async def test_fetch_messages_since_excludes_messages_at_or_after_before() -> No
         ]
     )
 
-    result = await fetch_messages_since(client, "-100123", window=timedelta(days=7), before=now)
+    result = await fetch_messages_since(client, "-100123", window=timedelta(days=15), before=now)
 
     assert [m.id for m in result] == [1]
 
@@ -67,8 +67,8 @@ async def test_fetch_messages_since_never_reads_or_needs_a_cursor() -> None:
     now = datetime(2026, 9, 13, 12, 0, tzinfo=UTC)
     client = FakeTelegramClient(messages=[_msg(1, date=now - timedelta(hours=1))])
 
-    first = await fetch_messages_since(client, "-100123", window=timedelta(days=7), before=now)
-    second = await fetch_messages_since(client, "-100123", window=timedelta(days=7), before=now)
+    first = await fetch_messages_since(client, "-100123", window=timedelta(days=15), before=now)
+    second = await fetch_messages_since(client, "-100123", window=timedelta(days=15), before=now)
 
     assert [m.id for m in first] == [1]
     assert [m.id for m in second] == [1]

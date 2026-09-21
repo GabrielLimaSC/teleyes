@@ -209,7 +209,7 @@ async def test_refused_connections_never_exit_and_the_gap_is_backfilled_by_curso
     assert telegram.connect_calls == 4
     assert rig.lifecycle.started
     assert rig.handler_registrations == 1
-    assert telegram.iter_recent_calls == 1  # the 7-day scan ran once, at boot
+    assert telegram.iter_recent_calls == 1  # the 15-day scan ran once, at boot
     assert len(rig.bot.sent) == 1  # message 6: the restart catch-up, notified once
 
     # 2. A live message, then the link dies with the error from the production log
@@ -227,9 +227,9 @@ async def test_refused_connections_never_exit_and_the_gap_is_backfilled_by_curso
     assert not task.done()
     assert rig.sleeps == [5, 10, 20]  # drop -> two refusals, then it works
     assert rig.handler_registrations == 1
-    assert telegram.iter_recent_calls == 1  # NOT the 7-day scan again
+    assert telegram.iter_recent_calls == 1  # NOT the 15-day scan again
     # Backfill used the persisted cursor (5 at boot, 7 after the live message),
-    # not a 7-day window.
+    # not a 15-day window.
     assert telegram.iter_messages_min_ids == [5, 7]
     assert get_cursor(session, rig.source.id) == 9
 
