@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { listenerStatus } from '../test/listenerFixtures'
 import { SaudePage } from './SaudePage'
 
 vi.mock('../auth/AuthContext', async (importOriginal) => {
@@ -56,6 +57,7 @@ function summaryEndpoints(url: string, overrides: Record<string, () => Response>
   if (url.startsWith('/sources') || url.startsWith('/matches')) {
     return jsonResponse([])
   }
+  if (url.startsWith('/listener/status')) return jsonResponse(listenerStatus())
   return null
 }
 
@@ -249,5 +251,44 @@ describe('SaudePage', () => {
 
     expect(screen.getByRole('button', { name: 'Enviar teste' })).toBeEnabled()
     expect(screen.getByText(/O bot está sem token/)).toBeInTheDocument()
+  })
+
+  it('shows what the listener is running with, in its own tile (S13-06)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse(health))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        return Promise.resolve(summaryEndpoints(url) ?? jsonResponse([]))
+      }),
+    )
+
+    render(<SaudePage />)
+
+    const tile = (await screen.findByText('Listener')).closest('.saude-tile') as HTMLElement
+    await waitFor(() => expect(within(tile).getByText('Aplicado')).toBeInTheDocument())
+    expect(tile).toHaveTextContent('2 fontes · 6 regras · 1 destinatário')
+  })
+
+  it('tells where to apply when there are unapplied changes (S13-06)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse(health))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/listener/status')) {
+          return Promise.resolve(jsonResponse(listenerStatus({ has_unapplied_changes: true })))
+        }
+        return Promise.resolve(summaryEndpoints(url) ?? jsonResponse([]))
+      }),
+    )
+
+    render(<SaudePage />)
+
+    const tile = (await screen.findByText('Listener')).closest('.saude-tile') as HTMLElement
+    await waitFor(() => expect(within(tile).getByText('Mudanças pendentes')).toBeInTheDocument())
+    expect(tile).toHaveTextContent('Aplique na página Regras.')
   })
 })

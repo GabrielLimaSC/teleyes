@@ -9,9 +9,12 @@ import { ApiError } from '../api/auth'
 import type { Rule } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
 import { parseTermList } from '../utils/termList'
+import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
+import { settledToast } from '../components/listenerState'
 import { StatusToggle } from '../components/StatusToggle'
 import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
+import { useListenerStatus } from '../hooks/useListenerStatus'
 import { useToast } from '../hooks/useToast'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { DestinatariosSection } from './DestinatariosSection'
@@ -64,6 +67,15 @@ export function RegrasPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
   const { toast, showToast, dismiss } = useToast()
+  // S13-06: the listener reads rules/sources/recipients itself; this is how the
+  // panel asks it to reload, and how it learns there is something to apply.
+  const listener = useListenerStatus({
+    csrfToken,
+    onSettled: (settled) => {
+      const { message, tone } = settledToast(settled)
+      showToast(message, tone)
+    },
+  })
   const [rules, setRules] = useState<Rule[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -129,6 +141,13 @@ export function RegrasPage() {
   useEffect(reload, [])
   useEffect(loadStats, [])
 
+  // A rule (or source/recipient) changed: reload the table and re-check what the
+  // listener still has to apply, without waiting for the next poll.
+  const configChanged = () => {
+    reload()
+    listener.refresh()
+  }
+
   const loadForm = (target: FormTarget, next: RuleForm) => {
     setFormTarget(target)
     setForm(next)
@@ -175,7 +194,7 @@ export function RegrasPage() {
     request
       .then(() => {
         resetForm()
-        reload()
+        configChanged()
         showToast(wasCreate ? 'Regra criada.' : 'Regra atualizada.')
       })
       .catch((error: unknown) => {
@@ -192,7 +211,7 @@ export function RegrasPage() {
     setPausingId(rule.id)
     pauseRule(csrfToken, rule.id)
       .then(() => {
-        reload()
+        configChanged()
         showToast('Regra pausada.')
       })
       .catch(() => setListError('Não foi possível pausar a regra.'))
@@ -207,7 +226,7 @@ export function RegrasPage() {
     setDeletingId(rule.id)
     deleteRule(csrfToken, rule.id)
       .then(() => {
-        reload()
+        configChanged()
         showToast('Regra excluída.')
       })
       .catch((error: unknown) => {
@@ -290,6 +309,13 @@ export function RegrasPage() {
           + Nova regra
         </button>
       </div>
+
+      <ListenerApplyPanel
+        status={listener.status}
+        error={listener.error}
+        requesting={listener.requesting}
+        onApply={listener.apply}
+      />
 
       <div className="regras-page__grid">
         <div className="regras-page__main">
@@ -458,7 +484,7 @@ export function RegrasPage() {
             </div>
           )}
 
-          <DestinatariosSection />
+          <DestinatariosSection onChanged={listener.refresh} />
         </div>
 
         <aside className="regras-page__rail">

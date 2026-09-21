@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { listenerStatus } from '../test/listenerFixtures'
 import { RegrasPage } from './RegrasPage'
 
 vi.mock('../auth/AuthContext', () => ({
@@ -32,7 +33,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 /**
  * `RegrasPage` renders more than the rules list on its own: `DestinatariosSection`
  * (S7-01) answers `GET /recipients`, and the "Como uma regra casa" panel
- * (S11-05) calls `GET /metrics` and an unfiltered `GET /matches`. Every test
+ * (S11-05) calls `GET /metrics` and an unfiltered `GET /matches`, and the
+ * "Aplicar regras" panel (S13-06) polls `GET /listener/status`. Every test
  * here has to answer those too — otherwise it either throws on an unhandled
  * URL or, worse, silently reuses the rules mock data as if it were a
  * recipient/metric/match row (a rule named "iPhone" becomes a fake "ativa"
@@ -47,6 +49,7 @@ function withEmptyRecipients(
   return (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+    if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
     if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
     if (url.startsWith('/matches') && !url.includes('rule_id=') && (init?.method ?? 'GET') === 'GET') {
       return Promise.resolve(jsonResponse([]))
@@ -192,9 +195,10 @@ describe('RegrasPage', () => {
 
     expect(await screen.findByText('✅ Bateria com esta regra')).toBeInTheDocument()
     // Only the initial mount calls — GET /rules, DestinatariosSection's own
-    // GET /recipients (S7-01) and the stats panel's GET /matches + GET
-    // /metrics (S11-05) — the tester itself never touches the network.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+    // GET /recipients (S7-01), the stats panel's GET /matches + GET /metrics
+    // (S11-05) and the "Aplicar regras" panel's GET /listener/status (S13-06) —
+    // the tester itself never touches the network.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
   })
 
   it('pausing a rule calls the pause endpoint and reloads the list', async () => {
@@ -458,6 +462,7 @@ describe('RegrasPage', () => {
       vi.fn((input: RequestInfo | URL) => {
         const url = String(input)
         if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
         if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([{ id: 1 }, { id: 2 }, { id: 3 }]))
         if (url.startsWith('/metrics')) {
           return Promise.resolve(
@@ -490,6 +495,7 @@ describe('RegrasPage', () => {
       vi.fn((input: RequestInfo | URL) => {
         const url = String(input)
         if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
         if (url.startsWith('/matches') || url.startsWith('/metrics')) {
           return Promise.resolve(new Response('boom', { status: 500 }))
         }
@@ -538,5 +544,119 @@ describe('RegrasPage', () => {
     expect(screen.getByRole('heading', { name: 'Nova regra' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Nome/)).toHaveValue('')
     expect(screen.queryByRole('button', { name: 'Remover termo iphone' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * S13-06: the "Aplicar regras" panel. `statuses` is what `GET /listener/status`
+ * answers, in order (the last one repeats); a POST to `/listener/reload` records
+ * the request headers and answers `reloadAnswer`.
+ */
+function listenerAwareFetch(options: {
+  statuses: ReturnType<typeof listenerStatus>[]
+  reloadAnswer?: ReturnType<typeof listenerStatus>
+  rules?: unknown[]
+}) {
+  const statuses = [...options.statuses]
+  const log: { statusReads: number; reloadHeaders: Record<string, string> | null } = {
+    statusReads: 0,
+    reloadHeaders: null,
+  }
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/listener/reload' && method === 'POST') {
+      log.reloadHeaders = init?.headers as Record<string, string>
+      return Promise.resolve(jsonResponse(options.reloadAnswer ?? listenerStatus({ state: 'pending' }), 202))
+    }
+    if (url.startsWith('/listener/status')) {
+      log.statusReads += 1
+      const next = statuses.length > 1 ? statuses.shift() : statuses[0]
+      return Promise.resolve(jsonResponse(next))
+    }
+    if (url.startsWith('/recipients') || url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+    if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+    if (method === 'POST') return Promise.resolve(jsonResponse({ ...baseRule, id: 9, name: 'Nova' }, 201))
+    return Promise.resolve(jsonResponse(options.rules ?? [baseRule]))
+  })
+  return { fetchMock, log }
+}
+
+describe('RegrasPage — Aplicar regras (S13-06)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('warns that changes are not applied yet and offers the button', async () => {
+    const { fetchMock } = listenerAwareFetch({ statuses: [listenerStatus({ has_unapplied_changes: true })] })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText('Há mudanças ainda não aplicadas')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aplicar regras' })).toBeEnabled()
+  })
+
+  it('applying posts with the CSRF token, shows "Aplicando…", then confirms with the history result', async () => {
+    const { fetchMock, log } = listenerAwareFetch({
+      statuses: [
+        listenerStatus({ has_unapplied_changes: true }),
+        listenerStatus({ state: 'applying', has_unapplied_changes: true }),
+        listenerStatus({ new_matches: 5 }),
+      ],
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<RegrasPage />)
+    await user.click(await screen.findByRole('button', { name: 'Aplicar regras' }))
+
+    expect(await screen.findByRole('button', { name: 'Aplicando…' })).toBeDisabled()
+    expect(log.reloadHeaders?.['X-CSRF-Token']).toBe('test-csrf')
+
+    await vi.advanceTimersByTimeAsync(4000)
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Regras aplicadas — 5 matches novos no histórico.')
+    expect(screen.getByText('Regras aplicadas')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aplicar regras' })).toBeEnabled()
+  })
+
+  it('a failed apply is announced and the old configuration is said to stay', async () => {
+    const { fetchMock } = listenerAwareFetch({
+      statuses: [
+        listenerStatus({ has_unapplied_changes: true }),
+        listenerStatus({ state: 'failed', error: 'ConnectionError', has_unapplied_changes: true }),
+      ],
+      reloadAnswer: listenerStatus({ state: 'pending', has_unapplied_changes: true }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<RegrasPage />)
+    await user.click(await screen.findByRole('button', { name: 'Aplicar regras' }))
+    await vi.advanceTimersByTimeAsync(4000)
+
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts.some((node) => /A configuração anterior continua ativa/.test(node.textContent ?? ''))).toBe(true)
+    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeEnabled()
+  })
+
+  it('creating a rule re-checks what is left to apply right away', async () => {
+    const { fetchMock, log } = listenerAwareFetch({ statuses: [listenerStatus()] })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<RegrasPage />)
+    await user.type(await screen.findByLabelText(/Nome/), 'Nova')
+    await user.type(screen.getByLabelText(/Termos incluídos/), 'termo')
+    const readsBefore = log.statusReads
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
+
+    await waitFor(() => expect(log.statusReads).toBeGreaterThan(readsBefore))
   })
 })

@@ -185,15 +185,21 @@ async def main() -> int:
     with session_factory() as session:
         sources, rules, recipients = load_active_config(session)
         # Tell the panel what this process is running with (S13-06). Also
-        # settles any request left `applying` by a previous process: this fresh
-        # read already is the reload.
-        record_applied(
-            session,
-            sources_loaded=len(sources),
-            rules_loaded=len(rules),
-            recipients_loaded=len(recipients),
-            config_hash=config_fingerprint(sources, rules, recipients),
-        )
+        # settles any request left pending/applying by a previous process: this
+        # fresh read already is the reload. (A request made in the few
+        # milliseconds between the read and this write is settled too, but the
+        # panel's "há mudanças não aplicadas" notice compares fingerprints, so
+        # it still shows it.) A failed status write must not stop the listener.
+        try:
+            record_applied(
+                session,
+                sources_loaded=len(sources),
+                rules_loaded=len(rules),
+                recipients_loaded=len(recipients),
+                config_hash=config_fingerprint(sources, rules, recipients),
+            )
+        except Exception as error:
+            print(f"Não registrou o estado inicial no painel ({type(error).__name__}).")
 
     listener_sources = build_listener_sources(sources, rules, recipients)
     if listener_sources:
