@@ -164,6 +164,15 @@
   .match-card__price {
     text-align: left;
   }
+
+  /* S12-04: "Agrupado — mesma promoção já alertada" is longer than the column
+     of a narrow card. It was `nowrap`, so the pill ran out of the card (and,
+     at 390px, out of the screen: horizontal page scroll). Here it wraps; the
+     radius stays the concept's pill. */
+  .match-card__status {
+    max-width: 100%;
+    white-space: normal;
+  }
 }
 
 /* S11-03: the Feed's 2-column grid (FeedPage.css's `.feed-page__card`, a
@@ -198,5 +207,14 @@
 
   .match-card__price {
     text-align: left;
+  }
+
+  /* S12-04: "Agrupado — mesma promoção já alertada" is longer than the column
+     of a narrow card. It was `nowrap`, so the pill ran out of the card (and,
+     at 390px, out of the screen: horizontal page scroll). Here it wraps; the
+     radius stays the concept's pill. */
+  .match-card__status {
+    max-width: 100%;
+    white-space: normal;
   }
 }
