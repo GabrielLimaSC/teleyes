@@ -19,7 +19,15 @@ import { apiLogin } from './helpers'
  * animation frames absent something requesting one), so the capture could
  * land later in the curve than the wait implied. Explicitly pumping a few
  * rAF ticks across the wait keeps the animation's state honest.
+ *
+ * S12-04: runs in either theme. `MOTION_THEME=dark` renders the dark theme
+ * (the OS colour scheme, with the preference on "Sistema") and suffixes the
+ * evidence files with the theme; the default is the light theme, files unchanged.
  */
+const DARK = process.env.MOTION_THEME === 'dark'
+test.use({ colorScheme: DARK ? 'dark' : 'light' })
+const SUFFIX = DARK ? '-dark' : ''
+
 async function rafPumpWait(page: Page, totalMs: number, steps: number): Promise<void> {
   for (let i = 0; i < steps; i++) {
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
@@ -42,7 +50,7 @@ test('mobile navigation drawer opens from the mascot (mid-transition capture)', 
   })
   await mascot.click()
   await rafPumpWait(page, 200, 4)
-  await page.screenshot({ path: '.impeccable/review/motion-nav-expansion-mid-flight.png' })
+  await page.screenshot({ path: '.impeccable/review/motion-nav-expansion-mid-flight' + SUFFIX + '.png' })
   const mid = await menu.evaluate((el) => getComputedStyle(el).transform)
   const midAnimState = await menu.evaluate((el) => el.getAnimations().map((a) => a.playState))
 
@@ -78,7 +86,7 @@ test('page fade advances through intermediate frames without stalling', async ({
         .locator('main')
         .evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
     )
-    await page.screenshot({ path: `.impeccable/review/motion-page-transition-${frame}.png` })
+    await page.screenshot({ path: `.impeccable/review/motion-page-transition-${frame}${SUFFIX}.png` })
   }
 
   const fadeStates = await page
@@ -147,7 +155,7 @@ test('primary button fill expands from the click point', async ({ page }) => {
   // and visibly still growing when captured
   await page.mouse.move(box!.x + box!.width - 10, box!.y + box!.height / 2)
   await page.mouse.down()
-  await page.screenshot({ path: '.impeccable/review/motion-button-fill-mid-expand.png' })
+  await page.screenshot({ path: '.impeccable/review/motion-button-fill-mid-expand' + SUFFIX + '.png' })
   await page.mouse.up()
 
   const fillWidth = await button.evaluate((el) => getComputedStyle(el, '::after').clipPath)

@@ -114,6 +114,21 @@
   flex-wrap: wrap;
 }
 
+/* S12-04: a flex cell leaves the table's row layout, so its bottom border sat
+   half a pixel off from the neighbouring cells' (a step in every row divider,
+   in both themes). On wide screens the cell stays a table cell and the buttons
+   are spaced by margin; below 640px the stacked layout below takes over. */
+@media (min-width: 641px) {
+  .crud-table td.crud-table__actions {
+    display: table-cell;
+    white-space: nowrap;
+  }
+
+  .crud-table__actions button + button {
+    margin-inline-start: var(--gap-element);
+  }
+}
+
 .crud-table__actions button {
   /* S9-01: 12px -> caption (11px), the closer scale step (diff 1 vs. diff 2
      for body). */

@@ -76,3 +76,26 @@ demonstration data and must not invent savings, reliability rates or market adop
 
 The web interface must be keyboard accessible, responsive for phone and desktop, compatible with reduced
 motion, and must not encode delivery/match state by color alone.
+
+### Themes and known accessibility debt (S12-04)
+
+The interface has a light and a dark theme (`Sistema` by default, following the OS live; a fixed button at the
+top right cycles System, Light, Dark; the choice is kept per browser and the app works when storage is
+blocked). Both themes keep every rule above: state is always a word plus a dot, never colour alone; focus is
+visible on every control in both themes; reduced motion removes the transitions. Text contrast is measured on
+every run of the test suite (`contrast.test.ts`, WCAG AA 4.5:1 for text and 3:1 for the focus ring and icons)
+against the tokens each theme really declares. Design details are in `DESIGN.md`.
+
+Two accessibility gaps are known, registered and accepted by Gabriel for now (he chose fidelity to the approved
+concept over changing its look). They are not defects to fix silently:
+
+- **Field and card borders do not reach the 3:1 non-text contrast** of WCAG 1.4.11: 1.52:1 in the light theme
+  and 1.44:1 in the dark one. In the dark theme the field is darker than the card and the focus ring is 3px,
+  which is what makes controls findable. Raising the borders changes the approved look in both themes and
+  needs Gabriel's decision.
+- **Four text pairs of the light theme are under 4.5:1**, pinned with their measured ratio in
+  `contrast.test.ts` (`LIGHT_DEBT`): the "connected/OK" state word 4.31:1, the "not configured" state word
+  3.37:1, the faint card metadata 3.37:1 and the helper text in the Feed rail 4.23:1. A new failing pair
+  fails the build, and fixing one of the four forces its entry to be removed. The dark theme has no failing
+  text pair.
+
