@@ -4,6 +4,7 @@ import { summarizeDeliveryStatus } from './deliveryStatus'
 import { Tooltip } from './Tooltip'
 import { cardTitle, productText } from './matchTitle'
 import type { Match, Recipient, Rule, Source } from '../api/types'
+import { formatMatchedAt } from '../utils/dates'
 import './MatchCard.css'
 import '../components/GlassCard.css'
 import '../components/AuroraGlow.css'
@@ -15,38 +16,6 @@ function formatCurrency(cents: number): string {
 function formatPrice(cents: number | null): string {
   if (cents === null) return 'Preço não identificado'
   return formatCurrency(cents)
-}
-
-function isSameLocalDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
-/**
- * S10-06: "Hoje"/"Ontem" per the S10-05 comps, falling back to the full
- * date for anything older — Gabriel only specified the two relative labels,
- * not an exact format for "older than yesterday" (Dev's call). `now`
- * defaults to a real `new Date()` but is overridable for tests, so no test
- * has to depend on the real wall clock. Day comparison uses the `Date`
- * object's own local-timezone getters (`getFullYear`/`getMonth`/`getDate`),
- * never the UTC ones — CLAUDE.md's binding decision is "apresentado no
- * fuso configurado", and this app has no separate timezone setting
- * anywhere, so "configured" here is the viewer's own local timezone, same
- * as the `toLocaleString` call this replaces already used implicitly.
- */
-function formatMatchedAt(iso: string, now: Date = new Date()): string {
-  const date = new Date(iso)
-  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  if (isSameLocalDay(date, now)) return `Hoje, ${time}`
-
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (isSameLocalDay(date, yesterday)) return `Ontem, ${time}`
-
-  return date.toLocaleString('pt-BR')
 }
 
 export function MatchCard({

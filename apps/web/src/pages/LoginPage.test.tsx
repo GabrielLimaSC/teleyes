@@ -103,6 +103,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 describe('LoginPage', () => {
@@ -192,6 +193,43 @@ describe('LoginPage', () => {
     expect(sourcesTile).toHaveTextContent('1')
     const matchesTile = screen.getByText('Matches hoje').closest('.login-stats__tile')
     expect(matchesTile).toHaveTextContent('2')
+  })
+
+  it('counts "Matches hoje" by the local day of each instant, near UTC midnight (S13-01)', async () => {
+    // Local now: 19 Sep 23:30 in America/Sao_Paulo = 02:30 UTC on the 20th.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 19, 23, 30, 0))
+    let loggedIn = false
+    mockFetch({
+      me: () => jsonResponse(loggedIn ? { admin_id: 1 } : null, loggedIn ? 200 : 401),
+      login: () => {
+        loggedIn = true
+        return jsonResponse({ csrf_token: 'test-csrf' })
+      },
+      rules: () => jsonResponse([]),
+      sources: () => jsonResponse([]),
+      matches: () =>
+        jsonResponse([
+          match('2026-09-20T01:43:00'), // 22:43 local today, sent with no zone (legacy shape)
+          match('2026-09-20T01:43:00Z'), // the same instant, with the Z the API now sends
+          match('2026-09-19T03:00:00Z'), // 00:00 local today: the first instant of the day
+          match('2026-09-19T02:59:59Z'), // 23:59:59 local YESTERDAY, still 19 Sep in UTC
+          match('2026-09-20T03:00:00Z'), // local tomorrow (00:00 on the 20th)
+        ]),
+    })
+    const user = userEvent.setup()
+
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+
+    await user.type(await screen.findByLabelText('Senha'), 'correct horse battery staple')
+    await user.click(screen.getByRole('button', { name: 'Entrar' }))
+
+    const matchesTile = (await screen.findByText('Matches hoje')).closest('.login-stats__tile')
+    expect(matchesTile).toHaveTextContent('3')
   })
 
   it('shows an error message when the password is wrong', async () => {

@@ -7,6 +7,7 @@ import { fetchMatches } from '../api/matches'
 import { ApiError } from '../api/auth'
 import type { Source } from '../api/types'
 import { StatusToggle } from '../components/StatusToggle'
+import { formatDateTime, isLater } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/GlassCard.css'
 import '../components/CrudTable.css'
@@ -29,7 +30,7 @@ function formToInput(form: SourceForm): SourceInput {
 
 function formatLastMatch(iso: string | undefined): string {
   if (iso === undefined) return 'Nenhum match ainda'
-  return new Date(iso).toLocaleString('pt-BR')
+  return formatDateTime(iso)
 }
 
 type FormTarget = { kind: 'create' } | { kind: 'edit'; source: Source }
@@ -59,7 +60,7 @@ export function FontesPage() {
         const lastMatch = new Map<number, string>()
         for (const match of matches) {
           const current = lastMatch.get(match.source_id)
-          if (current === undefined || match.matched_at > current) {
+          if (current === undefined || isLater(match.matched_at, current)) {
             lastMatch.set(match.source_id, match.matched_at)
           }
         }
