@@ -17,9 +17,8 @@ mudar fonte/regra/destinatário pelo painel exige reiniciar este processo pra
 valer — limitação conhecida, documentada aqui e em TESTING.md, não escondida.
 
 Faz catch-up (packages/telegram/cursor.py, S5-02) uma vez no boot — cobre
-reiniciar o processo — e de novo sempre que o watchdog de reconexão
-(packages/telegram/reconnect_watch.py) detectar que a conexão caiu e voltou —
-cobre uma queda curta. Bounded por BACKFILL_MAX_MESSAGES/BACKFILL_MAX_AGE, não
+reiniciar o processo — e de novo sempre que a conexão cair e voltar — cobre uma
+queda curta. Bounded por BACKFILL_MAX_MESSAGES/BACKFILL_MAX_AGE, não
 reprocessa o histórico inteiro de nenhum grupo. No boot, uma fonte sem cursor
 persistido ainda (nunca processada ao vivo antes) nunca passa por esse
 catch-up notificante — teria tratado toda sua história recente como "perdida
@@ -27,6 +26,18 @@ numa queda" e mandado alerta retroativo de verdade (S6-04). Em vez disso, o
 cursor dela é só inicializado na ponta mais recente do chat, sem notificar
 nada; o histórico recente dessa fonte nova continua aparecendo só via o scan
 não notificante abaixo.
+
+S13-02: perder a conexão com o Telegram NÃO encerra o processo. O Telethon
+desiste depois do orçamento curto dele (5 tentativas, ~7s) e levanta
+`ConnectionError`; antes isso escapava (no boot, de `adapter.connect()`; em
+execução, de `run_until_disconnected()`, cuja exceção ninguém recuperava) e o
+processo terminava, o Docker o reiniciava e o scan de 7 dias era refeito a cada
+queda.
+Agora `packages/telegram/connection_supervisor.py` reconecta dentro do
+processo com backoff exponencial (5s -> 300s, com jitter), registra o motivo
+de cada tentativa e só escala a `blocked` (e encerra) depois de
+`CONNECT_BACKOFF.max_consecutive_failures` falhas seguidas. Reconexão só faz o
+catch-up por cursor (`app.listener_lifecycle`), nunca o scan de 7 dias.
 
 Também roda, uma vez por fonte logo após registrar o handler ao vivo, um scan
 histórico independente do cursor (S6-02): reavalia os últimos
@@ -51,10 +62,10 @@ uma corrida real, não uma preocupação teórica.
 """
 
 import asyncio
+import logging
 import os
-import signal
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -62,13 +73,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from telethon import TelegramClient, events
 
+from app.listener_lifecycle import ListenerLifecycle
 from app.pipeline import (
     IncomingMessage,
     ListenerSource,
-    catch_up_since_cursor,
-    prepare_source_at_startup,
     process_message,
-    run_historical_scan,
 )
 from models import Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
@@ -76,7 +85,13 @@ from packages.monitoring.heartbeat import load_heartbeat_config, run_heartbeat
 from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
-from packages.telegram.adapter import AdapterState, TelegramAdapter
+from packages.telegram.adapter import TelegramAdapter
+from packages.telegram.connection_supervisor import (
+    BackoffPolicy,
+    ConnectionSupervisor,
+    SupervisorOutcome,
+    install_stop_signal_handlers,
+)
 from packages.telegram.links import build_message_link
 from packages.telegram.reconnect_watch import supervise_reconnects
 from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
@@ -89,6 +104,20 @@ RECONNECT_POLL_SECONDS = 15.0
 # Unrelated to BACKFILL_MAX_AGE above, which stays 24h on purpose (a real
 # reconnect's gap, not a fresh source's first historical scan).
 HISTORICAL_WINDOW = timedelta(days=7)
+# S13-02: 5s doubling up to 5min between attempts, 30 failures in a row (a bit
+# over two hours of continuous outage) before escalating to `blocked`.
+CONNECT_BACKOFF = BackoffPolicy(base_seconds=5.0, max_seconds=300.0, max_consecutive_failures=30)
+
+
+def _configure_logging() -> None:
+    """Warnings and up for everything (Telethon's included), plus the
+    supervisor's own INFO events (connected / reconnect scheduled / stopped)."""
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    logging.getLogger("packages.telegram.connection_supervisor").setLevel(logging.INFO)
+    logging.getLogger("app.listener_lifecycle").setLevel(logging.INFO)
 
 
 def _load_active_config(session: Session) -> tuple[list[Source], list[Rule], list[Recipient]]:
@@ -126,8 +155,10 @@ async def _idle_until_stopped(
             print(message)
 
 
-async def main() -> None:
+async def main() -> int:
+    """Returns the process exit code: 0 on a requested stop, 1 once `blocked`."""
     load_dotenv()
+    _configure_logging()
 
     # A process running as the container's PID 1 (docker/listener-entrypoint.sh
     # execs this directly) needs an *explicit* handler for a signal to reach
@@ -136,11 +167,9 @@ async def main() -> None:
     # down`/a real SIGTERM-based crash test would all silently do nothing
     # until the grace period expires and Docker escalates to SIGKILL. `api`
     # (uvicorn) never hit this because uvicorn already installs its own
-    # SIGTERM/SIGINT handlers.
+    # SIGTERM/SIGINT handlers. The handler only sets an event, so it can't raise.
     stop_event = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, stop_event.set)
+    install_stop_signal_handlers(asyncio.get_running_loop(), stop_event)
 
     api_id = os.environ.get("TG_API_ID")
     api_hash = os.environ.get("TG_API_HASH")
@@ -149,12 +178,12 @@ async def main() -> None:
         await _idle_until_stopped(
             stop_event, "TG_API_ID/TG_API_HASH ausentes — not_configured, sem fingir conexão."
         )
-        return
+        return 0
     if not bot_token:
         await _idle_until_stopped(
             stop_event, "BOT_TOKEN ausente — not_configured, sem fingir conexão."
         )
-        return
+        return 0
 
     session_factory = get_sessionmaker(get_engine())
 
@@ -167,7 +196,7 @@ async def main() -> None:
             "Sem fonte, regra ou destinatário (ativo e allowlisted) cadastrado — nada pra "
             "escutar. Cadastre pelo painel e reinicie este processo pra pegar a mudança.",
         )
-        return
+        return 0
 
     print(f"{len(sources)} fonte(s), {len(rules)} regra(s), {len(recipients)} destinatário(s).")
 
@@ -175,11 +204,6 @@ async def main() -> None:
     adapter = TelegramAdapter(
         api_id=int(api_id), api_hash=api_hash, client=client, sleep=asyncio.sleep
     )
-
-    state = await adapter.connect()
-    if state is not AdapterState.CONNECTED:
-        print(f"Não foi possível conectar (estado: {state.value}).")
-        sys.exit(1)
 
     notifier = BotNotifier(
         bot_token=bot_token,
@@ -198,158 +222,91 @@ async def main() -> None:
         for source in sources
     ]
 
-    async def catch_up() -> None:
-        """Real reconnect recovery. Only called for a watchdog-detected
-        reconnect (below), where every `listener_source` here already has a
-        persisted cursor — either from a prior live message, or from
-        `startup_prepare_cursors` below, which always runs first at boot.
-        Treating everything `backfill_since_cursor` returns as "missed during
-        this specific drop" and notifying for it is therefore correct.
-        """
-        total = 0
-        for listener_source in listener_sources:
-            recovered = await catch_up_since_cursor(
-                session_factory,
-                fetcher,
-                listener_source,
-                notifier,
-                dedupe_cache,
-                max_messages=BACKFILL_MAX_MESSAGES,
-                max_age=BACKFILL_MAX_AGE,
-            )
-            total += len(recovered)
-        if total:
-            print(f"Recuperadas {total} avaliações de mensagens perdidas.")
-
-    async def startup_prepare_cursors() -> None:
-        """Once per source, at process boot only (S6-04) — delegates the
-        actual per-source decision to `app.pipeline.prepare_source_at_startup`
-        (new-source cursor init vs. real reconnect-style notifying recovery)
-        and only aggregates the two kinds of log line here.
-        """
-        recovered_total = 0
-        initialized_source_ids: list[int] = []
-        for listener_source in listener_sources:
-            outcome = await prepare_source_at_startup(
-                session_factory,
-                fetcher,
-                listener_source,
-                notifier,
-                dedupe_cache,
-                max_messages=BACKFILL_MAX_MESSAGES,
-                max_age=BACKFILL_MAX_AGE,
-            )
-            if outcome.initialized:
-                initialized_source_ids.append(listener_source.source_id)
-            else:
-                recovered_total += len(outcome.recovered)
-
-        if recovered_total:
-            print(f"Recuperadas {recovered_total} avaliações de mensagens perdidas.")
-        if initialized_source_ids:
-            print(
-                f"Fonte(s) nova(s) id={initialized_source_ids}: cursor inicializado sem "
-                "catch-up notificante — histórico recente vem só do scan não notificante."
-            )
-
-    # Covers a process restart: whatever arrived while this run was down, for
-    # a source already live-processed before this boot. A brand-new source
-    # instead just gets its cursor initialized, with no notification (S6-04).
-    await startup_prepare_cursors()
-
     sources_by_chat_id = {int(source.telegram_chat_id): source for source in sources}
     chat_ids = list(sources_by_chat_id.keys())
-    print(f"Conectado. Escutando {len(chat_ids)} grupo(s)... (Ctrl+C para sair)")
 
-    @client.on(events.NewMessage(chats=chat_ids))
-    async def handler(event: events.NewMessage.Event) -> None:
-        source = sources_by_chat_id[event.chat_id]
-        telegram_message = to_telegram_message(event.message)
-        for rule in rules:
-            with session_factory() as message_session:
-                incoming = IncomingMessage(
-                    source_id=source.id,
-                    message_id=telegram_message.id,
-                    text=telegram_message.text,
-                    link=build_message_link(source.telegram_chat_id, telegram_message.id),
-                    received_at=telegram_message.date,
-                )
-                result = await process_message(
-                    message_session, incoming, rule, recipients, notifier, dedupe_cache
-                )
-                message_session.commit()
-
-                if result.match is not None:
-                    print(
-                        f"Match! fonte={source.name} regra={rule.name} "
-                        f"match_id={result.match.id} entregas={result.deliveries_sent}"
+    def register_live_handler() -> None:
+        @client.on(events.NewMessage(chats=chat_ids))
+        async def handler(event: events.NewMessage.Event) -> None:
+            source = sources_by_chat_id[event.chat_id]
+            telegram_message = to_telegram_message(event.message)
+            for rule in rules:
+                with session_factory() as message_session:
+                    incoming = IncomingMessage(
+                        source_id=source.id,
+                        message_id=telegram_message.id,
+                        text=telegram_message.text,
+                        link=build_message_link(source.telegram_chat_id, telegram_message.id),
+                        received_at=telegram_message.date,
                     )
+                    result = await process_message(
+                        message_session, incoming, rule, recipients, notifier, dedupe_cache
+                    )
+                    message_session.commit()
 
-    # S6-02: fixed *after* the live handler above is already registered, so
-    # any message that arrives while the scan below is still running has
-    # date >= historical_scan_started_at and is skipped by
-    # `fetch_messages_since` — it is the live handler's alert to send, never
-    # a duplicate "historical" one from a scan still paging through results.
-    historical_scan_started_at = datetime.now(UTC)
-    historical_matches = 0
-    for listener_source in listener_sources:
-        try:
-            historical_results = await run_historical_scan(
-                session_factory,
-                fetcher,
-                listener_source,
-                window=HISTORICAL_WINDOW,
-                before=historical_scan_started_at,
+                    if result.match is not None:
+                        print(
+                            f"Match! fonte={source.name} regra={rule.name} "
+                            f"match_id={result.match.id} entregas={result.deliveries_sent}"
+                        )
+
+        print(f"Conectado. Escutando {len(chat_ids)} grupo(s)... (Ctrl+C para sair)")
+
+    lifecycle = ListenerLifecycle(
+        session_factory=session_factory,
+        fetcher=fetcher,
+        sources=listener_sources,
+        notifier=notifier,
+        dedupe_cache=dedupe_cache,
+        register_live_handler=register_live_handler,
+        backfill_max_messages=BACKFILL_MAX_MESSAGES,
+        backfill_max_age=BACKFILL_MAX_AGE,
+        historical_window=HISTORICAL_WINDOW,
+    )
+
+    watchdog: asyncio.Task[None] | None = None
+
+    async def on_connected() -> None:
+        nonlocal watchdog
+        await lifecycle.on_connected()
+        if watchdog is None:
+            # Covers a *silent* short drop: this Telethon version's own
+            # auto-reconnect doesn't catch up on missed updates by itself (see
+            # reconnect_watch.py), so this polls the client's public
+            # is_connected() and re-runs catch-up whenever it flips back to
+            # True. Only started once boot is done — before that, the first
+            # connection would look like a "reconnect" and run the notifying
+            # catch-up on sources that have no cursor yet (S6-04).
+            watchdog = asyncio.create_task(
+                supervise_reconnects(
+                    client.is_connected,
+                    lifecycle.catch_up,
+                    poll_seconds=RECONNECT_POLL_SECONDS,
+                    sleep=asyncio.sleep,
+                )
             )
-        except Exception:
-            # Sanitized on purpose: never the source's chat_id/name or any
-            # message content, only its internal database id and the fact
-            # that it failed — one source's scan breaking must not sink the
-            # others', and must never leak rejected content into a log.
-            print(f"Scan histórico falhou para a fonte id={listener_source.source_id}.")
-            continue
-        historical_matches += sum(1 for r in historical_results if r.match is not None)
-    if historical_matches:
-        print(
-            f"Histórico dos últimos {HISTORICAL_WINDOW.days} dias: {historical_matches} "
-            "match(es) sem alerta retroativo."
-        )
 
-    # Covers a short connection drop: this Telethon version's own auto-reconnect
-    # doesn't catch up on missed updates by itself (see reconnect_watch.py), so
-    # this polls the client's own public is_connected() and re-runs catch-up
-    # whenever it flips back to True.
-    watchdog = asyncio.create_task(
-        supervise_reconnects(
-            client.is_connected,
-            catch_up,
-            poll_seconds=RECONNECT_POLL_SECONDS,
-            sleep=asyncio.sleep,
-        )
+    supervisor = ConnectionSupervisor(
+        adapter,
+        wait_until_disconnected=client.run_until_disconnected,
+        on_connected=on_connected,
+        stop_event=stop_event,
+        policy=CONNECT_BACKOFF,
     )
     heartbeat = asyncio.create_task(
         run_heartbeat(load_heartbeat_config(), client.is_connected, stop_event)
     )
-    stop_waiter = asyncio.create_task(stop_event.wait())
-    disconnected_waiter = asyncio.create_task(client.run_until_disconnected())
     try:
-        await asyncio.wait(
-            {stop_waiter, disconnected_waiter}, return_when=asyncio.FIRST_COMPLETED
-        )
-        if not disconnected_waiter.done():
-            # stop_event fired first (a real signal) — ask Telethon to close
-            # the connection itself instead of just cancelling our waiter task,
-            # so run_until_disconnected's own cleanup (client.disconnect()
-            # internally) still runs.
-            await client.disconnect()
-            await disconnected_waiter
+        outcome = await supervisor.run()
     finally:
         stop_event.set()
-        watchdog.cancel()
-        heartbeat.cancel()
-        stop_waiter.cancel()
-        await asyncio.gather(watchdog, heartbeat, stop_waiter, return_exceptions=True)
+        background = [task for task in (watchdog, heartbeat) if task is not None]
+        for task in background:
+            task.cancel()
+        await asyncio.gather(*background, return_exceptions=True)
+
+    return 1 if outcome is SupervisorOutcome.BLOCKED else 0
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))
