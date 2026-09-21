@@ -5,7 +5,7 @@ import type { Page } from '@playwright/test'
 import { apiLogin, apiPost } from './helpers'
 
 /**
- * S12-01: visual baseline of the light theme. Opt-in (`VISUAL=1`) so the
+ * S12-01 / S12-04: visual baseline of both themes. Opt-in (`VISUAL=1`) so the
  * everyday suite stays free of font/platform-sensitive pixel comparisons.
  *
  * The screenshots are NOT versioned (`e2e/visual-baseline/` is git-ignored):
@@ -39,12 +39,16 @@ import { apiLogin, apiPost } from './helpers'
  * deterministic.
  */
 test.skip(process.env.VISUAL !== '1', 'visual baseline is opt-in: set VISUAL=1')
+// S12-04: the theme under test (`VISUAL_THEME=light|dark`, default light). It is
+// the browser's colour scheme with the preference on "Sistema", the same path a
+// user's OS takes. Every shot name carries the theme, so both can share a folder.
+const THEME = process.env.VISUAL_THEME === 'dark' ? 'dark' : 'light'
 test.describe.configure({ mode: 'serial', timeout: 300_000 })
 // Times are shown in the viewer's local zone (S13-01), so what a shot shows
 // depends on the machine's timezone. Pin it, and stop the page clock at the
 // start of each test, so a baseline does not depend on the hour it was taken
 // (e.g. "Matches hoje" between 21h and 24h in UTC-3).
-test.use({ timezoneId: 'UTC' })
+test.use({ timezoneId: 'UTC', colorScheme: THEME })
 
 const VIEWPORTS = [
   { name: '1440', width: 1440, height: 900 },
@@ -155,6 +159,8 @@ async function shoot(
   // A viewport-only shot depends on where the last click scrolled the page;
   // start from the top unless the shot is about a hovered element.
   if (options.fullPage === false && !options.keepScroll) await page.evaluate(() => window.scrollTo(0, 0))
+  // A run that silently rendered the other theme would compare nothing useful.
+  await expect(page.locator('html')).toHaveAttribute('data-theme', THEME)
   // Let fonts and async loads settle before the pixels are read.
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(250)
@@ -162,9 +168,9 @@ async function shoot(
   const stylesDir = process.env.VISUAL_STYLES_OUT
   if (stylesDir) {
     mkdirSync(stylesDir, { recursive: true })
-    writeFileSync(path.join(stylesDir, `${name}-${viewport}.json`), await collectComputedStyles(page))
+    writeFileSync(path.join(stylesDir, `${THEME}-${name}-${viewport}.json`), await collectComputedStyles(page))
   }
-  await expect(page).toHaveScreenshot(`${name}-${viewport}.png`, {
+  await expect(page).toHaveScreenshot(`${THEME}-${name}-${viewport}.png`, {
     fullPage: options.fullPage ?? true,
     animations: 'disabled',
     caret: 'hide',
@@ -240,15 +246,17 @@ test('seeded data across every screen', async ({ page }) => {
   const namorada = await apiPost<{ id: number }>(page, '/recipients', csrf, { name: 'Namorada', telegram_chat_id: '902', allowlisted: true })
   await apiPost(page, '/recipients', csrf, { name: 'Sem autorização', telegram_chat_id: '903', allowlisted: false })
 
-  const send = (source: { id: number }, rule: { id: number }, text: string, recipients = [gabriel.id, namorada.id]) =>
-    apiPost(page, '/demo/messages', csrf, { source_id: source.id, rule_id: rule.id, recipient_ids: recipients, text })
+  // `link` is the message's Telegram address: the ones that have it show "Abrir
+  // promoção" in Feed and Histórico, the ones without it show "Sem link" (S13-03).
+  const send = (source: { id: number }, rule: { id: number }, text: string, recipients = [gabriel.id, namorada.id], link?: string) =>
+    apiPost(page, '/demo/messages', csrf, { source_id: source.id, rule_id: rule.id, recipient_ids: recipients, text, link })
 
   // Category tiles: phone, laptop, headphones, gaming, generic.
-  await send(sourceA, rules.phone, 'iPhone 15 128GB Apple por R$ 3.899 https://exemplo.com/iphone')
+  await send(sourceA, rules.phone, 'iPhone 15 128GB Apple por R$ 3.899 https://exemplo.com/iphone', undefined, 'https://t.me/c/101/1')
   await send(sourceA, rules.phone, 'iPhone 15 128GB Apple por R$ 4.200 https://exemplo.com/iphone2')
-  await send(sourceB, rules.gpu, 'Placa de vídeo RTX 5070 Ti 16GB à vista R$ 4.516 no pix ou R$ 4.999 no cartão https://exemplo.com/gpu')
+  await send(sourceB, rules.gpu, 'Placa de vídeo RTX 5070 Ti 16GB à vista R$ 4.516 no pix ou R$ 4.999 no cartão https://exemplo.com/gpu', undefined, 'https://t.me/c/102/2')
   await send(sourceB, rules.audio, 'Notebook Acer Aspire 5 por R$ 2.799 https://exemplo.com/nb')
-  await send(sourceA, rules.audio, 'Fone Bluetooth JBL Tune por R$ 199 https://exemplo.com/fone')
+  await send(sourceA, rules.audio, 'Fone Bluetooth JBL Tune por R$ 199 https://exemplo.com/fone', undefined, 'https://t.me/c/101/3')
   await send(sourceB, rules.audio, 'PS5 Slim Digital 1TB com desconto por R$ 3.299 https://exemplo.com/ps5')
   await send(sourceA, rules.audio, 'Fone gamer sem preço no texto https://exemplo.com/semprec')
   // Same promotion from a second source inside the grouping window → "Visto em".
@@ -307,6 +315,14 @@ test('seeded data across every screen', async ({ page }) => {
   await page.locator('.tooltip').first().hover()
   await page.waitForTimeout(300)
   await shoot(page, 'historico-tooltip', '1440', { fullPage: false, keepScroll: true })
+  // Keyboard focus on the row action: the shared focus ring on "Abrir promoção".
+  // The pointer leaves the title first, or its tooltip would stay in the shot.
+  await page.mouse.move(0, 0)
+  await page.keyboard.press('Tab')
+  await page.getByRole('link', { name: /^Abrir promoção: / }).first().focus()
+  await shoot(page, 'historico-focus-open', '1440', { fullPage: false, keepScroll: true })
+  await page.locator('.theme-toggle__button').focus()
+  await shoot(page, 'theme-toggle-focus', '1440', { fullPage: false })
   await page.getByLabel('Regra').selectOption({ label: 'Regra sem matches' })
   await expect(page.getByText('Nenhum match encontrado com esses filtros.')).toBeVisible()
   await eachViewport(page, (v) => shoot(page, 'historico-filtered-empty', v))
@@ -363,6 +379,19 @@ test('seeded data across every screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Salvar' }).click()
   await page.waitForTimeout(300)
   await shoot(page, 'fontes-form-submitted', '1440')
+
+  // ---- Error states of the two match lists ----
+  await page.route(api('/matches'), (route) => route.fulfill({ status: 500, body: 'boom' }))
+  for (const [route, name] of [
+    ['/feed', 'feed-error'],
+    ['/historico', 'historico-error'],
+  ] as const) {
+    await page.goto(route)
+    await expect(page.getByRole('alert').first()).toBeVisible()
+    await page.waitForTimeout(300)
+    await eachViewport(page, (v) => shoot(page, name, v))
+  }
+  await page.unroute(api('/matches'))
 
   // ---- Login (authenticated view) ----
   await page.goto('/')
