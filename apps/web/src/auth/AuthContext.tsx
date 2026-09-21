@@ -4,6 +4,28 @@ import { fetchCurrentAdmin, login as apiLogin, logout as apiLogout } from '../ap
 
 const CSRF_STORAGE_KEY = 'teleyes.csrf_token'
 
+// S12-04: a browser that blocks web storage makes every `sessionStorage` call
+// throw (even reading the property can), and an uncaught throw in the state
+// initializer blanked the whole app. Storage is only a convenience that keeps
+// the CSRF token across a reload; without it the token lives in memory alone
+// and a reload asks for a new sign-in (the `csrfMissing` path).
+function readStoredCsrfToken(): string | null {
+  try {
+    return window.sessionStorage.getItem(CSRF_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function storeCsrfToken(token: string | null): void {
+  try {
+    if (token === null) window.sessionStorage.removeItem(CSRF_STORAGE_KEY)
+    else window.sessionStorage.setItem(CSRF_STORAGE_KEY, token)
+  } catch {
+    // Blocked or full storage: the token stays in memory for this page only.
+  }
+}
+
 export const CSRF_MISSING_MESSAGE =
   'Sessão sem token de segurança em memória — atualize a página e faça login de novo.'
 
@@ -28,9 +50,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('checking')
   const [adminId, setAdminId] = useState<number | null>(null)
-  const [csrfToken, setCsrfToken] = useState<string | null>(() =>
-    sessionStorage.getItem(CSRF_STORAGE_KEY),
-  )
+  const [csrfToken, setCsrfToken] = useState<string | null>(readStoredCsrfToken)
 
   useEffect(() => {
     let cancelled = false
@@ -55,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (password: string) => {
     const { csrf_token } = await apiLogin(password)
-    sessionStorage.setItem(CSRF_STORAGE_KEY, csrf_token)
+    storeCsrfToken(csrf_token)
     setCsrfToken(csrf_token)
     const me = await fetchCurrentAdmin()
     setAdminId(me?.admin_id ?? null)
@@ -67,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Sessão sem token CSRF em memória — faça login de novo para poder sair.')
     }
     await apiLogout(csrfToken)
-    sessionStorage.removeItem(CSRF_STORAGE_KEY)
+    storeCsrfToken(null)
     setCsrfToken(null)
     setAdminId(null)
     setStatus('anonymous')
