@@ -301,6 +301,120 @@ td.wide-table__num {
   color: var(--plane-status-danger);
 }
 
+.regras-form__test-button {
+  width: 100%;
+}
+
+/* Row above the tester panel's own heading — title + "Fechar". */
+.regras-panel__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.regras-panel__heading h2 {
+  flex: 1;
+}
+
+/* ---- S13-07: "mensagens reais que bateriam" — the real-history half of
+   the (S4-06+S13-07 merged) "Testar regra" panel ---- */
+.regras-test-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.regras-test-section__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.regras-test-section__header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.regras-test-section__status,
+.regras-test-section__empty,
+.regras-test-section__count {
+  margin: 0;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.regras-test-section__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.regras-test-section__item {
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-divider-color);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.regras-test-section__item:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.regras-test-section__text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.regras-test-section__meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-text-secondary);
+}
+
+.regras-test-section__term {
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.regras-test-section__link {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  text-decoration: underline;
+}
+
+.regras-test-section__link:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: 4px;
+}
+
+.regras-test-section__more {
+  margin: 0;
+  font-size: 11px;
+  color: var(--plane-text-helper);
+}
+
 /* ---- Rail ---- */
 .regras-form {
   padding: 20px;

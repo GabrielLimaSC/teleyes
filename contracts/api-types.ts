@@ -276,6 +276,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rules/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Rule
+         * @description S13-07: dry-run of a not-yet-saved rule form (create OR edit) against
+         *     real history — Gabriel types terms/exclusions/ceiling, clicks "Testar"
+         *     and sees which real recent messages would have matched, before ever
+         *     saving. Reuses `app.pipeline.evaluate_rule`, the exact match -> price ->
+         *     ceiling core the live and historical paths run, so a preview here behaves
+         *     identically to what saving the rule for real would have caught. Reads
+         *     only: never creates a `Match`/`Delivery`, never advances a
+         *     `ProcessingCursor`, never calls `BotNotifier` — calling this ten times in
+         *     a row has the same zero effect as calling it once.
+         *
+         *     Data source and its limitation: this project retains message content
+         *     only for messages that already matched SOME existing rule (`CLAUDE.md`/
+         *     `PRODUCT.md` — rejected traffic keeps aggregate counters, never text), so
+         *     there is no raw "every message seen" table to scan and this can't
+         *     re-query Telegram live either (that's the real listener's job, not a form
+         *     preview). The dry-run instead scans the pool of already-matched messages
+         *     from the last `HISTORICAL_WINDOW` days — the same window
+         *     `run_historical_scan` uses — deduplicated by real Telegram identity so a
+         *     message that matched several existing rules is only evaluated once here.
+         *     A message that never matched any existing rule was discarded upstream
+         *     and its text was never persisted anywhere, so a rule aimed at genuinely
+         *     new territory no existing rule already covers can legitimately preview
+         *     as empty even though matching messages really arrived — this is the best
+         *     real data available without inventing a live Telegram scrape here.
+         */
+        post: operations["test_rule_rules_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rules/{rule_id}": {
         parameters: {
             query?: never;
@@ -619,6 +662,55 @@ export interface components {
             max_price_cents: number | null;
             /** Name */
             name: string;
+        };
+        /** RuleTestMatch */
+        RuleTestMatch: {
+            /**
+             * Matched At
+             * Format: date-time
+             */
+            matched_at: string;
+            /** Matched Term */
+            matched_term: string;
+            /** Message Link */
+            message_link: string | null;
+            /** Message Text */
+            message_text: string;
+            /** Price Card Cents */
+            price_card_cents: number | null;
+            /** Price Cash Cents */
+            price_cash_cents: number | null;
+            /** Price Cents */
+            price_cents: number | null;
+            /** Source Id */
+            source_id: number;
+            /** Source Name */
+            source_name: string;
+        };
+        /**
+         * RuleTestRequest
+         * @description S13-07: same shape as `RuleCreate` minus `name` — a dry-run only ever
+         *     needs the fields that actually affect matching. The schema has no
+         *     source-scoping field on `Rule` at all (`app.pipeline.ListenerSource`'s
+         *     own docstring: every active rule is evaluated against every active
+         *     source's messages), so there is nothing to filter by here either.
+         */
+        RuleTestRequest: {
+            /** Exclude Terms */
+            exclude_terms?: string | null;
+            /** Include Terms */
+            include_terms: string;
+            /** Max Price Cents */
+            max_price_cents?: number | null;
+        };
+        /** RuleTestResponse */
+        RuleTestResponse: {
+            /** Messages */
+            messages: components["schemas"]["RuleTestMatch"][];
+            /** Total Matched */
+            total_matched: number;
+            /** Window Days */
+            window_days: number;
         };
         /** RuleUpdate */
         RuleUpdate: {
@@ -1320,6 +1412,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_rule_rules_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleTestResponse"];
                 };
             };
             /** @description Validation Error */
