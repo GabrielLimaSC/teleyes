@@ -45,7 +45,16 @@ queda.
 Agora `packages/telegram/connection_supervisor.py` reconecta dentro do
 processo com backoff exponencial (5s -> 300s, com jitter), registra o motivo
 de cada tentativa e só escala a `blocked` (e encerra) depois de
-`CONNECT_BACKOFF.max_consecutive_failures` falhas seguidas. Reconexão só faz o
+`CONNECT_BACKOFF.max_consecutive_failures` falhas seguidas.
+
+S13-09: escalar a `blocked` antes só aparecia no log do Docker. Agora
+`on_blocked` (abaixo) manda UMA mensagem operacional (`BLOCKED_ALERT_TEXT`)
+pelo mesmo `BotNotifier`/allowlist dos alertas de promoção — sem cliente de
+bot separado, sem conceito novo de "contato admin"; todo destinatário
+allowlisted recebe o aviso. Falha ao enviar é capturada e logada dentro do
+próprio `ConnectionSupervisor._block`, nunca atrasa o encerramento.
+
+Reconexão só faz o
 catch-up por cursor (`app.listener_lifecycle`), nunca o scan de 15 dias.
 
 Também roda, uma vez por fonte logo após registrar o handler ao vivo, um scan
@@ -114,6 +123,16 @@ RECONNECT_POLL_SECONDS = 15.0
 # S13-02: 5s doubling up to 5min between attempts, 30 failures in a row (a bit
 # over two hours of continuous outage) before escalating to `blocked`.
 CONNECT_BACKOFF = BackoffPolicy(base_seconds=5.0, max_seconds=300.0, max_consecutive_failures=30)
+
+# S13-09: the one operational (non-match) alert this process ever sends. Same
+# BotNotifier/allowlist as promo alerts (no separate "admin contact"), so
+# today it reaches the one recipient cadastrado; adding a second allowlisted
+# recipient in the future means that one also gets it.
+BLOCKED_ALERT_TEXT = (
+    "⚠️ teleyes: o monitor parou de escutar o Telegram depois de falhas de reconexão "
+    "seguidas (backoff esgotado). Nenhuma promoção nova está sendo vista até o "
+    "serviço ser reiniciado."
+)
 
 
 def _configure_logging() -> None:
@@ -288,12 +307,19 @@ async def main() -> int:
                 )
             )
 
+    async def on_blocked() -> None:
+        # Reuses `notifier` (same client, same allowlist as promo alerts) —
+        # no second bot client. A failure here (e.g. the bot has no network
+        # either) is caught and logged by the supervisor itself, never here.
+        await notifier.notify_operational(BLOCKED_ALERT_TEXT)
+
     supervisor = ConnectionSupervisor(
         adapter,
         wait_until_disconnected=client.run_until_disconnected,
         on_connected=on_connected,
         stop_event=stop_event,
         policy=CONNECT_BACKOFF,
+        on_blocked=on_blocked,
     )
     heartbeat = asyncio.create_task(
         run_heartbeat(load_heartbeat_config(), client.is_connected, stop_event)

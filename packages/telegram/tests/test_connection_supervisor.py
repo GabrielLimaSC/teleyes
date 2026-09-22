@@ -87,6 +87,7 @@ class Harness:
         serve: Callable[[Harness], Awaitable[object]] | None = None,
         on_connected: Callable[[Harness], Awaitable[None]] | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
+        on_blocked: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self.stop_event = asyncio.Event()
         self.sleeps: list[float] = []
@@ -107,6 +108,7 @@ class Harness:
             monotonic=lambda: self.now,
             uniform=_no_jitter,
             on_state_change=self.states.append,
+            on_blocked=on_blocked,
         )
 
     async def _sleep(self, seconds: float) -> None:
@@ -231,6 +233,66 @@ async def test_escalates_to_blocked_only_at_the_failure_ceiling() -> None:
     assert harness.sleeps == [5, 10, 20, 40]  # no sleep after the last failure
     assert harness.supervisor.state is AdapterState.BLOCKED
     assert connection.disconnect_calls >= 1
+
+
+async def test_escalating_to_blocked_fires_on_blocked_exactly_once() -> None:
+    policy = BackoffPolicy(jitter_ratio=0.0, max_consecutive_failures=5)
+    connection = ScriptedConnection([_refused() for _ in range(50)])
+    calls = 0
+
+    async def on_blocked() -> None:
+        nonlocal calls
+        calls += 1
+
+    harness = Harness(connection, policy=policy, on_blocked=on_blocked)
+
+    outcome = await harness.run()
+
+    assert outcome is SupervisorOutcome.BLOCKED
+    assert calls == 1  # one alert per transition, not one per failed attempt
+
+
+async def test_a_failing_on_blocked_does_not_stop_the_blocked_outcome(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    policy = BackoffPolicy(jitter_ratio=0.0, max_consecutive_failures=5)
+    connection = ScriptedConnection([_refused() for _ in range(50)])
+
+    async def failing_on_blocked() -> None:
+        raise RuntimeError("bot also has no network")
+
+    harness = Harness(connection, policy=policy, on_blocked=failing_on_blocked)
+
+    with caplog.at_level(logging.ERROR, logger=SUPERVISOR_LOGGER):
+        outcome = await asyncio.wait_for(harness.supervisor.run(), 5)
+
+    assert outcome is SupervisorOutcome.BLOCKED  # the alert failing never blocks shutdown
+    failures = [r for r in caplog.records if "event=blocked_alert_failed" in r.getMessage()]
+    assert len(failures) == 1
+    assert "error_class=RuntimeError" in failures[0].getMessage()
+    assert "bot also has no network" not in caplog.text  # exception class only
+
+
+async def test_no_on_blocked_configured_is_fine_too() -> None:
+    policy = BackoffPolicy(jitter_ratio=0.0, max_consecutive_failures=5)
+    connection = ScriptedConnection([_refused() for _ in range(50)])
+    harness = Harness(connection, policy=policy)  # on_blocked defaults to None
+
+    assert await harness.run() is SupervisorOutcome.BLOCKED
+
+
+async def test_on_blocked_is_not_called_on_a_clean_stop() -> None:
+    connection = ScriptedConnection()
+    calls = 0
+
+    async def on_blocked() -> None:
+        nonlocal calls
+        calls += 1
+
+    harness = Harness(connection, on_blocked=on_blocked)
+
+    assert await harness.run() is SupervisorOutcome.STOPPED
+    assert calls == 0
 
 
 async def test_one_failure_below_the_ceiling_still_recovers() -> None:

@@ -65,3 +65,20 @@ class BotNotifier:
         await self._client.send_message(chat_id, text)
         self._delivered.add(key)
         return DeliveryResult(delivered=True)
+
+    async def notify_operational(self, text: str) -> None:
+        """Send one operational alert (S13-09) — not a match — to every
+        allowlisted recipient, over the same bot/client as `notify`.
+
+        There is no `(match_id, recipient_id)` dedupe key here: unlike a match
+        alert, the caller (`ConnectionSupervisor._block`) is itself the
+        one-shot guarantee — this fires once per `blocked` transition, never
+        on a reload or a retry. Every current allowlisted chat id receives it;
+        there is no separate "admin contact" concept. A `not_configured`
+        notifier is a silent no-op, same as `notify`.
+        """
+        if not self.is_configured():
+            return
+        assert self._client is not None, "configured notifier requires a client"
+        for chat_id in self._allowlisted_chat_ids:
+            await self._client.send_message(chat_id, text)
