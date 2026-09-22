@@ -13,6 +13,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/auth/logout": {"post"},
     "/health": {"get"},
     "/rules": {"get", "post"},
+    "/rules/test": {"post"},
     "/rules/{rule_id}": {"patch", "delete"},
     "/rules/{rule_id}/pause": {"post"},
     "/rules/{rule_id}/matches": {"delete"},
@@ -33,6 +34,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
 
 EXPECTED_RESPONSE_SCHEMAS = [
     "RuleResponse",
+    "RuleTestResponse",
     "SourceResponse",
     "RecipientResponse",
     "MatchResponse",

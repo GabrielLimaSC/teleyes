@@ -182,23 +182,209 @@ describe('RegrasPage', () => {
     expect(screen.getByLabelText(/Termos incluídos/)).toHaveValue('')
   })
 
-  it('the rule tester previews a match without calling the API', async () => {
-    const fetchMock = vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule]))))
+  it('the rule tester previews a sample message locally, with no network call of its own', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
     render(<RegrasPage />)
-    await screen.findByText('iPhone')
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
 
-    await user.click(await screen.findByRole('button', { name: 'Testar' }))
+    // S13-07: opening the panel auto-loads the real-history section below —
+    // wait for it before counting calls, so that one is accounted for.
+    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await screen.findByText(/Nenhuma mensagem bateu/)
+    const callsAfterOpen = fetchMock.mock.calls.length
+
     await user.type(screen.getByLabelText('Mensagem de exemplo'), 'Promoção iPhone 15')
 
     expect(await screen.findByText('✅ Bateria com esta regra')).toBeInTheDocument()
-    // Only the initial mount calls — GET /rules, DestinatariosSection's own
-    // GET /recipients (S7-01), the stats panel's GET /matches + GET /metrics
-    // (S11-05) and the "Aplicar regras" panel's GET /listener/status (S13-06) —
-    // the tester itself never touches the network.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
+    // Typing the local sample message never calls the network — only
+    // opening/"Atualizar" does (S13-07's own dry-run half of the panel).
+    expect(fetchMock.mock.calls.length).toBe(callsAfterOpen)
+  })
+
+  it('S13-07: the real-history section shows real recent matches for the tested terms', async () => {
+    let testRequestBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          testRequestBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+          return Promise.resolve(
+            jsonResponse({
+              total_matched: 1,
+              window_days: 15,
+              messages: [
+                {
+                  source_id: 1,
+                  source_name: 'Grupo Teste',
+                  message_text: 'Promoção iPhone 15 por R$ 3.899',
+                  price_cents: 389900,
+                  price_cash_cents: null,
+                  price_card_cents: null,
+                  message_link: 'https://t.me/grupo/123',
+                  matched_at: '2026-09-20T12:00:00Z',
+                  matched_term: 'iphone',
+                },
+              ],
+            }),
+          )
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+
+    expect(await screen.findByText('Promoção iPhone 15 por R$ 3.899')).toBeInTheDocument()
+    expect(screen.getByText(/Grupo Teste/)).toBeInTheDocument()
+    expect(screen.getByText('Termo: "iphone"')).toBeInTheDocument()
+    expect(testRequestBody).toEqual({
+      include_terms: 'iphone',
+      exclude_terms: null,
+      max_price_cents: 400_000,
+    })
+  })
+
+  it('S13-07: editing the rule tests the live unsaved fields, not the last-saved ones', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Editar' }))
+    await user.type(screen.getByLabelText(/Termos incluídos/), 'iphone 16{Enter}')
+
+    let testRequestBody: Record<string, unknown> | null = null
+    fetchMock.mockImplementation(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          testRequestBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+          return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+
+    await waitFor(() => expect(testRequestBody).not.toBeNull())
+    expect(testRequestBody).toMatchObject({ include_terms: 'iphone, iphone 16' })
+    expect(screen.getByText(/campos ainda não salvos/)).toBeInTheDocument()
+  })
+
+  it('S13-07: "Testar" on the still-unsaved "Nova regra" form tests exactly what is typed', async () => {
+    let testRequestBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          testRequestBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+          return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+        }
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    await user.type(await screen.findByLabelText(/Termos incluídos/), 'rtx 5070{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Testar' }))
+
+    await waitFor(() => expect(testRequestBody).not.toBeNull())
+    expect(testRequestBody).toEqual({ include_terms: 'rtx 5070', exclude_terms: null, max_price_cents: null })
+    expect(await screen.findByText(/Nenhuma mensagem bateu com esses termos nos últimos 15 dias/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Testar regra: nova regra (ainda não salva)' })).toBeInTheDocument()
+  })
+
+  it('S13-07: blocks testing with no include term, same message as saving', async () => {
+    const fetchMock = vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([]))))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    await user.click(await screen.findByRole('button', { name: 'Testar' }))
+
+    expect(await screen.findByText('Informe ao menos um termo incluído.')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith('/rules/test', expect.anything())
+  })
+
+  it('S13-07: a failed dry-run shows a readable error, not a raw failure', async () => {
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          return Promise.resolve(new Response('boom', { status: 500 }))
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Erro inesperado (500).')
+  })
+
+  it('S13-07: never calls the API repeatedly on its own — only "Testar"/"Atualizar" do', async () => {
+    let testCalls = 0
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          testCalls += 1
+          return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await screen.findByText(/Nenhuma mensagem bateu/)
+    expect(testCalls).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: 'Atualizar' }))
+    await waitFor(() => expect(testCalls).toBe(2))
+
+    await user.click(screen.getByRole('button', { name: 'Fechar' }))
+    expect(testCalls).toBe(2)
   })
 
   it('pausing a rule calls the pause endpoint and reloads the list', async () => {

@@ -123,17 +123,18 @@ class RuleEvaluation:
     price_card_cents: int | None = None
 
 
-def _evaluate_rule(rule: Rule, text: str) -> RuleEvaluation:
+def evaluate_rule(rule: Rule, text: str) -> RuleEvaluation:
     """Match -> price, with no side effect of its own.
 
-    Shared by the live and historical paths (S6-02) precisely so neither one
-    duplicates the matching/pricing logic — they differ only in what happens
-    *after* this: the live path counts discards/matches and notifies, the
-    historical path never touches a metric counter at all (a homologation
-    scan of the historical window must not inflate the counters that
-    describe live traffic health, and would double-count on every listener
-    restart if it did, since `MetricCounter` is cumulative, not deduplicated
-    by identity).
+    Shared by the live path, the historical path (S6-02) and the dry-run
+    `POST /rules/test` (S13-07) precisely so none of them duplicates the
+    matching/pricing logic — they differ only in what happens *after* this:
+    the live path counts discards/matches and notifies, the historical path
+    never touches a metric counter at all (a homologation scan of the
+    historical window must not inflate the counters that describe live
+    traffic health, and would double-count on every listener restart if it
+    did, since `MetricCounter` is cumulative, not deduplicated by identity),
+    and the dry-run test endpoint never persists or counts anything at all.
     """
     match_rule = _build_match_rule(rule)
     if not match_rule.matches(text):
@@ -274,7 +275,7 @@ async def process_message(
     if message.message_id is not None:
         advance_cursor(session, message.source_id, message.message_id)
 
-    evaluation = _evaluate_rule(rule, message.text)
+    evaluation = evaluate_rule(rule, message.text)
     if evaluation.discard_reason is not None:
         increment_counter(session, evaluation.discard_reason, source_id=message.source_id)
         return ProcessResult(match=None, deliveries_sent=0, reason=evaluation.discard_reason.value)
@@ -493,11 +494,11 @@ async def process_historical_message(
     S6-02: structurally cannot notify — there is no `BotNotifier` parameter to
     call, so a homologation scan of the historical window can never send a
     retroactive alert. Never advances `ProcessingCursor` and never touches a metric
-    counter either (see `_evaluate_rule`). Applicable recipients still get a
+    counter either (see `evaluate_rule`). Applicable recipients still get a
     `Delivery` row, with `status="historical"` and `delivered_at=NULL`, so the
     panel can show "matched, no alert sent" instead of hiding the match.
     """
-    evaluation = _evaluate_rule(rule, message.text)
+    evaluation = evaluate_rule(rule, message.text)
     if evaluation.discard_reason is not None:
         return ProcessResult(match=None, deliveries_sent=0, reason=evaluation.discard_reason.value)
 

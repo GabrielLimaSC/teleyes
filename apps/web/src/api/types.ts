@@ -44,6 +44,29 @@ export interface Rule {
   lowest_price_cents: number | null
 }
 
+/** S13-07: one already-matched message (any existing rule, last
+ * `window_days`) that the form's not-yet-saved terms would also catch. */
+export interface RuleTestMatch {
+  source_id: number
+  source_name: string
+  message_text: string
+  price_cents: number | null
+  price_cash_cents: number | null
+  price_card_cents: number | null
+  message_link: string | null
+  matched_at: string
+  /** The include term (as typed) that made this message match. */
+  matched_term: string
+}
+
+/** S13-07: `POST /rules/test` response — `total_matched` counts every real
+ * match in the window, `messages` is capped at the 50 most recent. */
+export interface RuleTestResult {
+  total_matched: number
+  window_days: number
+  messages: RuleTestMatch[]
+}
+
 export interface Source {
   id: number
   name: string

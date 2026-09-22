@@ -53,6 +53,7 @@ def login(client: TestClient) -> str:
 ANONYMOUS_ROUTES = [
     ("GET", "/rules", None),
     ("POST", "/rules", {"name": "Promo", "include_terms": "promo"}),
+    ("POST", "/rules/test", {"include_terms": "promo"}),
     ("PATCH", "/rules/1", {"name": "Atualizada"}),
     ("POST", "/rules/1/pause", None),
     ("DELETE", "/rules/1", None),

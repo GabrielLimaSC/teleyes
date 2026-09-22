@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
-import { clearRuleMatches, createRule, deleteRule, listRules, pauseRule, updateRule } from '../api/rules'
-import type { RuleInput } from '../api/rules'
+import {
+  clearRuleMatches,
+  createRule,
+  deleteRule,
+  listRules,
+  pauseRule,
+  testRule,
+  updateRule,
+} from '../api/rules'
+import type { RuleInput, RuleTestInput } from '../api/rules'
 import { fetchMatches } from '../api/matches'
 import { fetchMetrics } from '../api/metrics'
 import { ApiError } from '../api/auth'
-import type { Rule } from '../api/types'
+import type { Rule, RuleTestResult } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
 import { parseTermList } from '../utils/termList'
+import { formatMatchedAt } from '../utils/dates'
 import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
 import { settledToast } from '../components/listenerState'
 import { StatusToggle } from '../components/StatusToggle'
@@ -45,6 +54,17 @@ function ruleToForm(rule: Rule, { asCopy }: { asCopy: boolean }): RuleForm {
 function formToInput(form: RuleForm): RuleInput {
   return {
     name: form.name,
+    include_terms: form.includeTerms,
+    exclude_terms: form.excludeTerms.trim() === '' ? null : form.excludeTerms,
+    max_price_cents: form.maxPriceReais.trim() === '' ? null : Math.round(Number(form.maxPriceReais) * 100),
+  }
+}
+
+/** S13-07: same conversion as `formToInput`, minus `name` — `POST /rules/test`
+ * only ever needs the fields that affect matching, straight from whatever is
+ * currently typed, saved or not. */
+function formToTestInput(form: RuleForm): RuleTestInput {
+  return {
     include_terms: form.includeTerms,
     exclude_terms: form.excludeTerms.trim() === '' ? null : form.excludeTerms,
     max_price_cents: form.maxPriceReais.trim() === '' ? null : Math.round(Number(form.maxPriceReais) * 100),
@@ -91,10 +111,24 @@ export function RegrasPage() {
   const [submitting, setSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
+  // S13-07: real-history dry-run section shared by both "Testar" entry
+  // points below — cleared whenever the tester panel target changes (a
+  // stale preview must never look like it describes what's on screen now).
+  const [formTesting, setFormTesting] = useState(false)
+  const [formTestResult, setFormTestResult] = useState<RuleTestResult | null>(null)
+  const [formTestError, setFormTestError] = useState<string | null>(null)
+
   const [pausingId, setPausingId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
+  // S4-06's per-row "Testar" (`testerId`) and S13-07's own "Testar" on the
+  // still-unsaved "Nova regra" rail (`createTesterOpen`) are the same word
+  // and the same panel (one at a time — opening either closes the other) so
+  // Gabriel never sees two different "Testar" controls doing different
+  // things. See `testerContext`/`effectiveTesterTerms` below for how the
+  // panel picks which terms (saved rule, or live unsaved form) it tests.
   const [testerId, setTesterId] = useState<number | null>(null)
+  const [createTesterOpen, setCreateTesterOpen] = useState(false)
   const [testerText, setTesterText] = useState('')
 
   const [checkingClearId, setCheckingClearId] = useState<number | null>(null)
@@ -153,6 +187,13 @@ export function RegrasPage() {
     setForm(next)
     setFormVersion((version) => version + 1)
     setFormError(null)
+    // The still-unsaved "Nova regra" tester never survives a form reload —
+    // whatever was being tested there is gone the moment the rail loads
+    // different data. A row's own tester survives only if it's the exact
+    // rule now loaded for editing (the live-preview flow); any other case
+    // closes it too, so it never keeps showing a rule that isn't on screen.
+    setCreateTesterOpen(false)
+    setTesterId((current) => (target.kind === 'edit' && current === target.rule.id ? current : null))
   }
 
   const openCreate = () => {
@@ -285,8 +326,119 @@ export function RegrasPage() {
       .finally(() => setClearing(false))
   }
 
-  const activeTester = rules.find((rule) => rule.id === testerId)
   const isEditing = formTarget.kind === 'edit'
+
+  // S13-07: which "Testar" panel (if any) is open, and which terms it tests.
+  // A row's own saved rule — unless that exact rule is the one currently
+  // loaded live in the edit rail, in which case its not-yet-saved form
+  // values are what Gabriel actually wants previewed — or the still-unsaved
+  // "Nova regra" rail form itself. Recomputed every render (not memoized) so
+  // typing in the rail live-updates the local ✅/❌ verdict below without a
+  // network call; only the real-history fetch is explicitly triggered.
+  type TesterContext = { kind: 'rule'; rule: Rule } | { kind: 'create' } | null
+  const testerContext: TesterContext =
+    testerId !== null
+      ? (() => {
+          const rule = rules.find((candidate) => candidate.id === testerId)
+          return rule ? { kind: 'rule' as const, rule } : null
+        })()
+      : createTesterOpen
+        ? { kind: 'create' as const }
+        : null
+
+  const liveFormTerms = (): RuleTestInput => formToTestInput(form)
+
+  const effectiveTesterTerms = (
+    context: TesterContext,
+  ): { include: string; exclude: string | null; maxPriceCents: number | null } | null => {
+    if (context === null) return null
+    if (context.kind === 'create') {
+      const live = liveFormTerms()
+      return { include: live.include_terms, exclude: live.exclude_terms ?? null, maxPriceCents: live.max_price_cents ?? null }
+    }
+    if (formTarget.kind === 'edit' && formTarget.rule.id === context.rule.id) {
+      const live = liveFormTerms()
+      return { include: live.include_terms, exclude: live.exclude_terms ?? null, maxPriceCents: live.max_price_cents ?? null }
+    }
+    return {
+      include: context.rule.include_terms,
+      exclude: context.rule.exclude_terms,
+      maxPriceCents: context.rule.max_price_cents,
+    }
+  }
+
+  const currentTesterTerms = effectiveTesterTerms(testerContext)
+
+  // S13-07: the real-history half of the panel — explicitly triggered
+  // (opening the panel, or "Atualizar"), never on every keystroke, so
+  // editing the form doesn't spam `POST /rules/test`. Reads only: creates
+  // no `Match`/`Delivery`, advances no cursor, calls no `BotNotifier`.
+  const fetchRealTesterPreview = (
+    terms: { include: string; exclude: string | null; maxPriceCents: number | null } | null,
+  ) => {
+    if (terms === null) return
+    if (csrfToken === null) {
+      setFormTestError(CSRF_MISSING_MESSAGE)
+      setFormTestResult(null)
+      return
+    }
+    if (parseTermList(terms.include).length === 0) {
+      setFormTestError(NO_TERMS_MESSAGE)
+      setFormTestResult(null)
+      return
+    }
+    setFormTesting(true)
+    setFormTestError(null)
+    testRule(csrfToken, {
+      include_terms: terms.include,
+      exclude_terms: terms.exclude,
+      max_price_cents: terms.maxPriceCents,
+    })
+      .then((result) => setFormTestResult(result))
+      .catch((error: unknown) => {
+        setFormTestResult(null)
+        setFormTestError(error instanceof ApiError ? error.message : 'Não foi possível testar a regra.')
+      })
+      .finally(() => setFormTesting(false))
+  }
+
+  // Opens with the terms captured at click time and loads the real-history
+  // half right away; the local ✅/❌ field then stays live on its own.
+  useEffect(() => {
+    if (testerContext === null) {
+      setFormTestResult(null)
+      setFormTestError(null)
+      return
+    }
+    fetchRealTesterPreview(effectiveTesterTerms(testerContext))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testerId, createTesterOpen])
+
+  const closeTester = () => {
+    setTesterId(null)
+    setCreateTesterOpen(false)
+    setTesterText('')
+  }
+
+  const toggleRowTester = (rule: Rule) => {
+    if (testerId === rule.id) {
+      closeTester()
+      return
+    }
+    setTesterId(rule.id)
+    setCreateTesterOpen(false)
+    setTesterText('')
+  }
+
+  const toggleCreateTester = () => {
+    if (createTesterOpen) {
+      closeTester()
+      return
+    }
+    setCreateTesterOpen(true)
+    setTesterId(null)
+    setTesterText('')
+  }
 
   return (
     <main className="crud-page regras-page">
@@ -391,10 +543,7 @@ export function RegrasPage() {
                           <button
                             type="button"
                             className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => {
-                              setTesterId(testerId === rule.id ? null : rule.id)
-                              setTesterText('')
-                            }}
+                            onClick={() => toggleRowTester(rule)}
                           >
                             Testar
                           </button>
@@ -428,12 +577,24 @@ export function RegrasPage() {
             </div>
           )}
 
-          {activeTester && (
+          {testerContext !== null && currentTesterTerms !== null && (
             <div className="plane-pearl regras-panel">
-              <h2>Testar regra: {activeTester.name}</h2>
+              <div className="regras-panel__heading">
+                <h2>
+                  {testerContext.kind === 'create'
+                    ? 'Testar regra: nova regra (ainda não salva)'
+                    : `Testar regra: ${testerContext.rule.name}`}
+                </h2>
+                <button type="button" className="plane-action plane-action--secondary plane-action--compact" onClick={closeTester}>
+                  Fechar
+                </button>
+              </div>
               <p className="regras-panel__note">
-                Prévia local (não chama a API nem cria dado nenhum) — reproduz a mesma lógica de
-                normalização e termos do backend.
+                {testerContext.kind === 'rule' &&
+                formTarget.kind === 'edit' &&
+                formTarget.rule.id === testerContext.rule.id
+                  ? 'Testando os campos ainda não salvos do formulário ao lado.'
+                  : 'Prévia local (não chama a API nem cria dado nenhum) — reproduz a mesma lógica de normalização e termos do backend.'}
               </p>
               <label className="regras-panel__field">
                 Mensagem de exemplo
@@ -441,11 +602,82 @@ export function RegrasPage() {
               </label>
               {testerText.trim() !== '' && (
                 <p className="regras-panel__verdict">
-                  {previewRuleMatch(testerText, activeTester.include_terms, activeTester.exclude_terms)
+                  {previewRuleMatch(testerText, currentTesterTerms.include, currentTesterTerms.exclude)
                     ? '✅ Bateria com esta regra'
                     : '❌ Não bateria com esta regra'}
                 </p>
               )}
+
+              {/* S13-07: real messages from the last `window_days` that these
+                  (possibly still unsaved) terms would have caught — the
+                  actual point of this task, the sample field above predates
+                  it (S4-06) and is kept as the instant, no-network check. */}
+              <div className="regras-test-section">
+                <div className="regras-test-section__header">
+                  <h3>Mensagens reais que bateriam</h3>
+                  <button
+                    type="button"
+                    className="plane-action plane-action--secondary plane-action--compact"
+                    onClick={() => fetchRealTesterPreview(currentTesterTerms)}
+                    disabled={formTesting}
+                  >
+                    {formTesting ? 'Buscando…' : 'Atualizar'}
+                  </button>
+                </div>
+                {formTesting && (
+                  <p role="status" className="regras-test-section__status">
+                    Buscando mensagens…
+                  </p>
+                )}
+                {formTestError && (
+                  <p role="alert" className="regras-panel__error">
+                    {formTestError}
+                  </p>
+                )}
+                {!formTesting && formTestResult && formTestResult.messages.length === 0 && (
+                  <p className="regras-test-section__empty">
+                    Nenhuma mensagem bateu com esses termos nos últimos {formTestResult.window_days} dias.
+                  </p>
+                )}
+                {!formTesting && formTestResult && formTestResult.messages.length > 0 && (
+                  <>
+                    <p className="regras-test-section__count">
+                      {formTestResult.total_matched === 1
+                        ? '1 mensagem bateria com esses termos'
+                        : `${formTestResult.total_matched} mensagens bateriam com esses termos`}{' '}
+                      nos últimos {formTestResult.window_days} dias.
+                    </p>
+                    <ul className="regras-test-section__list">
+                      {formTestResult.messages.map((message, index) => (
+                        <li key={index} className="regras-test-section__item">
+                          <p className="regras-test-section__text">{message.message_text}</p>
+                          <p className="regras-test-section__meta">
+                            {message.source_name} · {formatMatchedAt(message.matched_at)} ·{' '}
+                            {formatLowestPrice(message.price_cents)}
+                          </p>
+                          <p className="regras-test-section__term">Termo: "{message.matched_term}"</p>
+                          {message.message_link !== null && (
+                            <a
+                              href={message.message_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="regras-test-section__link"
+                            >
+                              Abrir mensagem original
+                            </a>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {formTestResult.total_matched > formTestResult.messages.length && (
+                      <p className="regras-test-section__more">
+                        Mostrando as {formTestResult.messages.length} mais recentes de{' '}
+                        {formTestResult.total_matched}.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           )}
 
@@ -544,6 +776,21 @@ export function RegrasPage() {
                 {isEditing ? 'Cancelar' : 'Limpar campos'}
               </button>
             </div>
+            {/* S13-07: the row's own "Testar" (S4-06) already covers the
+                edit case — editing a rule keeps that same row's panel valid,
+                it just starts reading the live unsaved fields instead of the
+                saved ones (see `effectiveTesterTerms`). A brand new rule has
+                no row yet, so creation gets its own entry to the same
+                panel/state, never a second differently-labeled button. */}
+            {!isEditing && (
+              <button
+                type="button"
+                className="plane-action plane-action--secondary regras-form__test-button"
+                onClick={toggleCreateTester}
+              >
+                {createTesterOpen ? 'Fechar teste' : 'Testar'}
+              </button>
+            )}
             {formError && (
               <p role="alert" className="regras-form__error">
                 {formError}

@@ -665,6 +665,150 @@
         "title": "RuleResponse",
         "type": "object"
       },
+      "RuleTestMatch": {
+        "properties": {
+          "matched_at": {
+            "format": "date-time",
+            "title": "Matched At",
+            "type": "string"
+          },
+          "matched_term": {
+            "title": "Matched Term",
+            "type": "string"
+          },
+          "message_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Link"
+          },
+          "message_text": {
+            "title": "Message Text",
+            "type": "string"
+          },
+          "price_card_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Card Cents"
+          },
+          "price_cash_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cash Cents"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "integer"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_name",
+          "message_text",
+          "price_cents",
+          "price_cash_cents",
+          "price_card_cents",
+          "message_link",
+          "matched_at",
+          "matched_term"
+        ],
+        "title": "RuleTestMatch",
+        "type": "object"
+      },
+      "RuleTestRequest": {
+        "description": "S13-07: same shape as `RuleCreate` minus `name` \u2014 a dry-run only ever\nneeds the fields that actually affect matching. The schema has no\nsource-scoping field on `Rule` at all (`app.pipeline.ListenerSource`'s\nown docstring: every active rule is evaluated against every active\nsource's messages), so there is nothing to filter by here either.",
+        "properties": {
+          "exclude_terms": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Terms"
+          },
+          "include_terms": {
+            "title": "Include Terms",
+            "type": "string"
+          },
+          "max_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Price Cents"
+          }
+        },
+        "required": [
+          "include_terms"
+        ],
+        "title": "RuleTestRequest",
+        "type": "object"
+      },
+      "RuleTestResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/RuleTestMatch"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "total_matched": {
+            "title": "Total Matched",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_matched",
+          "window_days",
+          "messages"
+        ],
+        "title": "RuleTestResponse",
+        "type": "object"
+      },
       "RuleUpdate": {
         "properties": {
           "exclude_terms": {
@@ -2092,6 +2236,66 @@
           }
         },
         "summary": "Create Rule",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
+    "/rules/test": {
+      "post": {
+        "description": "S13-07: dry-run of a not-yet-saved rule form (create OR edit) against\nreal history \u2014 Gabriel types terms/exclusions/ceiling, clicks \"Testar\"\nand sees which real recent messages would have matched, before ever\nsaving. Reuses `app.pipeline.evaluate_rule`, the exact match -> price ->\nceiling core the live and historical paths run, so a preview here behaves\nidentically to what saving the rule for real would have caught. Reads\nonly: never creates a `Match`/`Delivery`, never advances a\n`ProcessingCursor`, never calls `BotNotifier` \u2014 calling this ten times in\na row has the same zero effect as calling it once.\n\nData source and its limitation: this project retains message content\nonly for messages that already matched SOME existing rule (`CLAUDE.md`/\n`PRODUCT.md` \u2014 rejected traffic keeps aggregate counters, never text), so\nthere is no raw \"every message seen\" table to scan and this can't\nre-query Telegram live either (that's the real listener's job, not a form\npreview). The dry-run instead scans the pool of already-matched messages\nfrom the last `HISTORICAL_WINDOW` days \u2014 the same window\n`run_historical_scan` uses \u2014 deduplicated by real Telegram identity so a\nmessage that matched several existing rules is only evaluated once here.\nA message that never matched any existing rule was discarded upstream\nand its text was never persisted anywhere, so a rule aimed at genuinely\nnew territory no existing rule already covers can legitimately preview\nas empty even though matching messages really arrived \u2014 this is the best\nreal data available without inventing a live Telegram scrape here.",
+        "operationId": "test_rule_rules_test_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Rule",
         "tags": [
           "rules"
         ]

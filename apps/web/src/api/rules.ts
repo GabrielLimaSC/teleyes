@@ -1,8 +1,14 @@
 import { apiRequest, jsonHeaders } from './http'
-import type { Rule } from './types'
+import type { Rule, RuleTestResult } from './types'
 
 export interface RuleInput {
   name: string
+  include_terms: string
+  exclude_terms?: string | null
+  max_price_cents?: number | null
+}
+
+export interface RuleTestInput {
   include_terms: string
   exclude_terms?: string | null
   max_price_cents?: number | null
@@ -21,6 +27,16 @@ export const createRule = (csrfToken: string, input: RuleInput): Promise<Rule> =
 export const updateRule = (csrfToken: string, id: number, input: Partial<RuleInput>): Promise<Rule> =>
   apiRequest<Rule>(`/rules/${id}`, {
     method: 'PATCH',
+    headers: jsonHeaders(csrfToken),
+    body: JSON.stringify(input),
+  })
+
+/** S13-07: dry-run of the current form's terms against real history — reads
+ * only, never saves anything, safe to call as many times as Gabriel edits
+ * the form. */
+export const testRule = (csrfToken: string, input: RuleTestInput): Promise<RuleTestResult> =>
+  apiRequest<RuleTestResult>('/rules/test', {
+    method: 'POST',
     headers: jsonHeaders(csrfToken),
     body: JSON.stringify(input),
   })
