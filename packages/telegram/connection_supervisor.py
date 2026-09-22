@@ -148,6 +148,15 @@ class ConnectionSupervisor:
     long catch-up ends the run cleanly instead of being ignored until Docker
     escalates to SIGKILL — and a requested stop is never mistaken for a
     failure to retry.
+
+    `on_blocked` (S13-09) runs once, after the `blocked` log line, when
+    `_block` escalates — the only hook here that is not Telethon-shaped
+    input/output but a plain `Callable[[], Awaitable[None]]`, so this module
+    stays agnostic of *what* reacts to `blocked` (the caller wires a
+    `BotNotifier` alert in `scripts/run_listener.py`; this class never
+    imports it). A failing `on_blocked` is caught and logged (class only)
+    here, never left to delay or break the `BLOCKED` return the process
+    shutdown depends on.
     """
 
     def __init__(
@@ -162,6 +171,7 @@ class ConnectionSupervisor:
         monotonic: Callable[[], float] = time.monotonic,
         uniform: Callable[[float, float], float] = random.uniform,
         on_state_change: Callable[[AdapterState], None] | None = None,
+        on_blocked: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self._connection = connection
         self._wait_until_disconnected = wait_until_disconnected
@@ -172,6 +182,7 @@ class ConnectionSupervisor:
         self._monotonic = monotonic
         self._uniform = uniform
         self._on_state_change = on_state_change
+        self._on_blocked = on_blocked
         self.state: AdapterState = AdapterState.CONNECTING
         self.backoff_delays: list[float] = []
 
@@ -265,6 +276,13 @@ class ConnectionSupervisor:
             reason,
             failures,
         )
+        if self._on_blocked is not None:
+            try:
+                await self._on_blocked()
+            except Exception as caught:
+                # The alert failing (e.g. the bot has no network either) must
+                # never delay or break the shutdown this return triggers.
+                logger.error("event=blocked_alert_failed %s", describe_error(caught))
         return SupervisorOutcome.BLOCKED
 
     async def _safe_disconnect(self) -> None:
