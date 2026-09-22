@@ -16,6 +16,20 @@ from models.base import Base
 PASSWORD = "correct horse battery staple"
 
 
+class FakeClock:
+    """A controllable clock for `SessionStore(clock=...)` — real time would
+    make the renew-by-activity test either flaky or take actual minutes."""
+
+    def __init__(self, start: float = 0.0) -> None:
+        self._now = start
+
+    def __call__(self) -> float:
+        return self._now
+
+    def advance(self, seconds: float) -> None:
+        self._now += seconds
+
+
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     engine = create_engine(
@@ -114,3 +128,77 @@ def test_repeated_wrong_passwords_trigger_temporary_lockout(client: TestClient) 
     locked_response = client.post("/auth/login", json={"password": PASSWORD})
 
     assert locked_response.status_code == 429
+
+
+# S13-08: renewal by activity, exercised directly against `SessionStore` with
+# a fake clock — the fixed-1h-from-creation bug lived here, not in the HTTP
+# layer, so the regression test belongs at this level too.
+
+
+def test_get_session_renews_expiry_on_each_valid_read() -> None:
+    clock = FakeClock()
+    store = SessionStore(ttl_seconds=100.0, clock=clock)
+    record = store.create_session(admin_id=1)
+
+    clock.advance(80.0)  # inside the original 100s window
+    assert store.get_session(record.session_id) is not None  # renews: now valid until t=180
+
+    # Total elapsed since creation is now 160s — past the *original* fixed
+    # TTL counted from `created_at` — but the read above pushed the sliding
+    # window to t=180, so the session must still be alive.
+    clock.advance(80.0)
+    assert store.get_session(record.session_id) is not None  # renews again: valid until t=260
+
+    clock.advance(80.0)
+    assert store.get_session(record.session_id) is not None  # still fine: t=240 < t=260
+
+
+def test_get_session_expires_after_ttl_seconds_of_no_activity() -> None:
+    clock = FakeClock()
+    store = SessionStore(ttl_seconds=100.0, clock=clock)
+    record = store.create_session(admin_id=1)
+
+    clock.advance(50.0)
+    assert store.get_session(record.session_id) is not None  # renews: valid until t=150
+
+    clock.advance(150.0)  # no read in between — 150s of pure inactivity
+    assert store.get_session(record.session_id) is None
+
+
+def test_get_session_forgets_an_expired_session_it_deleted() -> None:
+    clock = FakeClock()
+    store = SessionStore(ttl_seconds=10.0, clock=clock)
+    record = store.create_session(admin_id=1)
+
+    clock.advance(11.0)
+    assert store.get_session(record.session_id) is None
+    # A second lookup after the first already evicted it: still None, not a
+    # crash on a missing dict entry.
+    assert store.get_session(record.session_id) is None
+
+
+def test_default_ttl_is_the_24h_inactivity_window() -> None:
+    # Pins the documented default so a future edit can't silently shrink it
+    # back toward the old fixed-1h behaviour without a test noticing.
+    assert SessionStore().__dict__["_ttl_seconds"] == 86400.0
+
+
+def test_session_created_via_login_survives_past_the_old_fixed_1h_ttl_with_activity(
+    client: TestClient,
+) -> None:
+    """End-to-end version of the same bug: with the real HTTP session store,
+    activity past the old 1h-from-creation mark must keep working."""
+    clock = FakeClock()
+    app.state.session_store = SessionStore(ttl_seconds=100.0, clock=clock)
+
+    login_response = client.post("/auth/login", json={"password": PASSWORD})
+    csrf_token = login_response.json()["csrf_token"]
+
+    # Past the fixed-TTL-from-creation mark, but each `/auth/me` call in
+    # between renews the sliding window.
+    for _ in range(3):
+        clock.advance(80.0)
+        assert client.get("/auth/me").status_code == 200
+
+    response = client.post("/auth/logout", headers={"x-csrf-token": csrf_token})
+    assert response.status_code == 200
