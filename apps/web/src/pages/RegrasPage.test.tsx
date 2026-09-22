@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { listenerStatus } from '../test/listenerFixtures'
@@ -28,6 +28,14 @@ const baseRule = {
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve
+  })
+  return { promise, resolve }
 }
 
 /**
@@ -202,7 +210,7 @@ describe('RegrasPage', () => {
     // S13-07: opening the panel auto-loads the real-history section below —
     // wait for it before counting calls, so that one is accounted for.
     await user.click(within(row).getByRole('button', { name: 'Testar' }))
-    await screen.findByText(/Nenhuma mensagem bateu/)
+    await screen.findByText(/Nenhuma promoção já capturada e salva bateu/)
     const callsAfterOpen = fetchMock.mock.calls.length
 
     await user.type(screen.getByLabelText('Mensagem de exemplo'), 'Promoção iPhone 15')
@@ -254,6 +262,11 @@ describe('RegrasPage', () => {
     expect(await screen.findByText('Promoção iPhone 15 por R$ 3.899')).toBeInTheDocument()
     expect(screen.getByText(/Grupo Teste/)).toBeInTheDocument()
     expect(screen.getByText('Termo: "iphone"')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Promoções já salvas que bateriam' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Mensagens descartadas não ficam armazenadas.*não é uma varredura completa do Telegram/),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/1 promoção já salva bateria com esses termos/)).toBeInTheDocument()
     expect(testRequestBody).toEqual({
       include_terms: 'iphone',
       exclude_terms: null,
@@ -321,7 +334,12 @@ describe('RegrasPage', () => {
 
     await waitFor(() => expect(testRequestBody).not.toBeNull())
     expect(testRequestBody).toEqual({ include_terms: 'rtx 5070', exclude_terms: null, max_price_cents: null })
-    expect(await screen.findByText(/Nenhuma mensagem bateu com esses termos nos últimos 15 dias/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        /Nenhuma promoção já capturada e salva bateu com esses termos nos últimos 15 dias/,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/somente promoções já capturadas e salvas como match/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Testar regra: nova regra (ainda não salva)' })).toBeInTheDocument()
   })
 
@@ -377,7 +395,7 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
     await user.click(within(row).getByRole('button', { name: 'Testar' }))
-    await screen.findByText(/Nenhuma mensagem bateu/)
+    await screen.findByText(/Nenhuma promoção já capturada e salva bateu/)
     expect(testCalls).toBe(1)
 
     await user.click(screen.getByRole('button', { name: 'Atualizar' }))
@@ -385,6 +403,129 @@ describe('RegrasPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Fechar' }))
     expect(testCalls).toBe(2)
+  })
+
+  it('S13-07: an older response cannot overwrite the tester after switching rules', async () => {
+    const ruleA = { ...baseRule, id: 1, name: 'Regra A', include_terms: 'alpha' }
+    const ruleB = { ...baseRule, id: 2, name: 'Regra B', include_terms: 'beta' }
+    const pendingRequests: Array<ReturnType<typeof deferred<Response>>> = []
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (url === '/rules/test' && method === 'POST') {
+          const request = deferred<Response>()
+          pendingRequests.push(request)
+          return request.promise
+        }
+        return Promise.resolve(jsonResponse([ruleA, ruleB]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const rowA = (await screen.findByText('Regra A')).closest('tr') as HTMLElement
+    const rowB = screen.getByText('Regra B').closest('tr') as HTMLElement
+
+    await user.click(within(rowA).getByRole('button', { name: 'Testar' }))
+    await waitFor(() => expect(pendingRequests).toHaveLength(1))
+    await user.click(within(rowB).getByRole('button', { name: 'Testar' }))
+    await waitFor(() => expect(pendingRequests).toHaveLength(2))
+
+    await act(async () => {
+      pendingRequests[1].resolve(
+        jsonResponse({
+          total_matched: 1,
+          window_days: 15,
+          messages: [
+            {
+              source_id: 1,
+              source_name: 'Grupo B',
+              message_text: 'Resultado correto da regra B',
+              price_cents: null,
+              price_cash_cents: null,
+              price_card_cents: null,
+              message_link: null,
+              matched_at: '2026-09-22T12:00:00Z',
+              matched_term: 'beta',
+            },
+          ],
+        }),
+      )
+    })
+    expect(await screen.findByText('Resultado correto da regra B')).toBeInTheDocument()
+
+    await act(async () => {
+      pendingRequests[0].resolve(
+        jsonResponse({
+          total_matched: 1,
+          window_days: 15,
+          messages: [
+            {
+              source_id: 1,
+              source_name: 'Grupo A',
+              message_text: 'Resultado obsoleto da regra A',
+              price_cents: null,
+              price_cash_cents: null,
+              price_card_cents: null,
+              message_link: null,
+              matched_at: '2026-09-22T11:00:00Z',
+              matched_term: 'alpha',
+            },
+          ],
+        }),
+      )
+    })
+
+    expect(screen.getByRole('heading', { name: 'Testar regra: Regra B' })).toBeInTheDocument()
+    expect(screen.getByText('Resultado correto da regra B')).toBeInTheDocument()
+    expect(screen.queryByText('Resultado obsoleto da regra A')).not.toBeInTheDocument()
+  })
+
+  it('S13-07: a response arriving after the tester closes stays hidden', async () => {
+    const pendingRequest = deferred<Response>()
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        if (String(input) === '/rules/test' && (init?.method ?? 'GET') === 'POST') {
+          return pendingRequest.promise
+        }
+        return Promise.resolve(jsonResponse([baseRule]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    expect(await screen.findByRole('heading', { name: 'Testar regra: iPhone' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fechar' }))
+
+    await act(async () => {
+      pendingRequest.resolve(
+        jsonResponse({
+          total_matched: 1,
+          window_days: 15,
+          messages: [
+            {
+              source_id: 1,
+              source_name: 'Grupo atrasado',
+              message_text: 'Resultado depois de fechar',
+              price_cents: null,
+              price_cash_cents: null,
+              price_card_cents: null,
+              message_link: null,
+              matched_at: '2026-09-22T12:00:00Z',
+              matched_term: 'iphone',
+            },
+          ],
+        }),
+      )
+    })
+
+    expect(screen.queryByRole('heading', { name: 'Testar regra: iPhone' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Resultado depois de fechar')).not.toBeInTheDocument()
   })
 
   it('pausing a rule calls the pause endpoint and reloads the list', async () => {

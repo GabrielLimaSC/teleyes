@@ -117,6 +117,10 @@ export function RegrasPage() {
   const [formTesting, setFormTesting] = useState(false)
   const [formTestResult, setFormTestResult] = useState<RuleTestResult | null>(null)
   const [formTestError, setFormTestError] = useState<string | null>(null)
+  // Only the newest request may update the shared tester panel. Changing or
+  // closing the target invalidates the in-flight request synchronously, before
+  // React runs the effect for the next target.
+  const formTestRequestId = useRef(0)
 
   const [pausingId, setPausingId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -183,6 +187,12 @@ export function RegrasPage() {
   }
 
   const loadForm = (target: FormTarget, next: RuleForm) => {
+    const keepsCurrentTester =
+      target.kind === 'edit' && testerId !== null && testerId === target.rule.id
+    if (!keepsCurrentTester) {
+      formTestRequestId.current += 1
+      setFormTesting(false)
+    }
     setFormTarget(target)
     setForm(next)
     setFormVersion((version) => version + 1)
@@ -376,30 +386,39 @@ export function RegrasPage() {
   const fetchRealTesterPreview = (
     terms: { include: string; exclude: string | null; maxPriceCents: number | null } | null,
   ) => {
+    const requestId = ++formTestRequestId.current
     if (terms === null) return
     if (csrfToken === null) {
+      setFormTesting(false)
       setFormTestError(CSRF_MISSING_MESSAGE)
       setFormTestResult(null)
       return
     }
     if (parseTermList(terms.include).length === 0) {
+      setFormTesting(false)
       setFormTestError(NO_TERMS_MESSAGE)
       setFormTestResult(null)
       return
     }
     setFormTesting(true)
     setFormTestError(null)
+    setFormTestResult(null)
     testRule(csrfToken, {
       include_terms: terms.include,
       exclude_terms: terms.exclude,
       max_price_cents: terms.maxPriceCents,
     })
-      .then((result) => setFormTestResult(result))
+      .then((result) => {
+        if (formTestRequestId.current === requestId) setFormTestResult(result)
+      })
       .catch((error: unknown) => {
+        if (formTestRequestId.current !== requestId) return
         setFormTestResult(null)
         setFormTestError(error instanceof ApiError ? error.message : 'Não foi possível testar a regra.')
       })
-      .finally(() => setFormTesting(false))
+      .finally(() => {
+        if (formTestRequestId.current === requestId) setFormTesting(false)
+      })
   }
 
   // Opens with the terms captured at click time and loads the real-history
@@ -415,6 +434,8 @@ export function RegrasPage() {
   }, [testerId, createTesterOpen])
 
   const closeTester = () => {
+    formTestRequestId.current += 1
+    setFormTesting(false)
     setTesterId(null)
     setCreateTesterOpen(false)
     setTesterText('')
@@ -425,6 +446,8 @@ export function RegrasPage() {
       closeTester()
       return
     }
+    formTestRequestId.current += 1
+    setFormTesting(false)
     setTesterId(rule.id)
     setCreateTesterOpen(false)
     setTesterText('')
@@ -435,6 +458,8 @@ export function RegrasPage() {
       closeTester()
       return
     }
+    formTestRequestId.current += 1
+    setFormTesting(false)
     setCreateTesterOpen(true)
     setTesterId(null)
     setTesterText('')
@@ -608,13 +633,12 @@ export function RegrasPage() {
                 </p>
               )}
 
-              {/* S13-07: real messages from the last `window_days` that these
-                  (possibly still unsaved) terms would have caught — the
-                  actual point of this task, the sample field above predates
-                  it (S4-06) and is kept as the instant, no-network check. */}
+              {/* S13-07: retained matches from the last `window_days` that
+                  these (possibly still unsaved) terms would have caught. Raw
+                  discarded Telegram messages are deliberately not retained. */}
               <div className="regras-test-section">
                 <div className="regras-test-section__header">
-                  <h3>Mensagens reais que bateriam</h3>
+                  <h3>Promoções já salvas que bateriam</h3>
                   <button
                     type="button"
                     className="plane-action plane-action--secondary plane-action--compact"
@@ -624,6 +648,11 @@ export function RegrasPage() {
                     {formTesting ? 'Buscando…' : 'Atualizar'}
                   </button>
                 </div>
+                <p className="regras-panel__note">
+                  A prévia consulta somente promoções já capturadas e salvas como match.
+                  Mensagens descartadas não ficam armazenadas, então isto não é uma varredura
+                  completa do Telegram.
+                </p>
                 {formTesting && (
                   <p role="status" className="regras-test-section__status">
                     Buscando mensagens…
@@ -636,15 +665,16 @@ export function RegrasPage() {
                 )}
                 {!formTesting && formTestResult && formTestResult.messages.length === 0 && (
                   <p className="regras-test-section__empty">
-                    Nenhuma mensagem bateu com esses termos nos últimos {formTestResult.window_days} dias.
+                    Nenhuma promoção já capturada e salva bateu com esses termos nos últimos{' '}
+                    {formTestResult.window_days} dias.
                   </p>
                 )}
                 {!formTesting && formTestResult && formTestResult.messages.length > 0 && (
                   <>
                     <p className="regras-test-section__count">
                       {formTestResult.total_matched === 1
-                        ? '1 mensagem bateria com esses termos'
-                        : `${formTestResult.total_matched} mensagens bateriam com esses termos`}{' '}
+                        ? '1 promoção já salva bateria com esses termos'
+                        : `${formTestResult.total_matched} promoções já salvas bateriam com esses termos`}{' '}
                       nos últimos {formTestResult.window_days} dias.
                     </p>
                     <ul className="regras-test-section__list">
