@@ -190,6 +190,9 @@ def _strip_unit_and_count_tokens(tokens: list[str], *, keep_capacity: bool) -> l
         if token == "m" and following == "2":  # "M.2" / "M 2"
             index += 2
             continue
+        if token == "m" and following in ("atx", "matx"):  # "M-ATX" split by the hyphen
+            index += 2
+            continue
         if _MULTIPLIER_RE.match(token):  # "2x", "3x": a fan/cooler count, not a model code
             index += 1
             continue
@@ -252,7 +255,7 @@ _BRAND_TOKENS = frozenset(
 _GENERIC_DISCARD_TOKENS = frozenset(
     "placa video mae processador memoria ram gamer desktop oc matx micro atx chipset "
     "para ryzen com sem cooler integrado de da do das dos e cache kit und unidade "
-    "unidades geracao serie modelo tipo original graphics".split()
+    "unidades geracao serie modelo tipo original graphics socket".split()
 )
 _BUS_SOCKET_TOKENS = frozenset(
     "ddr5 ddr4 ddr3 gddr7 gddr6x gddr6 gdr7 am5 am4 am6 lga1700 lga1200 lga1851 "
@@ -303,16 +306,16 @@ def _model_fingerprint(
     The line is tokenised (`normalize_text`, which folds accents and case —
     stores write "Núcleos"/"NUCLEOS"/"nucleos" interchangeably) before specs
     are stripped, so accent and punctuation quirks in the source never
-    matter. A trailing lone letter ("-B", "-S") is dropped: real observed
-    suffixes are either consistently present across every posting of a
-    product (so dropping them changes nothing) or the deliberate
-    GamingPro/GamingPro-S carve-out above.
+    matter.
 
-    `keep_capacity` is the recovery pass for a branded product with no other
-    model code at all (a plain RAM kit: "Memtech 8GB DDR5"). There capacity
-    is the only thing that identifies which product it is, so it is kept
-    instead of stripped — the caller only takes this path when the normal
-    pass found a brand but no model code.
+    A trailing lone letter ("-B", "-S", "-P"...) is only ever dropped when it
+    is glued to a line/variant word ("GamingPro-S"): real data shows the same
+    posting alternates between "GamingPro" and "GamingPro-S" for one product,
+    so keeping it would fragment rather than identify. Glued to a model-code
+    token instead ("B840M-B", "B650M-A") it is kept as part of that code:
+    B650M-A and B650M-P are different, real, differently-priced boards —
+    dropping the suffix there would merge two different products, which
+    CLAUDE.md rules out (no fuzzy matching, never mix model codes).
     """
     text = _LIAN_LI_RE.sub("lianli", line)
     text = _SERIES_RE.sub(
@@ -323,10 +326,21 @@ def _model_fingerprint(
     brand: str | None = None
     model_tokens: list[str] = []
     variant_tokens: list[str] = []
+    last_kind: str | None = None  # "model" or "variant" of the last kept token
     for token in tokens:
         if _MULTIPLIER_RE.match(token):
             continue
         if len(token) == 1 and token.isalpha():
+            if last_kind == "model":
+                model_tokens.append(token)
+            elif last_kind != "variant":
+                # No model/variant token seen yet on this line (or the last
+                # one was a brand): too little context to know which side
+                # this suffix belongs to, so it is kept rather than risk
+                # silently discarding something that distinguishes two
+                # products.
+                variant_tokens.append(token)
+                last_kind = "variant"
             continue
         if any(token in drop_set for drop_set in _DROP_TOKEN_SETS):
             continue
@@ -335,14 +349,17 @@ def _model_fingerprint(
             continue
         if token in _SERIES_PREFIX_TOKENS or token in _SERIES_SUFFIX_TOKENS or _has_digit(token):
             model_tokens.append(token)
+            last_kind = "model"
             continue
         if token in _VARIANT_KEEP_TOKENS:
             variant_tokens.append(token)
+            last_kind = "variant"
             continue
         # Unrecognised word: kept. Erring toward fragmentation (an extra key
         # for an unknown word) is safer than silently discarding something
         # that turns out to distinguish two real products.
         variant_tokens.append(token)
+        last_kind = "variant"
     return brand, model_tokens, variant_tokens
 
 
@@ -460,7 +477,12 @@ def product_key(message_text: str) -> str | None:
 
     if chosen_line is not None:
         brand, model_tokens, variant_tokens = _fingerprint(chosen_line)
-        tokens = _trim_edges(([brand] if brand else []) + model_tokens + variant_tokens)
+        ordered = ([brand] if brand else []) + model_tokens + variant_tokens
+        # A word repeated in the source (a call line and the product line
+        # both naming the model, "PRO" appearing twice) would otherwise show
+        # up twice in the key. Dedup keeps the first occurrence so the
+        # canonical brand/model/variant order is unaffected.
+        tokens = _trim_edges(list(dict.fromkeys(ordered)))
     else:
         tokens = _trim_edges(normalize_text(title).split())
 

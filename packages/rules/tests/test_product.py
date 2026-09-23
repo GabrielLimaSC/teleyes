@@ -94,10 +94,56 @@ def test_variations_of_case_accent_emoji_price_glued_series_and_noise_share_one_
             "SSD Kingston NV3 1TB NVMe\n\nR$ 399,00",
             "SSD Kingston NV2 1TB NVMe\n\nR$ 349,00",
         ),
+        # A single-letter suffix glued to a model-code token is part of the
+        # model, not noise: B650M-A and B650M-P are different, real boards.
+        (
+            "Placa-mãe MSI PRO B650M-A AM5 DDR5 mATX\n\nR$ 649,00",
+            "Placa-mãe MSI PRO B650M-P AM5 DDR5 mATX\n\nR$ 679,00",
+        ),
     ],
 )
 def test_different_products_never_share_a_key(first: str, second: str) -> None:
     assert product_key(first) != product_key(second)
+
+
+def test_single_letter_suffix_is_kept_on_a_model_code_but_dropped_on_a_variant_word() -> None:
+    # Glued to a model-code token ("B840M-B"), the suffix survives every
+    # rewording — dropping it would merge with a same-chipset board that has
+    # a genuinely different suffix (see the B650M-A/B650M-P case above).
+    b840m_b_variations = [
+        "Placa-mãe MSI PRO B840M-B AM5 DDR5 mATX\n\nR$ 599,00",
+        "PLACA MAE MSI PRO B840M-B\n\nR$ 579,00\nhttps://x.example/9",
+        (
+            "Placa-mãe MSI PRO B840M-B AM5 DDR5 mATX M.2 NVMe HDMI VGA\n\n"
+            "🎯 Resgate todos os\nhttps://x.example/10"
+        ),
+    ]
+    keys = {product_key(text) for text in b840m_b_variations}
+    assert len(keys) == 1
+    assert keys != {
+        product_key("Placa-mãe MSI B840M Gaming Wifi DDR5 AM5 mATX\n\nR$ 749,00")
+    }
+
+    # Glued to a line/variant word instead ("GamingPro-S"), the suffix is the
+    # deliberate carve-out: real data shows the same posting alternates
+    # between the two spellings for one product.
+    assert product_key(
+        "Placa de Vídeo Palit RTX 5070 Ti GamingPro 16GB\n\nR$ 5.749,00"
+    ) == product_key("Placa de Vídeo Palit RTX 5070 Ti GamingPro-S 16GB\n\nR$ 5.799,00")
+
+
+def test_a_word_repeated_in_the_source_is_not_repeated_in_the_key() -> None:
+    # A store that prints the model twice in one line ("MSI Pro B840M-B ...
+    # PRO-B840M-B") must not get a key with duplicated tokens.
+    text = (
+        "Placa Mãe MSI Pro B840M-B, DDR5, Socket AMD AM5, M-ATX, "
+        "Chipset AMD B840, PRO-B840M-B\n\nR$ 599,00"
+    )
+
+    key = product_key(text)
+
+    assert key == "msi-b840m-b-pro"
+    assert len(key.split("-")) == len(set(key.split("-")))
 
 
 RYZEN_VARIATIONS = [
