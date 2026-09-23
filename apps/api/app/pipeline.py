@@ -17,6 +17,7 @@ from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
 from packages.rules.normalize import normalize_text
 from packages.rules.price import extract_price
+from packages.rules.product import product_key
 from packages.telegram.cursor import (
     MessageFetcherProtocol,
     advance_cursor,
@@ -183,6 +184,7 @@ def _persist_match(
         price_card_cents=price_card_cents,
         message_link=message.link,
         matched_at=message.received_at,
+        product_key=product_key(message.text),
     )
     try:
         # Keep the insert in a savepoint: a second process may race this one
@@ -582,6 +584,7 @@ def build_match_event(result: ProcessResult) -> dict[str, Any] | None:
         "source_id": result.match.source_id,
         "rule_id": result.match.rule_id,
         "price_cents": result.match.price_cents,
+        "product_key": result.match.product_key,
         "message_link": result.match.message_link,
         "matched_at": format_utc(result.match.matched_at),
         "deliveries_sent": result.deliveries_sent,

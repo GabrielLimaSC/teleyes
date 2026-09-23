@@ -31,6 +31,10 @@ class Match(Base):
     price_cash_cents: Mapped[int | None] = mapped_column(nullable=True)
     price_card_cents: Mapped[int | None] = mapped_column(nullable=True)
     message_link: Mapped[str | None] = mapped_column(String, nullable=True)
+    # S14-01: `packages.rules.product.product_key(message_text)`, computed on
+    # insert (and backfilled by migration 7e2a9c4d1b35). NULL when the message
+    # has no recognisable product title. Never edited by hand.
+    product_key: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

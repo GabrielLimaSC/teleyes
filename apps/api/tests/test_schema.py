@@ -244,3 +244,59 @@ def test_cash_card_price_migration_preserves_legacy_rows_and_downgrades(
     assert "price_card_cents" not in columns
     # price_cents itself (and the rest of the row) survives the downgrade untouched.
     assert rows == [(1, 19900), (2, 38990)]
+
+
+def test_product_key_migration_backfills_existing_matches_and_downgrades(
+    db_path: Path, alembic_runner: AlembicRunner
+) -> None:
+    url = f"sqlite:///{db_path}"
+    previous_head = "34f9903299d5"
+    before = alembic_runner("upgrade", previous_head, database_url=url)
+    assert before.returncode == 0, before.stderr
+
+    timestamp = "2026-09-20 12:00:00"
+    palit = "Placa de Vídeo Palit RTX 5070 Ti 16GB\n\nR$ 5.749,00 no pix\nhttps://x.example/1"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "INSERT INTO source (id, name, telegram_chat_id, created_at, active) "
+            "VALUES (1, 'Legacy source', '-1001', ?, 1)",
+            (timestamp,),
+        )
+        connection.execute(
+            "INSERT INTO rule (id, name, include_terms, active, created_at) "
+            "VALUES (1, 'Legacy rule', 'rtx', 1, ?)",
+            (timestamp,),
+        )
+        connection.executemany(
+            "INSERT INTO match (id, source_id, rule_id, message_text, matched_at, created_at) "
+            "VALUES (?, 1, 1, ?, ?, ?)",
+            [
+                (1, palit, timestamp, timestamp),
+                (2, "🔥 PLACA DE VIDEO PALIT RTX 5070 TI 16GB\nR$ 5.499", timestamp, timestamp),
+                (3, "R$ 99,90 no pix", timestamp, timestamp),
+            ],
+        )
+
+    upgrade = alembic_runner("upgrade", "head", database_url=url)
+    assert upgrade.returncode == 0, upgrade.stderr
+
+    indexes = {index["name"] for index in inspect(get_engine(url)).get_indexes("match")}
+    assert "ix_match_product_key" in indexes
+    with sqlite3.connect(db_path) as connection:
+        rows = connection.execute(
+            "SELECT id, product_key, message_text FROM match ORDER BY id"
+        ).fetchall()
+    assert [(row[0], row[1]) for row in rows] == [
+        (1, "placa-de-video-palit-rtx-5070-ti-16gb"),
+        (2, "placa-de-video-palit-rtx-5070-ti-16gb"),
+        (3, None),
+    ]
+    assert rows[0][2] == palit
+
+    downgrade = alembic_runner("downgrade", previous_head, database_url=url)
+    assert downgrade.returncode == 0, downgrade.stderr
+    with sqlite3.connect(db_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info('match')")}
+        count = connection.execute("SELECT COUNT(*) FROM match").fetchone()
+    assert "product_key" not in columns
+    assert count == (3,)

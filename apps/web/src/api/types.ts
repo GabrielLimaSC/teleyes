@@ -29,6 +29,59 @@ export interface Match {
    * the other matches still exist, just excluded from this response. `null`
    * when nothing grouped with it. */
   grouped_source_ids: number[] | null
+  /** S14-01: stable product identity derived from the message title
+   * (`packages/rules/product.py`), `null` when no product title was
+   * recognised. Key of `GET /products/{key}`. */
+  product_key: string | null
+  /** S14-01: lowest price per local day of this product over the last 90
+   * days, oldest first, at most 30 points (consecutive days merged by their
+   * lowest price). Empty without a product key or a priced match. */
+  sparkline: PricePoint[]
+}
+
+/** S14-01: lowest price of one day, `date` as `YYYY-MM-DD` in the
+ * configured display timezone (persistence is always UTC). */
+export interface PricePoint {
+  date: string
+  price_cents: number
+}
+
+export type ProductHistoryRange = '90d' | '30d' | '7d'
+
+export interface ProductSource {
+  id: number
+  name: string
+}
+
+/** S14-01: one match of the product; `price_cents` null when no price was
+ * extracted (still counted in `total_count`, never plotted). */
+export interface ProductPosting {
+  id: number
+  source_id: number
+  source_name: string
+  price_cents: number | null
+  matched_at: string
+  message_link: string | null
+}
+
+/** S14-01: `GET /products/{key}?range=90d|30d|7d`. Statistics use fixed
+ * windows (lowest/highest 90d, average 30d) whatever `range` the series
+ * shows; `postings` is newest first, capped at 100 (`total_count` is the
+ * real total). */
+export interface Product {
+  product_key: string
+  title: string
+  total_count: number
+  sources: ProductSource[]
+  first_seen_at: string
+  current_price_cents: number | null
+  current_price_at: string | null
+  lowest_90d_cents: number | null
+  average_30d_cents: number | null
+  highest_90d_cents: number | null
+  range: ProductHistoryRange
+  series: PricePoint[]
+  postings: ProductPosting[]
 }
 
 export interface Rule {

@@ -469,7 +469,7 @@ test('every delivery-status pill and category tile, with crafted matches', async
   const delivery = (status: string, id: number) => [
     { id, recipient_id: 1, status, delivered_at: status === 'sent' ? at : null, created_at: at },
   ]
-  const base = { source_id: 1, rule_id: 1, price_cents: 100000, price_cash_cents: null, price_card_cents: null, message_link: null, matched_at: at, created_at: at, is_lowest_price_ever: false, grouped_source_ids: null }
+  const base = { source_id: 1, rule_id: 1, price_cents: 100000, price_cash_cents: null, price_card_cents: null, message_link: null, matched_at: at, created_at: at, is_lowest_price_ever: false, grouped_source_ids: null, product_key: null, sparkline: [] }
   const cases: Array<[string, string, string[]]> = [
     ['iPhone 15 entregue', 'sent', ['sent']],
     ['Notebook falhou', 'failed', ['failed']],

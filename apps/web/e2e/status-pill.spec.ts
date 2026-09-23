@@ -26,6 +26,8 @@ test('the longest status pill stays inside its card, with no horizontal scroll',
     created_at: at,
     is_lowest_price_ever: false,
     grouped_source_ids: null,
+    product_key: null,
+    sparkline: [],
     deliveries: [{ id: index + 1, recipient_id: 1, status, delivered_at: null, created_at: at }],
   }))
   await page.route(api('/matches'), (route) => route.fulfill({ json: matches }))

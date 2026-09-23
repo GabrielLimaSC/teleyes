@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
@@ -7,7 +9,9 @@ from sqlalchemy.orm import Session, aliased
 
 from app.main import get_current_session, get_db
 from app.pipeline import GROUPING_WINDOW
-from app.utc import UtcDatetime
+from app.product_history import get_display_timezone, sparklines_for_keys
+from app.routers.products import PricePointResponse
+from app.utc import UtcDatetime, utc_now
 from models import Delivery, Match
 
 router = APIRouter(
@@ -50,6 +54,13 @@ class MatchResponse(BaseModel):
     # still exists and is unaffected, this only decides which one is the
     # representative card and which ones are folded into it.
     grouped_source_ids: list[int] | None = None
+    # S14-01: `packages.rules.product.product_key` of the message (null when
+    # no product title was recognised) and a short 90-day lowest-price-per-day
+    # series of that product (at most 30 points, oldest first; empty when the
+    # product has no priced match in the window). Aggregated for the whole
+    # response in a single query, never one per item.
+    product_key: str | None = None
+    sparkline: list[PricePointResponse] = []
 
 
 def _lowest_price_cents_per_rule() -> ScalarSelect[int | None]:
@@ -228,6 +239,8 @@ def list_matches(
     delivery_status: str | None = Query(default=None, min_length=1, max_length=32),
     sort: Literal["price_asc", "price_desc"] | None = Query(default=None),
     db: Session = Depends(get_db),
+    now: datetime = Depends(utc_now),
+    tz: ZoneInfo = Depends(get_display_timezone),
 ) -> list[MatchResponse]:
     if (
         min_price_cents is not None
@@ -272,9 +285,26 @@ def list_matches(
                 is_lowest_price_ever=(
                     db_match.price_cents is not None and db_match.price_cents == lowest_price_cents
                 ),
+                product_key=db_match.product_key,
             )
             matches[db_match.id] = response
         if delivery is not None:
             response.deliveries.append(DeliveryResponse.model_validate(delivery))
 
-    return _apply_display_grouping(matches)
+    visible = _apply_display_grouping(matches)
+    _attach_sparklines(db, visible, now=now, tz=tz)
+    return visible
+
+
+def _attach_sparklines(
+    db: Session, responses: list[MatchResponse], *, now: datetime, tz: ZoneInfo
+) -> None:
+    keys = {response.product_key for response in responses if response.product_key is not None}
+    sparklines = sparklines_for_keys(db, keys, now, tz)
+    for response in responses:
+        if response.product_key is None:
+            continue
+        response.sparkline = [
+            PricePointResponse.from_point(point)
+            for point in sparklines.get(response.product_key, [])
+        ]

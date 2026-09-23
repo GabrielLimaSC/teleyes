@@ -202,10 +202,13 @@ async def test_publish_match_event_is_only_meant_to_run_after_commit(
         "source_id": source.id,
         "rule_id": rule.id,
         "price_cents": result.match.price_cents,
+        "product_key": "iphone-15",
         "message_link": None,
         "matched_at": matched_at,
         "deliveries_sent": 1,
     }
+    # S14-01: computed on insert from the message text, not left for a backfill.
+    assert result.match.product_key == "iphone-15"
 
 
 async def test_publish_match_event_is_a_no_op_when_the_message_was_discarded(
