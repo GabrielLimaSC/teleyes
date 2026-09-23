@@ -1,0 +1,421 @@
+/* S14-08 (07/07b): the product panel — comp's own "vidro" recipe, distinct
+   from --plane-glass (see the token comments in styles/materials.css for
+   why). Positioned as the grid's second track by the page
+   (productPanelLayout.css); a fixed bottom sheet below 960px, overridden at
+   the end of this file. */
+.product-panel {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 520px;
+  max-width: 100%;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 24px;
+  border-radius: 20px;
+  background: var(--product-panel-bg);
+  backdrop-filter: blur(20px) saturate(155%);
+  -webkit-backdrop-filter: blur(20px) saturate(155%);
+  border: 1px solid var(--product-panel-border-color);
+  box-shadow: var(--product-panel-shadow);
+  /* 07b: enters translateX(24px)→0 + opacity 0→1, 280ms, 60ms delay; exits
+     the reverse in 220ms, no delay. The blur/shadow never animate (GPU
+     cost) — only transform/opacity do, so they are the only properties a
+     transition is ever declared for. */
+  transform: translateX(24px);
+  opacity: 0;
+}
+
+.product-panel[data-phase='open'] {
+  transform: translateX(0);
+  opacity: 1;
+  transition:
+    transform 280ms cubic-bezier(0.32, 0.72, 0, 1) 60ms,
+    opacity 280ms cubic-bezier(0.32, 0.72, 0, 1) 60ms;
+}
+
+.product-panel[data-phase='closing'] {
+  transform: translateX(24px);
+  opacity: 0;
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-panel,
+  .product-panel[data-phase='open'],
+  .product-panel[data-phase='closing'] {
+    transform: none;
+    transition: opacity 120ms linear;
+  }
+}
+
+.product-panel__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.product-panel__header-info {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 14px;
+  align-items: flex-start;
+  /* Crossfades on a product switch (07b "um por vez", 160ms) — a plain
+     fade-in on remount (this div is keyed by productKey) reads as a
+     crossfade against the still-visible chrome (close button, panel frame)
+     around it. */
+  animation: product-panel-crossfade 160ms ease-out both;
+}
+
+.product-panel__icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--product-panel-icon-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-panel__icon-mark {
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--product-panel-accent);
+  border-radius: 3px;
+  transform: rotate(45deg);
+  display: block;
+}
+
+.product-panel__header-text {
+  min-width: 0;
+}
+
+.product-panel__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--plane-text-primary);
+  text-wrap: pretty;
+}
+
+.product-panel__title:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.product-panel__subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--plane-text-eyebrow);
+}
+
+.product-panel__close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--product-panel-icon-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+  cursor: pointer;
+}
+
+.product-panel__close:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.product-panel__chip {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.product-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: product-panel-crossfade 160ms ease-out both;
+}
+
+@keyframes product-panel-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-panel__header-info,
+  .product-panel__body {
+    animation: none;
+  }
+}
+
+.product-panel__status {
+  margin: 0;
+  padding: 20px 0;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+  text-align: center;
+}
+
+.product-panel__status--error {
+  color: var(--plane-status-danger);
+}
+
+.product-panel__well {
+  border-radius: 14px;
+  padding: 18px;
+  background: var(--product-panel-well-bg);
+  border: 1px solid var(--product-panel-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.product-panel__price-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.product-panel__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+  margin-bottom: 4px;
+}
+
+.product-panel__current-price {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.product-panel__tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.product-panel__range-tab {
+  height: 28px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+.product-panel__chart {
+  display: block;
+  overflow: visible;
+  width: 100%;
+}
+
+.product-panel__chart-grid {
+  stroke: var(--product-panel-chart-grid);
+  stroke-width: 1;
+}
+
+.product-panel__chart-line {
+  fill: none;
+  stroke: var(--product-panel-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.product-panel__chart-dot {
+  fill: var(--product-panel-accent);
+}
+
+.product-panel__chart--loading {
+  opacity: 0.5;
+}
+
+.product-panel__chart-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--plane-text-helper);
+}
+
+.product-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.product-panel__stat {
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+}
+
+.product-panel__stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.product-panel__target {
+  gap: 6px;
+}
+
+.product-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.product-panel__postings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.product-panel__posting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  font-size: 13px;
+}
+
+.product-panel__posting-source {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--plane-text-primary);
+  font-weight: 600;
+}
+
+.product-panel__posting-price {
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-primary);
+  white-space: nowrap;
+}
+
+.product-panel__posting-date {
+  color: var(--plane-text-helper);
+  white-space: nowrap;
+}
+
+.product-panel__posting-link,
+.product-panel__posting-nolink {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.product-panel__posting-link {
+  color: var(--plane-focus-color);
+}
+
+.product-panel__posting-nolink {
+  color: var(--plane-text-helper);
+}
+
+.product-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: var(--product-panel-backdrop-bg);
+  animation: product-panel-backdrop-in 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.product-panel-backdrop--closing {
+  animation: product-panel-backdrop-in 220ms cubic-bezier(0.32, 0.72, 0, 1) reverse both;
+}
+
+@keyframes product-panel-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-panel-backdrop,
+  .product-panel-backdrop--closing {
+    animation-duration: 120ms;
+  }
+}
+
+/* ---- Grabber (sheet mode only) ---- */
+.product-panel__grabber {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 8px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.product-panel__grabber-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--glass-inner-border-color);
+}
+
+/* ---- 07b: below 960px, the panel becomes a full-screen sheet sliding up
+   from the bottom instead of a side column, with a drag handle. ---- */
+@media (max-width: 959px) {
+  .product-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    top: auto;
+    width: auto;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+    transform: translateY(100%);
+    z-index: 40;
+  }
+
+  .product-panel[data-phase='open'] {
+    transform: translateY(0);
+    transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1), opacity 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .product-panel[data-phase='closing'] {
+    transform: translateY(100%);
+    transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1), opacity 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 959px) {
+  .product-panel,
+  .product-panel[data-phase='open'],
+  .product-panel[data-phase='closing'] {
+    transform: none;
+  }
+}

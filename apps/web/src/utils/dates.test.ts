@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   formatClockMoment,
   formatDateTime,
+  formatDayMonth,
   formatMatchedAt,
   isLater,
   isSameLocalDay,
@@ -118,5 +119,13 @@ describe('formatClockMoment (S13-06)', () => {
     const now = new Date(Date.UTC(2026, 8, 23, 20, 0, 0))
     expect(formatClockMoment(applied, now)).toBe('em 21/09 às 14:32')
     expect(formatClockMoment('2026-09-21T17:32:00', now)).toBe('em 21/09 às 14:32')
+  })
+})
+
+describe('formatDayMonth (S14-08)', () => {
+  it('shows only DD/MM in the local zone, no year and no time', () => {
+    // 01:43 UTC on 2026-09-20 is 19 Sep local (America/Sao_Paulo, UTC-3).
+    expect(formatDayMonth('2026-09-20T01:43:00Z')).toBe('19/09')
+    expect(formatDayMonth('2026-06-24T12:00:00Z')).toBe('24/06')
   })
 })

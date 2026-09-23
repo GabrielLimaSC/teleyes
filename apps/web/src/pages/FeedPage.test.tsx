@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FeedPage } from './FeedPage'
 
@@ -10,6 +11,17 @@ class InertEventSource {
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+}
+
+// S14-08: FeedPage now reads/writes `?produto=` via react-router-dom's
+// useSearchParams (the product panel's deep link) — it needs a Router in
+// its tree even when this suite has nothing to do with the panel itself.
+function renderFeedPage() {
+  return render(
+    <MemoryRouter>
+      <FeedPage />
+    </MemoryRouter>,
+  )
 }
 
 describe('FeedPage', () => {
@@ -24,7 +36,7 @@ describe('FeedPage', () => {
       vi.fn(() => Promise.resolve(jsonResponse([]))),
     )
 
-    render(<FeedPage />)
+    renderFeedPage()
 
     expect(await screen.findByText('Nenhum match ainda.')).toBeInTheDocument()
     expect(screen.getByText('Feed ao vivo')).toBeInTheDocument()
@@ -36,7 +48,7 @@ describe('FeedPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
-    render(<FeedPage />)
+    renderFeedPage()
     await screen.findByText('Nenhum match ainda.')
     // FeedPage also fetches rules/sources/recipients on mount, all through
     // the same global fetch mock — assert the increase, not an absolute count.
@@ -76,7 +88,7 @@ describe('FeedPage', () => {
       }),
     )
 
-    render(<FeedPage />)
+    renderFeedPage()
 
     await screen.findByText('iPhone barato')
     await screen.findByText('iPhone caro')
@@ -119,7 +131,7 @@ describe('FeedPage', () => {
       }),
     )
 
-    render(<FeedPage />)
+    renderFeedPage()
 
     expect(await screen.findByText('Visto em: CMdias, Menor Preço')).toBeInTheDocument()
   })
@@ -176,7 +188,7 @@ describe('FeedPage', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<FeedPage />)
+    renderFeedPage()
     await screen.findByText('Produto A1')
 
     // Sem filtro: os 3 matches contam, 1 entregue, menor preço R$ 30,00.
@@ -236,7 +248,7 @@ describe('FeedPage', () => {
     )
     const user = userEvent.setup()
 
-    render(<FeedPage />)
+    renderFeedPage()
     await screen.findByText('Produto A1')
     expect(screen.getByText('Produto B1')).toBeInTheDocument()
 

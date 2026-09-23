@@ -242,6 +242,32 @@
   min-width: 0;
 }
 
+/* S14-08 (07b): the title becomes a button only for a row with a
+   `product_key` — same look as the plain `<span>` above, just clickable. */
+.historico-table__title--button {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+}
+
+.historico-table__title--button:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: var(--plane-focus-ring);
+}
+
 .historico-table__meta {
   display: flex;
   flex-direction: column;
@@ -306,6 +332,15 @@
   font-size: 13px;
   white-space: nowrap;
   text-decoration: none;
+}
+
+/* S14-08 (07b): stacks "Abrir produto" above "Abrir promoção" in the same
+   right-aligned cell when the row has both. */
+.historico-table__promo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 /* No link: an honest text state (never a dead button). The dashed underline

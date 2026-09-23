@@ -4,12 +4,16 @@ import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
 import { summarizeDeliveryStatus } from '../components/deliveryStatus'
 import { Tooltip } from '../components/Tooltip'
 import { cardTitle, productText } from '../components/matchTitle'
+import { ProductPanel, PRODUCT_OPEN_CONTROL_ATTR } from '../components/ProductPanel'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import type { MatchFilters, MatchSort } from '../api/matches'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
+import { useProductPanel } from '../hooks/useProductPanel'
 import '../styles/materials.css'
+import '../styles/productPanelLayout.css'
+import '../styles/productOpenTrigger.css'
 import '../components/FillButton.css'
 import './HistoricoPage.css'
 
@@ -133,6 +137,8 @@ interface HistoricoRow {
   match: Match
   rule: Rule | undefined
   title: string
+  /** S14-08 (07b): the row's "Abrir produto" trigger only shows up when set. */
+  productKey: string | null
   /** True when the full text is worth a Tooltip: the S9-06 cut shortened it,
    * or it is long enough that the 2-line CSS clamp could clip it. */
   hasFullText: boolean
@@ -157,6 +163,7 @@ interface HistoricoRow {
 }
 
 export function HistoricoPage() {
+  const panel = useProductPanel()
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -236,6 +243,7 @@ export function HistoricoPage() {
           match,
           rule,
           title,
+          productKey: match.product_key,
           hasFullText: title !== linkCutText || title.length > MAY_CLIP_TITLE_LENGTH,
           linkCutText,
           ruleName: rule?.name ?? `#${match.rule_id}`,
@@ -300,6 +308,8 @@ export function HistoricoPage() {
         </div>
       </div>
 
+      <div className="product-panel-layout" data-panel-phase={panel.phase}>
+      <div className="product-panel-layout__content">
       <div className="historico-page__grid">
         {/* S10-07: mesmos campos de filtro de sempre (Regra/Fonte/
             Destinatário/Entrega/Preço/Ordenar por), só restilizados pro
@@ -443,7 +453,22 @@ export function HistoricoPage() {
                   </div>
                   {rows.map((row) => {
                     const category = categorize(row.match.message_text)
-                    const titleNode = <span className="historico-table__title">{row.title}</span>
+                    const openProduct = (trigger: HTMLElement) => {
+                      if (row.productKey !== null) panel.open(row.productKey, trigger)
+                    }
+                    const titleNode =
+                      row.productKey !== null ? (
+                        <button
+                          type="button"
+                          className="historico-table__title historico-table__title--button"
+                          {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+                          onClick={(event) => openProduct(event.currentTarget)}
+                        >
+                          {row.title}
+                        </button>
+                      ) : (
+                        <span className="historico-table__title">{row.title}</span>
+                      )
                     return (
                       <div key={row.match.id} className="historico-table__row">
                         <div className="historico-table__product">
@@ -490,7 +515,17 @@ export function HistoricoPage() {
                             </span>
                           )}
                         </div>
-                        <div className="historico-table__cell--right">
+                        <div className="historico-table__cell--right historico-table__promo">
+                          {row.productKey !== null && (
+                            <button
+                              type="button"
+                              className="product-open-trigger"
+                              {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+                              onClick={(event) => openProduct(event.currentTarget)}
+                            >
+                              Abrir produto <span aria-hidden="true">›</span>
+                            </button>
+                          )}
                           {row.match.message_link !== null ? (
                             <a
                               className="plane-action plane-action--secondary plane-action--compact historico-table__open"
@@ -517,6 +552,11 @@ export function HistoricoPage() {
             </>
           )}
         </div>
+      </div>
+      </div>
+      {panel.phase !== 'closed' && panel.productKey !== null && (
+        <ProductPanel productKey={panel.productKey} phase={panel.phase} onClose={panel.close} />
+      )}
       </div>
     </main>
   )
