@@ -644,4 +644,78 @@ describe('HistoricoPage', () => {
       clickSpy.mockRestore()
     })
   })
+
+  describe('"Abrir produto" trigger and panel (S14-08, 07b)', () => {
+    function stubFetchWithProductRow(productKey: string | null) {
+      const match = {
+        id: 1,
+        source_id: 1,
+        rule_id: 1,
+        message_text: 'Placa de vídeo exemplo por R$ 5.749',
+        price_cents: 574_900,
+        price_cash_cents: null,
+        price_card_cents: null,
+        message_link: null,
+        matched_at: '2026-09-20T12:00:00Z',
+        created_at: '2026-09-20T12:00:00Z',
+        deliveries: [],
+        is_lowest_price_ever: false,
+        product_key: productKey,
+      }
+      const product = {
+        product_key: productKey,
+        title: 'Placa de vídeo exemplo',
+        total_count: 1,
+        sources: [{ id: 1, name: 'Loja Demo' }],
+        first_seen_at: '2026-09-20T12:00:00Z',
+        current_price_cents: 574_900,
+        current_price_at: '2026-09-20T12:00:00Z',
+        lowest_90d_cents: 574_900,
+        average_30d_cents: 574_900,
+        highest_90d_cents: 574_900,
+        range: '90d',
+        series: [{ date: '2026-09-20', price_cents: 574_900 }],
+        postings: [],
+      }
+      return vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([match]))
+        if (url.startsWith(`/products/${productKey}`)) return Promise.resolve(jsonResponse(product))
+        throw new Error(`unexpected fetch: ${url}`)
+      })
+    }
+
+    it('shows the trigger and a clickable title only for a row with a product_key', async () => {
+      vi.stubGlobal('fetch', stubFetchWithProductRow('placa-video-exemplo'))
+      renderHistoricoPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      expect(screen.getByRole('button', { name: /Abrir produto/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Placa de vídeo exemplo por R$ 5.749' })).toBeInTheDocument()
+    })
+
+    it('has no trigger and a plain (non-button) title without a product_key', async () => {
+      vi.stubGlobal('fetch', stubFetchWithProductRow(null))
+      renderHistoricoPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      expect(screen.queryByRole('button', { name: /Abrir produto/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Placa de vídeo exemplo por R$ 5.749' })).not.toBeInTheDocument()
+    })
+
+    it('opens the product panel from the trigger, which fetches and shows the product', async () => {
+      vi.stubGlobal('fetch', stubFetchWithProductRow('placa-video-exemplo'))
+      const user = userEvent.setup()
+      renderHistoricoPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      await user.click(screen.getByRole('button', { name: /Abrir produto/ }))
+
+      expect(await screen.findByRole('heading', { name: 'Placa de vídeo exemplo' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Fechar painel do produto' }))
+    })
+  })
 })

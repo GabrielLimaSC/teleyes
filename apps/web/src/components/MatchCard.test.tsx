@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MatchCard } from './MatchCard'
 import type { Match, Recipient, Rule, Source } from '../api/types'
@@ -639,5 +640,100 @@ describe('MatchCard', () => {
     )
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
+})
+
+describe('MatchCard — "Abrir produto" trigger (S14-08, 07b)', () => {
+  it('does not render the trigger without a product_key, even with onOpenProduct passed', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ product_key: null })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+        onOpenProduct={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /Abrir produto/ })).not.toBeInTheDocument()
+    // The title stays a plain, non-interactive title.
+    expect(screen.queryByRole('button', { name: 'Promoção iPhone 15 128GB por R$ 3.899' })).not.toBeInTheDocument()
+  })
+
+  it('does not render the trigger with a product_key but no onOpenProduct handler', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ product_key: 'iphone-15-128gb' })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /Abrir produto/ })).not.toBeInTheDocument()
+  })
+
+  it('renders the trigger and the clickable title when both product_key and onOpenProduct are present', async () => {
+    const onOpenProduct = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <MatchCard
+        match={buildMatch({ product_key: 'iphone-15-128gb' })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+        onOpenProduct={onOpenProduct}
+      />,
+    )
+
+    const trigger = screen.getByRole('button', { name: /Abrir produto/ })
+    await user.click(trigger)
+    expect(onOpenProduct).toHaveBeenCalledWith('iphone-15-128gb', trigger)
+
+    onOpenProduct.mockClear()
+    const titleButton = screen.getByRole('button', { name: 'Promoção iPhone 15 128GB por R$ 3.899' })
+    await user.click(titleButton)
+    expect(onOpenProduct).toHaveBeenCalledWith('iphone-15-128gb', titleButton)
+  })
+
+  it('is 30px on a plain card and taller (34px, "destaque") on the Aurora Glow card', () => {
+    const { rerender } = render(
+      <MatchCard
+        match={buildMatch({ product_key: 'iphone-15-128gb' })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+        onOpenProduct={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /Abrir produto/ }).className).not.toContain('--featured')
+
+    rerender(
+      <MatchCard
+        match={buildMatch({ product_key: 'iphone-15-128gb' })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+        onOpenProduct={vi.fn()}
+        isLowestPriceEver
+      />,
+    )
+    expect(screen.getByRole('button', { name: /Abrir produto/ }).className).toContain('--featured')
+  })
+
+  it('never makes the whole card clickable — the article has no button/link role of its own', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ product_key: 'iphone-15-128gb' })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+        onOpenProduct={vi.fn()}
+      />,
+    )
+
+    const card = screen.getByRole('article')
+    expect(card.tagName).toBe('ARTICLE')
+    expect(card.onclick).toBeNull()
   })
 })
