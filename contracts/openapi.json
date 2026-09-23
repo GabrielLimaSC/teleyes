@@ -413,6 +413,33 @@
             },
             "title": "Sparkline",
             "type": "array"
+          },
+          "target_gap_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Gap Pct"
+          },
+          "target_hit": {
+            "default": false,
+            "title": "Target Hit",
+            "type": "boolean"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "required": [
@@ -826,6 +853,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "required": [
@@ -902,6 +940,17 @@
               }
             ],
             "title": "Snoozed Until"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "required": [
@@ -910,6 +959,7 @@
           "include_terms",
           "exclude_terms",
           "max_price_cents",
+          "target_price_cents",
           "active",
           "created_at"
         ],
@@ -1105,6 +1155,17 @@
               }
             ],
             "title": "Name"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "title": "RuleUpdate",

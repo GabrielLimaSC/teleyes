@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import func, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -97,6 +97,52 @@ def test_delivery_unique_constraint_blocks_duplicate(session: Session) -> None:
     session.commit()
 
     session.add(Delivery(match_id=match.id, recipient_id=recipient.id))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_delivery_unique_constraint_allows_a_target_row_alongside_an_immediate_one(
+    session: Session,
+) -> None:
+    """S14-02: the constraint grew a `kind` column precisely so a match that
+    is both grouped (S7-11) and a target hit can have a suppressed
+    `"immediate"` bookkeeping row and a real `"target"` send at once —
+    without this, the second insert below would hit the same
+    `IntegrityError` as the test above.
+    """
+    source = Source(name="Grupo Teste", telegram_chat_id="-100123")
+    rule = Rule(name="Regra Teste", include_terms="promo", target_price_cents=1000)
+    recipient = Recipient(name="Gabriel", telegram_chat_id="999", allowlisted=True)
+    session.add_all([source, rule, recipient])
+    session.flush()
+
+    match = Match(
+        source_id=source.id,
+        rule_id=rule.id,
+        message_text="Promo teste",
+        price_cents=999,
+        matched_at=datetime.now(UTC),
+    )
+    session.add(match)
+    session.flush()
+
+    session.add(
+        Delivery(
+            match_id=match.id, recipient_id=recipient.id, kind="immediate", status="grouped"
+        )
+    )
+    session.add(
+        Delivery(match_id=match.id, recipient_id=recipient.id, kind="target", status="sent")
+    )
+    session.commit()
+
+    assert session.scalar(select(func.count()).select_from(Delivery)) == 2
+
+    # A second row of the *same* kind for the same match+recipient still
+    # collides — the constraint only grew wider, it was never dropped.
+    session.add(
+        Delivery(match_id=match.id, recipient_id=recipient.id, kind="target", status="sent")
+    )
     with pytest.raises(IntegrityError):
         session.commit()
 
@@ -331,3 +377,97 @@ def test_snooze_check_constraint_rejects_a_mismatched_scope_and_target(
     with pytest.raises(IntegrityError):
         session.commit()
     session.rollback()
+
+
+def test_target_price_and_delivery_kind_migration_defaults_and_downgrades(
+    db_path: Path, alembic_runner: AlembicRunner
+) -> None:
+    url = f"sqlite:///{db_path}"
+    # S14-02's migration chains after S14-03's snooze migration (both were
+    # written in parallel off the same S14-01 head, `7e2a9c4d1b35`) so the
+    # two land as a single head instead of needing a merge migration.
+    previous_head = "43125d69024e"
+    before = alembic_runner("upgrade", previous_head, database_url=url)
+    assert before.returncode == 0, before.stderr
+
+    timestamp = "2026-09-23 12:00:00"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "INSERT INTO source (id, name, telegram_chat_id, created_at, active) "
+            "VALUES (1, 'Legacy source', '-1001', ?, 1)",
+            (timestamp,),
+        )
+        connection.execute(
+            "INSERT INTO rule (id, name, include_terms, active, created_at) "
+            "VALUES (1, 'Legacy rule', 'promo', 1, ?)",
+            (timestamp,),
+        )
+        connection.execute(
+            "INSERT INTO match (id, source_id, rule_id, message_text, matched_at, created_at) "
+            "VALUES (1, 1, 1, 'legacy promo', ?, ?)",
+            (timestamp, timestamp),
+        )
+        connection.execute(
+            "INSERT INTO recipient (id, name, telegram_chat_id, allowlisted, active, created_at) "
+            "VALUES (1, 'Gabriel', '999', 1, 1, ?)",
+            (timestamp,),
+        )
+        # A legacy delivery row, inserted the way every row looked before
+        # `kind` existed — no value supplied for it at all.
+        connection.execute(
+            "INSERT INTO delivery (id, match_id, recipient_id, status, created_at) "
+            "VALUES (1, 1, 1, 'sent', ?)",
+            (timestamp,),
+        )
+
+    upgrade = alembic_runner("upgrade", "head", database_url=url)
+    assert upgrade.returncode == 0, upgrade.stderr
+
+    with sqlite3.connect(db_path) as connection:
+        rule_columns = {row[1] for row in connection.execute("PRAGMA table_info('rule')")}
+        legacy_kind = connection.execute(
+            "SELECT kind FROM delivery WHERE id = 1"
+        ).fetchone()
+    assert "target_price_cents" in rule_columns
+    # The pre-existing row backfills to "immediate" via the column's
+    # `server_default` — it always meant a plain alert, never a target one.
+    assert legacy_kind == ("immediate",)
+
+    constraints = {
+        constraint["name"]: sorted(constraint["column_names"])
+        for constraint in inspect(get_engine(url)).get_unique_constraints("delivery")
+    }
+    assert constraints["uq_delivery_match_recipient_kind"] == [
+        "kind",
+        "match_id",
+        "recipient_id",
+    ]
+
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "UPDATE rule SET target_price_cents = 100000 WHERE id = 1"
+        )
+        # A target row can coexist with the pre-existing immediate one for
+        # the same match+recipient (the whole point of widening the
+        # constraint) — this insert must succeed.
+        connection.execute(
+            "INSERT INTO delivery (id, match_id, recipient_id, kind, status, created_at) "
+            "VALUES (2, 1, 1, 'target', 'sent', ?)",
+            (timestamp,),
+        )
+        connection.commit()
+
+    downgrade = alembic_runner("downgrade", previous_head, database_url=url)
+    assert downgrade.returncode == 0, downgrade.stderr
+
+    with sqlite3.connect(db_path) as connection:
+        rule_columns = {row[1] for row in connection.execute("PRAGMA table_info('rule')")}
+        delivery_columns = {row[1] for row in connection.execute("PRAGMA table_info('delivery')")}
+        # The downgrade collapses the immediate/target pair back to one row
+        # (the earliest id) rather than leaving a now-illegal duplicate.
+        remaining = connection.execute(
+            "SELECT id FROM delivery ORDER BY id"
+        ).fetchall()
+    assert "target_price_cents" not in rule_columns
+    assert "kind" not in delivery_columns
+    assert remaining == [(1,)]

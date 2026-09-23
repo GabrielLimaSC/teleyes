@@ -41,6 +41,15 @@ export interface Match {
    * right now — show "Reativar" instead of the usual actions. Computed
    * fresh on every read, never stored. */
   snoozed: boolean
+  /** S14-02 (F6): the match's rule's price target (`Rule.target_price_cents`,
+   * null without one), whether this match's own price reached it, and how
+   * far off it still is in percent — computed fresh on every read, never
+   * persisted. `target_gap_pct` is `null` without a target or a price, `0`
+   * once the target is hit. Items with `target_hit` sort first in `GET
+   * /matches`' response. */
+  target_price_cents: number | null
+  target_hit: boolean
+  target_gap_pct: number | null
 }
 
 /** S14-01: lowest price of one day, `date` as `YYYY-MM-DD` in the
@@ -94,6 +103,9 @@ export interface Rule {
   include_terms: string
   exclude_terms: string | null
   max_price_cents: number | null
+  /** S14-02 (F6): "Avise-me abaixo de" — the price alert target, `null`
+   * without one. Always a strictly positive amount when set. */
+  target_price_cents: number | null
   active: boolean
   created_at: string
   /** S7-06: the rule's true historical minimum among its own priced

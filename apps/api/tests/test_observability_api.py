@@ -453,6 +453,114 @@ def test_matches_tied_at_the_lowest_price_are_both_flagged(api: ApiContext) -> N
     assert by_id[ids["match_b"]]["is_lowest_price_ever"] is False
 
 
+def _seed_target_matches(api: ApiContext) -> dict[str, int]:
+    """S14-02: one rule with a target (`target_price_cents=205_000`) and
+    three matches — below the target, exactly at it, and above it — plus
+    the untouched `_seed_matches` fixtures' rule (no target at all), so the
+    "no target" case keeps reading as `null`/`False` alongside a real one.
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo Alvo", telegram_chat_id="-1099")
+        rule_with_target = Rule(
+            name="RTX 5070", include_terms="rtx", target_price_cents=205_000
+        )
+        rule_without_target = Rule(name="Sem alvo", include_terms="sem-alvo")
+        session.add_all([source, rule_with_target, rule_without_target])
+        session.flush()
+
+        below = Match(
+            source_id=source.id,
+            rule_id=rule_with_target.id,
+            message_text="RTX 5070 por R$ 2.000",
+            price_cents=200_000,
+            matched_at=now,
+        )
+        at_target = Match(
+            source_id=source.id,
+            rule_id=rule_with_target.id,
+            message_text="RTX 5070 por R$ 2.050",
+            price_cents=205_000,
+            matched_at=now - timedelta(days=1),
+        )
+        above = Match(
+            source_id=source.id,
+            rule_id=rule_with_target.id,
+            message_text="RTX 5070 por R$ 2.249",
+            price_cents=224_900,
+            matched_at=now - timedelta(days=2),
+        )
+        no_target = Match(
+            source_id=source.id,
+            rule_id=rule_without_target.id,
+            message_text="Produto sem alvo por R$ 50,00",
+            price_cents=5_000,
+            matched_at=now - timedelta(days=3),
+        )
+        session.add_all([below, at_target, above, no_target])
+        session.commit()
+        return {
+            "below": below.id,
+            "at_target": at_target.id,
+            "above": above.id,
+            "no_target": no_target.id,
+        }
+
+
+def test_matches_feed_exposes_target_fields(api: ApiContext) -> None:
+    ids = _seed_target_matches(api)
+    _login(api)
+
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    by_id = {item["id"]: item for item in response.json()}
+
+    below = by_id[ids["below"]]
+    assert below["target_price_cents"] == 205_000
+    assert below["target_hit"] is True
+    assert below["target_gap_pct"] == 0
+
+    at_target = by_id[ids["at_target"]]
+    assert at_target["target_hit"] is True
+    assert at_target["target_gap_pct"] == 0
+
+    # The worked example from the task: target 2050, price 2249 -> 9%.
+    above = by_id[ids["above"]]
+    assert above["target_price_cents"] == 205_000
+    assert above["target_hit"] is False
+    assert above["target_gap_pct"] == 9
+
+    no_target = by_id[ids["no_target"]]
+    assert no_target["target_price_cents"] is None
+    assert no_target["target_hit"] is False
+    assert no_target["target_gap_pct"] is None
+
+
+def test_matches_feed_sorts_target_hits_first(api: ApiContext) -> None:
+    """S14-02: target hits sort to the front of the live feed's response,
+    ahead of the newest-first default order (`above` and `at_target`/`below`
+    are otherwise ordered newest-`matched_at`-first: `below`, `at_target`,
+    `above`) — the hits (`below`, `at_target`) both move ahead of the
+    non-hit (`above`) without swapping places with each other.
+    """
+    ids = _seed_target_matches(api)
+    _login(api)
+
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    ordered_ids = [item["id"] for item in response.json()]
+
+    hit_positions = {
+        ordered_ids.index(ids["below"]),
+        ordered_ids.index(ids["at_target"]),
+    }
+    non_hit_position = ordered_ids.index(ids["above"])
+    assert max(hit_positions) < non_hit_position
+    # Stable sort: relative order within the hit group is untouched (`below`
+    # is more recent than `at_target`, same as the default recency order).
+    assert ordered_ids.index(ids["below"]) < ordered_ids.index(ids["at_target"])
+
+
 def test_matches_lowest_price_stays_correct_for_a_match_inserted_out_of_chronological_order(
     api: ApiContext,
 ) -> None:

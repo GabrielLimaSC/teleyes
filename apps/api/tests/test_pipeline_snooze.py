@@ -145,3 +145,42 @@ async def test_reactivating_deletes_the_snooze_and_the_next_match_delivers(
     second = await _run(session, source, rule, recipient, message_id=2)
     session.commit()
     assert second.deliveries_sent == 1
+
+
+# --- S14-02: a target hit pierces an active snooze (Gabriel, 2026-09-23) ----
+
+
+async def test_a_target_hit_still_delivers_through_an_active_rule_snooze(
+    session: Session,
+) -> None:
+    source, rule, recipient = _seed(session)
+    rule.target_price_cents = 574_900  # PALIT's own price: an exact hit.
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=NOW + timedelta(days=1)))
+    session.commit()
+
+    result = await _run(session, source, rule, recipient)
+    session.commit()
+
+    assert result.target_hit is True
+    assert result.deliveries_sent == 1
+    assert result.match is not None
+    delivery = session.scalar(select(Delivery).where(Delivery.match_id == result.match.id))
+    assert delivery is not None
+    assert delivery.kind == "target"
+    assert delivery.status == "sent"
+
+
+async def test_a_price_above_target_stays_snoozed(session: Session) -> None:
+    source, rule, recipient = _seed(session)
+    rule.target_price_cents = 500_000  # PALIT's R$ 5.749,00 is above this.
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=NOW + timedelta(days=1)))
+    session.commit()
+
+    result = await _run(session, source, rule, recipient)
+    session.commit()
+
+    assert result.target_hit is False
+    assert result.deliveries_sent == 0
+    assert result.reason == "snoozed"
+    assert result.match is not None
+    assert session.scalar(select(Delivery).where(Delivery.match_id == result.match.id)) is None

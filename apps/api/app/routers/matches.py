@@ -12,7 +12,8 @@ from app.pipeline import GROUPING_WINDOW
 from app.product_history import get_display_timezone, sparklines_for_keys
 from app.routers.products import PricePointResponse
 from app.utc import UtcDatetime, utc_now
-from models import Delivery, Match, Snooze
+from models import Delivery, Match, Rule, Snooze
+from packages.rules.target import target_gap_pct, target_hit
 
 router = APIRouter(
     prefix="/matches",
@@ -66,6 +67,35 @@ class MatchResponse(BaseModel):
     # Computed fresh on every read from `snooze`, same reasoning as every
     # other on-read flag in this file.
     snoozed: bool = False
+    # S14-02 (F6): the match's rule's price target, and whether/how close this
+    # match's own price is to it. `target_price_cents` mirrors `Rule.
+    # target_price_cents` (null without one); `target_hit` and
+    # `target_gap_pct` are computed fresh on every read from those two plus
+    # `price_cents` (`packages.rules.target`), never persisted — same
+    # reasoning as `is_lowest_price_ever` above. Items with `target_hit` sort
+    # first in this endpoint's response (see `list_matches`).
+    target_price_cents: int | None = None
+    target_hit: bool = False
+    target_gap_pct: int | None = None
+
+
+def _target_price_cents_per_rule() -> ScalarSelect[int | None]:
+    """Scalar subquery: the outer `Match` row's rule's `target_price_cents`.
+
+    A correlated subquery rather than a join to `Rule`, on purpose: `Match.
+    rule_id` has no DB-level cascade (`repositories.rule_repo.delete_rule`
+    never touches its matches), so a rule can be deleted while its matches
+    live on. A join would silently drop such a match from the feed; this
+    subquery just yields `NULL` for it, same as a match with no rule at all
+    would read as "no target" — never an outright disappearance.
+    """
+    rule = aliased(Rule)
+    return (
+        select(rule.target_price_cents)
+        .where(rule.id == Match.rule_id)
+        .correlate(Match)
+        .scalar_subquery()
+    )
 
 
 def _lowest_price_cents_per_rule() -> ScalarSelect[int | None]:
@@ -111,7 +141,7 @@ def _snoozed_now(now: datetime) -> Any:
 
 
 def _match_filters(
-    statement: Select[tuple[Match, Delivery, int | None]],
+    statement: Select[tuple[Match, Delivery, int | None, int | None]],
     *,
     rule_id: int | None,
     source_id: int | None,
@@ -120,7 +150,7 @@ def _match_filters(
     min_price_cents: int | None,
     max_price_cents: int | None,
     delivery_status: str | None,
-) -> Select[tuple[Match, Delivery, int | None]]:
+) -> Select[tuple[Match, Delivery, int | None, int | None]]:
     if rule_id is not None:
         statement = statement.where(Match.rule_id == rule_id)
     if source_id is not None:
@@ -277,7 +307,11 @@ def list_matches(
         )
 
     statement = select(
-        Match, Delivery, _lowest_price_cents_per_rule(), _snoozed_now(now)
+        Match,
+        Delivery,
+        _lowest_price_cents_per_rule(),
+        _snoozed_now(now),
+        _target_price_cents_per_rule(),
     ).outerjoin(Delivery, Delivery.match_id == Match.id)
     statement = _match_filters(
         statement,
@@ -291,7 +325,9 @@ def list_matches(
     ).order_by(*_order_by(sort))
 
     matches: dict[int, MatchResponse] = {}
-    for db_match, delivery, lowest_price_cents, snoozed_now in db.execute(statement):
+    for db_match, delivery, lowest_price_cents, snoozed_now, target_price_cents in db.execute(
+        statement
+    ):
         response = matches.get(db_match.id)
         if response is None:
             response = MatchResponse(
@@ -311,12 +347,20 @@ def list_matches(
                 ),
                 product_key=db_match.product_key,
                 snoozed=bool(snoozed_now),
+                target_price_cents=target_price_cents,
+                target_hit=target_hit(db_match.price_cents, target_price_cents),
+                target_gap_pct=target_gap_pct(db_match.price_cents, target_price_cents),
             )
             matches[db_match.id] = response
         if delivery is not None:
             response.deliveries.append(DeliveryResponse.model_validate(delivery))
 
     visible = _apply_display_grouping(matches)
+    # S14-02: a target hit is prioritized in the live feed's own ordering,
+    # on top of whatever `sort`/grouping already produced — a stable sort
+    # only moves target hits to the front, it never reorders within either
+    # group.
+    visible.sort(key=lambda response: not response.target_hit)
     _attach_sparklines(db, visible, now=now, tz=tz)
     return visible
 
