@@ -442,6 +442,8 @@ describe('HistoricoPage', () => {
         ],
         is_lowest_price_ever: true,
         grouped_source_ids: null,
+        product_key: null,
+        sparkline: [],
       },
     ]
     vi.stubGlobal(
@@ -530,6 +532,8 @@ describe('HistoricoPage', () => {
                 deliveries: [],
                 is_lowest_price_ever: false,
                 grouped_source_ids: null,
+                product_key: null,
+                sparkline: [],
               },
             ]),
           )
@@ -557,6 +561,8 @@ describe('HistoricoPage', () => {
       deliveries: [],
       is_lowest_price_ever: false,
       grouped_source_ids: null,
+      product_key: null,
+      sparkline: [],
     }
     const matches = [
       { ...baseMatch, id: 1, message_text: 'Notebook gamer com link', message_link: 'https://t.me/c/123456/77' },

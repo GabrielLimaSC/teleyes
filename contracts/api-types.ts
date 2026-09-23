@@ -199,6 +199,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Product */
+        get: operations["get_product_products__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipients": {
         parameters: {
             query?: never;
@@ -563,10 +580,17 @@ export interface components {
             price_cash_cents: number | null;
             /** Price Cents */
             price_cents: number | null;
+            /** Product Key */
+            product_key?: string | null;
             /** Rule Id */
             rule_id: number;
             /** Source Id */
             source_id: number;
+            /**
+             * Sparkline
+             * @default []
+             */
+            sparkline: components["schemas"]["PricePointResponse"][];
         };
         /**
          * MetricReason
@@ -590,6 +614,79 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * PricePointResponse
+         * @description Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).
+         */
+        PricePointResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Price Cents */
+            price_cents: number;
+        };
+        /** ProductPostingResponse */
+        ProductPostingResponse: {
+            /** Id */
+            id: number;
+            /**
+             * Matched At
+             * Format: date-time
+             */
+            matched_at: string;
+            /** Message Link */
+            message_link: string | null;
+            /** Price Cents */
+            price_cents: number | null;
+            /** Source Id */
+            source_id: number;
+            /** Source Name */
+            source_name: string;
+        };
+        /** ProductResponse */
+        ProductResponse: {
+            /** Average 30D Cents */
+            average_30d_cents: number | null;
+            /** Current Price At */
+            current_price_at: string | null;
+            /** Current Price Cents */
+            current_price_cents: number | null;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /** Highest 90D Cents */
+            highest_90d_cents: number | null;
+            /** Lowest 90D Cents */
+            lowest_90d_cents: number | null;
+            /** Postings */
+            postings: components["schemas"]["ProductPostingResponse"][];
+            /** Product Key */
+            product_key: string;
+            /**
+             * Range
+             * @enum {string}
+             */
+            range: "90d" | "30d" | "7d";
+            /** Series */
+            series: components["schemas"]["PricePointResponse"][];
+            /** Sources */
+            sources: components["schemas"]["ProductSourceResponse"][];
+            /** Title */
+            title: string;
+            /** Total Count */
+            total_count: number;
+        };
+        /** ProductSourceResponse */
+        ProductSourceResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** RecipientCreate */
         RecipientCreate: {
@@ -1175,6 +1272,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestNotificationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_product_products__key__get: {
+        parameters: {
+            query?: {
+                range?: "90d" | "30d" | "7d";
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductResponse"];
                 };
             };
             /** @description Validation Error */

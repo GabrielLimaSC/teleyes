@@ -39,3 +39,8 @@ def format_utc(value: datetime) -> str:
     return str(
         _UTC_DATETIME_ADAPTER.dump_python(_UTC_DATETIME_ADAPTER.validate_python(value), mode="json")
     )
+
+
+def utc_now() -> datetime:
+    """Current instant, aware UTC. A FastAPI dependency so tests can pin the clock."""
+    return datetime.now(UTC)

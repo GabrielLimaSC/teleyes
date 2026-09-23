@@ -27,6 +27,8 @@ const match = (id: number, matchedAt: string) => ({
   deliveries: [],
   is_lowest_price_ever: false,
   grouped_source_ids: null,
+  product_key: null,
+  sparkline: [],
 })
 
 function stubApi(matches: unknown[]) {

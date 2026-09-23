@@ -48,6 +48,8 @@ function buildMatch(overrides: Partial<Match> = {}): Match {
     deliveries: [],
     is_lowest_price_ever: false,
     grouped_source_ids: null,
+    product_key: null,
+    sparkline: [],
     ...overrides,
   }
 }

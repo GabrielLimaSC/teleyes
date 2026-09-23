@@ -55,6 +55,8 @@ const match = (matchedAt: string, overrides: Partial<Record<string, unknown>> = 
   deliveries: [],
   is_lowest_price_ever: false,
   grouped_source_ids: null,
+  product_key: null,
+  sparkline: [],
   ...overrides,
 })
 
