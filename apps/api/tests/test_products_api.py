@@ -291,3 +291,33 @@ def test_feed_sparklines_do_not_add_a_query_per_item(api: ApiContext) -> None:
     many = _count_selects(api)
 
     assert many == few
+
+
+def test_a_message_matched_by_two_rules_is_one_posting(api: ApiContext) -> None:
+    text = f"{PALIT}\n\nR$ 5.000,00 no pix"
+    with api.session_factory() as session:
+        other_rule = Rule(name="Placas Palit", include_terms="palit")
+        session.add(other_rule)
+        session.flush()
+        for rule_id in (api.ids["rule"], other_rule.id):
+            session.add(
+                Match(
+                    source_id=api.ids["a"],
+                    rule_id=rule_id,
+                    telegram_message_id=42,
+                    message_text=text,
+                    price_cents=5_000_00,
+                    matched_at=NOW - timedelta(days=1),
+                    product_key=product_key(text),
+                )
+            )
+        session.commit()
+    _add(api, PALIT, ago=timedelta(days=2), price_cents=6_000_00)
+
+    body = api.client.get(f"/products/{PALIT_KEY}").json()
+
+    assert body["total_count"] == 2
+    assert [posting["price_cents"] for posting in body["postings"]] == [5_000_00, 6_000_00]
+    assert body["average_30d_cents"] == 5_500_00
+    (item,) = [i for i in api.client.get("/matches").json() if i["price_cents"] == 6_000_00]
+    assert [point["price_cents"] for point in item["sparkline"]] == [6_000_00, 5_000_00]

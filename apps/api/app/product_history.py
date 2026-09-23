@@ -129,12 +129,31 @@ def series_for_range(
     )
 
 
+PostingIdentity = tuple[int | None, int]
+
+
+def _posting_identity(
+    match_id: int, source_id: int, telegram_message_id: int | None
+) -> PostingIdentity:
+    """One Telegram message caught by two rules is two `Match` rows but one posting.
+
+    Rows without a Telegram id (legacy) are only ever themselves.
+    """
+    if telegram_message_id is None:
+        return (None, match_id)
+    return (source_id, telegram_message_id)
+
+
 def load_postings(session: Session, key: str) -> list[Posting]:
-    """Every match of `key`, newest first, in one query (with the source name)."""
+    """Every distinct posting of `key`, newest first, in one query (with the source name).
+
+    A message matched by several rules counts once, as its lowest-id `Match`.
+    """
     rows = session.execute(
         select(
             Match.id,
             Match.source_id,
+            Match.telegram_message_id,
             Source.name,
             Match.message_text,
             Match.price_cents,
@@ -143,9 +162,16 @@ def load_postings(session: Session, key: str) -> list[Posting]:
         )
         .join(Source, Source.id == Match.source_id)
         .where(Match.product_key == key)
-        .order_by(Match.matched_at.desc(), Match.id.desc())
+        .order_by(Match.id)
     )
-    return [
+    seen: set[PostingIdentity] = set()
+    unique_rows = []
+    for row in rows:
+        identity = _posting_identity(row.id, row.source_id, row.telegram_message_id)
+        if identity not in seen:
+            seen.add(identity)
+            unique_rows.append(row)
+    postings = [
         Posting(
             id=row.id,
             source_id=row.source_id,
@@ -155,8 +181,10 @@ def load_postings(session: Session, key: str) -> list[Posting]:
             matched_at=ensure_utc(row.matched_at),
             message_link=row.message_link,
         )
-        for row in rows
+        for row in unique_rows
     ]
+    postings.sort(key=lambda posting: (posting.matched_at, posting.id), reverse=True)
+    return postings
 
 
 def sparklines_for_keys(
@@ -165,7 +193,14 @@ def sparklines_for_keys(
     """90-day daily-lowest series (≤ `SPARKLINE_MAX_POINTS`) for many keys in one query."""
     if not keys:
         return {}
-    statement = select(Match.product_key, Match.matched_at, Match.price_cents).where(
+    statement = select(
+        Match.id,
+        Match.source_id,
+        Match.telegram_message_id,
+        Match.product_key,
+        Match.matched_at,
+        Match.price_cents,
+    ).where(
         Match.product_key.is_not(None),
         Match.price_cents.is_not(None),
         Match.matched_at >= now - SPARKLINE_WINDOW,
@@ -173,10 +208,14 @@ def sparklines_for_keys(
     if len(keys) <= _SPARKLINE_IN_LIMIT:
         statement = statement.where(Match.product_key.in_(keys))
 
+    seen: set[PostingIdentity] = set()
     priced: dict[str, list[tuple[datetime, int]]] = {}
-    for key, matched_at, price_cents in session.execute(statement):
-        if key in keys and price_cents is not None:
-            priced.setdefault(key, []).append((matched_at, price_cents))
+    for row in session.execute(statement.order_by(Match.id)):
+        identity = _posting_identity(row.id, row.source_id, row.telegram_message_id)
+        if identity in seen or row.product_key not in keys or row.price_cents is None:
+            continue
+        seen.add(identity)
+        priced.setdefault(row.product_key, []).append((row.matched_at, row.price_cents))
     return {
         key: downsample(daily_lowest(rows, tz), SPARKLINE_MAX_POINTS)
         for key, rows in priced.items()
