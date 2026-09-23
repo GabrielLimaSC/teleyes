@@ -287,8 +287,8 @@ def test_product_key_migration_backfills_existing_matches_and_downgrades(
             "SELECT id, product_key, message_text FROM match ORDER BY id"
         ).fetchall()
     assert [(row[0], row[1]) for row in rows] == [
-        (1, "placa-de-video-palit-rtx-5070-ti-16gb"),
-        (2, "placa-de-video-palit-rtx-5070-ti-16gb"),
+        (1, "palit-rtx-5070-ti"),  # S14-01 recalibration: model fingerprint
+        (2, "palit-rtx-5070-ti"),
         (3, None),
     ]
     assert rows[0][2] == palit

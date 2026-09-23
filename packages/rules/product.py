@@ -2,11 +2,21 @@
 
 `product_key` groups matches of "the same product" so price history (F1) and
 read-time duplicate grouping (F5) have something stable to aggregate on. It
-is deliberately conservative — no fuzzy matching (CLAUDE.md): two posts only
-share a key when their product title normalises to the exact same tokens.
-When in doubt it fragments (two keys for one product) rather than merging two
-different products, because a wrong merge would show one product's price as
-another's history.
+is deliberately conservative — no fuzzy matching (CLAUDE.md).
+
+Recalibration (S14-01 follow-up): the key used to be the whole title
+normalised, so every store's own wording of specs, part codes and CTA
+footers ("104mb 4.7ghz 8 nucleos", "100-100001084WOF", "resgate todos os")
+fragmented the same real product into a dozen keys. The key is now a "model
+fingerprint": brand (from a small explicit allowlist) + model-code tokens +
+line/variant words, in that canonical order, picked from the first product
+line that actually contains a model code (skipping hype lines and thin
+category tags before it). Capacity, frequency, bus/socket, port and count
+specs are stripped because they vary post to post without identifying a
+different product; brand, model code and line/variant words never are,
+because mixing those would show one product's price as another's history.
+When in doubt this still fragments (two keys for one product) rather than
+merging two different products.
 
 The title is cut the same way the web card does it
 (`apps/web/src/components/matchTitle.ts::productText`: everything before the
@@ -77,6 +87,274 @@ _WHITESPACE_RE = re.compile(r"\s+")
 
 MAX_KEY_LENGTH = 200
 
+# --- model fingerprint (S14-01 recalibration) --------------------------------
+#
+# Everything below turns one already-cleaned product line into
+# (brand, model-code tokens, line/variant tokens). Order of operations
+# matters: specs are stripped from the raw (pre-`normalize_text`) line so
+# decimal points and unit spacing ("4.7GHz", "192 bits") are still visible,
+# *then* the survivors are tokenised and classified.
+
+# GPU/chip series written glued ("rtx5070ti", "rx9070xt") are split back into
+# "rtx 5070 ti" so they tokenise the same as the spaced form.
+_SERIES_RE = re.compile(
+    # The separator before a suffix is grouped *with* the suffix so it is
+    # only consumed when a suffix actually follows — otherwise "RTX 5070
+    # Shadow" (no suffix) would eat the space before the next word and glue
+    # it to the number ("5070Shadow").
+    r"\b(rtx|gtx|rx|arc)[\s-]*(\d{3,4})(?:[\s-]*(ti|super|xt|xtx)\b)?",
+    re.IGNORECASE,
+)
+_SERIES_PREFIX_TOKENS = frozenset("rtx gtx rx arc".split())
+_SERIES_SUFFIX_TOKENS = frozenset("ti super xt xtx".split())
+
+_LIAN_LI_RE = re.compile(r"\blian\s*li\b", re.IGNORECASE)
+
+_MULTIPLIER_RE = re.compile(r"^\d+x$")
+_UNIT_SUFFIX_RE = re.compile(r"^\d+(?:gb|mb|tb|kb|w|v|bit|bits)$")
+_FREQ_SUFFIX_RE = re.compile(r"^\d+(?:ghz|mhz|hz)$")
+_BARE_CHIPSET_RE = re.compile(r"^[ab]\d{3}$")  # "B850"/"A620": the chipset generation,
+# not the board ("B850M", "A620AM" keep their trailing letters and are unaffected).
+
+# Words a bare digit is glued to across a space instead of a real separator
+# ("8 MB", "16 Threads", "AM5 100 100001084Wof") — store copy-paste is
+# inconsistent about hyphens/dots, so these are matched at the token level
+# (after `normalize_text` has already folded accents and case) instead of
+# with a punctuation-sensitive regex on the raw line.
+_UNIT_WORDS = frozenset("gb mb tb kb w v bit bits".split())
+_FREQ_UNIT_WORDS = frozenset("ghz mhz hz".split())
+_COUNT_WORDS = frozenset("nucleo nucleos core cores thread threads porta portas".split())
+
+
+def _is_code_fragment(token: str) -> bool:
+    # A token with a recognised meaning of its own (a capacity/frequency
+    # spec, a bus/socket/port word, a fan/cooler multiplier like "2x") is
+    # never vendor-SKU noise, even though it is just as alnum-mixed as one
+    # ("8gb", "4800mhz", "ddr5", "2x").
+    if _UNIT_SUFFIX_RE.match(token) or _FREQ_SUFFIX_RE.match(token) or _MULTIPLIER_RE.match(token):
+        return False
+    if token in _BUS_SOCKET_TOKENS or token in _PORT_TOKENS:
+        return False
+    has_alpha = any(char.isalpha() for char in token)
+    has_digit = any(char.isdigit() for char in token)
+    if has_alpha and has_digit:
+        return True
+    return token.isdigit() and 2 <= len(token) <= 3
+
+
+def _drop_part_code_runs(tokens: list[str]) -> list[str]:
+    """Drop runs of 2+ consecutive alnum-mixed tokens: long vendor part codes
+    ("100-100001084WOF", "90-MXBU40-A0UAYZ", "912-V532",
+    "NE75070019K9-GB2050S") chain several digit/letter groups this way,
+    whether the source used a hyphen or a bare space between them. A real
+    model code ("9800x3d", "b840m", "a620am") never sits directly next to
+    another code-shaped token — only ordinary words — so a lone one survives.
+    """
+    result: list[str] = []
+    index, total = 0, len(tokens)
+    while index < total:
+        if _is_code_fragment(tokens[index]):
+            end = index
+            while end < total and _is_code_fragment(tokens[end]):
+                end += 1
+            if end - index >= 2:
+                index = end
+                continue
+        result.append(tokens[index])
+        index += 1
+    return result
+
+
+def _strip_unit_and_count_tokens(tokens: list[str], *, keep_capacity: bool) -> list[str]:
+    """Drop capacity/frequency/count-phrase noise from a token list.
+
+    Must run *before* `_drop_part_code_runs`: a decimal frequency written
+    with spaces instead of a decimal point ("5.2 GHz" -> "5", "2", "ghz") or
+    a capacity written as two words ("104 MB" -> "104", "mb") is a run of
+    plain-looking, alnum-only tokens that would otherwise sit right next to
+    a real model code ("9800X3D 104 MB...") and get swept up with it by the
+    part-code-run heuristic. Consuming known spec shapes first means only
+    genuine vendor-SKU fragments are left for that pass to find.
+
+    `keep_capacity` skips the capacity and frequency branches only — the
+    recovery pass for a branded product with no other model code (see
+    `_fingerprint`). Core/thread/port counts are never useful identity
+    signal either way, so they are always dropped.
+    """
+    result: list[str] = []
+    index, total = 0, len(tokens)
+    while index < total:
+        token = tokens[index]
+        following = tokens[index + 1] if index + 1 < total else None
+        after_following = tokens[index + 2] if index + 2 < total else None
+        if token == "m" and following == "2":  # "M.2" / "M 2"
+            index += 2
+            continue
+        if _MULTIPLIER_RE.match(token):  # "2x", "3x": a fan/cooler count, not a model code
+            index += 1
+            continue
+        # A decimal spec split across three tokens by a space standing in
+        # for the decimal point ("5.2 GHz" -> "5", "2", "ghz").
+        if (
+            not keep_capacity
+            and token.isdigit()
+            and following is not None
+            and following.isdigit()
+            and after_following is not None
+            and (after_following in _UNIT_WORDS or after_following in _FREQ_UNIT_WORDS)
+        ):
+            index += 3
+            continue
+        if token.isdigit() and following is not None:
+            if len(token) <= 2 and (following in _COUNT_WORDS or following in _PORT_TOKENS):
+                index += 2
+                continue
+            if len(token) <= 2 and following.isdigit() and len(following) == 3:
+                index += 2  # stray "R$ 6.991" leftover
+                continue
+            if not keep_capacity and len(token) <= 4 and (
+                following in _UNIT_WORDS
+                or following in _FREQ_UNIT_WORDS
+                or _UNIT_SUFFIX_RE.match(following)
+                or _FREQ_SUFFIX_RE.match(following)
+            ):
+                index += 2
+                continue
+        if not keep_capacity and (_UNIT_SUFFIX_RE.match(token) or _FREQ_SUFFIX_RE.match(token)):
+            index += 1
+            continue
+        if _BARE_CHIPSET_RE.match(token):
+            index += 1
+            continue
+        result.append(token)
+        index += 1
+    return result
+
+
+def _strip_spec_tokens(tokens: list[str], *, keep_capacity: bool) -> list[str]:
+    """Drop capacity/frequency/count-phrase/part-code noise from a token list."""
+    tokens = _strip_unit_and_count_tokens(tokens, keep_capacity=keep_capacity)
+    return _drop_part_code_runs(tokens)
+
+# Chip makers: sometimes in the title, sometimes not, never the identity of
+# the specific board/kit being sold. Never a "brand" slot.
+_CHIP_MAKER_TOKENS = frozenset("amd nvidia intel geforce radeon".split())
+
+# Small, explicit allowlist of board/memory/PSU manufacturers (CLAUDE.md: no
+# fuzzy matching, so this only grows by adding names, never by guessing).
+_BRAND_TOKENS = frozenset(
+    "palit msi asus gigabyte asrock inno3d zotac galax pny sapphire powercolor xfx "
+    "biostar corsair kingston memtech xpg adata husky redragon pcyes gamdias lianli".split()
+)
+
+# Product-type / connector / generic descriptor words: present or absent
+# without changing which product this is.
+_GENERIC_DISCARD_TOKENS = frozenset(
+    "placa video mae processador memoria ram gamer desktop oc matx micro atx chipset "
+    "para ryzen com sem cooler integrado de da do das dos e cache kit und unidade "
+    "unidades geracao serie modelo tipo original graphics".split()
+)
+_BUS_SOCKET_TOKENS = frozenset(
+    "ddr5 ddr4 ddr3 gddr7 gddr6x gddr6 gdr7 am5 am4 am6 lga1700 lga1200 lga1851 "
+    "pcie pcie3 pcie4 pcie5 nvme uatx itx m2".split()
+)
+_PORT_TOKENS = frozenset("dp hdmi hd vga usb rgb displayport dvi".split())
+_FOOTER_DISCARD_TOKENS = frozenset(
+    "resgate resgatem resgatar link produto produtos anuncio amazon kabum usem use "
+    "confira aproveite corra garanta acesse clique compre comprar".split()
+)
+_MARKETING_FILLER_TOKENS = frozenset("max turbo ultra performance nova novo lacrado".split())
+
+_DROP_TOKEN_SETS = (
+    _CHIP_MAKER_TOKENS,
+    _GENERIC_DISCARD_TOKENS,
+    _BUS_SOCKET_TOKENS,
+    _PORT_TOKENS,
+    _FOOTER_DISCARD_TOKENS,
+    _MARKETING_FILLER_TOKENS,
+    _BANNER_TOKENS,
+    _LEADING_HYPE_TOKENS,
+    _TRAILING_CONNECTOR_TOKENS,
+)
+
+# Line/variant words worth keeping: they are what tells two boards with the
+# same brand and chip apart (GamingPro vs Inspire, Challenger vs Challenger
+# Wifi White). A trailing lone "s" after one of these ("GamingPro-S") is
+# treated as the same line as the bare word — evidence from the real data
+# shows the same posting alternates between the two for one product, and the
+# risk of it ever meaning a genuinely different SKU is low next to the
+# fragmentation it currently causes.
+_VARIANT_KEEP_TOKENS = frozenset(
+    "gamingpro inspire shadow challenger tuf ayw pro gaming wifi white branco plus "
+    "twin dual triple vision eagle phantom windforce strix ventus gamerock suprim "
+    "trinity nitro pulse steel legend aorus prime infinity".split()
+)
+
+
+def _has_digit(token: str) -> bool:
+    return any(char.isdigit() for char in token)
+
+
+def _model_fingerprint(
+    line: str, *, keep_capacity: bool = False
+) -> tuple[str | None, list[str], list[str]]:
+    """Split one cleaned product line into (brand, model-code tokens, variant tokens).
+
+    The line is tokenised (`normalize_text`, which folds accents and case —
+    stores write "Núcleos"/"NUCLEOS"/"nucleos" interchangeably) before specs
+    are stripped, so accent and punctuation quirks in the source never
+    matter. A trailing lone letter ("-B", "-S") is dropped: real observed
+    suffixes are either consistently present across every posting of a
+    product (so dropping them changes nothing) or the deliberate
+    GamingPro/GamingPro-S carve-out above.
+
+    `keep_capacity` is the recovery pass for a branded product with no other
+    model code at all (a plain RAM kit: "Memtech 8GB DDR5"). There capacity
+    is the only thing that identifies which product it is, so it is kept
+    instead of stripped — the caller only takes this path when the normal
+    pass found a brand but no model code.
+    """
+    text = _LIAN_LI_RE.sub("lianli", line)
+    text = _SERIES_RE.sub(
+        lambda match: " ".join(part for part in match.groups() if part), text
+    )
+    tokens = _strip_spec_tokens(normalize_text(text).split(), keep_capacity=keep_capacity)
+
+    brand: str | None = None
+    model_tokens: list[str] = []
+    variant_tokens: list[str] = []
+    for token in tokens:
+        if _MULTIPLIER_RE.match(token):
+            continue
+        if len(token) == 1 and token.isalpha():
+            continue
+        if any(token in drop_set for drop_set in _DROP_TOKEN_SETS):
+            continue
+        if brand is None and token in _BRAND_TOKENS:
+            brand = token
+            continue
+        if token in _SERIES_PREFIX_TOKENS or token in _SERIES_SUFFIX_TOKENS or _has_digit(token):
+            model_tokens.append(token)
+            continue
+        if token in _VARIANT_KEEP_TOKENS:
+            variant_tokens.append(token)
+            continue
+        # Unrecognised word: kept. Erring toward fragmentation (an extra key
+        # for an unknown word) is safer than silently discarding something
+        # that turns out to distinguish two real products.
+        variant_tokens.append(token)
+    return brand, model_tokens, variant_tokens
+
+
+def _fingerprint(line: str) -> tuple[str | None, list[str], list[str]]:
+    """`_model_fingerprint`, with the capacity-recovery retry applied."""
+    brand, model_tokens, variant_tokens = _model_fingerprint(line)
+    if brand is not None and not model_tokens:
+        recovered = _model_fingerprint(line, keep_capacity=True)
+        if recovered[1]:
+            return recovered
+    return brand, model_tokens, variant_tokens
+
 
 def product_text(message_text: str) -> str:
     """Python port of `matchTitle.ts::productText`: cut at the first link.
@@ -133,8 +411,37 @@ def _trim_edges(tokens: list[str]) -> list[str]:
     return tokens[start:end]
 
 
+def _choose_product_line(cleaned_lines: list[str]) -> str | None:
+    """The line that best represents the product's model fingerprint.
+
+    Prefers the first line whose fingerprint has a brand or a variant word,
+    or that simply has enough words to be a real description rather than a
+    short category tag ("RTX 5070" on its own line, ahead of the actual
+    "Placa de vídeo ... Palit RTX5070 12GB Infinity 3 ..." line). Falls back
+    to the first line with *any* model-code token when nothing richer shows
+    up, so a message that truly is just "RTX 5070" still gets a key.
+    """
+    fallback: str | None = None
+    for line in cleaned_lines:
+        brand, model_tokens, variant_tokens = _fingerprint(line)
+        if not model_tokens:
+            continue
+        if fallback is None:
+            fallback = line
+        if brand is not None or variant_tokens or len(line.split()) >= 4:
+            return line
+    return fallback
+
+
 def product_key(message_text: str) -> str | None:
-    """Stable, URL-safe product identity (`palit-rtx-5070-ti-16gb`) or `None`.
+    """Stable, URL-safe product identity (`palit-rtx-5070-ti-gamingpro`) or `None`.
+
+    A "model fingerprint" — brand (small explicit allowlist) + model-code
+    tokens + line/variant words, in that order — picked from the first
+    product line that actually carries a model code. Capacity, frequency,
+    bus/socket, port and count specs never enter it, because they vary post
+    to post for the same product; when no model code is found anywhere the
+    old, safer behaviour applies (full normalised, truncated title).
 
     Deterministic: same input, same key, forever — changing this function
     changes the identity of existing rows, so it needs a new backfill
@@ -143,7 +450,20 @@ def product_key(message_text: str) -> str | None:
     title = product_title(message_text)
     if title is None:
         return None
-    tokens = _trim_edges(normalize_text(title).split())
+
+    cleaned_lines = [
+        cleaned
+        for line in product_text(message_text).splitlines()
+        if (cleaned := _clean_line(line)) is not None
+    ]
+    chosen_line = _choose_product_line(cleaned_lines)
+
+    if chosen_line is not None:
+        brand, model_tokens, variant_tokens = _fingerprint(chosen_line)
+        tokens = _trim_edges(([brand] if brand else []) + model_tokens + variant_tokens)
+    else:
+        tokens = _trim_edges(normalize_text(title).split())
+
     kept: list[str] = []
     length = 0
     for token in tokens:

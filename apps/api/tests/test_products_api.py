@@ -31,7 +31,7 @@ from packages.telegram.fakes import FakeTelegramClient
 PASSWORD = "correct horse battery staple"
 NOW = datetime(2026, 9, 23, 15, 0, tzinfo=UTC)
 PALIT = "Placa de Vídeo Palit RTX 5070 Ti 16GB"
-PALIT_KEY = "placa-de-video-palit-rtx-5070-ti-16gb"
+PALIT_KEY = "palit-rtx-5070-ti"  # S14-01 recalibration: model fingerprint, not the full title
 GIGABYTE = "Placa de Vídeo Gigabyte RTX 5070 Ti Windforce 16GB"
 
 
@@ -254,7 +254,7 @@ def test_feed_items_carry_product_key_and_a_short_sparkline(api: ApiContext) -> 
     items = {item["id"]: item for item in api.client.get("/matches").json()}
 
     gigabyte = items[unpriced]
-    assert gigabyte["product_key"] == "placa-de-video-gigabyte-rtx-5070-ti-windforce-16gb"
+    assert gigabyte["product_key"] == "gigabyte-rtx-5070-ti-windforce"
     assert gigabyte["sparkline"] == []
     palit_items = [item for item in items.values() if item["product_key"] == PALIT_KEY]
     sparkline = palit_items[0]["sparkline"]
