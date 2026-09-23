@@ -4,9 +4,38 @@ from dataclasses import dataclass
 _MONEY_RE = re.compile(
     r"(?P<installment>\d{1,2}\s*x\s*(?:de\s+)?)?"
     r"(?P<currency>r\$\s*)?"
-    r"(?P<value>(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)",
+    r"(?P<value>"
+    # dot-thousands, optional comma-decimal: "3.899,90" / "3.899". The decimal
+    # tail can never be followed by another digit — a real decimal always has
+    # exactly 2 digits after the comma (S14-11, see the comma-thousands
+    # alternative below for why that lookahead matters).
+    r"\d{1,3}(?:\.\d{3})+(?:,\d{2}(?!\d))?"
+    # S14-11: US-style thousands separator with a comma, e.g. "6,991" for
+    # R$ 6.991 — real feed messages write prices this way, without "R$" and
+    # without the usual dot-thousands. A comma followed by exactly 3 digits
+    # (repeated), with nothing else around it, can only be a thousands
+    # separator: Portuguese decimals always have exactly 2 digits after the
+    # comma, never 3. The old regex had no lookahead after `,\d{2}`, so it
+    # matched only "6,99" out of "6,991" and silently dropped the trailing
+    # "1" — a RTX 5070 at R$ 6.991 was stored as R$ 6,99 and flagged "menor
+    # preço já visto". Confirmed against 3 real matches with this exact
+    # shape: "6,991", "7,070", "1,007". The trailing lookaheads reject a
+    # digit or a further ",dd" right after, so this never eats into a
+    # decimal or another number.
+    r"|\d{1,3}(?:,\d{3})+(?!\d)(?!,\d)"
+    # plain comma-decimal, no thousands grouping: "3899,90" / "6,99". Same
+    # not-followed-by-another-digit guard, so "6,991" can never be
+    # mis-parsed as "6,99" through this branch either.
+    r"|\d+,\d{2}(?!\d)"
+    r"|\d+"
+    r")",
     re.IGNORECASE,
 )
+
+# S14-11: a value matching this exactly (only digits and comma-thousands
+# groups, no dot, no decimal tail) came from the comma-thousands branch of
+# `_MONEY_RE` above and must be read as whole reais, not as reais-and-cents.
+_COMMA_THOUSANDS_RE = re.compile(r"^\d{1,3}(?:,\d{3})+$")
 
 # S7-05: explicit textual anchors for "à vista/pix" vs "cartão/parcelado/Nx de"
 # — CLAUDE.md requires fuzzy matching to wait for real examples, so these are
@@ -74,6 +103,8 @@ class _Candidate:
 
 
 def _parse_value_to_cents(value: str) -> int:
+    if _COMMA_THOUSANDS_RE.match(value):
+        return int(value.replace(",", "")) * 100
     cleaned = value.replace(".", "")
     if "," in cleaned:
         reais, cents = cleaned.split(",")
