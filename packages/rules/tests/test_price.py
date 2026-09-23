@@ -274,3 +274,91 @@ def test_real_cmdias_message_keeps_price_when_coupon_amount_has_no_currency_mark
 
     assert result.price_cents == 254200
     assert result.ambiguous is False
+
+
+def test_comma_thousands_without_currency_symbol_is_read_as_whole_reais() -> None:
+    """S14-11: raw feed style, no "R$", price written with a US-style
+    thousands comma instead of the usual dot ("6,991" for R$ 6.991). The old
+    regex had no lookahead after the 2-digit decimal, so it matched only
+    "6,99" and silently dropped the trailing "1".
+    """
+    result = extract_price("Disparou: 💵6,991 na Placa de Video RTX 5070")
+
+    assert result.price_cents == 699100
+    assert result.ambiguous is False
+
+
+def test_comma_thousands_with_currency_symbol_is_read_as_whole_reais() -> None:
+    result = extract_price("Fechou R$ 7,070 no cupom de hoje")
+
+    assert result.price_cents == 707000
+    assert result.ambiguous is False
+
+
+def test_another_comma_thousands_example_is_read_as_whole_reais() -> None:
+    result = extract_price("Caiu pra 1,007 no site")
+
+    assert result.price_cents == 100700
+    assert result.ambiguous is False
+
+
+def test_dot_thousands_with_comma_decimal_is_unchanged_by_comma_thousands_fix() -> None:
+    result = extract_price("Fechado em 3.899,90 à vista")
+
+    assert result.price_cents == 389990
+    assert result.ambiguous is False
+
+
+def test_plain_comma_decimal_without_dot_is_unchanged_by_comma_thousands_fix() -> None:
+    result = extract_price("Só hoje por 3899,90 no pix")
+
+    assert result.price_cents == 389990
+
+
+def test_currency_symbol_with_plain_comma_decimal_is_unchanged() -> None:
+    result = extract_price("Fechou em R$ 639,00 hoje")
+
+    assert result.price_cents == 63900
+
+
+def test_lone_comma_decimal_still_reads_as_cents_not_thousands() -> None:
+    """The exact shape that broke before the fix — "6,99" alone (2 digits
+    after the comma) must never be reinterpreted as a truncated thousands
+    value; it's a legitimate R$ 6,99 decimal price.
+    """
+    result = extract_price("Promoção relâmpago: 6,99 no pix")
+
+    assert result.price_cents == 699
+    assert result.ambiguous is False
+
+
+def test_comma_thousands_never_gets_truncated_to_two_digits() -> None:
+    """No formatting can make "6,991" read back as the old, wrong 699
+    cents — whether written with "R$", with an unrelated currency emoji, or
+    bare with just the comma."""
+    for text in ("💵6,991", "R$ 6,991", "6,991"):
+        result = extract_price(text)
+
+        assert result.price_cents == 699100, text
+
+
+def test_coupon_next_to_a_comma_thousands_price_still_ignores_the_coupon() -> None:
+    result = extract_price(
+        "Nova promoção: 💵6,991 na placa de vídeo, cupom de 100 off, "
+        "aproveite em https://loja.example.com/produto"
+    )
+
+    assert result.price_cents == 699100
+    assert result.ambiguous is False
+
+
+def test_comma_decimal_followed_by_one_digit_is_not_read_as_thousands() -> None:
+    result = extract_price("Pesa 1,5 no total")
+
+    assert result.price_cents is None
+
+
+def test_comma_decimal_with_unit_suffix_is_not_read_as_thousands() -> None:
+    result = extract_price("Peso líquido de 12,5kg por unidade")
+
+    assert result.price_cents is None
