@@ -6,6 +6,7 @@ from models.match import Match
 from models.processing_cursor import ProcessingCursor
 from models.recipient import Recipient
 from models.rule import Rule
+from models.snooze import Snooze
 from models.source import Source
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "ProcessingCursor",
     "Recipient",
     "Rule",
+    "Snooze",
     "Source",
 ]

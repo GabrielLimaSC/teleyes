@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.delivery_policy import is_snoozed
 from app.utc import format_utc
 from models import Delivery, Match, Recipient, Rule
 from packages.events.broker import EventBroker
@@ -311,6 +312,18 @@ async def process_message(
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
     increment_counter(session, MetricReason.SEEN, source_id=message.source_id)
+
+    # S14-03 (F3): silencing only ever suppresses the delivery below — the
+    # match is already persisted above and the caller still publishes it on
+    # SSE (`build_match_event` only checks `result.match`), exactly as if
+    # nothing were snoozed.
+    if is_snoozed(
+        session,
+        rule_id=rule.id,
+        product_key=db_match.product_key,
+        now=message.received_at,
+    ):
+        return ProcessResult(match=db_match, deliveries_sent=0, reason="snoozed")
 
     if already_grouped:
         for recipient in recipients:

@@ -9,7 +9,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from models import Delivery, Match, Recipient, Rule, Source
+from models import Delivery, Match, Recipient, Rule, Snooze, Source
 from models.db import get_engine
 
 AlembicRunner = Callable[..., subprocess.CompletedProcess[str]]
@@ -300,3 +300,34 @@ def test_product_key_migration_backfills_existing_matches_and_downgrades(
         count = connection.execute("SELECT COUNT(*) FROM match").fetchone()
     assert "product_key" not in columns
     assert count == (3,)
+
+
+def test_snooze_check_constraint_rejects_a_mismatched_scope_and_target(
+    session: Session,
+) -> None:
+    rule = Rule(name="Regra Teste", include_terms="promo")
+    session.add(rule)
+    session.flush()
+
+    now = datetime.now(UTC)
+
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=now))
+    session.commit()
+
+    session.add(Snooze(scope="product", product_key="algum-produto", until=now))
+    session.commit()
+
+    session.add(Snooze(scope="rule", rule_id=rule.id, product_key="algum-produto", until=now))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+
+    session.add(Snooze(scope="product", rule_id=rule.id, until=now))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+
+    session.add(Snooze(scope="rule", until=now))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()

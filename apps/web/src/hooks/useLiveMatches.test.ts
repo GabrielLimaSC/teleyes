@@ -21,6 +21,7 @@ function buildMatch(id: number): Match {
     grouped_source_ids: null,
     product_key: null,
     sparkline: [],
+    snoozed: false,
   }
 }
 
