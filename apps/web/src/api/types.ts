@@ -37,6 +37,10 @@ export interface Match {
    * days, oldest first, at most 30 points (consecutive days merged by their
    * lowest price). Empty without a product key or a priced match. */
   sparkline: PricePoint[]
+  /** S14-03: the rule or the product (whichever this match has) is silenced
+   * right now — show "Reativar" instead of the usual actions. Computed
+   * fresh on every read, never stored. */
+  snoozed: boolean
 }
 
 /** S14-01: lowest price of one day, `date` as `YYYY-MM-DD` in the
@@ -95,6 +99,23 @@ export interface Rule {
   /** S7-06: the rule's true historical minimum among its own priced
    * matches, or `null` with no priced match yet. */
   lowest_price_cents: number | null
+  /** S14-03: `until` of the rule's active snooze, `null` when it is not
+   * silenced. Computed fresh on every read, never stored. */
+  snoozed_until: string | null
+}
+
+/** S14-03: silences delivery for one rule or one product until `until` (F3).
+ * The match itself is still persisted and shown on the feed; only the
+ * delivery is suppressed. A new snooze for the same target replaces the
+ * previous one instead of duplicating it. */
+export interface Snooze {
+  id: number
+  scope: 'rule' | 'product'
+  rule_id: number | null
+  product_key: string | null
+  until: string
+  /** The rule's name, or the product's title from its most recent posting. */
+  label: string
 }
 
 /** S13-07: one already-matched message (any existing rule, last

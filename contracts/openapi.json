@@ -397,6 +397,11 @@
             "title": "Rule Id",
             "type": "integer"
           },
+          "snoozed": {
+            "default": false,
+            "title": "Snoozed",
+            "type": "boolean"
+          },
           "source_id": {
             "title": "Source Id",
             "type": "integer"
@@ -885,6 +890,18 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
           }
         },
         "required": [
@@ -1173,6 +1190,125 @@
           "deliveries_sent"
         ],
         "title": "SimulateMessageResponse",
+        "type": "object"
+      },
+      "SnoozeCreate": {
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "scope": {
+            "enum": [
+              "rule",
+              "product"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "title": "SnoozeCreate",
+        "type": "object"
+      },
+      "SnoozeResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "scope": {
+            "enum": [
+              "rule",
+              "product"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "until": {
+            "format": "date-time",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "rule_id",
+          "product_key",
+          "until",
+          "label"
+        ],
+        "title": "SnoozeResponse",
         "type": "object"
       },
       "SourceCreate": {
@@ -2431,7 +2567,7 @@
     },
     "/rules": {
       "get": {
-        "description": "S7-06: `lowest_price_cents` (the true historical minimum among the\nrule's own priced matches, `None` with no priced match yet) is computed\nfresh here in one extra query \u2014 never persisted on `Rule`, same reasoning\nas `Match.is_lowest_price_ever` in `app.routers.matches`.",
+        "description": "S7-06: `lowest_price_cents` (the true historical minimum among the\nrule's own priced matches, `None` with no priced match yet) is computed\nfresh here in one extra query \u2014 never persisted on `Rule`, same reasoning\nas `Match.is_lowest_price_ever` in `app.routers.matches`. S14-03:\n`snoozed_until` is the same kind of read-time computation, from `snooze`.",
         "operationId": "list_rules_rules_get",
         "parameters": [
           {
@@ -2841,6 +2977,167 @@
         "summary": "Pause Rule",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/snoozes": {
+      "get": {
+        "operationId": "list_snoozes_snoozes_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnoozeResponse"
+                  },
+                  "title": "Response List Snoozes Snoozes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Snoozes",
+        "tags": [
+          "snoozes"
+        ]
+      },
+      "post": {
+        "operationId": "create_snooze_snoozes_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnoozeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnoozeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Snooze",
+        "tags": [
+          "snoozes"
+        ]
+      }
+    },
+    "/snoozes/{snooze_id}": {
+      "delete": {
+        "operationId": "delete_snooze_snoozes__snooze_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snooze_id",
+            "required": true,
+            "schema": {
+              "title": "Snooze Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Snooze",
+        "tags": [
+          "snoozes"
         ]
       }
     },

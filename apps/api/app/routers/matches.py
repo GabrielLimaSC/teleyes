@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import ScalarSelect, Select, exists, func, select
+from sqlalchemy import ScalarSelect, Select, and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.main import get_current_session, get_db
@@ -12,7 +12,7 @@ from app.pipeline import GROUPING_WINDOW
 from app.product_history import get_display_timezone, sparklines_for_keys
 from app.routers.products import PricePointResponse
 from app.utc import UtcDatetime, utc_now
-from models import Delivery, Match
+from models import Delivery, Match, Snooze
 
 router = APIRouter(
     prefix="/matches",
@@ -61,6 +61,11 @@ class MatchResponse(BaseModel):
     # response in a single query, never one per item.
     product_key: str | None = None
     sparkline: list[PricePointResponse] = []
+    # S14-03: the rule or the product (whichever this match has) is silenced
+    # right now — the card shows "Reativar" instead of the usual actions.
+    # Computed fresh on every read from `snooze`, same reasoning as every
+    # other on-read flag in this file.
+    snoozed: bool = False
 
 
 def _lowest_price_cents_per_rule() -> ScalarSelect[int | None]:
@@ -83,6 +88,25 @@ def _lowest_price_cents_per_rule() -> ScalarSelect[int | None]:
         .where(lowest.rule_id == Match.rule_id, lowest.price_cents.is_not(None))
         .correlate(Match)
         .scalar_subquery()
+    )
+
+
+def _snoozed_now(now: datetime) -> Any:
+    """S14-03: `EXISTS` scalar subquery, correlated into the same single query
+    `list_matches` already runs — never a second round trip, same reasoning
+    as `_lowest_price_cents_per_rule` above. Active means `until > now`,
+    matched by the row's own rule or, when it has one, its product.
+    """
+    return exists(
+        select(Snooze.id)
+        .where(
+            Snooze.until > now,
+            or_(
+                and_(Snooze.scope == "rule", Snooze.rule_id == Match.rule_id),
+                and_(Snooze.scope == "product", Snooze.product_key == Match.product_key),
+            ),
+        )
+        .correlate(Match)
     )
 
 
@@ -252,9 +276,9 @@ def list_matches(
             detail="min_price_cents must not exceed max_price_cents",
         )
 
-    statement = select(Match, Delivery, _lowest_price_cents_per_rule()).outerjoin(
-        Delivery, Delivery.match_id == Match.id
-    )
+    statement = select(
+        Match, Delivery, _lowest_price_cents_per_rule(), _snoozed_now(now)
+    ).outerjoin(Delivery, Delivery.match_id == Match.id)
     statement = _match_filters(
         statement,
         rule_id=rule_id,
@@ -267,7 +291,7 @@ def list_matches(
     ).order_by(*_order_by(sort))
 
     matches: dict[int, MatchResponse] = {}
-    for db_match, delivery, lowest_price_cents in db.execute(statement):
+    for db_match, delivery, lowest_price_cents, snoozed_now in db.execute(statement):
         response = matches.get(db_match.id)
         if response is None:
             response = MatchResponse(
@@ -286,6 +310,7 @@ def list_matches(
                     db_match.price_cents is not None and db_match.price_cents == lowest_price_cents
                 ),
                 product_key=db_match.product_key,
+                snoozed=bool(snoozed_now),
             )
             matches[db_match.id] = response
         if delivery is not None:

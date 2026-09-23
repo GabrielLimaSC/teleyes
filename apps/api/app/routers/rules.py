@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.main import get_current_session, get_db, require_csrf
 from app.pipeline import HISTORICAL_WINDOW, evaluate_rule, parse_terms
-from app.utc import UtcDatetime
-from models import Match, Rule, Source
+from app.utc import UtcDatetime, ensure_utc, utc_now
+from models import Match, Rule, Snooze, Source
 from packages.rules.normalize import normalize_text
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
@@ -46,6 +46,9 @@ class RuleResponse(BaseModel):
     active: bool
     created_at: UtcDatetime
     lowest_price_cents: int | None = None
+    # S14-03: `until` of the rule's active snooze (`until > now`), `None`
+    # when it is not silenced. Computed fresh on every read, never stored.
+    snoozed_until: UtcDatetime | None = None
 
 
 class ClearMatchesResponse(BaseModel):
@@ -106,11 +109,13 @@ def _not_found(error: NotFoundError) -> HTTPException:
 def list_rules(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
+    now: datetime = Depends(utc_now),
 ) -> list[RuleResponse]:
     """S7-06: `lowest_price_cents` (the true historical minimum among the
     rule's own priced matches, `None` with no priced match yet) is computed
     fresh here in one extra query — never persisted on `Rule`, same reasoning
-    as `Match.is_lowest_price_ever` in `app.routers.matches`.
+    as `Match.is_lowest_price_ever` in `app.routers.matches`. S14-03:
+    `snoozed_until` is the same kind of read-time computation, from `snooze`.
     """
     rules = list(rule_repo.list_rules(db, include_inactive=include_inactive))
     lowest_by_rule: dict[int, int | None] = dict(
@@ -122,9 +127,23 @@ def list_rules(
         .tuples()
         .all()
     )
+    # `model_copy(update=...)` below never re-validates (Pydantic v2), so the
+    # `UtcDatetime` field's own aware-UTC conversion (`ensure_utc`) is never
+    # applied to it — done here by hand instead, same fix as `app.utc`'s own
+    # docstring warns about for every raw datetime crossing the API boundary.
+    snoozed_until_by_rule: dict[int, datetime] = {
+        rule_id: ensure_utc(until)
+        for rule_id, until in db.execute(
+            select(Snooze.rule_id, Snooze.until).where(Snooze.scope == "rule", Snooze.until > now)
+        ).tuples()
+        if rule_id is not None
+    }
     return [
         RuleResponse.model_validate(rule).model_copy(
-            update={"lowest_price_cents": lowest_by_rule.get(rule.id)}
+            update={
+                "lowest_price_cents": lowest_by_rule.get(rule.id),
+                "snoozed_until": snoozed_until_by_rule.get(rule.id),
+            }
         )
         for rule in rules
     ]

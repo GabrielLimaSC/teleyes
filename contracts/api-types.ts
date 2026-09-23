@@ -281,7 +281,8 @@ export interface paths {
          * @description S7-06: `lowest_price_cents` (the true historical minimum among the
          *     rule's own priced matches, `None` with no priced match yet) is computed
          *     fresh here in one extra query — never persisted on `Rule`, same reasoning
-         *     as `Match.is_lowest_price_ever` in `app.routers.matches`.
+         *     as `Match.is_lowest_price_ever` in `app.routers.matches`. S14-03:
+         *     `snoozed_until` is the same kind of read-time computation, from `snooze`.
          */
         get: operations["list_rules_rules_get"];
         put?: never;
@@ -390,6 +391,41 @@ export interface paths {
         /** Pause Rule */
         post: operations["pause_rule_rules__rule_id__pause_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/snoozes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Snoozes */
+        get: operations["list_snoozes_snoozes_get"];
+        put?: never;
+        /** Create Snooze */
+        post: operations["create_snooze_snoozes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/snoozes/{snooze_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Snooze */
+        delete: operations["delete_snooze_snoozes__snooze_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -584,6 +620,11 @@ export interface components {
             product_key?: string | null;
             /** Rule Id */
             rule_id: number;
+            /**
+             * Snoozed
+             * @default false
+             */
+            snoozed: boolean;
             /** Source Id */
             source_id: number;
             /**
@@ -759,6 +800,8 @@ export interface components {
             max_price_cents: number | null;
             /** Name */
             name: string;
+            /** Snoozed Until */
+            snoozed_until?: string | null;
         };
         /** RuleTestMatch */
         RuleTestMatch: {
@@ -848,6 +891,43 @@ export interface components {
             match_id: number | null;
             /** Reason */
             reason: string | null;
+        };
+        /** SnoozeCreate */
+        SnoozeCreate: {
+            /** Days */
+            days?: number | null;
+            /** Product Key */
+            product_key?: string | null;
+            /** Rule Id */
+            rule_id?: number | null;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "rule" | "product";
+            /** Until */
+            until?: string | null;
+        };
+        /** SnoozeResponse */
+        SnoozeResponse: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Product Key */
+            product_key: string | null;
+            /** Rule Id */
+            rule_id: number | null;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "rule" | "product";
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
         };
         /** SourceCreate */
         SourceCreate: {
@@ -1714,6 +1794,103 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_snoozes_snoozes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnoozeResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_snooze_snoozes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnoozeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnoozeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_snooze_snoozes__snooze_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snooze_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
