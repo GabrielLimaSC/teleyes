@@ -38,3 +38,18 @@ export async function apiPost<T>(page: Page, path: string, csrfToken: string, da
     { path, csrfToken, data },
   ) as Promise<T>
 }
+
+export async function apiPut<T>(page: Page, path: string, csrfToken: string, data: unknown): Promise<T> {
+  return page.evaluate(
+    async ({ path, csrfToken, data }) => {
+      const response = await fetch(path, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+        credentials: 'same-origin',
+        body: JSON.stringify(data),
+      })
+      return (await response.json()) as unknown
+    },
+    { path, csrfToken, data },
+  ) as Promise<T>
+}

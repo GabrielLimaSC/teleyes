@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
-import { apiLogin, apiPost } from './helpers'
+import { apiLogin, apiPost, apiPut } from './helpers'
 
 /**
  * S14-08 (07/07b): the product panel — real backend (`/demo/messages`,
@@ -14,12 +14,23 @@ import { apiLogin, apiPost } from './helpers'
  * source name (`Loja Demo Painel <tag>`) rather than by the shared,
  * intentionally repeated product title — otherwise later tests would match
  * earlier tests' leftover cards too.
+ *
+ * S14-05 groups feed entries by product_key + price by default
+ * (`group_duplicates`, on unless a caller turns it off), and every test
+ * here deliberately reuses the same product title/price so the panel has a
+ * real product to show — under grouping, every seed after the first would
+ * fold into that first match instead of getting its own card, and this
+ * file's whole "find by unique source name" strategy would stop finding
+ * anything. `seedProduct` turns grouping off for this scratch backend
+ * before creating anything, once is enough since the toggle is one row.
  */
 
 interface Seed {
   title: string
   card: Locator
 }
+
+let groupingDisabled = false
 
 async function seedProduct(page: Page, tag: string, title: string, price: string): Promise<Seed> {
   // A random suffix — not just `tag` — keeps `telegram_chat_id` unique even
@@ -29,6 +40,10 @@ async function seedProduct(page: Page, tag: string, title: string, price: string
   const uniqueTag = `${tag}-${Math.random().toString(36).slice(2, 8)}`
   await page.goto('/')
   const csrfToken = await apiLogin(page)
+  if (!groupingDisabled) {
+    await apiPut(page, '/settings/feed', csrfToken, { group_duplicates: false })
+    groupingDisabled = true
+  }
   const sourceName = `Loja Demo Painel ${uniqueTag}`
   const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
     name: sourceName,
@@ -170,6 +185,18 @@ test('below 960px the panel is a full-screen sheet with a drag-to-close handle',
   await expect(panel).toHaveClass(/product-panel--sheet/)
   const position = await panel.evaluate((el) => getComputedStyle(el).position)
   expect(position).toBe('fixed')
+
+  // `openPanel` only waits for the heading to exist — Playwright's
+  // "visible" doesn't require opacity > 0, so it resolves while the sheet
+  // is still mid-slide (07b's 320ms translateY(100%) → 0 on open). Reading
+  // the grabber's bounding box that early lands on stale, still-animating
+  // coordinates: the drag then starts somewhere that isn't the handle
+  // (sometimes still inside the panel body, which drops the gesture
+  // entirely; sometimes outside it, which closes via the unrelated
+  // click-outside handler instead of the drag), and is the real source of
+  // this test's flakiness. Wait out the same 320ms the CSS transition
+  // takes before measuring the grabber for real.
+  await page.waitForTimeout(360)
 
   const grabber = page.locator('.product-panel__grabber')
   const box = await grabber.boundingBox()
