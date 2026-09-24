@@ -45,6 +45,25 @@ export function useProductPanel(): ProductPanelController {
   const closeTimeoutRef = useRef<number | undefined>(undefined)
   const selfInitiatedRef = useRef(false)
 
+  // Shared tail of every close path (×, Esc, click outside, and — via the
+  // effect below — the browser back button): schedules the exit animation's
+  // timeout, then flips to fully closed and returns focus to whatever
+  // `open()` recorded as the trigger. Callers put `phase` into `'closing'`
+  // themselves first; this only owns what happens once that animation ends,
+  // so back/forward navigation gets the exact same 07b focus-return
+  // guarantee as clicking ×, instead of a second, divergent implementation.
+  const scheduleClosedAfterExit = useCallback(() => {
+    const duration = reducedMotion ? EXIT_MS_REDUCED : EXIT_MS
+    window.clearTimeout(closeTimeoutRef.current)
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setPhase('closed')
+      setProductKey(null)
+      const trigger = triggerRef.current
+      triggerRef.current = null
+      trigger?.focus()
+    }, duration)
+  }, [reducedMotion])
+
   useLayoutEffect(() => {
     if (selfInitiatedRef.current) {
       selfInitiatedRef.current = false
@@ -60,12 +79,7 @@ export function useProductPanel(): ProductPanelController {
     }
     setPhase((current) => {
       if (current === 'closed') return current
-      const duration = reducedMotion ? EXIT_MS_REDUCED : EXIT_MS
-      window.clearTimeout(closeTimeoutRef.current)
-      closeTimeoutRef.current = window.setTimeout(() => {
-        setPhase('closed')
-        setProductKey(null)
-      }, duration)
+      scheduleClosedAfterExit()
       return 'closing'
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,16 +117,8 @@ export function useProductPanel(): ProductPanelController {
       { replace: false },
     )
     setPhase('closing')
-    const duration = reducedMotion ? EXIT_MS_REDUCED : EXIT_MS
-    window.clearTimeout(closeTimeoutRef.current)
-    closeTimeoutRef.current = window.setTimeout(() => {
-      setPhase('closed')
-      setProductKey(null)
-      const trigger = triggerRef.current
-      triggerRef.current = null
-      trigger?.focus()
-    }, duration)
-  }, [reducedMotion, setSearchParams])
+    scheduleClosedAfterExit()
+  }, [scheduleClosedAfterExit, setSearchParams])
 
   return { productKey, phase, open, close }
 }

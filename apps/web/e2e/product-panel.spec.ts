@@ -91,6 +91,17 @@ test.describe('product panel — abrir/fechar (07b)', () => {
     await expect(page).not.toHaveURL(/produto=/)
   })
 
+  test('closes on the browser back button and returns focus to the trigger that opened it', async ({ page }) => {
+    const seed = await seedProduct(page, 'x4b', 'Placa de vídeo Palit RTX 5070 Ti GamingPro-S 16GB', '5.749')
+    const trigger = seed.card.getByRole('button', { name: /Abrir produto/ })
+    await trigger.click()
+    await expect(page.getByRole('heading', { name: seed.title })).toBeVisible()
+
+    await page.goBack()
+    await expect(page.getByRole('heading', { name: seed.title })).not.toBeVisible()
+    await expect(trigger).toBeFocused()
+  })
+
   test('the title itself also opens the panel', async ({ page }) => {
     const seed = await seedProduct(page, 'x5', 'Placa de vídeo Palit RTX 5070 Ti GamingPro-S 16GB', '5.749')
 
