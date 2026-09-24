@@ -434,29 +434,43 @@ async def test_a_crash_after_sending_but_before_the_final_commit_is_never_resent
     session: Session, db_path: Path
 ) -> None:
     """Tech Lead review (PR #100): a restart mid-run must never resend, not
-    only a *clean* restart between runs. `run_digest_once` commits the
-    both the `DigestRun` and selected delivery reservations before sending —
+    only a *clean* restart between runs. `run_digest_once` commits both the
+    `DigestRun` and selected delivery reservation before sending —
     this crashes *after* the fake Telegram send truly happened, before its
     success can be recorded. A brand-new session against the same database
     must not resend it on the same day or after the local date rolls over.
     """
-    source, rule, recipient = _seed(session)
+    source, rule, recipient_a = _seed(session)
+    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    session.add(recipient_b)
+    session.flush()
     match = _match(session, source, rule, message_id=1, price_cents=100_000)
-    _queue_delivery(session, match, recipient)
+    _queue_delivery(session, match, recipient_a)
+    _queue_delivery(session, match, recipient_b)
     session.commit()
 
     client = _CrashingBotClient()
-    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    notifier = BotNotifier(
+        bot_token="token", client=client, allowlisted_chat_ids={"999", "888"}
+    )
     now = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 
     with pytest.raises(_SimulatedCrash):
         await run_digest_once(session, notifier, now=now, tz=SP, top_n=5)
 
-    assert len(client.sent) == 1  # the send really happened, exactly once
-
-    delivery = session.scalar(select(Delivery).where(Delivery.match_id == match.id))
-    assert delivery is not None
-    assert delivery.status == DIGEST_ATTEMPTED_DELIVERY_STATUS
+    assert [chat_id for chat_id, _ in client.sent] == ["999"]
+    statuses_after_crash: dict[str, str] = {
+        chat_id: status
+        for chat_id, status in session.execute(
+            select(Recipient.telegram_chat_id, Delivery.status)
+            .join(Delivery, Delivery.recipient_id == Recipient.id)
+            .where(Delivery.match_id == match.id)
+        )
+    }
+    assert statuses_after_crash == {
+        "999": DIGEST_ATTEMPTED_DELIVERY_STATUS,
+        "888": "pending",
+    }
 
     # A genuinely new session against the same file (simulating the process
     # restarting), both the same local day and the next one: neither may send
@@ -464,7 +478,7 @@ async def test_a_crash_after_sending_but_before_the_final_commit_is_never_resent
     restarted_session = get_sessionmaker(get_engine(f"sqlite:///{db_path}"))()
     restarted_client = FakeBotClient()
     restarted_notifier = BotNotifier(
-        bot_token="token", client=restarted_client, allowlisted_chat_ids={"999"}
+        bot_token="token", client=restarted_client, allowlisted_chat_ids={"999", "888"}
     )
     try:
         same_day = await run_digest_once(
@@ -482,9 +496,20 @@ async def test_a_crash_after_sending_but_before_the_final_commit_is_never_resent
 
     assert same_day.ran is False
     assert next_day.ran is True
-    assert next_day.items_sent == 0
-    assert len(client.sent) == 1  # still exactly one send — never duplicated
-    assert restarted_client.sent == []
+    assert next_day.items_sent == 1
+    assert len(client.sent) == 1  # A was really attempted exactly once
+    assert [chat_id for chat_id, _ in restarted_client.sent] == ["888"]
+
+    with get_sessionmaker(get_engine(f"sqlite:///{db_path}"))() as verification_session:
+        final_statuses: dict[str, str] = {
+            chat_id: status
+            for chat_id, status in verification_session.execute(
+                select(Recipient.telegram_chat_id, Delivery.status)
+                .join(Delivery, Delivery.recipient_id == Recipient.id)
+                .where(Delivery.match_id == match.id)
+            )
+        }
+    assert final_statuses == {"999": DIGEST_ATTEMPTED_DELIVERY_STATUS, "888": "sent"}
 
 
 class _BlockingBotClient:

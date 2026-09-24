@@ -26,9 +26,9 @@ instead of notified immediately (see its own S14-04 branch). This module only
 ever reads that queue and, once a day, folds it into one message per
 recipient and marks each included row `"sent"` after confirmation or (past
 `top_n`) `DIGEST_SKIPPED_DELIVERY_STATUS`. Selection and `top_n` are per recipient.
-Before the first external call, every selected delivery is durably changed to
-`DIGEST_ATTEMPTED_DELIVERY_STATUS`; that terminal ambiguous state is the
-at-most-once boundary after a crash or timeout.
+Immediately before each recipient's external call, only that recipient's
+selected deliveries are durably changed to `DIGEST_ATTEMPTED_DELIVERY_STATUS`;
+that terminal ambiguous state is the at-most-once boundary after a crash or timeout.
 """
 
 from __future__ import annotations
@@ -239,11 +239,12 @@ async def run_digest_once(
 
     Idempotency has two durable layers. `DigestRun` reserves the local date
     before queue processing, preserving the one-run-per-day concurrency gate.
-    Then every recipient's selected rows are reserved together as
-    `digest_attempted` before the first Bot API call. That second state is
+    Then each recipient's selected rows are reserved as `digest_attempted`
+    immediately before that recipient's Bot API call. That second state is
     terminal if a call crashes or raises: once an external request starts, we
     cannot know whether Telegram accepted it, so at-most-once deliberately
     prefers a possibly lost digest to a duplicate on this or any later day.
+    Plans not yet attempted remain pending if an earlier call crashes.
     Known local blocks (`not_configured`/`not_allowlisted`) are detected before
     reservation and remain honestly pending.
 
@@ -290,14 +291,13 @@ async def run_digest_once(
             )
         )
 
-    # Reserve every selected delivery for every recipient in one durable
-    # phase before the first network await. `digest_attempted` is terminal,
-    # because a crash/timeout after the Bot API receives the request is
-    # observationally indistinguishable from a failed request. At-most-once
-    # deliberately prefers a possibly lost digest to a duplicate.
-    items_sent = sum(len(plan.top_items) for plan in plans)
-    items_skipped = sum(len(plan.overflow_items) for plan in plans)
+    items_sent = 0
+    items_skipped = 0
+    sent_to_anyone = False
     for plan in plans:
+        # Reserve only this recipient immediately before their network call.
+        # A process crash here leaves later plans pending for the next day,
+        # while this plan's terminal attempt can never be duplicated.
         _mark_deliveries(
             session,
             plan.top_match_ids,
@@ -310,12 +310,12 @@ async def run_digest_once(
             plan.recipient_id,
             status=DIGEST_SKIPPED_DELIVERY_STATUS,
         )
-    run.items_sent = items_sent
-    run.items_skipped = items_skipped
-    session.commit()
+        items_sent += len(plan.top_items)
+        items_skipped += len(plan.overflow_items)
+        run.items_sent = items_sent
+        run.items_skipped = items_skipped
+        session.commit()
 
-    sent_to_anyone = False
-    for plan in plans:
         try:
             result = await notifier.notify_digest(
                 plan.chat_id, build_digest_text(plan.top_items)
