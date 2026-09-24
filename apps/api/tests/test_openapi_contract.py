@@ -24,6 +24,8 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/recipients/{recipient_id}": {"patch", "delete"},
     "/recipients/{recipient_id}/pause": {"post"},
     "/matches": {"get"},
+    "/matches/{match_id}": {"patch"},
+    "/matches/{match_id}/revert": {"post"},
     "/products/{key}": {"get"},
     "/snoozes": {"get", "post"},
     "/snoozes/{snooze_id}": {"delete"},
@@ -34,6 +36,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/listener/reload": {"post"},
     "/demo/messages": {"post"},
     "/settings/feed": {"get", "put"},
+    "/digest": {"get", "put"},
 }
 
 EXPECTED_RESPONSE_SCHEMAS = [
@@ -42,6 +45,7 @@ EXPECTED_RESPONSE_SCHEMAS = [
     "SourceResponse",
     "RecipientResponse",
     "MatchResponse",
+    "MatchCorrectionResponse",
     "ProductResponse",
     "SnoozeResponse",
     "PricePointResponse",
@@ -51,6 +55,8 @@ EXPECTED_RESPONSE_SCHEMAS = [
     "TestNotificationResponse",
     "SimulateMessageResponse",
     "ListenerStatusResponse",
+    "DigestSettingsResponse",
+    "DigestQueueItemResponse",
 ]
 
 

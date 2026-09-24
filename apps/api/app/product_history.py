@@ -14,15 +14,15 @@ import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.utc import ensure_utc
-from models import Match, Source
+from models import Match, MatchCorrection, Source
 
 HistoryRange = Literal["90d", "30d", "7d"]
 RANGE_DAYS: dict[HistoryRange, int] = {"90d": 90, "30d": 30, "7d": 7}
@@ -147,10 +147,37 @@ def posting_identity(
     return (source_id, telegram_message_id)
 
 
+def _latest_correction_id() -> Any:
+    """Latest audit id for the outer Match, used to order active manual edits."""
+    return (
+        select(func.max(MatchCorrection.id))
+        .where(MatchCorrection.match_id == Match.id)
+        .correlate(Match)
+        .scalar_subquery()
+    )
+
+
+def _posting_row_priority(row: Any) -> tuple[int, int, int]:
+    """Choose one deterministic row when a Telegram posting matched many rules.
+
+    An active manual price wins over every parsed duplicate. If more than one
+    duplicate was edited, the most recent correction wins. Otherwise the
+    historical lowest-id choice remains unchanged. This keeps one point per
+    real posting while ensuring that editing any visible duplicate affects
+    the product history.
+    """
+    price_source = row.price_source
+    row_id = int(row.id)
+    if price_source == "manual":
+        return (1, int(row.latest_correction_id or 0), -row_id)
+    return (0, 0, -row_id)
+
+
 def load_postings(session: Session, key: str) -> list[Posting]:
     """Every distinct posting of `key`, newest first, in one query (with the source name).
 
-    A message matched by several rules counts once, as its lowest-id `Match`.
+    A message matched by several rules counts once. Its latest active manual
+    correction wins; without one, the lowest-id `Match` remains canonical.
     """
     rows = session.execute(
         select(
@@ -162,18 +189,20 @@ def load_postings(session: Session, key: str) -> list[Posting]:
             Match.price_cents,
             Match.matched_at,
             Match.message_link,
+            Match.price_source,
+            _latest_correction_id().label("latest_correction_id"),
         )
         .join(Source, Source.id == Match.source_id)
         .where(Match.product_key == key)
         .order_by(Match.id)
     )
-    seen: set[PostingIdentity] = set()
-    unique_rows = []
+    selected: dict[PostingIdentity, Any] = {}
     for row in rows:
         identity = posting_identity(row.id, row.source_id, row.telegram_message_id)
-        if identity not in seen:
-            seen.add(identity)
-            unique_rows.append(row)
+        current = selected.get(identity)
+        if current is None or _posting_row_priority(row) > _posting_row_priority(current):
+            selected[identity] = row
+    unique_rows = list(selected.values())
     postings = [
         Posting(
             id=row.id,
@@ -203,6 +232,8 @@ def sparklines_for_keys(
         Match.product_key,
         Match.matched_at,
         Match.price_cents,
+        Match.price_source,
+        _latest_correction_id().label("latest_correction_id"),
     ).where(
         Match.product_key.is_not(None),
         Match.price_cents.is_not(None),
@@ -211,13 +242,17 @@ def sparklines_for_keys(
     if len(keys) <= _SPARKLINE_IN_LIMIT:
         statement = statement.where(Match.product_key.in_(keys))
 
-    seen: set[PostingIdentity] = set()
-    priced: dict[str, list[tuple[datetime, int]]] = {}
+    selected: dict[PostingIdentity, Any] = {}
     for row in session.execute(statement.order_by(Match.id)):
         identity = posting_identity(row.id, row.source_id, row.telegram_message_id)
-        if identity in seen or row.product_key not in keys or row.price_cents is None:
+        current = selected.get(identity)
+        if current is None or _posting_row_priority(row) > _posting_row_priority(current):
+            selected[identity] = row
+
+    priced: dict[str, list[tuple[datetime, int]]] = {}
+    for row in selected.values():
+        if row.product_key not in keys or row.price_cents is None:
             continue
-        seen.add(identity)
         priced.setdefault(row.product_key, []).append((row.matched_at, row.price_cents))
     return {
         key: downsample(daily_lowest(rows, tz), SPARKLINE_MAX_POINTS)

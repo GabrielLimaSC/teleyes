@@ -15,7 +15,7 @@ from app.routers.notifications import BotNotifierFactory, get_bot_notifier_facto
 from auth.hashing import hash_password
 from auth.rate_limit import LoginRateLimiter
 from auth.session import SessionStore
-from models import Admin, Delivery, Match, Recipient, Rule, Source
+from models import Admin, Delivery, Match, MatchCorrection, Recipient, Rule, Source
 from models.base import Base
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.notifications.bot import BotNotifier
@@ -865,6 +865,24 @@ def test_clear_rule_matches_deletes_only_that_rules_matches_and_deliveries(
     """
     ids = _seed_matches(api)
     csrf = _login(api)
+    with api.session_factory() as session:
+        admin_id = session.query(Admin.id).scalar()
+        assert admin_id is not None
+        session.add_all(
+            [
+                MatchCorrection(
+                    match_id=ids["match_a"],
+                    admin_id=admin_id,
+                    changes={"price_cents": {"before": 10_000, "after": 9_000}},
+                ),
+                MatchCorrection(
+                    match_id=ids["match_c"],
+                    admin_id=admin_id,
+                    changes={"display_name": {"before": None, "after": "Celular"}},
+                ),
+            ]
+        )
+        session.commit()
 
     response = api.client.delete(
         f"/rules/{ids['rule_a']}/matches", headers={"x-csrf-token": csrf}
@@ -882,6 +900,8 @@ def test_clear_rule_matches_deletes_only_that_rules_matches_and_deliveries(
         assert session.get(Match, ids["match_c"]) is not None
         remaining_deliveries = session.query(Delivery).all()
         assert all(delivery.match_id == ids["match_c"] for delivery in remaining_deliveries)
+        remaining_corrections = session.query(MatchCorrection).all()
+        assert [correction.match_id for correction in remaining_corrections] == [ids["match_c"]]
 
     rule_after = api.client.get("/rules?include_inactive=true").json()
     rule_a_after = next(rule for rule in rule_after if rule["id"] == ids["rule_a"])

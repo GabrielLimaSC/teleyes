@@ -70,6 +70,12 @@ ANONYMOUS_ROUTES = [
     ("DELETE", "/recipients/1", None),
     ("GET", "/listener/status", None),
     ("POST", "/listener/reload", None),
+    ("GET", "/digest", None),
+    (
+        "PUT",
+        "/digest",
+        {"enabled": True, "send_at_local": "09:00", "top_n": 5, "mute_individual": True},
+    ),
 ]
 
 
