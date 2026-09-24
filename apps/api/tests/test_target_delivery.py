@@ -16,11 +16,12 @@ from app.pipeline import (
     DELIVERY_KIND_IMMEDIATE,
     DELIVERY_KIND_TARGET,
     GROUPED_DELIVERY_STATUS,
+    GROUPING_WINDOW,
     IncomingMessage,
     decide_delivery_kind,
     process_message,
 )
-from models import Delivery, Match, Recipient, Rule, Source
+from models import Delivery, Match, Recipient, Rule, Snooze, Source
 from packages.notifications.bot import BotNotifier
 from packages.notifications.fakes import FakeBotClient
 from packages.rules.dedupe import DedupeCache
@@ -254,3 +255,283 @@ async def test_match_that_hits_target_after_a_grouped_common_match_is_delivered_
     session.commit()
     assert third.match is None
     assert len(_deliveries_for(session, second.match.id)) == 2
+
+
+# --- Tech Lead fix (revisão bloqueada): a target hit alerts once per group -
+# (same rule, same price, within GROUPING_WINDOW) — before this fix, the same
+# real-world promotion posted in N groups pinged Gabriel N times.
+
+
+async def test_three_postings_below_target_in_the_same_window_send_exactly_one_target_alert(
+    session: Session,
+) -> None:
+    source_a, rule, recipient = _seed(session, target_price_cents=200_000)
+    source_b = Source(name="Grupo B", telegram_chat_id="-100222")
+    source_c = Source(name="Grupo C", telegram_chat_id="-100333")
+    session.add_all([source_b, source_c])
+    session.commit()
+
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+    base = datetime.now(UTC)
+
+    results = []
+    for index, source in enumerate((source_a, source_b, source_c)):
+        message = IncomingMessage(
+            source_id=source.id,
+            message_id=1,
+            text=f"RTX 5070 por R$ 2.000 na loja {index}",
+            link=None,
+            received_at=base + timedelta(minutes=index * 2),
+        )
+        result = await process_message(
+            session, message, rule, [recipient], notifier, dedupe_cache
+        )
+        session.commit()
+        results.append(result)
+
+    assert [result.target_hit for result in results] == [True, True, True]
+    assert [result.deliveries_sent for result in results] == [1, 0, 0]
+    assert len(client.sent) == 1
+    assert client.sent[0][1].startswith("🎯 Alvo atingido!")
+
+    for result in results[1:]:
+        assert result.match is not None
+        deliveries = _deliveries_for(session, result.match.id)
+        assert len(deliveries) == 1
+        assert deliveries[0].kind == DELIVERY_KIND_TARGET
+        assert deliveries[0].status == GROUPED_DELIVERY_STATUS
+
+
+async def test_repetition_after_an_already_notified_common_match_still_sends_only_one_target(
+    session: Session,
+) -> None:
+    """Mirrors `test_match_that_hits_target_after_a_grouped_common_match_is_
+    delivered_once_as_target` above, but with a further repetition below the
+    target — the first target hit must still be the only real target send.
+    """
+    source_a, rule, recipient = _seed(session, target_price_cents=None)
+    source_b = Source(name="Outro Grupo", telegram_chat_id="-100999")
+    source_c = Source(name="Terceiro Grupo", telegram_chat_id="-100998")
+    session.add_all([source_b, source_c])
+    session.commit()
+
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+    base = datetime.now(UTC)
+
+    first = await process_message(
+        session,
+        IncomingMessage(
+            source_id=source_a.id,
+            message_id=1,
+            text="RTX 5070 por R$ 2.000 na Amazon",
+            link=None,
+            received_at=base,
+        ),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+    assert first.target_hit is False
+    assert client.sent == [("999", "RTX 5070 por R$ 2.000 na Amazon")]
+
+    rule.target_price_cents = 200_000
+    session.commit()
+
+    second = await process_message(
+        session,
+        IncomingMessage(
+            source_id=source_b.id,
+            message_id=1,
+            text="RTX 5070 por R$ 2.000 no Mercado Livre",
+            link=None,
+            received_at=base + timedelta(minutes=5),
+        ),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+    assert second.target_hit is True
+    assert second.deliveries_sent == 1
+
+    third = await process_message(
+        session,
+        IncomingMessage(
+            source_id=source_c.id,
+            message_id=1,
+            text="RTX 5070 por R$ 2.000 no Magalu",
+            link=None,
+            received_at=base + timedelta(minutes=9),
+        ),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+    assert third.target_hit is True
+    assert third.deliveries_sent == 0
+
+    assert len(client.sent) == 2  # the plain alert + exactly one target alert
+    assert client.sent[1][1].startswith("🎯 Alvo atingido!")
+
+    assert third.match is not None
+    deliveries = _deliveries_for(session, third.match.id)
+    assert len(deliveries) == 1
+    assert deliveries[0].kind == DELIVERY_KIND_TARGET
+    assert deliveries[0].status == GROUPED_DELIVERY_STATUS
+
+
+async def test_repetition_outside_the_grouping_window_sends_a_new_target_alert(
+    session: Session,
+) -> None:
+    source_a, rule, recipient = _seed(session, target_price_cents=200_000)
+    source_b = Source(name="Outro Grupo", telegram_chat_id="-100777")
+    session.add(source_b)
+    session.commit()
+
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+    base = datetime.now(UTC)
+
+    first = await process_message(
+        session,
+        IncomingMessage(
+            source_id=source_a.id,
+            message_id=1,
+            text="RTX 5070 por R$ 2.000 na Amazon",
+            link=None,
+            received_at=base,
+        ),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+    assert first.deliveries_sent == 1
+
+    second = await process_message(
+        session,
+        IncomingMessage(
+            source_id=source_b.id,
+            message_id=1,
+            text="RTX 5070 por R$ 2.000 no Mercado Livre",
+            link=None,
+            received_at=base + GROUPING_WINDOW + timedelta(minutes=1),
+        ),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+    assert second.target_hit is True
+    assert second.deliveries_sent == 1
+
+    assert len(client.sent) == 2
+    assert all(text.startswith("🎯 Alvo atingido!") for _, text in client.sent)
+
+
+async def test_snoozed_rule_still_sends_exactly_one_target_alert_for_a_repeated_group(
+    session: Session,
+) -> None:
+    source_a, rule, recipient = _seed(session, target_price_cents=200_000)
+    source_b = Source(name="Grupo B", telegram_chat_id="-100222")
+    source_c = Source(name="Grupo C", telegram_chat_id="-100333")
+    session.add_all([source_b, source_c])
+    session.commit()
+
+    base = datetime.now(UTC)
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=base + timedelta(days=1)))
+    session.commit()
+
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    results = []
+    for index, source in enumerate((source_a, source_b, source_c)):
+        message = IncomingMessage(
+            source_id=source.id,
+            message_id=1,
+            text=f"RTX 5070 por R$ 2.000 na loja {index}",
+            link=None,
+            received_at=base + timedelta(minutes=index * 2),
+        )
+        result = await process_message(
+            session, message, rule, [recipient], notifier, dedupe_cache
+        )
+        session.commit()
+        results.append(result)
+
+    assert [result.target_hit for result in results] == [True, True, True]
+    assert [result.deliveries_sent for result in results] == [1, 0, 0]
+    assert len(client.sent) == 1
+    assert client.sent[0][1].startswith("🎯 Alvo atingido!")
+
+
+async def test_reprocessing_a_suppressed_group_repeat_target_delivery_never_duplicates(
+    session: Session,
+) -> None:
+    source_a, rule, recipient = _seed(session, target_price_cents=200_000)
+    source_b = Source(name="Grupo B", telegram_chat_id="-100222")
+    session.add(source_b)
+    session.commit()
+
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+    base = datetime.now(UTC)
+
+    first = await process_message(
+        session,
+        IncomingMessage(
+            source_id=source_a.id,
+            message_id=1,
+            text="RTX 5070 por R$ 2.000 na Amazon",
+            link=None,
+            received_at=base,
+        ),
+        rule,
+        [recipient],
+        notifier,
+        dedupe_cache,
+    )
+    session.commit()
+    assert first.deliveries_sent == 1
+
+    second_message = IncomingMessage(
+        source_id=source_b.id,
+        message_id=1,
+        text="RTX 5070 por R$ 2.000 no Mercado Livre",
+        link=None,
+        received_at=base + timedelta(minutes=3),
+    )
+    second = await process_message(
+        session, second_message, rule, [recipient], notifier, dedupe_cache
+    )
+    session.commit()
+    assert second.deliveries_sent == 0
+    assert second.match is not None
+    assert len(_deliveries_for(session, second.match.id)) == 1
+
+    restarted_notifier = BotNotifier(
+        bot_token="token", client=client, allowlisted_chat_ids={"999"}
+    )
+    third = await process_message(
+        session, second_message, rule, [recipient], restarted_notifier, DedupeCache()
+    )
+    session.commit()
+    assert third.match is None
+    assert third.reason == "duplicate"
+    assert len(client.sent) == 1
+    assert len(_deliveries_for(session, second.match.id)) == 1
