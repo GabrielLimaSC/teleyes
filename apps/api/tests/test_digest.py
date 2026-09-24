@@ -6,8 +6,10 @@ other pipeline test (CLAUDE.md: relógio injetável em tudo o que for testado).
 """
 
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,7 @@ from app.digest import (
 )
 from app.pipeline import DELIVERY_KIND_DIGEST, DIGEST_SKIPPED_DELIVERY_STATUS
 from models import Delivery, DigestRun, Match, Recipient, Rule, Source
+from models.db import get_engine, get_sessionmaker
 from packages.notifications.bot import BotNotifier
 from packages.notifications.fakes import FakeBotClient
 
@@ -268,3 +271,67 @@ async def test_a_pending_item_left_over_from_an_unconfigured_run_is_picked_up_th
     delivery = session.scalar(select(Delivery).where(Delivery.match_id == match.id))
     assert delivery is not None
     assert delivery.status == "sent"
+
+
+class _SimulatedCrash(BaseException):
+    """Stands in for a real process crash (SIGKILL, OOM, `docker restart` at
+    the wrong instant) — deliberately a `BaseException`, not an `Exception`,
+    so `run_digest_once`'s per-recipient `except Exception` (there precisely
+    to isolate one recipient's ordinary send *failure* from the others) never
+    swallows it. A real crash could not be caught by that `try` either.
+    """
+
+
+class _CrashingBotClient:
+    """Records the send as really having happened — Telegram got the
+    message — and only then "crashes", before `run_digest_once` can do
+    anything else with the result.
+    """
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str]] = []
+
+    async def send_message(self, chat_id: str, text: str) -> None:
+        self.sent.append((chat_id, text))
+        raise _SimulatedCrash
+
+
+async def test_a_crash_after_sending_but_before_the_final_commit_is_never_resent(
+    session: Session, db_path: Path
+) -> None:
+    """Tech Lead review (PR #100): a restart mid-run must never resend, not
+    only a *clean* restart between runs. `run_digest_once` commits the
+    `DigestRun` reservation before sending anything — this crashes *after*
+    the (fake) Telegram send truly happened, simulating the process dying
+    before the function's closing commit ever runs. A brand-new session
+    against the same database (a real restart, not just a new call in the
+    same process) must still see the reservation and refuse to run again.
+    """
+    source, rule, recipient = _seed(session)
+    match = _match(session, source, rule, message_id=1, price_cents=100_000)
+    _queue_delivery(session, match, recipient)
+    session.commit()
+
+    client = _CrashingBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    now = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
+
+    with pytest.raises(_SimulatedCrash):
+        await run_digest_once(session, notifier, now=now, tz=SP, top_n=5)
+
+    assert len(client.sent) == 1  # the send really happened, exactly once
+
+    delivery = session.scalar(select(Delivery).where(Delivery.match_id == match.id))
+    assert delivery is not None
+    assert delivery.status == "pending"  # never marked "sent": the crash won that race
+
+    # A genuinely new session against the same file (simulating the process
+    # restarting), same local day: must find the reservation and no-op.
+    restarted_session = get_sessionmaker(get_engine(f"sqlite:///{db_path}"))()
+    try:
+        outcome = await run_digest_once(restarted_session, notifier, now=now, tz=SP, top_n=5)
+    finally:
+        restarted_session.close()
+
+    assert outcome.ran is False
+    assert len(client.sent) == 1  # still exactly one send — never duplicated

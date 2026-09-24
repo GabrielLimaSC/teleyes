@@ -38,6 +38,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -208,9 +209,42 @@ async def run_digest_once(
     calls. Idempotent by `DigestRun.local_date` (primary key) — a second call
     for the same local day, from any process or session, is a guaranteed
     no-op checked first, before anything else runs.
+
+    Tech Lead review (PR #100, 2026-09-24): idempotency is a *reservation*,
+    committed on its own, before anything that talks to Telegram or mutates a
+    `Delivery` row — never something inferred after the fact from what the
+    send loop happened to finish. The row is inserted and committed right
+    here, first; only once that is durable does the function go on to build
+    the queue and actually send. If the process dies anywhere after that
+    first commit — a real network send that "succeeded" from Telegram's side
+    but crashed (OOM, `docker restart`, SIGKILL) before the closing commit
+    below — the reservation is the only thing that survives: every item
+    involved is still `"pending"`, `items_sent`/`items_skipped` on the row
+    are whatever the reservation itself set (`0`/`0`), and the *next* local
+    day's run picks the leftover pending items up again, same fallback path
+    as a `not_configured` notifier (see `test_a_pending_item_left_over_
+    from_an_unconfigured_run_is_picked_up_the_next_day`). A restart the same
+    local day, no matter when in the run it happened, always finds the
+    reservation and returns `ran=False` — it can never see a half-sent digest
+    and "finish" it, and it can never send it twice. Losing an already-queued
+    digest to a crash is the accepted trade-off (CLAUDE.md: "reinício não
+    pode duplicar notificação" — never the reverse).
+
+    The `IntegrityError` catch below is the same guarantee under a genuine
+    race (two processes/sessions both passing the `session.get` check for the
+    same local date before either commits) — the primary key is what actually
+    decides, not the read that preceded it.
     """
     local_date = local_date_for(now, tz)
     if session.get(DigestRun, local_date) is not None:
+        return DigestRunOutcome(ran=False, items_sent=0, items_skipped=0, sent=False)
+
+    run = DigestRun(local_date=local_date, ran_at=datetime.now(UTC))
+    session.add(run)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
         return DigestRunOutcome(ran=False, items_sent=0, items_skipped=0, sent=False)
 
     queue = load_pending_queue(session)
@@ -238,6 +272,11 @@ async def run_digest_once(
                 # the whole run — every other recipient still gets a chance,
                 # and the failed one's items simply stay `"pending"` (honest:
                 # never faked as delivered) for the next real send attempt.
+                # A genuine process crash (not a catchable `Exception` at
+                # all, e.g. SIGKILL) simply never reaches this `except` in
+                # the first place — it interrupts the process outright, which
+                # is exactly the scenario the reservation above already
+                # covers.
                 logger.error("event=digest_send_failed recipient_id=%s", recipient.id)
                 continue
             if result.delivered:
@@ -250,8 +289,8 @@ async def run_digest_once(
                     delivered_at=datetime.now(UTC),
                 )
             # `not_configured` / `not_allowlisted`: left `"pending"` on
-            # purpose — the notifier never fakes delivery (CLAUDE.md), and a
-            # `digest_run` row is still written below so this local day is
+            # purpose — the notifier never fakes delivery (CLAUDE.md), and
+            # the reservation already committed above means this local day is
             # never retried; homologation with a real bot token is what
             # actually proves delivery, not this function.
 
@@ -262,14 +301,8 @@ async def run_digest_once(
                 session, overflow_ids, recipient.id, status=DIGEST_SKIPPED_DELIVERY_STATUS
             )
 
-    session.add(
-        DigestRun(
-            local_date=local_date,
-            ran_at=datetime.now(UTC),
-            items_sent=len(top_items),
-            items_skipped=len(overflow_items),
-        )
-    )
+    run.items_sent = len(top_items)
+    run.items_skipped = len(overflow_items)
     session.commit()
 
     return DigestRunOutcome(
