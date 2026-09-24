@@ -1,7 +1,7 @@
 """add digest settings and digest run tables
 
 Revision ID: bb1bdccda76e
-Revises: 9b3e7c1a4f20
+Revises: 3ddee47d36be
 Create Date: 2026-09-24 13:57:12.041051
 
 """
@@ -13,10 +13,10 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "bb1bdccda76e"
-# S14-05's feed_settings migration (9b3e7c1a4f20) merged into dev first;
+# S14-06's match-correction migration (3ddee47d36be) merged into dev first;
 # re-chained here after the rebase (Tech Lead, 2026-09-24) so `alembic heads`
 # stays a single head instead of forking into two.
-down_revision: Union[str, Sequence[str], None] = "9b3e7c1a4f20"
+down_revision: Union[str, Sequence[str], None] = "3ddee47d36be"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
