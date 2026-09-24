@@ -114,6 +114,35 @@ export interface Rule {
   /** S14-03: `until` of the rule's active snooze, `null` when it is not
    * silenced. Computed fresh on every read, never stored. */
   snoozed_until: string | null
+  /** Real daily minimum for this rule in the last 30 days, oldest first. */
+  history_30d: PricePoint[]
+}
+
+export interface RuleSuggestion {
+  product_key: string
+  name: string
+  include_terms: string
+  max_price_cents: number | null
+  target_price_cents: number | null
+  average_30d_cents: number | null
+  lowest_90d_cents: number | null
+}
+
+export interface DigestSettings {
+  enabled: boolean
+  send_at_local: string
+  top_n: number
+  mute_individual: boolean
+  next_run_at_utc: string
+  next_run_at_local: string
+  queue_count: number
+  queue: Array<{
+    match_id: number
+    price_cents: number | null
+    title: string
+    message_link: string | null
+    matched_at: string
+  }>
 }
 
 /** S14-03: silences delivery for one rule or one product until `until` (F3).

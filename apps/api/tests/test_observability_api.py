@@ -854,6 +854,48 @@ def test_rules_lowest_price_recalculates_without_reprocessing_old_matches(
     assert after_by_id[ids["rule_a"]]["lowest_price_cents"] == 2_000
 
 
+def test_rules_history_30d_is_real_daily_data_without_unpriced_or_old_matches(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        session.add_all(
+            [
+                Match(
+                    source_id=ids["source_a"],
+                    rule_id=ids["rule_a"],
+                    message_text="Notebook repetido por R$ 80,00",
+                    price_cents=8_000,
+                    matched_at=now,
+                ),
+                Match(
+                    source_id=ids["source_a"],
+                    rule_id=ids["rule_a"],
+                    message_text="Notebook sem preço",
+                    price_cents=None,
+                    matched_at=now - timedelta(days=1),
+                ),
+                Match(
+                    source_id=ids["source_a"],
+                    rule_id=ids["rule_a"],
+                    message_text="Notebook antigo por R$ 50,00",
+                    price_cents=5_000,
+                    matched_at=now - timedelta(days=31),
+                ),
+            ]
+        )
+        session.commit()
+    _login(api)
+
+    by_id = {rule["id"]: rule for rule in api.client.get("/rules").json()}
+
+    # `_seed_matches` has 10_000 and 25_000 on the same day; the extra
+    # duplicate contributes 8_000, so the real daily minimum is one point.
+    assert [point["price_cents"] for point in by_id[ids["rule_a"]]["history_30d"]] == [8_000]
+    assert by_id[ids["rule_b"]]["history_30d"] == []
+
+
 def test_clear_rule_matches_deletes_only_that_rules_matches_and_deliveries(
     api: ApiContext,
 ) -> None:

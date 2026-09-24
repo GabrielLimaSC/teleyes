@@ -24,6 +24,7 @@ from app.product_history import (
     series_for_range,
 )
 from app.utc import UtcDatetime, utc_now
+from packages.rules.normalize import normalize_text
 from packages.rules.product import product_title
 
 POSTINGS_LIMIT = 100
@@ -75,6 +76,59 @@ class ProductResponse(BaseModel):
     series: list[PricePointResponse]
     # Newest first, at most POSTINGS_LIMIT; `total_count` is the real total.
     postings: list[ProductPostingResponse]
+
+
+class RuleSuggestionResponse(BaseModel):
+    product_key: str
+    name: str
+    include_terms: str
+    max_price_cents: int | None
+    target_price_cents: int | None
+    average_30d_cents: int | None
+    lowest_90d_cents: int | None
+
+
+def _suggest_include_terms(key: str, title: str) -> str:
+    """Return one conservative OR-term for a rule created from a product.
+
+    Rule terms are alternatives, not an AND expression. Splitting a title
+    into chips such as ``palit`` and ``16gb`` would therefore create broad,
+    noisy matches. The stable product fingerprint is intentionally kept as
+    one normalized phrase; if a legacy key has no usable tokens, the full
+    normalized title is the honest fallback.
+    """
+    fingerprint = normalize_text(key.replace("-", " ")).strip()
+    return fingerprint or normalize_text(title).strip()
+
+
+def _three_percent_below(price_cents: int | None) -> int | None:
+    """Subtract 3%, rounding half-up to the nearest cent with integer math."""
+    if price_cents is None:
+        return None
+    return (price_cents * 97 + 50) // 100
+
+
+@router.get("/{key}/rule-suggestion", response_model=RuleSuggestionResponse)
+def get_rule_suggestion(
+    key: str = Path(min_length=1, max_length=255),
+    db: Session = Depends(get_db),
+    now: datetime = Depends(utc_now),
+) -> RuleSuggestionResponse:
+    postings = load_postings(db, key)
+    if not postings:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    title = product_title(postings[0].message_text) or key
+    stats = price_stats(postings, now)
+    return RuleSuggestionResponse(
+        product_key=key,
+        name=title,
+        include_terms=_suggest_include_terms(key, title),
+        max_price_cents=_three_percent_below(stats.average_30d_cents),
+        target_price_cents=stats.lowest_90d_cents,
+        average_30d_cents=stats.average_30d_cents,
+        lowest_90d_cents=stats.lowest_90d_cents,
+    )
 
 
 @router.get("/{key}", response_model=ProductResponse)

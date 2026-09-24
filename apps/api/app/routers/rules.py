@@ -1,5 +1,7 @@
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from datetime import date as LocalDate
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict
@@ -8,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.main import get_current_session, get_db, require_csrf
 from app.pipeline import HISTORICAL_WINDOW, evaluate_rule, parse_terms
+from app.product_history import daily_lowest, get_display_timezone
 from app.utc import UtcDatetime, ensure_utc, utc_now
 from models import Match, Rule, Snooze, Source
 from packages.rules.normalize import normalize_text
@@ -40,6 +43,11 @@ class RuleUpdate(BaseModel):
     target_price_cents: int | None = None
 
 
+class RuleHistoryPointResponse(BaseModel):
+    date: LocalDate
+    price_cents: int
+
+
 class RuleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,6 +63,7 @@ class RuleResponse(BaseModel):
     # S14-03: `until` of the rule's active snooze (`until > now`), `None`
     # when it is not silenced. Computed fresh on every read, never stored.
     snoozed_until: UtcDatetime | None = None
+    history_30d: list[RuleHistoryPointResponse] = []
 
 
 class ClearMatchesResponse(BaseModel):
@@ -116,6 +125,7 @@ def list_rules(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     now: datetime = Depends(utc_now),
+    tz: ZoneInfo = Depends(get_display_timezone),
 ) -> list[RuleResponse]:
     """S7-06: `lowest_price_cents` (the true historical minimum among the
     rule's own priced matches, `None` with no priced match yet) is computed
@@ -144,11 +154,27 @@ def list_rules(
         ).tuples()
         if rule_id is not None
     }
+    priced_by_rule: dict[int, list[tuple[datetime, int]]] = {}
+    for rule_id, matched_at, price_cents in db.execute(
+        select(Match.rule_id, Match.matched_at, Match.price_cents).where(
+            Match.price_cents.is_not(None), Match.matched_at >= now - timedelta(days=30)
+        )
+    ):
+        assert price_cents is not None
+        priced_by_rule.setdefault(rule_id, []).append((ensure_utc(matched_at), price_cents))
+    history_by_rule = {
+        rule_id: [
+            RuleHistoryPointResponse(date=point.day, price_cents=point.price_cents)
+            for point in daily_lowest(priced, tz)
+        ]
+        for rule_id, priced in priced_by_rule.items()
+    }
     return [
         RuleResponse.model_validate(rule).model_copy(
             update={
                 "lowest_price_cents": lowest_by_rule.get(rule.id),
                 "snoozed_until": snoozed_until_by_rule.get(rule.id),
+                "history_30d": history_by_rule.get(rule.id, []),
             }
         )
         for rule in rules

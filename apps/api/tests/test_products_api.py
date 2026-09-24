@@ -231,6 +231,48 @@ def test_a_product_without_any_price_has_postings_but_no_series(api: ApiContext)
     assert body["highest_90d_cents"] is None
 
 
+def test_rule_suggestion_uses_real_history_and_a_conservative_fingerprint(api: ApiContext) -> None:
+    _add(api, PALIT, ago=timedelta(days=60), price_cents=5_400_00)
+    _add(api, PALIT, ago=timedelta(days=20), price_cents=6_000_00)
+    _add(api, PALIT, ago=timedelta(days=5), price_cents=5_500_00)
+    _add(api, PALIT, ago=timedelta(days=1), price_cents=None)
+
+    response = api.client.get(f"/products/{PALIT_KEY}/rule-suggestion")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "product_key": PALIT_KEY,
+        "name": PALIT,
+        "include_terms": "palit rtx 5070 ti",
+        "average_30d_cents": 5_750_00,
+        # 575_000 * 97 / 100 = 557_750 exactly; integer half-up is documented.
+        "max_price_cents": 5_577_50,
+        "lowest_90d_cents": 5_400_00,
+        "target_price_cents": 5_400_00,
+    }
+
+
+def test_rule_suggestion_is_honestly_null_without_priced_history(api: ApiContext) -> None:
+    _add(api, PALIT, ago=timedelta(days=1), price_cents=None)
+
+    body = api.client.get(f"/products/{PALIT_KEY}/rule-suggestion").json()
+
+    assert body["average_30d_cents"] is None
+    assert body["max_price_cents"] is None
+    assert body["lowest_90d_cents"] is None
+    assert body["target_price_cents"] is None
+
+
+def test_rule_suggestion_requires_auth_and_returns_404_for_an_unknown_product(
+    api: ApiContext,
+) -> None:
+    assert api.client.get("/products/unknown/rule-suggestion").status_code == 404
+
+    api.client.post("/auth/logout")
+    api.client.cookies.clear()
+    assert api.client.get(f"/products/{PALIT_KEY}/rule-suggestion").status_code == 401
+
+
 def test_unknown_product_is_404_and_invalid_range_is_422(api: ApiContext) -> None:
     _add(api, PALIT, ago=timedelta(days=1), price_cents=5_000_00)
 
