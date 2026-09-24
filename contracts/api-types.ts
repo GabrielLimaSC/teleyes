@@ -165,6 +165,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/matches/{match_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Match */
+        patch: operations["update_match_matches__match_id__patch"];
+        trace?: never;
+    };
+    "/matches/{match_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Match
+         * @description "Reverter ao detectado" (F7): restores `price_cents` from
+         *     `original_price_cents` (left untouched — it keeps meaning "the first
+         *     ever detected price" regardless of how many reverts follow) and clears
+         *     every other manual edit field. Never re-sends anything: a target alert
+         *     is only ever triggered by `PATCH /matches/{id}` actually lowering the
+         *     price (see `_send_manual_target_alert_if_hit`), and an already-sent
+         *     `manual_target` `Delivery` row is untouched here either way — it stays
+         *     the truthful record that Gabriel really was notified once.
+         */
+        post: operations["revert_match_matches__match_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -614,6 +658,21 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * MatchCorrectionResponse
+         * @description S14-06 (F7): who last edited/reverted a match, and when — tela 08's
+         *     "última correção" line. `changes` itself is audit-only and never leaves
+         *     this endpoint's own history (not exposed here).
+         */
+        MatchCorrectionResponse: {
+            /** Admin Id */
+            admin_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** MatchResponse */
         MatchResponse: {
             /**
@@ -623,6 +682,8 @@ export interface components {
             created_at: string;
             /** Deliveries */
             deliveries: components["schemas"]["DeliveryResponse"][];
+            /** Display Name */
+            display_name?: string | null;
             /** Group Key */
             group_key?: string | null;
             /**
@@ -636,6 +697,7 @@ export interface components {
             id: number;
             /** Is Lowest Price Ever */
             is_lowest_price_ever: boolean;
+            last_correction?: components["schemas"]["MatchCorrectionResponse"] | null;
             /**
              * Matched At
              * Format: date-time
@@ -645,12 +707,18 @@ export interface components {
             message_link: string | null;
             /** Message Text */
             message_text: string;
+            /** Model Variant */
+            model_variant?: string | null;
+            /** Original Price Cents */
+            original_price_cents?: number | null;
             /** Price Card Cents */
             price_card_cents: number | null;
             /** Price Cash Cents */
             price_cash_cents: number | null;
             /** Price Cents */
             price_cents: number | null;
+            /** Price Source */
+            price_source?: ("parsed" | "manual") | null;
             /** Product Key */
             product_key?: string | null;
             /** Rule Id */
@@ -697,6 +765,29 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+        };
+        /**
+         * MatchUpdate
+         * @description `PATCH /matches/{id}` (F7). Every field is optional — only the ones
+         *     actually sent are validated and applied, same "if provided" shape as
+         *     `RuleUpdate` (`app.routers.rules`). `price` is free text
+         *     (`packages.rules.manual_price.parse_manual_price_cents` parses it);
+         *     there is no way to clear `display_name`/`model_variant` back to `None`
+         *     through this endpoint on purpose — that is exactly what `POST
+         *     /matches/{id}/revert` ("Reverter ao detectado") does.
+         */
+        MatchUpdate: {
+            /**
+             * Apply Name To Product
+             * @default false
+             */
+            apply_name_to_product: boolean;
+            /** Display Name */
+            display_name?: string | null;
+            /** Model Variant */
+            model_variant?: string | null;
+            /** Price */
+            price?: string | null;
         };
         /**
          * MetricReason
@@ -1357,6 +1448,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MatchResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_match_matches__match_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_match_matches__match_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchResponse"];
                 };
             };
             /** @description Validation Error */

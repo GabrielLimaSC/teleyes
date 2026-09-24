@@ -35,6 +35,19 @@ class Match(Base):
     # insert (and backfilled by migration 7e2a9c4d1b35). NULL when the message
     # has no recognisable product title. Never edited by hand.
     product_key: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # S14-06 (F7): manual edit fields. `display_name`/`model_variant` override
+    # what the feed shows for this match; `message_text` above is never
+    # rewritten by an edit (CLAUDE.md). `price_source` is `NULL` until the
+    # first edit, `"manual"` right after one, and `"parsed"` again once
+    # "Reverter ao detectado" (`POST /matches/{id}/revert`) restores the
+    # original. `original_price_cents` is set exactly once, at the first
+    # correction ever made to this match — it always holds the price that
+    # `packages.rules.price.extract_price` originally found, never a later
+    # manual value, so a revert always has something real to go back to.
+    display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    model_variant: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    price_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    original_price_cents: Mapped[int | None] = mapped_column(nullable=True)
     matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

@@ -4,6 +4,7 @@ from models.delivery import Delivery
 from models.feed_settings import FeedSettings
 from models.listener_control import ListenerControl
 from models.match import Match
+from models.match_correction import MatchCorrection
 from models.processing_cursor import ProcessingCursor
 from models.recipient import Recipient
 from models.rule import Rule
@@ -17,6 +18,7 @@ __all__ = [
     "FeedSettings",
     "ListenerControl",
     "Match",
+    "MatchCorrection",
     "ProcessingCursor",
     "Recipient",
     "Rule",

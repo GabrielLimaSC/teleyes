@@ -53,6 +53,12 @@ HISTORICAL_DELIVERY_STATUS = "historical"
 # `DELIVERY_KIND_TARGET` send — see `process_message` below.
 DELIVERY_KIND_IMMEDIATE = "immediate"
 DELIVERY_KIND_TARGET = "target"
+# S14-06 (F7): a third channel, used only by `app.routers.matches`'s
+# `PATCH /matches/{id}` — a manually-corrected price that lands at or below
+# the rule's target fires this once, the same idempotency shape as
+# `DELIVERY_KIND_TARGET` (the `(match_id, recipient_id, kind)` unique
+# constraint on `delivery`), just never reachable from `process_message`.
+DELIVERY_KIND_MANUAL_TARGET = "manual_target"
 # S7-11: a different source posting the same real-world promotion (same
 # rule, same exact price) within this window of another match that was
 # already really sent gets persisted normally but never re-notified — a
@@ -300,9 +306,10 @@ def decide_delivery_kind(rule: Rule, price_cents: int | None) -> str:
 def build_target_alert_text(text: str, rule: Rule, price_cents: int) -> str:
     """The target-hit message: a distinct, prioritized shape (🎯 prefix) so
     it reads differently in Telegram from a plain match, per the tela 09
-    spec. Only ever called after `decide_delivery_kind` picked
-    `DELIVERY_KIND_TARGET`, which already guarantees `rule.target_price_cents`
-    is set.
+    spec. Called after `decide_delivery_kind` picked `DELIVERY_KIND_TARGET`,
+    and also by `app.routers.matches` for `DELIVERY_KIND_MANUAL_TARGET`
+    (S14-06) — both callers already guarantee `rule.target_price_cents` is
+    set before reaching here.
     """
     assert rule.target_price_cents is not None
     return (
