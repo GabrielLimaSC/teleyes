@@ -396,6 +396,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Feed Settings */
+        get: operations["get_feed_settings_settings_feed_get"];
+        /** Update Feed Settings */
+        put: operations["update_feed_settings_settings_feed_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/snoozes": {
         parameters: {
             query?: never;
@@ -524,6 +542,16 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** FeedSettingsResponse */
+        FeedSettingsResponse: {
+            /** Group Duplicates */
+            group_duplicates: boolean;
+        };
+        /** FeedSettingsUpdate */
+        FeedSettingsUpdate: {
+            /** Group Duplicates */
+            group_duplicates: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -595,6 +623,13 @@ export interface components {
             created_at: string;
             /** Deliveries */
             deliveries: components["schemas"]["DeliveryResponse"][];
+            /** Group Key */
+            group_key?: string | null;
+            /**
+             * Grouped Match Ids
+             * @default []
+             */
+            grouped_match_ids: number[];
             /** Grouped Source Ids */
             grouped_source_ids?: number[] | null;
             /** Id */
@@ -621,12 +656,22 @@ export interface components {
             /** Rule Id */
             rule_id: number;
             /**
+             * Seen Count
+             * @default 1
+             */
+            seen_count: number;
+            /**
              * Snoozed
              * @default false
              */
             snoozed: boolean;
             /** Source Id */
             source_id: number;
+            /**
+             * Sources
+             * @default []
+             */
+            sources: components["schemas"]["MatchSourceResponse"][];
             /**
              * Sparkline
              * @default []
@@ -641,6 +686,17 @@ export interface components {
             target_hit: boolean;
             /** Target Price Cents */
             target_price_cents?: number | null;
+        };
+        /**
+         * MatchSourceResponse
+         * @description S14-05 (F5): one distinct source of a duplicate group, in the order it
+         *     first posted.
+         */
+        MatchSourceResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /**
          * MetricReason
@@ -1808,6 +1864,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_feed_settings_settings_feed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_feed_settings_settings_feed_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedSettingsResponse"];
                 };
             };
             /** @description Validation Error */

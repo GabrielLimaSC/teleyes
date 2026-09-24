@@ -9,8 +9,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.delivery_policy import is_snoozed
-from app.utc import format_utc
-from models import Delivery, Match, Recipient, Rule
+from app.feed_settings import get_group_duplicates
+from app.product_history import posting_identity
+from app.utc import ensure_utc, format_utc
+from models import Delivery, Match, Recipient, Rule, Source
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.notifications.bot import BotNotifier
@@ -725,8 +727,105 @@ async def run_historical_scan(
     return results
 
 
-def build_match_event(result: ProcessResult) -> dict[str, Any] | None:
-    """Build the `match` SSE payload for a `ProcessResult`, or `None` if it was a discard."""
+_GROUP_KEY_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def compute_group_key(
+    product_key: str | None, price_cents: int | None, matched_at: datetime
+) -> str | None:
+    """S14-05 (F5): a deterministic key correlating a live `match` SSE event
+    with the feed card it belongs to, so the UI can update that card instead
+    of appending a duplicate one. `None` whenever there is nothing to group
+    on (`product_key` unset, or no extracted price).
+
+    Built from `product_key` + `price_cents` + the start of the
+    `GROUPING_WINDOW`-sized bucket `matched_at` falls into, floored against a
+    fixed UTC epoch so every process (listener, api) computes the exact same
+    boundaries without coordinating and without a database round trip here.
+
+    This is only ever a hint for the live UI to avoid an obvious duplicate;
+    the feed's own read-time grouping (`app.routers.matches`, same
+    `product_key`/`price_cents` key) is the actual source of truth for what
+    gets shown, because it walks real chronological neighbours instead of
+    fixed buckets. Two matches within `GROUPING_WINDOW` of each other but
+    straddling a bucket boundary get two different keys here — a known,
+    documented limitation of a stateless key, not a bug: the next feed
+    reload always shows the correct, fully-merged card regardless.
+    """
+    if product_key is None or price_cents is None:
+        return None
+    aware = ensure_utc(matched_at)
+    bucket_index = (aware - _GROUP_KEY_EPOCH) // GROUPING_WINDOW
+    bucket_start = _GROUP_KEY_EPOCH + bucket_index * GROUPING_WINDOW
+    return f"{product_key}:{price_cents}:{format_utc(bucket_start)}"
+
+
+def _grouped_summary(session: Session, db_match: Match) -> dict[str, Any] | None:
+    """S14-05 (F5): the `seen_count`/`sources` of the duplicate group
+    `db_match` lands in, once it is included — lets the live UI update that
+    existing feed card instead of appending a duplicate one. Keyed on the
+    same `product_key` + `price_cents` + `compute_group_key` bucket as
+    `group_key` itself: a hint, not the source of truth (that stays
+    `app.routers.matches`' own chronological-neighbour grouping), so this
+    never needs to walk the whole table.
+
+    `None` when there is nothing to fold into (no `product_key`/price, this
+    is the bucket's first sighting, or the sighting is the same Telegram
+    message caught by a second rule) or the "Agrupar duplicatas" toggle is
+    off. One query, never one per candidate.
+    """
+    if db_match.product_key is None or db_match.price_cents is None:
+        return None
+    if not get_group_duplicates(session):
+        return None
+
+    aware = ensure_utc(db_match.matched_at)
+    bucket_index = (aware - _GROUP_KEY_EPOCH) // GROUPING_WINDOW
+    bucket_start = _GROUP_KEY_EPOCH + bucket_index * GROUPING_WINDOW
+    bucket_end = bucket_start + GROUPING_WINDOW
+
+    rows = session.execute(
+        select(Match.id, Match.source_id, Match.telegram_message_id, Source.name)
+        .join(Source, Source.id == Match.source_id)
+        .where(
+            Match.product_key == db_match.product_key,
+            Match.price_cents == db_match.price_cents,
+            Match.matched_at >= bucket_start,
+            Match.matched_at < bucket_end,
+        )
+        .order_by(Match.id)
+    ).all()
+
+    identities = {posting_identity(row.id, row.source_id, row.telegram_message_id) for row in rows}
+    if len(identities) < 2:
+        return None
+
+    ordered_source_ids: list[int] = []
+    names: dict[int, str] = {}
+    for row in rows:
+        names[row.source_id] = row.name
+        if row.source_id not in ordered_source_ids:
+            ordered_source_ids.append(row.source_id)
+
+    return {
+        "seen_count": len(identities),
+        "sources": [
+            {"id": source_id, "name": names[source_id]} for source_id in ordered_source_ids
+        ],
+    }
+
+
+def build_match_event(
+    result: ProcessResult, session: Session | None = None
+) -> dict[str, Any] | None:
+    """Build the `match` SSE payload for a `ProcessResult`, or `None` if it was a discard.
+
+    `session`, when given, also computes `grouped_summary` (S14-05 F5) so a
+    live event that lands inside an already-existing duplicate group carries
+    that group's `seen_count`/`sources`, letting the UI update the existing
+    card instead of appending a duplicate one — `None` without a session
+    (existing callers) or when this match does not actually join a group.
+    """
     if result.match is None:
         return None
     return {
@@ -742,15 +841,25 @@ def build_match_event(result: ProcessResult) -> dict[str, Any] | None:
         # prioritized target channel — computed once in `process_message`,
         # not re-derived here.
         "target_hit": result.target_hit,
+        # S14-05 (F5): lets the live UI fold this event into an existing
+        # feed card instead of duplicating it — see `compute_group_key`.
+        "group_key": compute_group_key(
+            result.match.product_key, result.match.price_cents, result.match.matched_at
+        ),
+        "grouped_summary": _grouped_summary(session, result.match) if session is not None else None,
     }
 
 
-def publish_match_event(broker: EventBroker, result: ProcessResult) -> None:
+def publish_match_event(
+    broker: EventBroker, result: ProcessResult, session: Session | None = None
+) -> None:
     """Publish the `match` SSE event for a `ProcessResult`.
 
     Call this only after the caller's `session.commit()` has succeeded — a match
-    must never reach the live feed before it is durably persisted.
+    must never reach the live feed before it is durably persisted. `session`
+    is optional and only used to compute `grouped_summary` (S14-05 F5); pass
+    the same session already committed above — reading after a commit is safe.
     """
-    event = build_match_event(result)
+    event = build_match_event(result, session)
     if event is not None:
         broker.publish("match", event)

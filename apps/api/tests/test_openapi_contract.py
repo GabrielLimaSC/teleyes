@@ -33,6 +33,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/listener/status": {"get"},
     "/listener/reload": {"post"},
     "/demo/messages": {"post"},
+    "/settings/feed": {"get", "put"},
 }
 
 EXPECTED_RESPONSE_SCHEMAS = [

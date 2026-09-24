@@ -89,6 +89,32 @@
         "title": "DeliveryResponse",
         "type": "object"
       },
+      "FeedSettingsResponse": {
+        "properties": {
+          "group_duplicates": {
+            "title": "Group Duplicates",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "group_duplicates"
+        ],
+        "title": "FeedSettingsResponse",
+        "type": "object"
+      },
+      "FeedSettingsUpdate": {
+        "properties": {
+          "group_duplicates": {
+            "title": "Group Duplicates",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "group_duplicates"
+        ],
+        "title": "FeedSettingsUpdate",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -307,6 +333,25 @@
             "title": "Deliveries",
             "type": "array"
           },
+          "group_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Key"
+          },
+          "grouped_match_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Grouped Match Ids",
+            "type": "array"
+          },
           "grouped_source_ids": {
             "anyOf": [
               {
@@ -397,6 +442,11 @@
             "title": "Rule Id",
             "type": "integer"
           },
+          "seen_count": {
+            "default": 1,
+            "title": "Seen Count",
+            "type": "integer"
+          },
           "snoozed": {
             "default": false,
             "title": "Snoozed",
@@ -405,6 +455,14 @@
           "source_id": {
             "title": "Source Id",
             "type": "integer"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MatchSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
           },
           "sparkline": {
             "default": [],
@@ -457,6 +515,25 @@
           "is_lowest_price_ever"
         ],
         "title": "MatchResponse",
+        "type": "object"
+      },
+      "MatchSourceResponse": {
+        "description": "S14-05 (F5): one distinct source of a duplicate group, in the order it\nfirst posted.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "MatchSourceResponse",
         "type": "object"
       },
       "MetricReason": {
@@ -3038,6 +3115,112 @@
         "summary": "Pause Rule",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/settings/feed": {
+      "get": {
+        "operationId": "get_feed_settings_settings_feed_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Feed Settings",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "operationId": "update_feed_settings_settings_feed_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Feed Settings",
+        "tags": [
+          "settings"
         ]
       }
     },

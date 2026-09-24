@@ -1,6 +1,7 @@
 from models.admin import Admin
 from models.base import Base
 from models.delivery import Delivery
+from models.feed_settings import FeedSettings
 from models.listener_control import ListenerControl
 from models.match import Match
 from models.processing_cursor import ProcessingCursor
@@ -13,6 +14,7 @@ __all__ = [
     "Admin",
     "Base",
     "Delivery",
+    "FeedSettings",
     "ListenerControl",
     "Match",
     "ProcessingCursor",
