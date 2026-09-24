@@ -319,6 +319,26 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "MatchCorrectionResponse": {
+        "description": "S14-06 (F7): who last edited/reverted a match, and when \u2014 tela 08's\n\"\u00faltima corre\u00e7\u00e3o\" line. `changes` itself is audit-only and never leaves\nthis endpoint's own history (not exposed here).",
+        "properties": {
+          "admin_id": {
+            "title": "Admin Id",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "admin_id",
+          "created_at"
+        ],
+        "title": "MatchCorrectionResponse",
+        "type": "object"
+      },
       "MatchResponse": {
         "properties": {
           "created_at": {
@@ -332,6 +352,17 @@
             },
             "title": "Deliveries",
             "type": "array"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
           },
           "group_key": {
             "anyOf": [
@@ -374,6 +405,16 @@
             "title": "Is Lowest Price Ever",
             "type": "boolean"
           },
+          "last_correction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchCorrectionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "matched_at": {
             "format": "date-time",
             "title": "Matched At",
@@ -393,6 +434,28 @@
           "message_text": {
             "title": "Message Text",
             "type": "string"
+          },
+          "model_variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Variant"
+          },
+          "original_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Price Cents"
           },
           "price_card_cents": {
             "anyOf": [
@@ -426,6 +489,21 @@
               }
             ],
             "title": "Price Cents"
+          },
+          "price_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "parsed",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Source"
           },
           "product_key": {
             "anyOf": [
@@ -534,6 +612,51 @@
           "name"
         ],
         "title": "MatchSourceResponse",
+        "type": "object"
+      },
+      "MatchUpdate": {
+        "description": "`PATCH /matches/{id}` (F7). Every field is optional \u2014 only the ones\nactually sent are validated and applied, same \"if provided\" shape as\n`RuleUpdate` (`app.routers.rules`). `price` is free text\n(`packages.rules.manual_price.parse_manual_price_cents` parses it);\nthere is no way to clear `display_name`/`model_variant` back to `None`\nthrough this endpoint on purpose \u2014 that is exactly what `POST\n/matches/{id}/revert` (\"Reverter ao detectado\") does.",
+        "properties": {
+          "apply_name_to_product": {
+            "default": false,
+            "title": "Apply Name To Product",
+            "type": "boolean"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "model_variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Variant"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          }
+        },
+        "title": "MatchUpdate",
         "type": "object"
       },
       "MetricReason": {
@@ -2216,6 +2339,133 @@
           }
         },
         "summary": "List Matches",
+        "tags": [
+          "matches"
+        ]
+      }
+    },
+    "/matches/{match_id}": {
+      "patch": {
+        "operationId": "update_match_matches__match_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Match",
+        "tags": [
+          "matches"
+        ]
+      }
+    },
+    "/matches/{match_id}/revert": {
+      "post": {
+        "description": "\"Reverter ao detectado\" (F7): restores `price_cents` from\n`original_price_cents` (left untouched \u2014 it keeps meaning \"the first\never detected price\" regardless of how many reverts follow) and clears\nevery other manual edit field. Never re-sends anything: a target alert\nis only ever triggered by `PATCH /matches/{id}` actually lowering the\nprice (see `_send_manual_target_alert_if_hit`), and an already-sent\n`manual_target` `Delivery` row is untouched here either way \u2014 it stays\nthe truthful record that Gabriel really was notified once.",
+        "operationId": "revert_match_matches__match_id__revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revert Match",
         "tags": [
           "matches"
         ]
