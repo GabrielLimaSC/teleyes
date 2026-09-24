@@ -1,8 +1,20 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HistoricoPage, toApiFilters } from './HistoricoPage'
 import type { FilterForm } from './HistoricoPage'
+
+// S14-08: HistoricoPage now reads/writes `?produto=` via react-router-dom's
+// useSearchParams (the product panel's deep link) — it needs a Router in
+// its tree even when a given test has nothing to do with the panel itself.
+function renderHistoricoPage() {
+  return render(
+    <MemoryRouter>
+      <HistoricoPage />
+    </MemoryRouter>,
+  )
+}
 
 const EMPTY: FilterForm = {
   ruleId: '',
@@ -70,7 +82,7 @@ describe('HistoricoPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
 
     const ruleSelect = await screen.findByLabelText('Regra')
     await waitFor(() => expect(screen.getByRole('option', { name: 'iPhone' })).toBeInTheDocument())
@@ -95,7 +107,7 @@ describe('HistoricoPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
 
     const deliverySelect = await screen.findByLabelText('Entrega')
     expect(screen.getByRole('option', { name: 'Histórico — sem alerta' })).toBeInTheDocument()
@@ -120,7 +132,7 @@ describe('HistoricoPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
 
     const sortSelect = await screen.findByLabelText('Ordenar por')
     expect(screen.getByRole('option', { name: 'Menor preço primeiro' })).toBeInTheDocument()
@@ -151,7 +163,7 @@ describe('HistoricoPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
-    const { container } = render(<HistoricoPage />)
+    const { container } = renderHistoricoPage()
     // S11-04: the S10-05/S10-07 "Resultados" header moved into the page
     // header's subtitle ("N resultados · <sort label>", matching the S11
     // concept) — "Ordenar por" always renders all 3 sort labels as <option>
@@ -182,7 +194,7 @@ describe('HistoricoPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
     await screen.findByText('Nenhum match encontrado com esses filtros.')
 
     await user.click(screen.getByRole('button', { name: 'Atualizar' }))
@@ -258,7 +270,7 @@ describe('HistoricoPage', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
     await screen.findByText('produto barato')
 
     // 3 matches, média (1000+3000)/2=2000 (ignora o sem preço), menor 1000,
@@ -324,7 +336,7 @@ describe('HistoricoPage', () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const user = userEvent.setup()
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
     await screen.findByText('produto csv')
 
     await user.click(screen.getByRole('button', { name: 'Exportar CSV' }))
@@ -396,7 +408,7 @@ describe('HistoricoPage', () => {
     })
     const user = userEvent.setup({ advanceTimers: () => {} })
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
     await screen.findByText('produto tz')
 
     const row = screen.getByText('produto tz').closest('.historico-table__row') as HTMLElement
@@ -471,7 +483,7 @@ describe('HistoricoPage', () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const user = userEvent.setup()
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
     await screen.findByText('rtx 5070 a vista no pix')
 
     // On screen: cash price leads, card price on the "À vista · Cartão" line
@@ -502,7 +514,7 @@ describe('HistoricoPage', () => {
       vi.fn(() => Promise.resolve(jsonResponse([]))),
     )
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
     await screen.findByText('Nenhum match encontrado com esses filtros.')
 
     expect(screen.queryByRole('button', { name: 'Aplicar filtros' })).not.toBeInTheDocument()
@@ -542,7 +554,7 @@ describe('HistoricoPage', () => {
       }),
     )
 
-    render(<HistoricoPage />)
+    renderHistoricoPage()
 
     // The tooltip bubble carries the untouched text; the row title is the
     // (possibly clipped) face of it.
@@ -581,7 +593,7 @@ describe('HistoricoPage', () => {
 
     it('links the row to the real message in a new tab, named after the row', async () => {
       stubFetch()
-      render(<HistoricoPage />)
+      renderHistoricoPage()
 
       const link = await screen.findByRole('link', { name: 'Abrir promoção: Notebook gamer com link' })
       expect(link).toHaveAttribute('href', 'https://t.me/c/123456/77')
@@ -592,7 +604,7 @@ describe('HistoricoPage', () => {
 
     it('a row without a link says so, with the reason, and offers no dead link', async () => {
       stubFetch()
-      render(<HistoricoPage />)
+      renderHistoricoPage()
 
       await screen.findByText('Fone antigo do grupo')
       // Exactly one link: the row that has one. The other is explicit text.
@@ -618,7 +630,7 @@ describe('HistoricoPage', () => {
       )
       const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
       const user = userEvent.setup()
-      render(<HistoricoPage />)
+      renderHistoricoPage()
       await screen.findByText('Fone antigo do grupo')
 
       await user.click(screen.getByRole('button', { name: 'Exportar CSV' }))
@@ -630,6 +642,80 @@ describe('HistoricoPage', () => {
       expect(withLink.endsWith(',https://t.me/c/123456/77')).toBe(true)
       expect(withoutLink.endsWith(',')).toBe(true)
       clickSpy.mockRestore()
+    })
+  })
+
+  describe('"Abrir produto" trigger and panel (S14-08, 07b)', () => {
+    function stubFetchWithProductRow(productKey: string | null) {
+      const match = {
+        id: 1,
+        source_id: 1,
+        rule_id: 1,
+        message_text: 'Placa de vídeo exemplo por R$ 5.749',
+        price_cents: 574_900,
+        price_cash_cents: null,
+        price_card_cents: null,
+        message_link: null,
+        matched_at: '2026-09-20T12:00:00Z',
+        created_at: '2026-09-20T12:00:00Z',
+        deliveries: [],
+        is_lowest_price_ever: false,
+        product_key: productKey,
+      }
+      const product = {
+        product_key: productKey,
+        title: 'Placa de vídeo exemplo',
+        total_count: 1,
+        sources: [{ id: 1, name: 'Loja Demo' }],
+        first_seen_at: '2026-09-20T12:00:00Z',
+        current_price_cents: 574_900,
+        current_price_at: '2026-09-20T12:00:00Z',
+        lowest_90d_cents: 574_900,
+        average_30d_cents: 574_900,
+        highest_90d_cents: 574_900,
+        range: '90d',
+        series: [{ date: '2026-09-20', price_cents: 574_900 }],
+        postings: [],
+      }
+      return vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([match]))
+        if (url.startsWith(`/products/${productKey}`)) return Promise.resolve(jsonResponse(product))
+        throw new Error(`unexpected fetch: ${url}`)
+      })
+    }
+
+    it('shows the trigger and a clickable title only for a row with a product_key', async () => {
+      vi.stubGlobal('fetch', stubFetchWithProductRow('placa-video-exemplo'))
+      renderHistoricoPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      expect(screen.getByRole('button', { name: /Abrir produto/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Placa de vídeo exemplo por R$ 5.749' })).toBeInTheDocument()
+    })
+
+    it('has no trigger and a plain (non-button) title without a product_key', async () => {
+      vi.stubGlobal('fetch', stubFetchWithProductRow(null))
+      renderHistoricoPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      expect(screen.queryByRole('button', { name: /Abrir produto/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Placa de vídeo exemplo por R$ 5.749' })).not.toBeInTheDocument()
+    })
+
+    it('opens the product panel from the trigger, which fetches and shows the product', async () => {
+      vi.stubGlobal('fetch', stubFetchWithProductRow('placa-video-exemplo'))
+      const user = userEvent.setup()
+      renderHistoricoPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      await user.click(screen.getByRole('button', { name: /Abrir produto/ }))
+
+      expect(await screen.findByRole('heading', { name: 'Placa de vídeo exemplo' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Fechar painel do produto' }))
     })
   })
 })

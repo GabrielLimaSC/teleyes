@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MatchCard } from '../components/MatchCard'
+import { ProductPanel } from '../components/ProductPanel'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { useLiveMatches } from '../hooks/useLiveMatches'
 import type { FeedConnectionState } from '../hooks/useLiveMatches'
+import { useProductPanel } from '../hooks/useProductPanel'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 import '../styles/materials.css'
+import '../styles/productPanelLayout.css'
 import '../components/FillButton.css'
 import './FeedPage.css'
 
@@ -24,6 +27,7 @@ function formatCurrency(cents: number): string {
 
 export function FeedPage() {
   const { matches, loading, error, connectionState, refresh } = useLiveMatches()
+  const panel = useProductPanel()
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -102,6 +106,8 @@ export function FeedPage() {
       )}
 
       {!loading && !error && (
+        <div className="product-panel-layout" data-panel-phase={panel.phase}>
+          <div className="product-panel-layout__content">
         <div className="feed-page__grid">
           <aside className="plane-glass feed-rail">
             <div>
@@ -172,6 +178,7 @@ export function FeedPage() {
                   groupedSourceNames={match.grouped_source_ids
                     ?.map((sourceId) => sources.find((source) => source.id === sourceId)?.name)
                     .filter((name): name is string => Boolean(name))}
+                  onOpenProduct={panel.open}
                 />
               </div>
             ))}
@@ -200,6 +207,11 @@ export function FeedPage() {
               </div>
             </div>
           </aside>
+        </div>
+          </div>
+          {panel.phase !== 'closed' && panel.productKey !== null && (
+            <ProductPanel productKey={panel.productKey} phase={panel.phase} onClose={panel.close} />
+          )}
         </div>
       )}
     </main>

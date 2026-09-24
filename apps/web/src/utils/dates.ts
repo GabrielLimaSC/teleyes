@@ -69,6 +69,12 @@ export function formatDateTime(iso: string): string {
   return parseApiDate(iso).toLocaleString('pt-BR')
 }
 
+/** S14-08: "DD/MM" in the local zone — the product panel's "N registros
+ * desde DD/MM" header (comp screen 07), with no time component. */
+export function formatDayMonth(iso: string): string {
+  return parseApiDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
 /** True when the API timestamp `a` is strictly later than `b` — compares instants, never strings. */
 export function isLater(a: string, b: string): boolean {
   return parseApiDate(a).getTime() > parseApiDate(b).getTime()

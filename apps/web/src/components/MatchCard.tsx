@@ -3,11 +3,13 @@ import { categorize, CATEGORY_BACKGROUND, CATEGORY_ICON_COLOR } from './matchCat
 import { summarizeDeliveryStatus } from './deliveryStatus'
 import { Tooltip } from './Tooltip'
 import { cardTitle, productText } from './matchTitle'
+import { PRODUCT_OPEN_CONTROL_ATTR } from './ProductPanel'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 import { formatMatchedAt } from '../utils/dates'
 import './MatchCard.css'
 import '../components/GlassCard.css'
 import '../components/AuroraGlow.css'
+import '../styles/productOpenTrigger.css'
 
 function formatCurrency(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -25,6 +27,7 @@ export function MatchCard({
   recipients,
   isLowestPriceEver = false,
   groupedSourceNames,
+  onOpenProduct,
 }: {
   match: Match
   rule: Rule | undefined
@@ -40,6 +43,11 @@ export function MatchCard({
    * (this component never resolves ids itself — same pattern as `source`).
    * Undefined/empty renders nothing. */
   groupedSourceNames?: string[]
+  /** S14-08 (07b): the "Abrir produto ›" trigger and the clickable title —
+   * both call this with `match.product_key` and the exact element clicked
+   * (07b's focus-return target). Only rendered when the match actually has
+   * a `product_key`; the card itself is never clickable as a whole. */
+  onOpenProduct?: (productKey: string, trigger: HTMLElement) => void
 }) {
   const category = categorize(match.message_text)
   const status = summarizeDeliveryStatus(match.deliveries)
@@ -56,7 +64,25 @@ export function MatchCard({
   const linkCutText = productText(match.message_text)
   const title = cardTitle(match.message_text, rule)
   const wasTruncated = title !== linkCutText
-  const productTitle = <p className="match-card__product">{title}</p>
+  const canOpenProduct = match.product_key !== null && onOpenProduct !== undefined
+  const productKey = match.product_key
+
+  function openProduct(trigger: HTMLElement) {
+    if (productKey !== null && onOpenProduct) onOpenProduct(productKey, trigger)
+  }
+
+  const productTitle = canOpenProduct ? (
+    <button
+      type="button"
+      className="match-card__product match-card__product--button"
+      {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+      onClick={(event) => openProduct(event.currentTarget)}
+    >
+      {title}
+    </button>
+  ) : (
+    <p className="match-card__product">{title}</p>
+  )
 
   return (
     <article className={'glass-card match-card' + (isLowestPriceEver ? ' match-card--aurora' : '')}>
@@ -75,6 +101,16 @@ export function MatchCard({
         {/* S10-06: date + link on the same line (S10-05 comp's `.foot`) —
             were two separate sibling paragraphs before. */}
         <div className="match-card__foot">
+          {canOpenProduct && (
+            <button
+              type="button"
+              className={'product-open-trigger' + (isLowestPriceEver ? ' product-open-trigger--featured' : '')}
+              {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+              onClick={(event) => openProduct(event.currentTarget)}
+            >
+              Abrir produto <span aria-hidden="true">›</span>
+            </button>
+          )}
           <span className="match-card__timestamp">{formatMatchedAt(match.matched_at)}</span>
           {match.message_link !== null && (
             <a

@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FeedPage } from './FeedPage'
 
@@ -10,6 +11,17 @@ class InertEventSource {
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+}
+
+// S14-08: FeedPage now reads/writes `?produto=` via react-router-dom's
+// useSearchParams (the product panel's deep link) — it needs a Router in
+// its tree even when this suite has nothing to do with the panel itself.
+function renderFeedPage(initialEntries: string[] = ['/feed']) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <FeedPage />
+    </MemoryRouter>,
+  )
 }
 
 describe('FeedPage', () => {
@@ -24,7 +36,7 @@ describe('FeedPage', () => {
       vi.fn(() => Promise.resolve(jsonResponse([]))),
     )
 
-    render(<FeedPage />)
+    renderFeedPage()
 
     expect(await screen.findByText('Nenhum match ainda.')).toBeInTheDocument()
     expect(screen.getByText('Feed ao vivo')).toBeInTheDocument()
@@ -36,7 +48,7 @@ describe('FeedPage', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
-    render(<FeedPage />)
+    renderFeedPage()
     await screen.findByText('Nenhum match ainda.')
     // FeedPage also fetches rules/sources/recipients on mount, all through
     // the same global fetch mock — assert the increase, not an absolute count.
@@ -76,7 +88,7 @@ describe('FeedPage', () => {
       }),
     )
 
-    render(<FeedPage />)
+    renderFeedPage()
 
     await screen.findByText('iPhone barato')
     await screen.findByText('iPhone caro')
@@ -119,7 +131,7 @@ describe('FeedPage', () => {
       }),
     )
 
-    render(<FeedPage />)
+    renderFeedPage()
 
     expect(await screen.findByText('Visto em: CMdias, Menor Preço')).toBeInTheDocument()
   })
@@ -176,7 +188,7 @@ describe('FeedPage', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<FeedPage />)
+    renderFeedPage()
     await screen.findByText('Produto A1')
 
     // Sem filtro: os 3 matches contam, 1 entregue, menor preço R$ 30,00.
@@ -236,7 +248,7 @@ describe('FeedPage', () => {
     )
     const user = userEvent.setup()
 
-    render(<FeedPage />)
+    renderFeedPage()
     await screen.findByText('Produto A1')
     expect(screen.getByText('Produto B1')).toBeInTheDocument()
 
@@ -246,5 +258,84 @@ describe('FeedPage', () => {
     expect(screen.queryByText('Produto B1')).not.toBeInTheDocument()
     const matchesTile = screen.getByText('Matches').closest('.feed-summary__tile')
     expect(matchesTile).toHaveTextContent('1')
+  })
+
+  describe('product panel (S14-08, 07b)', () => {
+    const match = {
+      id: 1,
+      source_id: 1,
+      rule_id: 1,
+      message_text: 'Placa de vídeo exemplo por R$ 5.749',
+      price_cents: 574_900,
+      message_link: null,
+      matched_at: '2026-09-20T12:00:00Z',
+      created_at: '2026-09-20T12:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: false,
+      product_key: 'placa-video-exemplo',
+    }
+    const product = {
+      product_key: 'placa-video-exemplo',
+      title: 'Placa de vídeo exemplo',
+      total_count: 1,
+      sources: [{ id: 1, name: 'Loja Demo' }],
+      first_seen_at: '2026-09-20T12:00:00Z',
+      current_price_cents: 574_900,
+      current_price_at: '2026-09-20T12:00:00Z',
+      lowest_90d_cents: 574_900,
+      average_30d_cents: 574_900,
+      highest_90d_cents: 574_900,
+      range: '90d',
+      series: [{ date: '2026-09-20', price_cents: 574_900 }],
+      postings: [],
+    }
+
+    function stubFetch() {
+      vi.stubGlobal('EventSource', InertEventSource)
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL) => {
+          const url = String(input)
+          if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([match]))
+          if (url.startsWith('/products/placa-video-exemplo')) return Promise.resolve(jsonResponse(product))
+          return Promise.resolve(jsonResponse([]))
+        }),
+      )
+    }
+
+    it('opens the panel from the card trigger and closes it from the × button', async () => {
+      stubFetch()
+      const user = userEvent.setup()
+      renderFeedPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      await user.click(screen.getByRole('button', { name: /Abrir produto/ }))
+
+      expect(await screen.findByRole('heading', { name: 'Placa de vídeo exemplo' })).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Fechar painel do produto' }))
+      await waitFor(() => expect(screen.queryByRole('heading', { name: 'Placa de vídeo exemplo' })).not.toBeInTheDocument())
+    })
+
+    it('opens the panel straight from a `?produto=` deep link (survives F5)', async () => {
+      stubFetch()
+      renderFeedPage(['/feed?produto=placa-video-exemplo'])
+
+      expect(await screen.findByRole('heading', { name: 'Placa de vídeo exemplo' })).toBeInTheDocument()
+    })
+
+    it('returns focus to the trigger that opened the panel once it closes', async () => {
+      stubFetch()
+      const user = userEvent.setup()
+      renderFeedPage()
+
+      await screen.findByText('Placa de vídeo exemplo por R$ 5.749')
+      const trigger = screen.getByRole('button', { name: /Abrir produto/ })
+      await user.click(trigger)
+      await screen.findByRole('heading', { name: 'Placa de vídeo exemplo' })
+
+      await user.click(screen.getByRole('button', { name: 'Fechar painel do produto' }))
+      await waitFor(() => expect(trigger).toHaveFocus())
+    })
   })
 })

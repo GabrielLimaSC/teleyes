@@ -260,6 +260,38 @@
   --popover-shadow: 0 8px 32px rgba(15, 15, 20, 0.08);
   /* S13-08: blocking backdrop behind the "sessão expirou" modal. */
   --session-expired-backdrop-bg: rgba(23, 23, 23, 0.32);
+
+  /* ==== S14-08: product panel (screen 07/07b). Values copied verbatim from
+     the comp's own inline styles (docs/sprint14-comps, "07 Painel de
+     produto"). Reused where an existing token already matched exactly
+     (--glass-tile-bg/--glass-inner-border-color for the stat tiles,
+     --plane-focus-color/--plane-focus-ring for the "Abrir produto" trigger
+     — both are already #315ea8 / 3px rgba(49,94,168,.16)); the entries below
+     are the ones nothing existing matched: the panel's own glass recipe is
+     more opaque/blurred (20px/155%) than --plane-glass (14px/150%) and
+     --popover (flat, no gradient) alike, and the header icon/chart line use
+     a slate blue (#415d89) the app had no token for. No dark comp exists for
+     this screen (S12 already covers dark generally) — dark values below
+     follow the same delta the light comp already has over --plane-glass /
+     --popover, at the same base hues those already use. ==== */
+  --product-panel-bg:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(237, 239, 243, 0.62) 42%,
+      rgba(211, 214, 221, 0.66) 100%
+    ),
+    rgba(232, 234, 239, 0.62);
+  --product-panel-border-color: rgba(255, 255, 255, 0.88);
+  --product-panel-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.92), inset 0 -2px 3px rgba(58, 61, 70, 0.16),
+    0 24px 48px rgba(23, 23, 23, 0.18);
+  --product-panel-well-bg: rgba(255, 255, 255, 0.72);
+  --product-panel-icon-bg: rgba(255, 255, 255, 0.7);
+  --product-panel-accent: #415d89;
+  --product-panel-chart-grid: #d6dde8;
+  --product-panel-trigger-hover-bg: #f2f6fd;
+  --product-panel-backdrop-bg: rgba(23, 23, 23, 0.32);
 }
 
 /* Plano 3 — a fixed rail, the navbar, a toast/popover. `border-radius`
@@ -558,4 +590,27 @@
   --nav-menu-shadow:
     0 18px 34px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2),
     inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+
+  /* ---- S14-08: product panel — no dark comp; same delta over --plane-glass
+     dark that the light comp already has over --plane-glass light (a touch
+     more opaque, same base hues). Accent reuses the Dub dark accent hue
+     (tokens.css's dark #8ab4f8) instead of the comp's light-only #415d89. */
+  --product-panel-bg:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.08) 42%,
+      rgba(255, 255, 255, 0.13) 100%
+    ),
+    rgba(26, 29, 36, 0.82);
+  --product-panel-border-color: rgba(255, 255, 255, 0.2);
+  --product-panel-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.24), inset 0 -2px 3px rgba(0, 0, 0, 0.6),
+    0 24px 48px rgba(0, 0, 0, 0.5);
+  --product-panel-well-bg: rgba(255, 255, 255, 0.08);
+  --product-panel-icon-bg: rgba(255, 255, 255, 0.12);
+  --product-panel-accent: #8ab4f8;
+  --product-panel-chart-grid: rgba(255, 255, 255, 0.16);
+  --product-panel-trigger-hover-bg: rgba(122, 166, 247, 0.14);
+  --product-panel-backdrop-bg: rgba(6, 7, 10, 0.55);
 }
