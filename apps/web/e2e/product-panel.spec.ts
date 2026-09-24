@@ -22,20 +22,25 @@ interface Seed {
 }
 
 async function seedProduct(page: Page, tag: string, title: string, price: string): Promise<Seed> {
+  // A random suffix — not just `tag` — keeps `telegram_chat_id` unique even
+  // when the same spec runs more than once against the same scratch backend
+  // (e.g. `--repeat-each`), which otherwise 500s on the source/recipient's
+  // UNIQUE constraint on the second run.
+  const uniqueTag = `${tag}-${Math.random().toString(36).slice(2, 8)}`
   await page.goto('/')
   const csrfToken = await apiLogin(page)
-  const sourceName = `Loja Demo Painel ${tag}`
+  const sourceName = `Loja Demo Painel ${uniqueTag}`
   const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
     name: sourceName,
-    telegram_chat_id: `demo-painel-${tag}`,
+    telegram_chat_id: `demo-painel-${uniqueTag}`,
   })
   const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
-    name: `Regra Painel ${tag}`,
+    name: `Regra Painel ${uniqueTag}`,
     include_terms: title.split(' ')[0].toLowerCase(),
   })
   const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
-    name: `Demo Painel ${tag}`,
-    telegram_chat_id: `demo-painel-recipient-${tag}`,
+    name: `Demo Painel ${uniqueTag}`,
+    telegram_chat_id: `demo-painel-recipient-${uniqueTag}`,
     allowlisted: true,
   })
   await apiPost(page, '/demo/messages', csrfToken, {

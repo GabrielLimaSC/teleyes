@@ -124,6 +124,14 @@ export function ProductPanel({
   const [dragOffset, setDragOffset] = useState(0)
   const dragStartYRef = useRef(0)
   const draggingRef = useRef(false)
+  // Mirrors `dragOffset` synchronously — `pointerup` needs the offset from
+  // the *last* `pointermove`, and on a fast swipe (exactly what "drag to
+  // close" is for) `pointerup` can land before React has committed that
+  // move's `setDragOffset`, so reading the `dragOffset` state there closed
+  // over a stale value and silently kept the panel open. `dragOffset` state
+  // stays for the visual translateY while dragging; this ref is the only
+  // thing `pointerup`/`pointercancel` ever read.
+  const dragOffsetRef = useRef(0)
 
   // New product: reset everything and start from 90d, per the comp's
   // default tab.
@@ -213,20 +221,34 @@ export function ProductPanel({
     if (!isSheet) return
     draggingRef.current = true
     dragStartYRef.current = event.clientY
+    dragOffsetRef.current = 0
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   function handleGrabberPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     if (!draggingRef.current) return
-    setDragOffset(Math.max(0, event.clientY - dragStartYRef.current))
+    const offset = Math.max(0, event.clientY - dragStartYRef.current)
+    dragOffsetRef.current = offset
+    setDragOffset(offset)
   }
 
   function handleGrabberPointerUp() {
     if (!draggingRef.current) return
     draggingRef.current = false
-    const shouldClose = dragOffset > 96
+    const shouldClose = dragOffsetRef.current > 96
+    dragOffsetRef.current = 0
     setDragOffset(0)
     if (shouldClose) onClose()
+  }
+
+  // A cancelled gesture (pointer capture lost to the OS/browser mid-drag,
+  // e.g. an edge-swipe navigation) is not a close decision — just snap the
+  // sheet back like an under-threshold drag, without ever calling onClose().
+  function handleGrabberPointerCancel() {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    dragOffsetRef.current = 0
+    setDragOffset(0)
   }
 
   const chart = product ? buildChartGeometry(product.series) : null
@@ -249,7 +271,7 @@ export function ProductPanel({
           onPointerDown={handleGrabberPointerDown}
           onPointerMove={handleGrabberPointerMove}
           onPointerUp={handleGrabberPointerUp}
-          onPointerCancel={handleGrabberPointerUp}
+          onPointerCancel={handleGrabberPointerCancel}
         >
           <span className="product-panel__grabber-bar" aria-hidden="true" />
         </div>
