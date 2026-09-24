@@ -3,16 +3,17 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import ScalarSelect, Select, and_, exists, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
+from app.feed_settings import get_group_duplicates
 from app.main import get_current_session, get_db
-from app.pipeline import GROUPING_WINDOW
-from app.product_history import get_display_timezone, sparklines_for_keys
+from app.pipeline import GROUPING_WINDOW, compute_group_key
+from app.product_history import get_display_timezone, posting_identity, sparklines_for_keys
 from app.routers.products import PricePointResponse
 from app.utc import UtcDatetime, utc_now
-from models import Delivery, Match, Rule, Snooze
+from models import Delivery, Match, Rule, Snooze, Source
 from packages.rules.target import target_gap_pct, target_hit
 
 router = APIRouter(
@@ -30,6 +31,15 @@ class DeliveryResponse(BaseModel):
     status: str
     delivered_at: UtcDatetime | None
     created_at: UtcDatetime
+
+
+class MatchSourceResponse(BaseModel):
+    """S14-05 (F5): one distinct source of a duplicate group, in the order it
+    first posted.
+    """
+
+    id: int
+    name: str
 
 
 class MatchResponse(BaseModel):
@@ -77,6 +87,29 @@ class MatchResponse(BaseModel):
     target_price_cents: int | None = None
     target_hit: bool = False
     target_gap_pct: int | None = None
+    # S14-05 (F5): "Visto em N fontes" — set only on the representative of a
+    # duplicate group (`_apply_duplicate_grouping`), distinct postings of the
+    # same `product_key` at the same price within `GROUPING_WINDOW`, deduped
+    # by `posting_identity` (a message caught by two rules is one sighting).
+    # `1` and the item's own id/no sources for a card that groups with
+    # nothing, including whenever the "Agrupar duplicatas" toggle is off.
+    seen_count: int = 1
+    sources: list[MatchSourceResponse] = []
+    # Always at least the item's own id, even for a card that groups with
+    # nothing (including whenever the toggle is off) — every match id this
+    # card stands for, representative included.
+    grouped_match_ids: list[int] = []
+    # S14-05: deterministic key for the live UI to fold a `match` SSE event
+    # into this same card instead of duplicating it — see
+    # `app.pipeline.compute_group_key`. `None` exactly when `product_key` or
+    # `price_cents` is `None`. Set on every item regardless of the "Agrupar
+    # duplicatas" toggle, since the live UI needs it to recognise a fold
+    # target even for a card the toggle currently shows standalone.
+    group_key: str | None = None
+    # Not part of the public response — carried only so `_apply_duplicate_grouping`
+    # can dedupe "the same message, caught by two rules" via `posting_identity`
+    # without a second query.
+    telegram_message_id: int | None = Field(default=None, exclude=True)
 
 
 def _target_price_cents_per_rule() -> ScalarSelect[int | None]:
@@ -282,6 +315,95 @@ def _apply_display_grouping(matches: dict[int, MatchResponse]) -> list[MatchResp
     return [response for response in matches.values() if response.id not in hidden_ids]
 
 
+def _attach_duplicate_group(
+    chain: list[MatchResponse], source_names: dict[int, str], hidden_ids: set[int]
+) -> None:
+    """`chain` is 2+ same-`product_key`/same-price matches, already sorted
+    earliest-first and chronologically consecutive within `GROUPING_WINDOW`
+    (see `_apply_duplicate_grouping`). Deduped first by `posting_identity` —
+    the same Telegram message caught by two rules is one sighting, not two,
+    and must not turn a lone posting into a fake "duplicate" group.
+    """
+    identities = {
+        posting_identity(member.id, member.source_id, member.telegram_message_id)
+        for member in chain
+    }
+    if len(identities) < 2:
+        return
+
+    representative, *others = chain
+    ordered_source_ids: list[int] = []
+    for member in chain:
+        if member.source_id not in ordered_source_ids:
+            ordered_source_ids.append(member.source_id)
+
+    representative.seen_count = len(identities)
+    representative.sources = [
+        MatchSourceResponse(id=source_id, name=source_names.get(source_id, f"#{source_id}"))
+        for source_id in ordered_source_ids
+    ]
+    representative.grouped_match_ids = sorted(member.id for member in chain)
+    for member in others:
+        hidden_ids.add(member.id)
+
+
+def _apply_duplicate_grouping(db: Session, visible: list[MatchResponse]) -> list[MatchResponse]:
+    """S14-05 (F5): "Visto em N fontes" — folds distinct sources posting the
+    same `product_key` at the same price within `GROUPING_WINDOW` into one
+    card, at read time, on top of `visible` (already run through the S7-11
+    rule-based grouping above; the two mechanisms key on different things —
+    `rule_id` there, `product_key` here — and compose cleanly since a match
+    hidden by one never needs a second look from the other). No `Match`
+    row is ever touched: only this response list changes shape.
+
+    A no-op — every match keeps its own card — whenever the "Agrupar
+    duplicatas" toggle (`app.feed_settings`) is off. That toggle, and the
+    source names below, are only ever read once a real 2+ chain is found:
+    a request with nothing to group (no `product_key`, or every product/price
+    combination a singleton — e.g. `test_matches_list_includes_deliveries_
+    without_n_plus_one`) costs zero extra queries, never one per request
+    regardless of grouping candidates (no N+1).
+    """
+    groups: dict[tuple[str, int], list[MatchResponse]] = {}
+    for response in visible:
+        if response.product_key is None or response.price_cents is None:
+            continue
+        groups.setdefault((response.product_key, response.price_cents), []).append(response)
+
+    chains: list[list[MatchResponse]] = []
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda response: (response.matched_at, response.id))
+        chain = [members[0]]
+        for candidate in members[1:]:
+            if candidate.matched_at - chain[-1].matched_at <= GROUPING_WINDOW:
+                chain.append(candidate)
+                continue
+            if len(chain) > 1:
+                chains.append(chain)
+            chain = [candidate]
+        if len(chain) > 1:
+            chains.append(chain)
+
+    if not chains:
+        return visible
+    if not get_group_duplicates(db):
+        return visible
+
+    source_ids = {member.source_id for chain in chains for member in chain}
+    source_names: dict[int, str] = {
+        row.id: row.name
+        for row in db.execute(select(Source.id, Source.name).where(Source.id.in_(source_ids)))
+    }
+
+    hidden_ids: set[int] = set()
+    for chain in chains:
+        _attach_duplicate_group(chain, source_names, hidden_ids)
+
+    return [response for response in visible if response.id not in hidden_ids]
+
+
 @router.get("", response_model=list[MatchResponse])
 def list_matches(
     rule_id: int | None = Query(default=None, ge=1),
@@ -350,12 +472,18 @@ def list_matches(
                 target_price_cents=target_price_cents,
                 target_hit=target_hit(db_match.price_cents, target_price_cents),
                 target_gap_pct=target_gap_pct(db_match.price_cents, target_price_cents),
+                grouped_match_ids=[db_match.id],
+                group_key=compute_group_key(
+                    db_match.product_key, db_match.price_cents, db_match.matched_at
+                ),
+                telegram_message_id=db_match.telegram_message_id,
             )
             matches[db_match.id] = response
         if delivery is not None:
             response.deliveries.append(DeliveryResponse.model_validate(delivery))
 
     visible = _apply_display_grouping(matches)
+    visible = _apply_duplicate_grouping(db, visible)
     # S14-02: a target hit is prioritized in the live feed's own ordering,
     # on top of whatever `sort`/grouping already produced — a stable sort
     # only moves target hits to the front, it never reorders within either

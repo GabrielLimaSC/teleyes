@@ -132,12 +132,15 @@ def series_for_range(
 PostingIdentity = tuple[int | None, int]
 
 
-def _posting_identity(
+def posting_identity(
     match_id: int, source_id: int, telegram_message_id: int | None
 ) -> PostingIdentity:
     """One Telegram message caught by two rules is two `Match` rows but one posting.
 
-    Rows without a Telegram id (legacy) are only ever themselves.
+    Rows without a Telegram id (legacy) are only ever themselves. Public
+    (S14-05): `app.routers.matches` reuses this exact identity to compute
+    `seen_count` for the feed's duplicate grouping (F5) — a message caught by
+    two rules must not inflate it either.
     """
     if telegram_message_id is None:
         return (None, match_id)
@@ -167,7 +170,7 @@ def load_postings(session: Session, key: str) -> list[Posting]:
     seen: set[PostingIdentity] = set()
     unique_rows = []
     for row in rows:
-        identity = _posting_identity(row.id, row.source_id, row.telegram_message_id)
+        identity = posting_identity(row.id, row.source_id, row.telegram_message_id)
         if identity not in seen:
             seen.add(identity)
             unique_rows.append(row)
@@ -211,7 +214,7 @@ def sparklines_for_keys(
     seen: set[PostingIdentity] = set()
     priced: dict[str, list[tuple[datetime, int]]] = {}
     for row in session.execute(statement.order_by(Match.id)):
-        identity = _posting_identity(row.id, row.source_id, row.telegram_message_id)
+        identity = posting_identity(row.id, row.source_id, row.telegram_message_id)
         if identity in seen or row.product_key not in keys or row.price_cents is None:
             continue
         seen.add(identity)

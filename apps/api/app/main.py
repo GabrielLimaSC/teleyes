@@ -150,6 +150,7 @@ def _register_routers() -> None:
     from app.routers.products import router as products_router
     from app.routers.recipients import router as recipients_router
     from app.routers.rules import router as rules_router
+    from app.routers.settings import router as settings_router
     from app.routers.snoozes import router as snoozes_router
     from app.routers.sources import router as sources_router
 
@@ -165,6 +166,7 @@ def _register_routers() -> None:
     app.include_router(events_router)
     app.include_router(listener_router)
     app.include_router(demo_router)
+    app.include_router(settings_router)
 
 
 _register_routers()

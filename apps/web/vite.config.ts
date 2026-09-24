@@ -15,6 +15,7 @@ const API_PREFIXES = [
   '/events',
   '/listener',
   '/demo',
+  '/settings',
   '/openapi.json',
 ]
 

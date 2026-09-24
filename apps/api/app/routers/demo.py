@@ -90,7 +90,7 @@ async def simulate_message(
 
     result = await process_message(db, message, rule, recipients, notifier, dedupe_cache)
     db.commit()
-    publish_match_event(broker, result)
+    publish_match_event(broker, result, db)
 
     return SimulateMessageResponse(
         match_id=result.match.id if result.match is not None else None,

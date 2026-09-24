@@ -5,7 +5,13 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.pipeline import IncomingMessage, build_match_event, process_message, publish_match_event
+from app.pipeline import (
+    IncomingMessage,
+    build_match_event,
+    compute_group_key,
+    process_message,
+    publish_match_event,
+)
 from models import Delivery, Match, Recipient, Rule, Source
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, get_count
@@ -207,6 +213,14 @@ async def test_publish_match_event_is_only_meant_to_run_after_commit(
         "matched_at": matched_at,
         "deliveries_sent": 1,
         "target_hit": False,
+        # S14-05 (F5): a hint for the live UI to fold this event into an
+        # existing feed card — `publish_match_event` was called without a
+        # session here (same as every pre-S14-05 caller), so there is no
+        # `grouped_summary` to compute.
+        "group_key": compute_group_key(
+            result.match.product_key, result.match.price_cents, result.match.matched_at
+        ),
+        "grouped_summary": None,
     }
     # S14-01: computed on insert from the message text, not left for a backfill.
     # S14-01 recalibration: canonical order is model-code tokens then
