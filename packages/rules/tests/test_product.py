@@ -236,6 +236,22 @@ def test_title_keeps_original_case_without_emojis_or_price() -> None:
     assert product_title(text) == "Placa de Vídeo Palit RTX 5070 Ti 16GB"
 
 
+def test_title_drops_the_connector_word_a_same_line_price_cut_leaves_dangling() -> None:
+    # "por" introduced the price on the *same* line as the title — cutting
+    # at the price marker alone would leave "...16GB por" (S14-09: this
+    # title lands verbatim in the rule-suggestion "Nome" field).
+    text = "Placa de Vídeo Palit RTX 5070 Ti GamingPro 16GB por R$ 5.899,90\nhttps://x.example/2"
+
+    assert product_title(text) == "Placa de Vídeo Palit RTX 5070 Ti GamingPro 16GB"
+
+
+def test_title_never_drops_a_real_trailing_word_that_only_happens_to_spell_a_connector() -> None:
+    # No price/noise marker on this line at all — "A" is the title's own
+    # last word (e.g. distinguishing it from a "Barato B"), not a leftover
+    # from a cut, so it must survive.
+    assert product_title("Barato A") == "Barato A"
+
+
 def test_key_is_deterministic_and_url_safe() -> None:
     text = "Cadeira Gamer DT3 Spider-Man™ Edição Especial\n\nR$ 1.299,00"
 

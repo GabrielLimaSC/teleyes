@@ -2,10 +2,18 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { apiLogin, apiPost } from './helpers'
 
+/**
+ * S14-09: a rule's `.crud-table__name` cell now nests the name in its own
+ * `<span>` alongside a second `<span class="wide-table__terms">` for the
+ * terms (screen 09 — name and terms stacked in the "Regra" column). A
+ * recipient's `.crud-table__name` cell has no such nesting, just its own
+ * text. `getByText(name, { exact: true })` matches the smallest element
+ * whose own text equals `name` either way, instead of `hasText` on the
+ * whole cell — which would demand the cell's *combined* text (name + terms)
+ * equal `name` and never match a rule row again.
+ */
 function rowByExactName(page: Page, name: string) {
-  return page
-    .locator('tr')
-    .filter({ has: page.locator('.crud-table__name', { hasText: new RegExp(`^${name}$`) }) })
+  return page.locator('tr').filter({ has: page.locator('.crud-table__name').getByText(name, { exact: true }) })
 }
 
 test('creates, edits, duplicates and pauses a rule against the real API', async ({ page }) => {
@@ -20,13 +28,15 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   await page.getByLabel(/Termos incluídos/).press('Enter')
   await page.getByLabel(/Termos incluídos/).fill('rtx 5070 super,')
   await page.getByLabel('Termos bloqueados').fill('usada')
-  await page.getByLabel(/Preço máximo/).fill('5500')
+  await page.getByLabel(/Teto \(R\$\)/).fill('5500')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   const createdRow = rowByExactName(page, 'RTX 5070 E2E')
   await expect(createdRow).toBeVisible()
   // Chips are only how it is edited: the API/table keep the comma string.
-  await expect(createdRow.getByRole('cell', { name: 'rtx 5070, rtx 5070 super', exact: true })).toBeVisible()
+  // S14-09: the terms are a second <span> nested inside the "Regra" cell
+  // (screen 09 — name and terms stacked in one column), not their own cell.
+  await expect(createdRow.locator('.wide-table__terms')).toHaveText('rtx 5070, rtx 5070 super')
   await expect(createdRow.getByRole('cell', { name: 'R$ 5.500,00' })).toBeVisible()
   await expect(createdRow.getByRole('button', { name: 'ativa' })).toBeVisible()
 
@@ -39,14 +49,14 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   await page.getByRole('button', { name: 'Salvar alterações' }).click()
   const editedRow = rowByExactName(page, 'RTX 5070 Ti E2E')
   await expect(editedRow).toBeVisible()
-  await expect(editedRow.getByRole('cell', { name: 'rtx 5070', exact: true })).toBeVisible()
+  await expect(editedRow.locator('.wide-table__terms')).toHaveText('rtx 5070')
 
   // duplicate
   await editedRow.getByRole('button', { name: 'Duplicar' }).click()
   await expect(page.getByRole('heading', { name: 'Nova regra' })).toBeVisible()
   await expect(page.getByLabel(/Nome/)).toHaveValue('RTX 5070 Ti E2E (cópia)')
   await page.getByRole('button', { name: 'Criar regra' }).click()
-  await expect(rowByExactName(page, 'RTX 5070 Ti E2E \\(cópia\\)')).toBeVisible()
+  await expect(rowByExactName(page, 'RTX 5070 Ti E2E (cópia)')).toBeVisible()
 
   // pause the original — one-directional per the API (no reactivate endpoint)
   await editedRow.getByRole('button', { name: 'ativa' }).click()
@@ -62,9 +72,9 @@ test('a term still typed when "Criar regra" is clicked is not lost (S11-05)', as
   await page.getByLabel(/Termos incluídos/).fill('termopendentee2e')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
-  await expect(
-    rowByExactName(page, 'Termo Pendente E2E').getByRole('cell', { name: 'termopendentee2e', exact: true }),
-  ).toBeVisible()
+  await expect(rowByExactName(page, 'Termo Pendente E2E').locator('.wide-table__terms')).toHaveText(
+    'termopendentee2e',
+  )
 })
 
 test('the "Como uma regra casa" numbers are the real totals from the API (S11-05)', async ({ page }) => {
@@ -213,7 +223,9 @@ test('clears a rule\'s match history against the real API, with a confirmation s
 
   await page.getByRole('button', { name: 'Apagar histórico' }).click()
 
-  await expect(page.getByRole('status')).toHaveText('1 match apagado.×')
+  // `.toast`, not the bare `role="status"`: reload()'s own "Carregando
+  // regras…" status paragraph is briefly on screen at the same time.
+  await expect(page.locator('.toast')).toHaveText('1 match apagado.×')
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
   ).not.toBeVisible()
@@ -279,7 +291,11 @@ for (const width of [1280, 1440]) {
       // boxes can catch a clipped column.
       const targets = [
         wrap.getByRole('columnheader', { name: 'Ações' }),
-        ...(await wrap.getByRole('button', { name: /^(Editar|Duplicar|Testar|Limpar histórico|Excluir)$/ }).all()),
+        ...(await wrap
+          .getByRole('button', {
+            name: /^(Editar|Duplicar|Testar|Silenciar|Reativar|ativa|pausada|Limpar histórico|Excluir)$/,
+          })
+          .all()),
       ]
       for (const target of targets) {
         const box = await target.boundingBox()
@@ -313,4 +329,132 @@ test('the row loaded in the rail is highlighted while editing (S11-05)', async (
   await expect(row).toHaveClass(/wide-table__row--editing/)
   await page.getByRole('button', { name: 'Cancelar' }).click()
   await expect(row).not.toHaveClass(/wide-table__row--editing/)
+})
+
+/**
+ * S14-09: "nova regra a partir do produto" (F2) — seeds one real match
+ * against the real backend, reads its real `product_key` off `GET /matches`
+ * (the same field `MatchCard`'s own "Criar regra disso" deep link will use,
+ * S14-07), then drives the whole `/regras?produto=<key>` flow: prefilled
+ * form → "Testar" → "Criar regra". Title/price get a random suffix per run
+ * (never a bare literal) — the test backend groups duplicates by product
+ * and price, so a repeated title across runs/specs would fold into one row.
+ */
+async function seedRuleSuggestionProduct(page: Page, tag: string) {
+  const uniqueTag = `${tag}-${Math.random().toString(36).slice(2, 8)}`
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: `Loja Demo S1409 ${uniqueTag}`,
+    telegram_chat_id: `demo-1409-${uniqueTag}`,
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: `Regra Origem S1409 ${uniqueTag}`,
+    include_terms: 'palit',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: `Demo S1409 ${uniqueTag}`,
+    telegram_chat_id: `demo-1409-recipient-${uniqueTag}`,
+    allowlisted: true,
+  })
+  const title = `Palit RTX 5070 Ti GamingPro ${uniqueTag} 16GB`
+  const demo = await apiPost<{ match_id: number }>(page, '/demo/messages', csrfToken, {
+    source_id: source.id,
+    rule_id: rule.id,
+    recipient_ids: [recipient.id],
+    text: `${title} por R$ 6.300`,
+  })
+  const productKey = await page.evaluate(async (matchId) => {
+    const response = await fetch('/matches', { credentials: 'same-origin' })
+    const matches = (await response.json()) as Array<{ id: number; product_key: string | null }>
+    return matches.find((match) => match.id === matchId)?.product_key ?? null
+  }, demo.match_id)
+  expect(productKey, 'the seeded message must carry a real product_key').not.toBeNull()
+  return { title, productKey: productKey as string }
+}
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`/regras?produto=X prefills the form from the real suggestion, tests and saves it, in ${theme} theme (S14-09)`, async ({
+    page,
+  }) => {
+    const { title, productKey } = await seedRuleSuggestionProduct(page, theme)
+
+    if (theme === 'dark') await page.emulateMedia({ colorScheme: 'dark' })
+    await page.goto(`/regras?produto=${encodeURIComponent(productKey)}`)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+
+    await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
+    await expect(page.getByLabel(/Nome/)).toHaveValue(title)
+    await expect(page.getByText(/Sugerido a partir do histórico/)).toBeVisible()
+
+    // Scoped to the rail: every row also has its own "Testar" button.
+    await page.locator('.regras-form__test-button').click()
+    await expect(page.getByRole('heading', { name: /Testar regra: nova regra/ })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Criar regra' }).click()
+    await expect(rowByExactName(page, title)).toBeVisible()
+  })
+}
+
+test('/regras?produto=X prefills and saves at 390px, no clipping (S14-09)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const { title, productKey } = await seedRuleSuggestionProduct(page, 'mobile')
+
+  await page.goto(`/regras?produto=${encodeURIComponent(productKey)}`)
+  await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
+  await expect(page.getByLabel(/Nome/)).toHaveValue(title)
+
+  // Scoped to the rail: every row also has its own "Testar" button.
+  await page.locator('.regras-form__test-button').click()
+  await expect(page.getByRole('heading', { name: /Testar regra: nova regra/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Criar regra' }).click()
+  await expect(rowByExactName(page, title)).toBeVisible()
+
+  const [scrollWidth, clientWidth] = await page.evaluate(() => [
+    document.documentElement.scrollWidth,
+    document.documentElement.clientWidth,
+  ])
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1)
+})
+
+test('the "Entrega dos alertas" card shows real digest settings and "Próximo envio", and saves edits (S14-09)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/regras')
+
+  const panel = page.locator('.delivery-panel')
+  await expect(panel).toContainText('Próximo envio:')
+  await expect(panel).toContainText('fura o digest e o silêncio')
+
+  const topN = panel.getByLabel('Máximo de itens')
+  await topN.fill('9')
+  await panel.getByRole('button', { name: 'Salvar entrega' }).click()
+  await expect(page.locator('.toast')).toContainText('Entrega dos alertas atualizada.')
+
+  await page.reload()
+  await expect(page.locator('.delivery-panel').getByLabel('Máximo de itens')).toHaveValue('9')
+})
+
+test('silencing a rule for 7 days moves it into "Silenciados agora", and Reativar clears it (S14-09)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+  await apiPost(page, '/rules', csrfToken, { name: 'Regra Silêncio E2E', include_terms: 'silenciotermoe2e' })
+  await page.goto('/regras')
+
+  const row = rowByExactName(page, 'Regra Silêncio E2E')
+  await row.getByRole('button', { name: 'Silenciar' }).click()
+  await expect(row.getByRole('button', { name: 'Reativar' })).toBeVisible()
+
+  const rail = page.locator('.snoozed-panel')
+  await expect(rail).toContainText('Regra Silêncio E2E')
+  await expect(rail).toContainText('regra ·')
+
+  await row.getByRole('button', { name: 'Reativar' }).click()
+  await expect(row.getByRole('button', { name: 'Silenciar' })).toBeVisible()
+  await expect(rail).not.toContainText('Regra Silêncio E2E')
 })

@@ -20,7 +20,7 @@ import { ApiError } from '../api/auth'
 import type { DigestSettings, PricePoint, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
 import { parseTermList } from '../utils/termList'
-import { formatMatchedAt } from '../utils/dates'
+import { formatDayMonth, formatMatchedAt } from '../utils/dates'
 import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
 import { settledToast } from '../components/listenerState'
 import { StatusToggle } from '../components/StatusToggle'
@@ -99,10 +99,15 @@ function priceToInput(cents: number | null): string {
   return cents === null ? '' : String(cents / 100)
 }
 
-function formatSnoozeUntil(value: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(
-    new Date(value),
-  )
+/** `digest.next_run_at_local` is already a "YYYY-MM-DD HH:MM" wall-clock
+ * string in the display timezone (`app.routers.digest`) — not an instant to
+ * reinterpret, so this is plain string slicing, never `new Date(...)` (the
+ * S13-01 guard only allows that for `utils/dates.ts`, and this value has no
+ * zone to get wrong in the first place). */
+function formatNextDigestRun(value: string): string {
+  const [datePart, timePart] = value.split(' ')
+  const [, month, day] = datePart.split('-')
+  return `${day}/${month} ${timePart}`
 }
 
 function RuleSparkline({ points }: { points: PricePoint[] }) {
@@ -707,7 +712,7 @@ export function RegrasPage() {
                       <td data-label="Silêncio">
                         {rule.snoozed_until ? (
                           <span className="rule-silence rule-silence--muted">
-                            <span aria-hidden="true" />até {formatSnoozeUntil(rule.snoozed_until)}
+                            <span aria-hidden="true" />até {formatDayMonth(rule.snoozed_until)}
                           </span>
                         ) : (
                           <span className="rule-silence">
@@ -954,7 +959,7 @@ export function RegrasPage() {
               <div className="delivery-panel__grid">
                 <div className="delivery-card">
                   <strong>Alvo atingido</strong>
-                  <span>Ping imediato, mesmo durante um silêncio.</span>
+                  <span>Ping imediato — fura o digest e o silêncio da regra ou do produto.</span>
                   <span className="delivery-card__state"><i /> prioritário</span>
                 </div>
                 <div className="delivery-card delivery-card--controls">
@@ -993,7 +998,10 @@ export function RegrasPage() {
                     />
                     Não enviar matches comuns individualmente
                   </label>
-                  <span>{digest.queue_count} {digest.queue_count === 1 ? 'item' : 'itens'} na fila</span>
+                  <span>
+                    Próximo envio: {formatNextDigestRun(digest.next_run_at_local)} · {digest.queue_count}{' '}
+                    {digest.queue_count === 1 ? 'item' : 'itens'} na fila
+                  </span>
                 </div>
                 <div className="delivery-card">
                   <strong>Repetição da mesma oferta</strong>
@@ -1120,7 +1128,7 @@ export function RegrasPage() {
                   <li key={item.id}>
                     <div>
                       <strong>{item.label}</strong>
-                      <span>{item.scope === 'rule' ? 'regra' : 'produto'} · até {formatSnoozeUntil(item.until)}</span>
+                      <span>{item.scope === 'rule' ? 'regra' : 'produto'} · até {formatDayMonth(item.until)}</span>
                     </div>
                     <button
                       type="button"

@@ -404,9 +404,35 @@ def _clean_line(line: str) -> str | None:
     marker = _NOISE_MARKER_RE.search(line)
     kept = line[: marker.start()] if marker is not None else line
     kept = _WHITESPACE_RE.sub(" ", _strip_symbols(kept)).strip(_EDGE_PUNCTUATION)
+    if marker is not None:
+        kept = _strip_dangling_connector_word(kept)
     tokens = normalize_text(kept).split()
     if not tokens or all(token in _BANNER_TOKENS for token in tokens):
         return None
+    return kept
+
+
+def _strip_dangling_connector_word(kept: str) -> str:
+    """Drop one connector word a price cut just left dangling at the end.
+
+    Only called right after `_clean_line` actually cuts a line at its noise
+    marker — a same-line post ("Placa ... 16GB por R$ 5.899,90") cuts to
+    "...16GB por", leaving the connector that introduced the price. Fine for
+    `product_key` (`_trim_edges`/`_DROP_TOKEN_SETS` already strip it from the
+    normalised tokens there), but wrong for a human-facing title: S14-09's
+    rule suggestion drops it straight into the "Nome" field, and the product
+    panel/digest/snooze label show it too. Never applied when nothing was
+    cut, so an untruncated title's own last word (however short, however
+    much it happens to spell a connector) is always left alone. Compares the
+    normalised word so case/accents never matter, but keeps the original
+    word's casing for everything before it.
+    """
+    words = kept.split(" ")
+    if len(words) <= 1:
+        return kept
+    last = normalize_text(words[-1]).strip(_EDGE_PUNCTUATION)
+    if last in _TRAILING_CONNECTOR_TOKENS:
+        return " ".join(words[:-1])
     return kept
 
 
