@@ -26,6 +26,10 @@ class RuleCreate(BaseModel):
     include_terms: str
     exclude_terms: str | None = None
     max_price_cents: int | None = None
+    # S14-02: the rule's "Avise-me abaixo de" price target (F6). Validated
+    # (> 0) in `repositories.rule_repo`, not here — the same
+    # `ValidationError` -> 422 path `include_terms` already uses.
+    target_price_cents: int | None = None
 
 
 class RuleUpdate(BaseModel):
@@ -33,6 +37,7 @@ class RuleUpdate(BaseModel):
     include_terms: str | None = None
     exclude_terms: str | None = None
     max_price_cents: int | None = None
+    target_price_cents: int | None = None
 
 
 class RuleResponse(BaseModel):
@@ -43,6 +48,7 @@ class RuleResponse(BaseModel):
     include_terms: str
     exclude_terms: str | None
     max_price_cents: int | None
+    target_price_cents: int | None
     active: bool
     created_at: UtcDatetime
     lowest_price_cents: int | None = None

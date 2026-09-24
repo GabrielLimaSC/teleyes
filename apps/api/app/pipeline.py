@@ -14,11 +14,13 @@ from models import Delivery, Match, Recipient, Rule
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.notifications.bot import BotNotifier
+from packages.notifications.formatting import format_price_cents
 from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
 from packages.rules.normalize import normalize_text
 from packages.rules.price import extract_price
 from packages.rules.product import product_key
+from packages.rules.target import target_hit
 from packages.telegram.cursor import (
     MessageFetcherProtocol,
     advance_cursor,
@@ -41,6 +43,14 @@ class ListenerFetcherProtocol(MessageFetcherProtocol, RecentMessageFetcherProtoc
     """
 
 HISTORICAL_DELIVERY_STATUS = "historical"
+# S14-02: the two delivery channels a match can go out through. Almost every
+# match still gets exactly one `Delivery` row per recipient tagged with
+# whichever kind `decide_delivery_kind` picked; the one exception is a match
+# that is both grouped (S7-11) and a target hit, which needs the suppressed
+# `DELIVERY_KIND_IMMEDIATE` bookkeeping row *and* a real
+# `DELIVERY_KIND_TARGET` send — see `process_message` below.
+DELIVERY_KIND_IMMEDIATE = "immediate"
+DELIVERY_KIND_TARGET = "target"
 # S7-11: a different source posting the same real-world promotion (same
 # rule, same exact price) within this window of another match that was
 # already really sent gets persisted normally but never re-notified — a
@@ -77,6 +87,11 @@ class ProcessResult:
     match: Match | None
     deliveries_sent: int
     reason: str | None = None
+    # S14-02: whether this match's delivery went out through the prioritized
+    # target channel (`DELIVERY_KIND_TARGET`) rather than the plain one.
+    # `False` for a discard/duplicate (no match at all) and for every match
+    # whose rule has no target or whose price didn't reach it.
+    target_hit: bool = False
 
 
 @dataclass
@@ -217,14 +232,26 @@ def _already_notified_group_match_exists(
     price_cents: int,
     matched_at: datetime,
     window: timedelta,
+    *,
+    kind: str,
 ) -> bool:
-    """S7-11: whether some other `Match` (any source) for the same rule and
-    the exact same price, within `window` of `matched_at`, already has a real
-    successful send — never `"historical"`/`"grouped"`/`"failed"`/etc., only
-    the literal `"sent"` status `process_message` uses below. Safe to compare
-    live against what's already committed in the database precisely because
-    live events arrive in real chronological order (unlike the historical
-    scan, S6-02) — no risk of a later message actually being the earlier one.
+    """S7-11/S14-02: whether some other `Match` (any source) for the same
+    rule and the exact same price, within `window` of `matched_at`, already
+    has a real successful send *of the given `kind`* — never
+    `"historical"`/`"grouped"`/`"failed"`/etc., only the literal `"sent"`
+    status `process_message` uses below. Safe to compare live against what's
+    already committed in the database precisely because live events arrive
+    in real chronological order (unlike the historical scan, S6-02) — no
+    risk of a later message actually being the earlier one.
+
+    `kind` is filtered explicitly (S14-02) so the two channels never bleed
+    into each other's grouping: a plain repeat is only ever suppressed by an
+    earlier plain send, and a target-hit repeat is only ever suppressed by an
+    earlier *target* send — otherwise a target hit sent once as the group's
+    first `"immediate"` alert (before Gabriel set a target) would wrongly
+    suppress every future target alert for that same price, and conversely a
+    later plain match wouldn't be suppressed by an earlier target send at the
+    same price. `process_message` below calls this once per channel.
 
     Deliberately conservative: this only ever looks at a genuinely-sent
     delivery as the "this promotion already alerted" anchor. A chain of
@@ -246,10 +273,40 @@ def _already_notified_group_match_exists(
             Match.matched_at >= window_start,
             Match.matched_at <= window_end,
             Delivery.status == "sent",
+            Delivery.kind == kind,
         )
         .limit(1)
     )
     return session.scalar(exists_stmt) is not None
+
+
+def decide_delivery_kind(rule: Rule, price_cents: int | None) -> str:
+    """S14-02: the single point that decides which channel a match's alert
+    uses — `process_message` below is the only caller today, and S14-03
+    (snooze) and S14-04 (digest) must both call this too, before deciding
+    whether to hold a delivery back. A target hit always wins: it ignores the
+    digest and pierces an active snooze (Gabriel, 2026-09-23), while every
+    `DELIVERY_KIND_IMMEDIATE` delivery stays subject to both. Keeping the
+    decision itself in one small function is what makes that guarantee
+    checkable in one place instead of re-derived at each call site.
+    """
+    if target_hit(price_cents, rule.target_price_cents):
+        return DELIVERY_KIND_TARGET
+    return DELIVERY_KIND_IMMEDIATE
+
+
+def build_target_alert_text(text: str, rule: Rule, price_cents: int) -> str:
+    """The target-hit message: a distinct, prioritized shape (🎯 prefix) so
+    it reads differently in Telegram from a plain match, per the tela 09
+    spec. Only ever called after `decide_delivery_kind` picked
+    `DELIVERY_KIND_TARGET`, which already guarantees `rule.target_price_cents`
+    is set.
+    """
+    assert rule.target_price_cents is not None
+    return (
+        f"🎯 Alvo atingido! Abaixo do alvo de {format_price_cents(rule.target_price_cents)}"
+        f" (preço atual {format_price_cents(price_cents)}).\n\n{text}"
+    )
 
 
 async def process_message(
@@ -292,12 +349,36 @@ async def process_message(
     if not dedupe_cache.should_process(signature):
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
-    # S7-11: computed before persisting this match, so it can never see
-    # itself — a different source having already sent a real alert for the
-    # exact same rule+price within the window means this one is the "same"
-    # real-world promotion, and must never notify again.
+    # S14-02: computed before `kind` is known below only insofar as it needs
+    # `evaluation.price_cents`/`rule` — both already available, so `kind`
+    # itself is decided here too, before persisting, to drive the
+    # kind-filtered grouping check right after it.
+    kind = decide_delivery_kind(rule, evaluation.price_cents)
+    is_target = kind == DELIVERY_KIND_TARGET
+
+    # S7-11/S14-02: computed before persisting this match, so it can never
+    # see itself — a different source having already sent a real alert of
+    # the *same channel* for the exact same rule+price within the window
+    # means this one is the "same" real-world promotion on that channel, and
+    # must never notify again through it. Filtered by `kind` (see
+    # `_already_notified_group_match_exists`) so a target hit is only ever
+    # suppressed by an earlier target send, never by an earlier plain one.
     already_grouped = evaluation.price_cents is not None and _already_notified_group_match_exists(
-        session, rule.id, evaluation.price_cents, message.received_at, GROUPING_WINDOW
+        session, rule.id, evaluation.price_cents, message.received_at, GROUPING_WINDOW, kind=kind
+    )
+    # S14-02: for a target hit only, also check the *plain* channel's own
+    # grouping — purely for audit-trail parity (see the bookkeeping row
+    # below); it never affects whether the target alert itself is sent.
+    already_grouped_immediate = is_target and (
+        evaluation.price_cents is not None
+        and _already_notified_group_match_exists(
+            session,
+            rule.id,
+            evaluation.price_cents,
+            message.received_at,
+            GROUPING_WINDOW,
+            kind=DELIVERY_KIND_IMMEDIATE,
+        )
     )
 
     db_match = _persist_match(
@@ -316,27 +397,80 @@ async def process_message(
     # S14-03 (F3): silencing only ever suppresses the delivery below — the
     # match is already persisted above and the caller still publishes it on
     # SSE (`build_match_event` only checks `result.match`), exactly as if
-    # nothing were snoozed.
+    # nothing were snoozed. S14-02: a target hit ignores this entirely —
+    # `is_snoozed`'s own `target_hit` parameter always returns `False` for
+    # one, Gabriel's decision (2026-09-23) that a price target fires through
+    # any active snooze.
     if is_snoozed(
         session,
         rule_id=rule.id,
         product_key=db_match.product_key,
         now=message.received_at,
+        target_hit=is_target,
     ):
         return ProcessResult(match=db_match, deliveries_sent=0, reason="snoozed")
 
-    if already_grouped:
+    if not is_target and already_grouped:
         for recipient in recipients:
             session.add(
                 Delivery(
                     match_id=db_match.id,
                     recipient_id=recipient.id,
+                    kind=DELIVERY_KIND_IMMEDIATE,
                     status=GROUPED_DELIVERY_STATUS,
                     delivered_at=None,
                 )
             )
         session.flush()
         return ProcessResult(match=db_match, deliveries_sent=0)
+
+    if is_target and already_grouped:
+        # S14-02 (Tech Lead fix): a repeat of the *same target group* (same
+        # rule, same price, within the window) as one already really sent on
+        # the target channel must not alert again — the first posting of a
+        # price already pinged Gabriel; the same offer showing up in two more
+        # groups afterwards is not three separate reasons to ping him. Unlike
+        # the plain channel's grouped branch above, this can only be reached
+        # once `already_grouped` was computed against `kind=target` (see
+        # `_already_notified_group_match_exists`), so it never fires on a
+        # plain send from before the target existed.
+        for recipient in recipients:
+            session.add(
+                Delivery(
+                    match_id=db_match.id,
+                    recipient_id=recipient.id,
+                    kind=DELIVERY_KIND_TARGET,
+                    status=GROUPED_DELIVERY_STATUS,
+                    delivered_at=None,
+                )
+            )
+        session.flush()
+        return ProcessResult(match=db_match, deliveries_sent=0, target_hit=True)
+
+    if is_target and already_grouped_immediate:
+        # S14-02: the plain channel would have suppressed this exact match as
+        # a repeat (S7-11) — recorded here for the same audit trail every
+        # other branch gets — but the target channel below still fires: a
+        # target hit ignores that suppression (Gabriel, 2026-09-23). This is
+        # a *different* group than the one just checked above (no earlier
+        # target send yet for this price, only an earlier plain one — e.g.
+        # Gabriel set the target after the first posting already went out as
+        # a plain alert), so it falls through to send.
+        for recipient in recipients:
+            session.add(
+                Delivery(
+                    match_id=db_match.id,
+                    recipient_id=recipient.id,
+                    kind=DELIVERY_KIND_IMMEDIATE,
+                    status=GROUPED_DELIVERY_STATUS,
+                    delivered_at=None,
+                )
+            )
+
+    notify_text = message.text
+    if is_target:
+        assert evaluation.price_cents is not None  # decide_delivery_kind guarantees this
+        notify_text = build_target_alert_text(message.text, rule, evaluation.price_cents)
 
     deliveries_sent = 0
     for recipient in recipients:
@@ -345,12 +479,14 @@ async def process_message(
                 match_id=db_match.id,
                 recipient_id=recipient.id,
                 chat_id=recipient.telegram_chat_id,
-                text=message.text,
+                text=notify_text,
             )
         except Exception:  # one recipient's delivery failure must not sink the whole batch
             increment_counter(session, MetricReason.DELIVERY_FAILURE, source_id=message.source_id)
             session.add(
-                Delivery(match_id=db_match.id, recipient_id=recipient.id, status="failed")
+                Delivery(
+                    match_id=db_match.id, recipient_id=recipient.id, kind=kind, status="failed"
+                )
             )
             continue
 
@@ -361,6 +497,7 @@ async def process_message(
             Delivery(
                 match_id=db_match.id,
                 recipient_id=recipient.id,
+                kind=kind,
                 status="sent" if result.delivered else (result.reason or "skipped"),
                 delivered_at=datetime.now(UTC) if result.delivered else None,
             )
@@ -368,7 +505,7 @@ async def process_message(
 
     session.flush()
 
-    return ProcessResult(match=db_match, deliveries_sent=deliveries_sent)
+    return ProcessResult(match=db_match, deliveries_sent=deliveries_sent, target_hit=is_target)
 
 
 async def catch_up_since_cursor(
@@ -601,6 +738,10 @@ def build_match_event(result: ProcessResult) -> dict[str, Any] | None:
         "message_link": result.match.message_link,
         "matched_at": format_utc(result.match.matched_at),
         "deliveries_sent": result.deliveries_sent,
+        # S14-02: whether this match's alert went out through the
+        # prioritized target channel — computed once in `process_message`,
+        # not re-derived here.
+        "target_hit": result.target_hit,
     }
 
 

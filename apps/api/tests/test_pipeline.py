@@ -206,6 +206,7 @@ async def test_publish_match_event_is_only_meant_to_run_after_commit(
         "message_link": None,
         "matched_at": matched_at,
         "deliveries_sent": 1,
+        "target_hit": False,
     }
     # S14-01: computed on insert from the message text, not left for a backfill.
     # S14-01 recalibration: canonical order is model-code tokens then

@@ -22,6 +22,9 @@ function buildMatch(id: number): Match {
     product_key: null,
     sparkline: [],
     snoozed: false,
+    target_price_cents: null,
+    target_hit: false,
+    target_gap_pct: null,
   }
 }
 

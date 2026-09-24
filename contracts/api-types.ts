@@ -632,6 +632,15 @@ export interface components {
              * @default []
              */
             sparkline: components["schemas"]["PricePointResponse"][];
+            /** Target Gap Pct */
+            target_gap_pct?: number | null;
+            /**
+             * Target Hit
+             * @default false
+             */
+            target_hit: boolean;
+            /** Target Price Cents */
+            target_price_cents?: number | null;
         };
         /**
          * MetricReason
@@ -778,6 +787,8 @@ export interface components {
             max_price_cents?: number | null;
             /** Name */
             name: string;
+            /** Target Price Cents */
+            target_price_cents?: number | null;
         };
         /** RuleResponse */
         RuleResponse: {
@@ -802,6 +813,8 @@ export interface components {
             name: string;
             /** Snoozed Until */
             snoozed_until?: string | null;
+            /** Target Price Cents */
+            target_price_cents: number | null;
         };
         /** RuleTestMatch */
         RuleTestMatch: {
@@ -862,6 +875,8 @@ export interface components {
             max_price_cents?: number | null;
             /** Name */
             name?: string | null;
+            /** Target Price Cents */
+            target_price_cents?: number | null;
         };
         /**
          * SimulateMessageRequest

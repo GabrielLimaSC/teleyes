@@ -7,6 +7,11 @@ from models import Delivery, Match, Rule
 from repositories.errors import NotFoundError, ValidationError
 
 
+def _validate_target_price_cents(target_price_cents: int | None) -> None:
+    if target_price_cents is not None and target_price_cents <= 0:
+        raise ValidationError("target_price_cents must be greater than zero")
+
+
 def create_rule(
     session: Session,
     *,
@@ -14,15 +19,18 @@ def create_rule(
     include_terms: str,
     exclude_terms: str | None = None,
     max_price_cents: int | None = None,
+    target_price_cents: int | None = None,
 ) -> Rule:
     if not include_terms.strip():
         raise ValidationError("rule requires at least one include term")
+    _validate_target_price_cents(target_price_cents)
 
     rule = Rule(
         name=name,
         include_terms=include_terms,
         exclude_terms=exclude_terms,
         max_price_cents=max_price_cents,
+        target_price_cents=target_price_cents,
     )
     session.add(rule)
     session.flush()
@@ -51,6 +59,7 @@ def update_rule(
     include_terms: str | None = None,
     exclude_terms: str | None = None,
     max_price_cents: int | None = None,
+    target_price_cents: int | None = None,
 ) -> Rule:
     rule = _get_rule(session, rule_id)
 
@@ -64,6 +73,9 @@ def update_rule(
         rule.exclude_terms = exclude_terms
     if max_price_cents is not None:
         rule.max_price_cents = max_price_cents
+    if target_price_cents is not None:
+        _validate_target_price_cents(target_price_cents)
+        rule.target_price_cents = target_price_cents
 
     session.flush()
     return rule
