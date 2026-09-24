@@ -66,6 +66,24 @@ class BotNotifier:
         self._delivered.add(key)
         return DeliveryResult(delivered=True)
 
+    async def notify_digest(self, chat_id: str, text: str) -> DeliveryResult:
+        """Sends one digest message (S14-04) — many matches folded into a
+        single text, so it does not fit `notify`'s per-`(match_id,
+        recipient_id)` dedupe key at all. Idempotency for a digest lives in
+        the database instead (`digest_run`'s unique `local_date`, checked by
+        `app.digest.run_digest_once` before this is ever called), so this
+        never touches `_delivered` and never blocks a legitimate resend.
+        """
+        if not self.is_configured():
+            return DeliveryResult(delivered=False, reason="not_configured")
+
+        if chat_id not in self._allowlisted_chat_ids:
+            return DeliveryResult(delivered=False, reason="not_allowlisted")
+
+        assert self._client is not None, "configured notifier requires a client"
+        await self._client.send_message(chat_id, text)
+        return DeliveryResult(delivered=True)
+
     async def notify_operational(self, text: str) -> None:
         """Send one operational alert (S13-09) — not a match — to every
         allowlisted recipient, over the same bot/client as `notify`.

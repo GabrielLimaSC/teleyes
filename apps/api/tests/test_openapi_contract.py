@@ -36,6 +36,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/listener/reload": {"post"},
     "/demo/messages": {"post"},
     "/settings/feed": {"get", "put"},
+    "/digest": {"get", "put"},
 }
 
 EXPECTED_RESPONSE_SCHEMAS = [
@@ -54,6 +55,8 @@ EXPECTED_RESPONSE_SCHEMAS = [
     "TestNotificationResponse",
     "SimulateMessageResponse",
     "ListenerStatusResponse",
+    "DigestSettingsResponse",
+    "DigestQueueItemResponse",
 ]
 
 

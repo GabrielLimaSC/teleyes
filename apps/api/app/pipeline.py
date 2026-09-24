@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.delivery_policy import is_snoozed
+from app.digest_settings import load_digest_settings
 from app.feed_settings import get_group_duplicates
 from app.product_history import posting_identity
 from app.utc import ensure_utc, format_utc
@@ -59,6 +60,20 @@ DELIVERY_KIND_TARGET = "target"
 # `DELIVERY_KIND_TARGET` (the `(match_id, recipient_id, kind)` unique
 # constraint on `delivery`), just never reachable from `process_message`.
 DELIVERY_KIND_MANUAL_TARGET = "manual_target"
+# S14-04: another channel — a common match held back for the once-a-day
+# digest instead of notifying now. Only ever chosen *after* `decide_delivery_
+# kind` already picked `DELIVERY_KIND_IMMEDIATE` (a target hit never digests,
+# Gabriel's decision carried over from S14-02/S14-03: it always pierces both
+# snooze and digest) — see the `digest_settings.enabled and mute_individual`
+# branch in `process_message` below. `app.digest.run_digest_once` is the only
+# place a "pending" digest delivery ever becomes "sent" or `DIGEST_SKIPPED_
+# DELIVERY_STATUS`.
+DELIVERY_KIND_DIGEST = "digest"
+# S14-04: a digest delivery `top_n` cut past — marked explicitly rather than
+# left "pending" forever, so `GET /digest`'s queue count (and any future
+# "matches pendentes há muito tempo" alert) never counts an item that will
+# never be sent as still waiting.
+DIGEST_SKIPPED_DELIVERY_STATUS = "digest_skipped"
 # S7-11: a different source posting the same real-world promotion (same
 # rule, same exact price) within this window of another match that was
 # already really sent gets persisted normally but never re-notified — a
@@ -288,6 +303,44 @@ def _already_notified_group_match_exists(
     return session.scalar(exists_stmt) is not None
 
 
+def _already_queued_or_sent_digest_group_exists(
+    session: Session,
+    rule_id: int,
+    price_cents: int,
+    matched_at: datetime,
+    window: timedelta,
+) -> bool:
+    """S14-04: the digest-channel sibling of `_already_notified_group_match_
+    exists` above — same rule/price/window grouping, but a *repeat* only
+    needs a `Delivery` already queued for the digest (`"pending"`) or already
+    sent by a past run (`"sent"`) to count, not only a real send. A repeat of
+    the same real-world promotion must stay grouped in the digest queue too
+    (S14-04 decision), never adding a second line item for one offer.
+
+    Deliberately excludes `"grouped"`/`"digest_skipped"`/`"failed"` rows for
+    the same reason the immediate channel's own check does: only a state that
+    genuinely represents "this promotion is already accounted for" anchors
+    the window, never a row that was itself already suppressed by this same
+    check on an earlier match.
+    """
+    window_start = matched_at - window
+    window_end = matched_at + window
+    exists_stmt = (
+        select(Match.id)
+        .join(Delivery, Delivery.match_id == Match.id)
+        .where(
+            Match.rule_id == rule_id,
+            Match.price_cents == price_cents,
+            Match.matched_at >= window_start,
+            Match.matched_at <= window_end,
+            Delivery.kind == DELIVERY_KIND_DIGEST,
+            Delivery.status.in_(("pending", "sent")),
+        )
+        .limit(1)
+    )
+    return session.scalar(exists_stmt) is not None
+
+
 def decide_delivery_kind(rule: Rule, price_cents: int | None) -> str:
     """S14-02: the single point that decides which channel a match's alert
     uses — `process_message` below is the only caller today, and S14-03
@@ -475,6 +528,36 @@ async def process_message(
                     delivered_at=None,
                 )
             )
+
+    # S14-04: a common match held back for the digest instead of notified now
+    # — only ever reachable here, never for a target hit (`is_target` always
+    # falls through to the notify loop below, piercing both snooze above and
+    # the digest here, Gabriel's decision carried over from S14-02/S14-03).
+    # `mute_individual` off keeps today's behavior unchanged even with the
+    # digest otherwise configured/enabled: only turning both on redirects a
+    # common match away from immediate delivery.
+    if not is_target:
+        digest_settings = load_digest_settings(session)
+        if digest_settings.enabled and digest_settings.mute_individual:
+            digest_grouped = (
+                evaluation.price_cents is not None
+                and _already_queued_or_sent_digest_group_exists(
+                    session, rule.id, evaluation.price_cents, message.received_at, GROUPING_WINDOW
+                )
+            )
+            digest_status = GROUPED_DELIVERY_STATUS if digest_grouped else "pending"
+            for recipient in recipients:
+                session.add(
+                    Delivery(
+                        match_id=db_match.id,
+                        recipient_id=recipient.id,
+                        kind=DELIVERY_KIND_DIGEST,
+                        status=digest_status,
+                        delivered_at=None,
+                    )
+                )
+            session.flush()
+            return ProcessResult(match=db_match, deliveries_sent=0)
 
     notify_text = message.text
     if is_target:

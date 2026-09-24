@@ -141,6 +141,7 @@ def logout(response: Response, session: SessionRecord = Depends(require_csrf)) -
 
 def _register_routers() -> None:
     from app.routers.demo import router as demo_router
+    from app.routers.digest import router as digest_router
     from app.routers.events import router as events_router
     from app.routers.health import router as health_router
     from app.routers.listener import router as listener_router
@@ -167,6 +168,7 @@ def _register_routers() -> None:
     app.include_router(listener_router)
     app.include_router(demo_router)
     app.include_router(settings_router)
+    app.include_router(digest_router)
 
 
 _register_routers()
