@@ -89,6 +89,134 @@
         "title": "DeliveryResponse",
         "type": "object"
       },
+      "DigestQueueItemResponse": {
+        "properties": {
+          "match_id": {
+            "title": "Match Id",
+            "type": "integer"
+          },
+          "matched_at": {
+            "format": "date-time",
+            "title": "Matched At",
+            "type": "string"
+          },
+          "message_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Link"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id",
+          "price_cents",
+          "title",
+          "message_link",
+          "matched_at"
+        ],
+        "title": "DigestQueueItemResponse",
+        "type": "object"
+      },
+      "DigestSettingsResponse": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "mute_individual": {
+            "title": "Mute Individual",
+            "type": "boolean"
+          },
+          "next_run_at_local": {
+            "title": "Next Run At Local",
+            "type": "string"
+          },
+          "next_run_at_utc": {
+            "format": "date-time",
+            "title": "Next Run At Utc",
+            "type": "string"
+          },
+          "queue": {
+            "items": {
+              "$ref": "#/components/schemas/DigestQueueItemResponse"
+            },
+            "title": "Queue",
+            "type": "array"
+          },
+          "queue_count": {
+            "title": "Queue Count",
+            "type": "integer"
+          },
+          "send_at_local": {
+            "title": "Send At Local",
+            "type": "string"
+          },
+          "top_n": {
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "send_at_local",
+          "top_n",
+          "mute_individual",
+          "next_run_at_utc",
+          "next_run_at_local",
+          "queue_count",
+          "queue"
+        ],
+        "title": "DigestSettingsResponse",
+        "type": "object"
+      },
+      "DigestSettingsUpdate": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "mute_individual": {
+            "title": "Mute Individual",
+            "type": "boolean"
+          },
+          "send_at_local": {
+            "title": "Send At Local",
+            "type": "string"
+          },
+          "top_n": {
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "send_at_local",
+          "top_n",
+          "mute_individual"
+        ],
+        "title": "DigestSettingsUpdate",
+        "type": "object"
+      },
       "FeedSettingsResponse": {
         "properties": {
           "group_duplicates": {
@@ -1965,6 +2093,112 @@
         "summary": "Simulate Message",
         "tags": [
           "demo"
+        ]
+      }
+    },
+    "/digest": {
+      "get": {
+        "operationId": "get_digest_digest_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Digest",
+        "tags": [
+          "digest"
+        ]
+      },
+      "put": {
+        "operationId": "put_digest_digest_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DigestSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Digest",
+        "tags": [
+          "digest"
         ]
       }
     },
