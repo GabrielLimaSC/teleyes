@@ -1,6 +1,8 @@
 from models.admin import Admin
 from models.base import Base
 from models.delivery import Delivery
+from models.digest_run import DigestRun
+from models.digest_settings import DigestSettings
 from models.feed_settings import FeedSettings
 from models.listener_control import ListenerControl
 from models.match import Match
@@ -15,6 +17,8 @@ __all__ = [
     "Admin",
     "Base",
     "Delivery",
+    "DigestRun",
+    "DigestSettings",
     "FeedSettings",
     "ListenerControl",
     "Match",

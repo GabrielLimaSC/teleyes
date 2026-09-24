@@ -72,6 +72,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Digest */
+        get: operations["get_digest_digest_get"];
+        /** Put Digest */
+        put: operations["put_digest_digest_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -585,6 +603,55 @@ export interface components {
             recipient_id: number;
             /** Status */
             status: string;
+        };
+        /** DigestQueueItemResponse */
+        DigestQueueItemResponse: {
+            /** Match Id */
+            match_id: number;
+            /**
+             * Matched At
+             * Format: date-time
+             */
+            matched_at: string;
+            /** Message Link */
+            message_link: string | null;
+            /** Price Cents */
+            price_cents: number | null;
+            /** Title */
+            title: string;
+        };
+        /** DigestSettingsResponse */
+        DigestSettingsResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Mute Individual */
+            mute_individual: boolean;
+            /** Next Run At Local */
+            next_run_at_local: string;
+            /**
+             * Next Run At Utc
+             * Format: date-time
+             */
+            next_run_at_utc: string;
+            /** Queue */
+            queue: components["schemas"]["DigestQueueItemResponse"][];
+            /** Queue Count */
+            queue_count: number;
+            /** Send At Local */
+            send_at_local: string;
+            /** Top N */
+            top_n: number;
+        };
+        /** DigestSettingsUpdate */
+        DigestSettingsUpdate: {
+            /** Enabled */
+            enabled: boolean;
+            /** Mute Individual */
+            mute_individual: boolean;
+            /** Send At Local */
+            send_at_local: string;
+            /** Top N */
+            top_n: number;
         };
         /** FeedSettingsResponse */
         FeedSettingsResponse: {
@@ -1293,6 +1360,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimulateMessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_digest_digest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_digest_digest_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DigestSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestSettingsResponse"];
                 };
             };
             /** @description Validation Error */

@@ -16,6 +16,7 @@ const API_PREFIXES = [
   '/listener',
   '/demo',
   '/settings',
+  '/digest',
   '/openapi.json',
 ]
 

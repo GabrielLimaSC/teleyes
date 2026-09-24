@@ -33,6 +33,18 @@ describe('summarizeDeliveryStatus', () => {
     )
   })
 
+  it('distinguishes an ambiguous digest attempt from a pending delivery', () => {
+    expect(summarizeDeliveryStatus([delivery('digest_attempted')]).label).toBe(
+      'Envio tentado — sem confirmação',
+    )
+  })
+
+  it('reports digest items outside top N as skipped rather than pending', () => {
+    expect(summarizeDeliveryStatus([delivery('digest_skipped')]).label).toBe(
+      'Fora do resumo diário',
+    )
+  })
+
   it('never encodes state by color alone — every pill carries a label', () => {
     for (const status of [
       'sent',
@@ -42,6 +54,8 @@ describe('summarizeDeliveryStatus', () => {
       'duplicate',
       'historical',
       'grouped',
+      'digest_attempted',
+      'digest_skipped',
       'weird',
     ]) {
       const pill = summarizeDeliveryStatus([delivery(status)])

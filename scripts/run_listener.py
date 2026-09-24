@@ -71,6 +71,14 @@ ganha na primeira instalação.
 Sem TG_API_ID/TG_API_HASH/BOT_TOKEN configurados, fica ocioso com uma mensagem
 clara — nunca finge ter conectado.
 
+S14-04: também roda, como mais uma tarefa asyncio deste mesmo processo (sem
+Celery, sem cron externo), o agendador do digest diário
+(app/digest.py::DigestScheduler) — poll curto contra `digest_settings`,
+dispara `run_digest_once` quando o relógio local passa de `send_at_local` e é
+idempotente por dia local (`digest_run.local_date`, chave primária). Começa
+junto com reload_task, sem depender da conexão MTProto: só precisa do
+BOT_TOKEN, já garantido nesta função antes daqui.
+
 Migrations não são aplicadas aqui: docker-compose.prod.yml garante, via
 `depends_on: api: condition: service_healthy`, que o serviço `api` (que já
 roda `alembic upgrade head` no seu próprio entrypoint) sobe primeiro — dois
@@ -88,6 +96,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 
+from app.digest import DigestScheduler
 from app.listener_control import (
     config_fingerprint,
     load_active_config,
@@ -273,6 +282,12 @@ async def main() -> int:
         lifecycle=lifecycle,
         is_connected=client.is_connected,
     )
+    # S14-04: the daily digest scheduler needs only `notifier`/the database,
+    # never the Telegram connection — started unconditionally alongside
+    # `reload_task` below (not gated on the first successful connect), same
+    # reasoning as `reload_task` already keeping the panel's heartbeat alive
+    # while Telegram itself is unreachable.
+    digest_scheduler = DigestScheduler(session_factory=session_factory, notifier=notifier)
 
     watchdog: asyncio.Task[None] | None = None
 
@@ -327,11 +342,16 @@ async def main() -> int:
     # Started with the process, not after the first connection: it also keeps
     # the panel's "listener online" beat alive while Telegram is unreachable.
     reload_task = asyncio.create_task(reload_worker.run(stop_event))
+    digest_task = asyncio.create_task(digest_scheduler.run(stop_event))
     try:
         outcome = await supervisor.run()
     finally:
         stop_event.set()
-        background = [task for task in (watchdog, heartbeat, reload_task) if task is not None]
+        background = [
+            task
+            for task in (watchdog, heartbeat, reload_task, digest_task)
+            if task is not None
+        ]
         for task in background:
             task.cancel()
         await asyncio.gather(*background, return_exceptions=True)
