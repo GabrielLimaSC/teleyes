@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from models import Delivery, Match, Rule
+from models import Delivery, Match, MatchCorrection, Rule
 from repositories.errors import NotFoundError, ValidationError
 
 
@@ -108,6 +108,7 @@ def clear_rule_matches(session: Session, rule_id: int) -> int:
     if not match_ids:
         return 0
     session.execute(delete(Delivery).where(Delivery.match_id.in_(match_ids)))
+    session.execute(delete(MatchCorrection).where(MatchCorrection.match_id.in_(match_ids)))
     session.execute(delete(Match).where(Match.rule_id == rule_id))
     session.flush()
     return len(match_ids)

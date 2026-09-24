@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
@@ -5,6 +6,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import ScalarSelect, Select, and_, exists, func, or_, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, aliased
 
 from app.feed_settings import get_group_duplicates
@@ -742,85 +744,120 @@ def _parse_price_or_422(raw: str) -> int:
         ) from error
 
 
-async def _send_manual_target_alert_if_hit(
-    db: Session, match: Match, notifier_factory: BotNotifierFactory
-) -> None:
-    """S14-06 (F7): the price target alert a manual save can trigger.
+@dataclass(frozen=True)
+class ManualTargetReservation:
+    recipient_id: int
+    telegram_chat_id: str
 
-    Fires at most once per `(match, recipient)` ever, enforced two ways: the
-    DB's own `uq_delivery_match_recipient_kind` constraint (the real
-    backstop) and this function's own existence check first (so a repeat
-    save is a silent no-op instead of a caught `IntegrityError`). Saving the
-    same match twice, or reverting and saving again, both land here again —
-    neither ever sends a second `manual_target` delivery to a recipient that
-    already has one, exactly like `POST /snoozes`-adjacent flows in this
-    codebase that treat "already recorded" as success, not an error.
+
+def _reserve_manual_target_alerts_if_hit(
+    db: Session, match: Match
+) -> list[ManualTargetReservation]:
+    """Durably claim every manual-target send before touching Telegram.
+
+    The match edit, its audit row and the new `pending` deliveries commit in
+    the same transaction. SQLite's `ON CONFLICT DO NOTHING` makes the unique
+    `(match_id, recipient_id, kind)` key the concurrency arbiter: only the
+    request that inserted a row may send it. A crash after this commit leaves
+    an intentionally ambiguous `pending` row, which is never automatically
+    retried — at-most-once delivery is safer than a duplicate target alert.
+    This function commits even when there is no target/recipient so the
+    caller's match edit is durable before any possible external side effect.
+    """
+    rule = db.get(Rule, match.rule_id)
+    reservations: list[ManualTargetReservation] = []
+    if rule is not None and target_hit(match.price_cents, rule.target_price_cents):
+        recipients = list(
+            db.scalars(
+                select(Recipient).where(Recipient.active.is_(True), Recipient.allowlisted.is_(True))
+            )
+        )
+        for recipient in recipients:
+            inserted_id = db.scalar(
+                sqlite_insert(Delivery)
+                .values(
+                    match_id=match.id,
+                    recipient_id=recipient.id,
+                    kind=DELIVERY_KIND_MANUAL_TARGET,
+                    status="pending",
+                    created_at=datetime.now(UTC),
+                )
+                .on_conflict_do_nothing(index_elements=["match_id", "recipient_id", "kind"])
+                .returning(Delivery.id)
+            )
+            if inserted_id is not None:
+                reservations.append(
+                    ManualTargetReservation(
+                        recipient_id=recipient.id,
+                        telegram_chat_id=recipient.telegram_chat_id,
+                    )
+                )
+
+    db.commit()
+    return reservations
+
+
+async def _deliver_reserved_manual_target_alerts(
+    db: Session,
+    match: Match,
+    reservations: list[ManualTargetReservation],
+    notifier_factory: BotNotifierFactory,
+) -> None:
+    """Attempt only reservations created by this request, then finalize them.
 
     A `not_configured` notifier (no bot token) still writes the bookkeeping
-    `Delivery` row (`status="not_configured"`) — the same "never fake it, but
-    always record the attempt" contract `app.pipeline.process_message` keeps
-    for the other two channels.
+    row as `status="not_configured"`. If the process dies after Telegram has
+    accepted a message but before the final status commit, its durable
+    `pending` row remains and prevents every later request from re-sending it.
     """
+    if not reservations:
+        return
+
     rule = db.get(Rule, match.rule_id)
     if rule is None or not target_hit(match.price_cents, rule.target_price_cents):
         return
     assert match.price_cents is not None  # target_hit guarantees this
+    notify_text = build_target_alert_text(match.message_text, rule, match.price_cents)
 
-    recipients = list(
-        db.scalars(
-            select(Recipient).where(Recipient.active.is_(True), Recipient.allowlisted.is_(True))
-        )
-    )
-    if not recipients:
+    try:
+        notifier = notifier_factory({reservation.telegram_chat_id for reservation in reservations})
+    except Exception:
+        for reservation in reservations:
+            delivery = db.scalar(
+                select(Delivery).where(
+                    Delivery.match_id == match.id,
+                    Delivery.recipient_id == reservation.recipient_id,
+                    Delivery.kind == DELIVERY_KIND_MANUAL_TARGET,
+                )
+            )
+            assert delivery is not None
+            delivery.status = "failed"
+        db.commit()
         return
 
-    pending = [
-        recipient
-        for recipient in recipients
-        if db.scalar(
-            select(Delivery.id).where(
+    for reservation in reservations:
+        delivery = db.scalar(
+            select(Delivery).where(
                 Delivery.match_id == match.id,
-                Delivery.recipient_id == recipient.id,
+                Delivery.recipient_id == reservation.recipient_id,
                 Delivery.kind == DELIVERY_KIND_MANUAL_TARGET,
             )
         )
-        is None
-    ]
-    if not pending:
-        return
-
-    notifier = notifier_factory({recipient.telegram_chat_id for recipient in pending})
-    notify_text = build_target_alert_text(match.message_text, rule, match.price_cents)
-
-    for recipient in pending:
+        assert delivery is not None
         try:
             result = await notifier.notify(
                 match_id=match.id,
-                recipient_id=recipient.id,
-                chat_id=recipient.telegram_chat_id,
+                recipient_id=reservation.recipient_id,
+                chat_id=reservation.telegram_chat_id,
                 text=notify_text,
             )
         except Exception:  # one recipient's failure must not sink the others
-            db.add(
-                Delivery(
-                    match_id=match.id,
-                    recipient_id=recipient.id,
-                    kind=DELIVERY_KIND_MANUAL_TARGET,
-                    status="failed",
-                )
-            )
+            delivery.status = "failed"
             continue
 
-        db.add(
-            Delivery(
-                match_id=match.id,
-                recipient_id=recipient.id,
-                kind=DELIVERY_KIND_MANUAL_TARGET,
-                status="sent" if result.delivered else (result.reason or "skipped"),
-                delivered_at=datetime.now(UTC) if result.delivered else None,
-            )
-        )
-    db.flush()
+        delivery.status = "sent" if result.delivered else (result.reason or "skipped")
+        delivery.delivered_at = datetime.now(UTC) if result.delivered else None
+    db.commit()
 
 
 @router.patch(
@@ -871,7 +908,7 @@ async def update_match(
             # S14-06: `original_price_cents` is set exactly once, the first
             # time this match is ever corrected — never overwritten by a
             # later edit, so it always mirrors what `extract_price` found.
-            if match.original_price_cents is None:
+            if match.price_source is None:
                 match.original_price_cents = match.price_cents
             changes["price_cents"] = {"before": match.price_cents, "after": new_price_cents}
             match.price_cents = new_price_cents
@@ -909,9 +946,10 @@ async def update_match(
     db.flush()
 
     if price_changed:
-        await _send_manual_target_alert_if_hit(db, match, notifier_factory)
-
-    db.commit()
+        reservations = _reserve_manual_target_alerts_if_hit(db, match)
+        await _deliver_reserved_manual_target_alerts(db, match, reservations, notifier_factory)
+    else:
+        db.commit()
 
     response = _fetch_match_response(db, match.id, now=now, tz=tz)
     assert response is not None

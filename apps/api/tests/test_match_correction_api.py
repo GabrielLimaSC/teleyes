@@ -8,9 +8,13 @@ target-alert channel (`DELIVERY_KIND_MANUAL_TARGET`) can be asserted against
 a real `FakeBotClient` instead of only the DB rows it leaves behind.
 """
 
+import asyncio
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from threading import Barrier
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,6 +23,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
+from app.routers.matches import (
+    _deliver_reserved_manual_target_alerts,
+    _reserve_manual_target_alerts_if_hit,
+)
 from app.routers.notifications import BotNotifierFactory, get_bot_notifier_factory
 from app.utc import utc_now
 from auth.hashing import hash_password
@@ -26,6 +34,7 @@ from auth.rate_limit import LoginRateLimiter
 from auth.session import SessionStore
 from models import Admin, Delivery, Match, MatchCorrection, Recipient, Rule, Source
 from models.base import Base
+from models.db import get_engine
 from packages.notifications.bot import BotNotifier
 from packages.notifications.fakes import FakeBotClient
 
@@ -136,6 +145,7 @@ def _add_match(
     product_key: str | None = RTX_KEY,
     text: str = RTX_TEXT,
     matched_at: datetime = NOW,
+    telegram_message_id: int | None = None,
 ) -> int:
     with api.session_factory() as session:
         match = Match(
@@ -145,6 +155,7 @@ def _add_match(
             price_cents=price_cents,
             matched_at=matched_at,
             product_key=product_key,
+            telegram_message_id=telegram_message_id,
         )
         session.add(match)
         session.commit()
@@ -360,6 +371,26 @@ def test_original_price_cents_is_captured_once_and_never_overwritten(api: ApiCon
     assert second.json()["price_cents"] == 649_900
 
 
+def test_revert_preserves_a_legitimate_null_detected_price_across_multiple_edits(
+    api: ApiContext,
+) -> None:
+    match_id = _add_match(api, rule_id=api.ids["rule_no_target"], price_cents=None)
+    csrf = _login_csrf(api)
+
+    first = api.client.patch(
+        f"/matches/{match_id}", json={"price": "100"}, headers={"x-csrf-token": csrf}
+    )
+    second = api.client.patch(
+        f"/matches/{match_id}", json={"price": "90"}, headers={"x-csrf-token": csrf}
+    )
+    reverted = api.client.post(f"/matches/{match_id}/revert", headers={"x-csrf-token": csrf})
+
+    assert first.json()["original_price_cents"] is None
+    assert second.json()["original_price_cents"] is None
+    assert reverted.json()["price_cents"] is None
+    assert reverted.json()["price_source"] == "parsed"
+
+
 # --- revert ----------------------------------------------------------------
 
 
@@ -484,6 +515,115 @@ def test_not_configured_notifier_never_fakes_delivery(api: ApiContext) -> None:
     assert api.bot_client.sent == []
 
 
+def test_crash_after_external_send_leaves_a_durable_non_retryable_reservation(
+    api: ApiContext,
+) -> None:
+    class SimulatedProcessCrash(BaseException):
+        pass
+
+    match_id = _add_match(api, price_cents=550_000)
+
+    async def send_then_crash(chat_id: str, text: str) -> None:
+        api.bot_client.sent.append((chat_id, text))
+        raise SimulatedProcessCrash
+
+    api.bot_client.send_message = send_then_crash  # type: ignore[method-assign]
+    with api.session_factory() as session:
+        match = session.get(Match, match_id)
+        assert match is not None
+        reservations = _reserve_manual_target_alerts_if_hit(session, match)
+
+        def notifier_factory(allowlisted_chat_ids: set[str]) -> BotNotifier:
+            return BotNotifier(
+                bot_token="token",
+                client=api.bot_client,
+                allowlisted_chat_ids=allowlisted_chat_ids,
+            )
+
+        with pytest.raises(SimulatedProcessCrash):
+            asyncio.run(
+                _deliver_reserved_manual_target_alerts(
+                    session, match, reservations, notifier_factory
+                )
+            )
+
+    deliveries = _deliveries_for(api, match_id, "manual_target")
+    assert len(deliveries) == 1
+    assert deliveries[0].status == "pending"
+
+    replacement_client = FakeBotClient()
+
+    def replacement_factory() -> BotNotifierFactory:
+        def factory(allowlisted_chat_ids: set[str]) -> BotNotifier:
+            return BotNotifier(
+                bot_token="token",
+                client=replacement_client,
+                allowlisted_chat_ids=allowlisted_chat_ids,
+            )
+
+        return factory
+
+    app.dependency_overrides[get_bot_notifier_factory] = replacement_factory
+    csrf = _login_csrf(api)
+    response = api.client.patch(
+        f"/matches/{match_id}",
+        json={"price": "5.400,00"},
+        headers={"x-csrf-token": csrf},
+    )
+
+    assert response.status_code == 200
+    assert replacement_client.sent == []
+    assert len(_deliveries_for(api, match_id, "manual_target")) == 1
+
+
+def test_concurrent_manual_target_reservations_have_one_winner(tmp_path: Path) -> None:
+    engine = get_engine(f"sqlite:///{tmp_path / 'concurrent.db'}")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory() as session:
+        source = Source(name="Grupo", telegram_chat_id="-100")
+        rule = Rule(name="RTX", include_terms="rtx", target_price_cents=560_000)
+        recipient = Recipient(name="Gabriel", telegram_chat_id="999", active=True, allowlisted=True)
+        session.add_all([source, rule, recipient])
+        session.flush()
+        match = Match(
+            source_id=source.id,
+            rule_id=rule.id,
+            message_text=RTX_TEXT,
+            price_cents=550_000,
+            matched_at=NOW,
+        )
+        session.add(match)
+        session.commit()
+        match_id = match.id
+
+    barrier = Barrier(2)
+
+    def reserve() -> int:
+        with factory() as session:
+            match = session.get(Match, match_id)
+            assert match is not None
+            barrier.wait()
+            return len(_reserve_manual_target_alerts_if_hit(session, match))
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        winners = list(executor.map(lambda _: reserve(), range(2)))
+
+    assert sorted(winners) == [0, 1]
+    with factory() as session:
+        deliveries = list(
+            session.scalars(
+                select(Delivery).where(
+                    Delivery.match_id == match_id,
+                    Delivery.kind == "manual_target",
+                )
+            )
+        )
+        assert len(deliveries) == 1
+        assert deliveries[0].status == "pending"
+    engine.dispose()
+
+
 # --- product history reflects the manual price --------------------------
 
 
@@ -501,6 +641,41 @@ def test_product_history_reflects_the_manual_price(api: ApiContext) -> None:
     assert product["current_price_cents"] == 499_900
     assert product["lowest_90d_cents"] == 499_900
     assert any(point["price_cents"] == 499_900 for point in product["series"])
+
+
+def test_product_history_prefers_the_latest_manual_duplicate_without_double_counting(
+    api: ApiContext,
+) -> None:
+    _add_match(
+        api,
+        rule_id=api.ids["rule_no_target"],
+        price_cents=574_900,
+        product_key=RTX_KEY,
+        telegram_message_id=77,
+    )
+    edited_id = _add_match(
+        api,
+        rule_id=api.ids["rule_dup"],
+        price_cents=574_900,
+        product_key=RTX_KEY,
+        telegram_message_id=77,
+    )
+    csrf = _login_csrf(api)
+
+    response = api.client.patch(
+        f"/matches/{edited_id}",
+        json={"price": "4.999,00"},
+        headers={"x-csrf-token": csrf},
+    )
+    assert response.status_code == 200
+
+    product = api.client.get(f"/products/{RTX_KEY}").json()
+    assert product["total_count"] == 1
+    assert product["current_price_cents"] == 499_900
+    assert len(product["postings"]) == 1
+    assert product["postings"][0]["id"] == edited_id
+    assert product["postings"][0]["price_cents"] == 499_900
+    assert [point["price_cents"] for point in product["series"]] == [499_900]
 
 
 # --- apply_name_to_product ----------------------------------------------
