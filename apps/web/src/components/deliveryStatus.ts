@@ -36,6 +36,22 @@ export function summarizeDeliveryStatus(deliveries: Delivery[]): StatusPill {
       foreground: 'var(--pill-info-fg)',
     }
   }
+  if (deliveries.some((delivery) => delivery.status === 'digest_attempted')) {
+    return {
+      label: 'Envio tentado — sem confirmação',
+      dotColor: 'var(--pill-warn-dot)',
+      background: 'var(--pill-warn-bg)',
+      foreground: 'var(--pill-warn-fg)',
+    }
+  }
+  if (deliveries.some((delivery) => delivery.status === 'digest_skipped')) {
+    return {
+      label: 'Fora do resumo diário',
+      dotColor: 'var(--pill-neutral-dot)',
+      background: 'var(--pill-neutral-bg)',
+      foreground: 'var(--pill-neutral-fg)',
+    }
+  }
   if (deliveries.some((delivery) => delivery.status === 'failed')) {
     return { label: 'Falha no envio', dotColor: 'var(--pill-danger-dot)', background: 'var(--pill-danger-bg)', foreground: 'var(--pill-danger-fg)' }
   }

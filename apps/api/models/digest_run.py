@@ -30,8 +30,8 @@ class DigestRun(Base):
     ran_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-    # How many pending items were folded into the digest text sent this run
-    # (0 for an empty-queue day) and how many overflowed past `top_n` and were
-    # marked `digest_skipped` instead of staying pending forever.
+    # Recipient-item counts reserved for external digest attempts this run
+    # (0 for an empty/unconfigured day), and recipient-items that overflowed
+    # that recipient's own `top_n` and became `digest_skipped`.
     items_sent: Mapped[int] = mapped_column(default=0)
     items_skipped: Mapped[int] = mapped_column(default=0)

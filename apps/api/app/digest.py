@@ -24,8 +24,11 @@ send time already passed all resolve the same way:
 "digest", status="pending")` rows — one per (match, recipient) held back
 instead of notified immediately (see its own S14-04 branch). This module only
 ever reads that queue and, once a day, folds it into one message per
-recipient and marks each included row `"sent"` or (past `top_n`)
-`DIGEST_SKIPPED_DELIVERY_STATUS`.
+recipient and marks each included row `"sent"` after confirmation or (past
+`top_n`) `DIGEST_SKIPPED_DELIVERY_STATUS`. Selection and `top_n` are per recipient.
+Before the first external call, every selected delivery is durably changed to
+`DIGEST_ATTEMPTED_DELIVERY_STATUS`; that terminal ambiguous state is the
+at-most-once boundary after a crash or timeout.
 """
 
 from __future__ import annotations
@@ -43,7 +46,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
 from app.digest_settings import load_digest_settings, parse_send_at_local
-from app.pipeline import DELIVERY_KIND_DIGEST, DIGEST_SKIPPED_DELIVERY_STATUS
+from app.pipeline import (
+    DELIVERY_KIND_DIGEST,
+    DIGEST_ATTEMPTED_DELIVERY_STATUS,
+    DIGEST_SKIPPED_DELIVERY_STATUS,
+)
 from app.utc import ensure_utc
 from models import Delivery, DigestRun, Match, Recipient
 from packages.notifications.bot import BotNotifier
@@ -98,24 +105,27 @@ def _title_for(match: Match) -> str:
     return match.message_text.splitlines()[0][:120]
 
 
-def load_pending_queue(session: Session) -> list[DigestQueueItem]:
+def load_pending_queue(
+    session: Session, *, recipient_id: int | None = None
+) -> list[DigestQueueItem]:
     """Every distinct `Match` with at least one pending digest delivery,
     lowest price first (a match with no extracted price sorts last), oldest
     match as the tiebreak so the ordering is stable and deterministic.
 
-    One row per `Match` even though a `Delivery` exists per recipient: every
-    active, allowlisted recipient gets the exact same set today (no per-
-    recipient targeting anywhere in this schema, S5-09's own finding), so the
-    queue itself — what `top_n` cuts against — is recipient-independent.
+    With `recipient_id`, only that recipient's pending rows are eligible. The
+    scheduler always uses this scoped form: delivery outcomes can diverge per
+    recipient, so neither message contents nor `top_n` may be shared globally.
+    The unscoped form is only the distinct aggregate shown by `GET /digest`.
     """
-    matches = (
-        session.scalars(
-            select(Match)
-            .join(Delivery, Delivery.match_id == Match.id)
-            .where(Delivery.kind == DELIVERY_KIND_DIGEST, Delivery.status == "pending")
-            .distinct()
-        )
-    ).all()
+    statement = (
+        select(Match)
+        .join(Delivery, Delivery.match_id == Match.id)
+        .where(Delivery.kind == DELIVERY_KIND_DIGEST, Delivery.status == "pending")
+        .distinct()
+    )
+    if recipient_id is not None:
+        statement = statement.where(Delivery.recipient_id == recipient_id)
+    matches = session.scalars(statement).all()
     items = [
         DigestQueueItem(
             match_id=match.id,
@@ -163,10 +173,12 @@ def _mark_deliveries(
     *,
     status: str,
     delivered_at: datetime | None = None,
+    from_status: str = "pending",
 ) -> None:
-    """Only ever touches the `"pending"` digest rows this run itself is
-    settling — never a `"grouped"`/`"failed"`/already-`"sent"` row from a
-    different match/recipient pair.
+    """Transition only rows in the expected source state for one recipient.
+
+    This compare-and-set shape prevents a later transition from overwriting a
+    grouped, sent, or otherwise unrelated delivery.
     """
     if not match_ids:
         return
@@ -176,10 +188,26 @@ def _mark_deliveries(
             Delivery.match_id.in_(match_ids),
             Delivery.recipient_id == recipient_id,
             Delivery.kind == DELIVERY_KIND_DIGEST,
-            Delivery.status == "pending",
+            Delivery.status == from_status,
         )
         .values(status=status, delivered_at=delivered_at)
     )
+
+
+@dataclass(frozen=True)
+class RecipientDigestPlan:
+    recipient_id: int
+    chat_id: str
+    top_items: tuple[DigestQueueItem, ...]
+    overflow_items: tuple[DigestQueueItem, ...]
+
+    @property
+    def top_match_ids(self) -> list[int]:
+        return [item.match_id for item in self.top_items]
+
+    @property
+    def overflow_match_ids(self) -> list[int]:
+        return [item.match_id for item in self.overflow_items]
 
 
 @dataclass(frozen=True)
@@ -191,9 +219,8 @@ class DigestRunOutcome:
     items_sent: int
     items_skipped: int
     # Whether the message actually reached at least one recipient (honest:
-    # `False` with `items_sent > 0` means a `not_configured`/failed notifier
-    # left every included item `"pending"` — see the loop below — never
-    # `"sent"` on a channel that never delivered.
+    # `False` with `items_sent > 0` means external attempts were ambiguous;
+    # their rows remain terminal `digest_attempted`, never falsely `"sent"`.
     sent: bool
 
 
@@ -210,25 +237,15 @@ async def run_digest_once(
     for the same local day, from any process or session, is a guaranteed
     no-op checked first, before anything else runs.
 
-    Tech Lead review (PR #100, 2026-09-24): idempotency is a *reservation*,
-    committed on its own, before anything that talks to Telegram or mutates a
-    `Delivery` row — never something inferred after the fact from what the
-    send loop happened to finish. The row is inserted and committed right
-    here, first; only once that is durable does the function go on to build
-    the queue and actually send. If the process dies anywhere after that
-    first commit — a real network send that "succeeded" from Telegram's side
-    but crashed (OOM, `docker restart`, SIGKILL) before the closing commit
-    below — the reservation is the only thing that survives: every item
-    involved is still `"pending"`, `items_sent`/`items_skipped` on the row
-    are whatever the reservation itself set (`0`/`0`), and the *next* local
-    day's run picks the leftover pending items up again, same fallback path
-    as a `not_configured` notifier (see `test_a_pending_item_left_over_
-    from_an_unconfigured_run_is_picked_up_the_next_day`). A restart the same
-    local day, no matter when in the run it happened, always finds the
-    reservation and returns `ran=False` — it can never see a half-sent digest
-    and "finish" it, and it can never send it twice. Losing an already-queued
-    digest to a crash is the accepted trade-off (CLAUDE.md: "reinício não
-    pode duplicar notificação" — never the reverse).
+    Idempotency has two durable layers. `DigestRun` reserves the local date
+    before queue processing, preserving the one-run-per-day concurrency gate.
+    Then every recipient's selected rows are reserved together as
+    `digest_attempted` before the first Bot API call. That second state is
+    terminal if a call crashes or raises: once an external request starts, we
+    cannot know whether Telegram accepted it, so at-most-once deliberately
+    prefers a possibly lost digest to a duplicate on this or any later day.
+    Known local blocks (`not_configured`/`not_allowlisted`) are detected before
+    reservation and remain honestly pending.
 
     The `IntegrityError` catch below is the same guarantee under a genuine
     race (two processes/sessions both passing the `session.get` check for the
@@ -247,68 +264,110 @@ async def run_digest_once(
         session.rollback()
         return DigestRunOutcome(ran=False, items_sent=0, items_skipped=0, sent=False)
 
-    queue = load_pending_queue(session)
-    top_items, overflow_items = queue[:top_n], queue[top_n:]
+    recipients = list(
+        session.scalars(
+            select(Recipient).where(
+                Recipient.active.is_(True), Recipient.allowlisted.is_(True)
+            ).order_by(Recipient.id)
+        )
+    )
 
-    recipients: list[Recipient] = []
-    if top_items or overflow_items:
-        recipients = list(
-            session.scalars(
-                select(Recipient).where(
-                    Recipient.active.is_(True), Recipient.allowlisted.is_(True)
-                )
+    plans: list[RecipientDigestPlan] = []
+    for recipient in recipients:
+        # A known local block means no external call can start, so this
+        # recipient's entire queue remains honestly pending for a future day.
+        if notifier.delivery_block_reason(recipient.telegram_chat_id) is not None:
+            continue
+        queue = load_pending_queue(session, recipient_id=recipient.id)
+        if not queue:
+            continue
+        plans.append(
+            RecipientDigestPlan(
+                recipient_id=recipient.id,
+                chat_id=recipient.telegram_chat_id,
+                top_items=tuple(queue[:top_n]),
+                overflow_items=tuple(queue[top_n:]),
             )
         )
 
-    sent_to_anyone = False
-    if top_items:
-        text = build_digest_text(top_items)
-        match_ids = [item.match_id for item in top_items]
-        for recipient in recipients:
-            try:
-                result = await notifier.notify_digest(recipient.telegram_chat_id, text)
-            except Exception:
-                # One recipient's send failure must not sink the others', nor
-                # the whole run — every other recipient still gets a chance,
-                # and the failed one's items simply stay `"pending"` (honest:
-                # never faked as delivered) for the next real send attempt.
-                # A genuine process crash (not a catchable `Exception` at
-                # all, e.g. SIGKILL) simply never reaches this `except` in
-                # the first place — it interrupts the process outright, which
-                # is exactly the scenario the reservation above already
-                # covers.
-                logger.error("event=digest_send_failed recipient_id=%s", recipient.id)
-                continue
-            if result.delivered:
-                sent_to_anyone = True
-                _mark_deliveries(
-                    session,
-                    match_ids,
-                    recipient.id,
-                    status="sent",
-                    delivered_at=datetime.now(UTC),
-                )
-            # `not_configured` / `not_allowlisted`: left `"pending"` on
-            # purpose — the notifier never fakes delivery (CLAUDE.md), and
-            # the reservation already committed above means this local day is
-            # never retried; homologation with a real bot token is what
-            # actually proves delivery, not this function.
-
-    if overflow_items:
-        overflow_ids = [item.match_id for item in overflow_items]
-        for recipient in recipients:
-            _mark_deliveries(
-                session, overflow_ids, recipient.id, status=DIGEST_SKIPPED_DELIVERY_STATUS
-            )
-
-    run.items_sent = len(top_items)
-    run.items_skipped = len(overflow_items)
+    # Reserve every selected delivery for every recipient in one durable
+    # phase before the first network await. `digest_attempted` is terminal,
+    # because a crash/timeout after the Bot API receives the request is
+    # observationally indistinguishable from a failed request. At-most-once
+    # deliberately prefers a possibly lost digest to a duplicate.
+    items_sent = sum(len(plan.top_items) for plan in plans)
+    items_skipped = sum(len(plan.overflow_items) for plan in plans)
+    for plan in plans:
+        _mark_deliveries(
+            session,
+            plan.top_match_ids,
+            plan.recipient_id,
+            status=DIGEST_ATTEMPTED_DELIVERY_STATUS,
+        )
+        _mark_deliveries(
+            session,
+            plan.overflow_match_ids,
+            plan.recipient_id,
+            status=DIGEST_SKIPPED_DELIVERY_STATUS,
+        )
+    run.items_sent = items_sent
+    run.items_skipped = items_skipped
     session.commit()
+
+    sent_to_anyone = False
+    for plan in plans:
+        try:
+            result = await notifier.notify_digest(
+                plan.chat_id, build_digest_text(plan.top_items)
+            )
+        except Exception:
+            # The external call began. Its result may be ambiguous, so the
+            # durable attempted state is terminal and is never re-queued.
+            logger.error("event=digest_send_ambiguous recipient_id=%s", plan.recipient_id)
+            continue
+        if result.delivered:
+            sent_to_anyone = True
+            _mark_deliveries(
+                session,
+                plan.top_match_ids,
+                plan.recipient_id,
+                status="sent",
+                delivered_at=datetime.now(UTC),
+                from_status=DIGEST_ATTEMPTED_DELIVERY_STATUS,
+            )
+            session.commit()
+            continue
+
+        # A reload may remove this chat from the notifier allowlist while an
+        # earlier recipient's network call is awaiting. The notifier then
+        # returns before touching the external client, so reverting this
+        # recipient's reservation is safe and preserves an honest pending
+        # queue. No other false result exists today.
+        if result.reason in {"not_configured", "not_allowlisted"}:
+            _mark_deliveries(
+                session,
+                plan.top_match_ids,
+                plan.recipient_id,
+                status="pending",
+                from_status=DIGEST_ATTEMPTED_DELIVERY_STATUS,
+            )
+            _mark_deliveries(
+                session,
+                plan.overflow_match_ids,
+                plan.recipient_id,
+                status="pending",
+                from_status=DIGEST_SKIPPED_DELIVERY_STATUS,
+            )
+            items_sent -= len(plan.top_items)
+            items_skipped -= len(plan.overflow_items)
+            run.items_sent = items_sent
+            run.items_skipped = items_skipped
+            session.commit()
 
     return DigestRunOutcome(
         ran=True,
-        items_sent=len(top_items),
-        items_skipped=len(overflow_items),
+        items_sent=items_sent,
+        items_skipped=items_skipped,
         sent=sent_to_anyone,
     )
 

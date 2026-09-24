@@ -48,14 +48,26 @@ class BotNotifier:
     def is_configured(self) -> bool:
         return bool(self._bot_token)
 
+    def delivery_block_reason(self, chat_id: str) -> str | None:
+        """Return a reason only when no external send can possibly start.
+
+        Digest delivery uses this synchronous preflight before reserving queue
+        rows. A known local condition may safely remain pending; once the
+        client call starts, its outcome is potentially ambiguous and must not
+        be retried merely because the process did not record a response.
+        """
+        if not self.is_configured():
+            return "not_configured"
+        if chat_id not in self._allowlisted_chat_ids:
+            return "not_allowlisted"
+        return None
+
     async def notify(
         self, match_id: int, recipient_id: int, chat_id: str, text: str
     ) -> DeliveryResult:
-        if not self.is_configured():
-            return DeliveryResult(delivered=False, reason="not_configured")
-
-        if chat_id not in self._allowlisted_chat_ids:
-            return DeliveryResult(delivered=False, reason="not_allowlisted")
+        block_reason = self.delivery_block_reason(chat_id)
+        if block_reason is not None:
+            return DeliveryResult(delivered=False, reason=block_reason)
 
         key = (match_id, recipient_id)
         if key in self._delivered:
@@ -70,15 +82,13 @@ class BotNotifier:
         """Sends one digest message (S14-04) — many matches folded into a
         single text, so it does not fit `notify`'s per-`(match_id,
         recipient_id)` dedupe key at all. Idempotency for a digest lives in
-        the database instead (`digest_run`'s unique `local_date`, checked by
-        `app.digest.run_digest_once` before this is ever called), so this
-        never touches `_delivered` and never blocks a legitimate resend.
+        the database instead: `digest_run` gates the local date and each
+        selected `Delivery` is durably `digest_attempted` before this method
+        starts an external call. This therefore never touches `_delivered`.
         """
-        if not self.is_configured():
-            return DeliveryResult(delivered=False, reason="not_configured")
-
-        if chat_id not in self._allowlisted_chat_ids:
-            return DeliveryResult(delivered=False, reason="not_allowlisted")
+        block_reason = self.delivery_block_reason(chat_id)
+        if block_reason is not None:
+            return DeliveryResult(delivered=False, reason=block_reason)
 
         assert self._client is not None, "configured notifier requires a client"
         await self._client.send_message(chat_id, text)

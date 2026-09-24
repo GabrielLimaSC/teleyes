@@ -5,6 +5,7 @@ Every clock value here is injected (`now=...`), same convention as every
 other pipeline test (CLAUDE.md: relógio injetável em tudo o que for testado).
 """
 
+import asyncio
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -21,7 +22,11 @@ from app.digest import (
     next_run_at,
     run_digest_once,
 )
-from app.pipeline import DELIVERY_KIND_DIGEST, DIGEST_SKIPPED_DELIVERY_STATUS
+from app.pipeline import (
+    DELIVERY_KIND_DIGEST,
+    DIGEST_ATTEMPTED_DELIVERY_STATUS,
+    DIGEST_SKIPPED_DELIVERY_STATUS,
+)
 from models import Delivery, DigestRun, Match, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
 from packages.notifications.bot import BotNotifier
@@ -226,24 +231,153 @@ async def test_top_n_sends_the_cheapest_and_marks_the_overflow_skipped(session: 
     assert deliveries[matches[3].id].status == DIGEST_SKIPPED_DELIVERY_STATUS
 
 
+async def test_each_recipient_gets_only_their_pending_queue(session: Session) -> None:
+    source, rule, recipient_a = _seed(session)
+    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    session.add(recipient_b)
+    session.flush()
+    shared = _match(
+        session,
+        source,
+        rule,
+        message_id=1,
+        price_cents=100_000,
+        text="Oferta que somente B ainda tem pendente",
+    )
+    only_a = _match(
+        session,
+        source,
+        rule,
+        message_id=2,
+        price_cents=200_000,
+        text="Oferta exclusiva da fila de A",
+    )
+    _queue_delivery(session, shared, recipient_a, status="sent")
+    _queue_delivery(session, shared, recipient_b)
+    _queue_delivery(session, only_a, recipient_a)
+    session.commit()
+
+    client = FakeBotClient()
+    notifier = BotNotifier(
+        bot_token="token", client=client, allowlisted_chat_ids={"999", "888"}
+    )
+    await run_digest_once(
+        session,
+        notifier,
+        now=datetime(2026, 9, 24, 12, 0, tzinfo=UTC),
+        tz=SP,
+        top_n=5,
+    )
+
+    sent_by_chat = {chat_id: text for chat_id, text in client.sent}
+    assert set(sent_by_chat) == {"999", "888"}
+    assert "Oferta exclusiva da fila de A" in sent_by_chat["999"]
+    assert "Oferta que somente B ainda tem pendente" not in sent_by_chat["999"]
+    assert "Oferta que somente B ainda tem pendente" in sent_by_chat["888"]
+    assert "Oferta exclusiva da fila de A" not in sent_by_chat["888"]
+
+
+class _PartialFailureBotClient:
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str]] = []
+
+    async def send_message(self, chat_id: str, text: str) -> None:
+        self.sent.append((chat_id, text))
+        if chat_id == "888":
+            raise RuntimeError("ambiguous Bot API failure")
+
+
+async def test_partial_recipient_failure_is_never_retried_for_any_recipient(
+    session: Session,
+) -> None:
+    source, rule, recipient_a = _seed(session)
+    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    session.add(recipient_b)
+    session.flush()
+    match = _match(session, source, rule, message_id=1, price_cents=100_000)
+    _queue_delivery(session, match, recipient_a)
+    _queue_delivery(session, match, recipient_b)
+    session.commit()
+
+    client = _PartialFailureBotClient()
+    notifier = BotNotifier(
+        bot_token="token", client=client, allowlisted_chat_ids={"999", "888"}
+    )
+    day_one = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
+    await run_digest_once(session, notifier, now=day_one, tz=SP, top_n=5)
+    await run_digest_once(session, notifier, now=day_one + timedelta(days=1), tz=SP, top_n=5)
+
+    assert [chat_id for chat_id, _ in client.sent] == ["999", "888"]
+    statuses: dict[str, str] = {
+        chat_id: status
+        for chat_id, status in session.execute(
+            select(Recipient.telegram_chat_id, Delivery.status)
+            .join(Delivery, Delivery.recipient_id == Recipient.id)
+            .where(Delivery.match_id == match.id)
+        )
+    }
+    assert statuses == {"999": "sent", "888": DIGEST_ATTEMPTED_DELIVERY_STATUS}
+
+
+async def test_top_n_and_overflow_are_computed_per_recipient(session: Session) -> None:
+    source, rule, recipient_a = _seed(session)
+    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    session.add(recipient_b)
+    session.flush()
+    cheap = _match(session, source, rule, message_id=1, price_cents=100_000, text="Barato A")
+    middle = _match(session, source, rule, message_id=2, price_cents=200_000, text="Barato B")
+    expensive = _match(session, source, rule, message_id=3, price_cents=300_000, text="Caro")
+    _queue_delivery(session, cheap, recipient_a)
+    _queue_delivery(session, expensive, recipient_a)
+    _queue_delivery(session, middle, recipient_b)
+    _queue_delivery(session, expensive, recipient_b)
+    session.commit()
+
+    client = FakeBotClient()
+    outcome = await run_digest_once(
+        session,
+        BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999", "888"}),
+        now=datetime(2026, 9, 24, 12, 0, tzinfo=UTC),
+        tz=SP,
+        top_n=1,
+    )
+
+    sent_by_chat = {chat_id: text for chat_id, text in client.sent}
+    assert "Barato A" in sent_by_chat["999"]
+    assert "Barato B" not in sent_by_chat["999"]
+    assert "Barato B" in sent_by_chat["888"]
+    assert "Barato A" not in sent_by_chat["888"]
+    assert outcome.items_sent == 2
+    assert outcome.items_skipped == 2
+    overflow_statuses = session.scalars(
+        select(Delivery.status).where(Delivery.match_id == expensive.id)
+    ).all()
+    assert overflow_statuses == [DIGEST_SKIPPED_DELIVERY_STATUS] * 2
+
+
 async def test_not_configured_notifier_leaves_pending_items_pending_and_honest(
     session: Session,
 ) -> None:
     source, rule, recipient = _seed(session)
     match = _match(session, source, rule, message_id=1, price_cents=100_000)
+    overflow = _match(session, source, rule, message_id=2, price_cents=200_000)
     _queue_delivery(session, match, recipient)
+    _queue_delivery(session, overflow, recipient)
     session.commit()
 
     now = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
     notifier = BotNotifier(bot_token=None, client=None, allowlisted_chat_ids={"999"})
 
-    outcome = await run_digest_once(session, notifier, now=now, tz=SP, top_n=5)
+    outcome = await run_digest_once(session, notifier, now=now, tz=SP, top_n=1)
 
     assert outcome.ran is True
     assert outcome.sent is False  # never faked as delivered
-    delivery = session.scalar(select(Delivery).where(Delivery.match_id == match.id))
-    assert delivery is not None
-    assert delivery.status == "pending"  # not "sent": no client, no pretending
+    assert outcome.items_sent == 0
+    assert outcome.items_skipped == 0
+    statuses = session.scalars(
+        select(Delivery.status).where(Delivery.match_id.in_([match.id, overflow.id]))
+    ).all()
+    assert statuses == ["pending", "pending"]  # even overflow waits until sending is possible
     # A digest_run row still exists — this local day will not be retried by
     # this same process; the item is picked up again only by a *future*
     # local day's run, still finding it pending.
@@ -284,8 +418,8 @@ class _SimulatedCrash(BaseException):
 
 class _CrashingBotClient:
     """Records the send as really having happened — Telegram got the
-    message — and only then "crashes", before `run_digest_once` can do
-    anything else with the result.
+    message — and only then "crashes", before `run_digest_once` can record
+    the successful result.
     """
 
     def __init__(self) -> None:
@@ -301,11 +435,10 @@ async def test_a_crash_after_sending_but_before_the_final_commit_is_never_resent
 ) -> None:
     """Tech Lead review (PR #100): a restart mid-run must never resend, not
     only a *clean* restart between runs. `run_digest_once` commits the
-    `DigestRun` reservation before sending anything — this crashes *after*
-    the (fake) Telegram send truly happened, simulating the process dying
-    before the function's closing commit ever runs. A brand-new session
-    against the same database (a real restart, not just a new call in the
-    same process) must still see the reservation and refuse to run again.
+    both the `DigestRun` and selected delivery reservations before sending —
+    this crashes *after* the fake Telegram send truly happened, before its
+    success can be recorded. A brand-new session against the same database
+    must not resend it on the same day or after the local date rolls over.
     """
     source, rule, recipient = _seed(session)
     match = _match(session, source, rule, message_id=1, price_cents=100_000)
@@ -323,15 +456,76 @@ async def test_a_crash_after_sending_but_before_the_final_commit_is_never_resent
 
     delivery = session.scalar(select(Delivery).where(Delivery.match_id == match.id))
     assert delivery is not None
-    assert delivery.status == "pending"  # never marked "sent": the crash won that race
+    assert delivery.status == DIGEST_ATTEMPTED_DELIVERY_STATUS
 
     # A genuinely new session against the same file (simulating the process
-    # restarting), same local day: must find the reservation and no-op.
+    # restarting), both the same local day and the next one: neither may send
+    # the terminal ambiguous delivery again.
     restarted_session = get_sessionmaker(get_engine(f"sqlite:///{db_path}"))()
+    restarted_client = FakeBotClient()
+    restarted_notifier = BotNotifier(
+        bot_token="token", client=restarted_client, allowlisted_chat_ids={"999"}
+    )
     try:
-        outcome = await run_digest_once(restarted_session, notifier, now=now, tz=SP, top_n=5)
+        same_day = await run_digest_once(
+            restarted_session, restarted_notifier, now=now, tz=SP, top_n=5
+        )
+        next_day = await run_digest_once(
+            restarted_session,
+            restarted_notifier,
+            now=now + timedelta(days=1),
+            tz=SP,
+            top_n=5,
+        )
     finally:
         restarted_session.close()
 
-    assert outcome.ran is False
+    assert same_day.ran is False
+    assert next_day.ran is True
+    assert next_day.items_sent == 0
     assert len(client.sent) == 1  # still exactly one send — never duplicated
+    assert restarted_client.sent == []
+
+
+class _BlockingBotClient:
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.sent: list[tuple[str, str]] = []
+
+    async def send_message(self, chat_id: str, text: str) -> None:
+        self.sent.append((chat_id, text))
+        self.started.set()
+        await self.release.wait()
+
+
+async def test_concurrent_run_observes_the_durable_daily_reservation(
+    session: Session, db_path: Path
+) -> None:
+    source, rule, recipient = _seed(session)
+    match = _match(session, source, rule, message_id=1, price_cents=100_000)
+    _queue_delivery(session, match, recipient)
+    session.commit()
+
+    session_factory = get_sessionmaker(get_engine(f"sqlite:///{db_path}"))
+    first_session = session_factory()
+    second_session = session_factory()
+    client = _BlockingBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    now = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
+    try:
+        first_task = asyncio.create_task(
+            run_digest_once(first_session, notifier, now=now, tz=SP, top_n=5)
+        )
+        await client.started.wait()
+
+        second = await run_digest_once(second_session, notifier, now=now, tz=SP, top_n=5)
+        client.release.set()
+        first = await first_task
+    finally:
+        first_session.close()
+        second_session.close()
+
+    assert first.ran is True
+    assert second.ran is False
+    assert len(client.sent) == 1

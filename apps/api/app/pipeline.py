@@ -74,6 +74,11 @@ DELIVERY_KIND_DIGEST = "digest"
 # "matches pendentes há muito tempo" alert) never counts an item that will
 # never be sent as still waiting.
 DIGEST_SKIPPED_DELIVERY_STATUS = "digest_skipped"
+# S14-04: selected for an external digest send and durably reserved before
+# the Bot API call begins. This state is intentionally terminal: once a
+# network call starts, a timeout/process crash cannot tell us whether
+# Telegram accepted the message, so retrying would violate at-most-once.
+DIGEST_ATTEMPTED_DELIVERY_STATUS = "digest_attempted"
 # S7-11: a different source posting the same real-world promotion (same
 # rule, same exact price) within this window of another match that was
 # already really sent gets persisted normally but never re-notified — a
