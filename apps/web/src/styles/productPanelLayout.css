@@ -30,6 +30,15 @@
 
 .product-panel-layout__content {
   min-width: 0;
+  /* S14-07: lets a page's own responsive grid (FeedPage.css's
+     `.feed-page__grid`) react to the width actually left over once the
+     panel opens (520px + 24px gap narrower than the viewport), not just the
+     viewport itself — a `@media` breakpoint alone stays blind to that and
+     can leave a 2-column card grid squeezed into a sliver next to two full
+     -width side rails (caught by product-panel.spec.ts's "swap" test going
+     flaky once S14-07's richer cards made the squeeze's overflow tall/wide
+     enough to cover the next card's own click target). */
+  container-type: inline-size;
 }
 
 .product-panel-layout[data-panel-phase='open'] .product-panel-layout__content {

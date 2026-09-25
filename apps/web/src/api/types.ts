@@ -50,6 +50,75 @@ export interface Match {
   target_price_cents: number | null
   target_hit: boolean
   target_gap_pct: number | null
+  /** S14-05 (F5): "Visto em N fontes" — set only on the representative of a
+   * duplicate group (same `product_key`+price within the grouping window,
+   * deduped by real Telegram message identity). `1` and no `sources` for a
+   * card that groups with nothing, including whenever the "Agrupar
+   * duplicatas" toggle is off. Optional here (the backend always sends it,
+   * defaulting to `1`) so older test fixtures that predate S14-05 keep
+   * compiling without every one of them being touched. */
+  seen_count?: number
+  sources?: MatchSource[]
+  /** Every match id this card stands for, representative included — always
+   * at least `[id]`. Optional for the same fixture-compat reason as
+   * `seen_count` above; consumers fall back to `[match.id]`. */
+  grouped_match_ids?: number[]
+  /** S14-05: deterministic fold key for the live UI — `useLiveMatches`
+   * intentionally never uses this as card identity (full reload on every
+   * SSE event, per the Tech Lead's decision), so the frontend never reads
+   * this field for that purpose. Kept only because the API always sends it. */
+  group_key?: string | null
+  /** S14-06 (F7): manual product edit fields — `display_name` takes
+   * priority over the parsed title wherever a title is shown.
+   * `price_source` feeds the "editado manualmente" chip (`'manual'` right
+   * after an edit, `'parsed'` again once reverted, `null`/undefined for a
+   * match never touched). Optional for the same fixture-compat reason as
+   * `seen_count` above. */
+  display_name?: string | null
+  model_variant?: string | null
+  price_source?: 'parsed' | 'manual' | null
+  original_price_cents?: number | null
+  last_correction?: MatchCorrection | null
+}
+
+/** S14-05 (F5): one distinct source of a duplicate group, in the order it
+ * first posted. */
+export interface MatchSource {
+  id: number
+  name: string
+}
+
+/** S14-06 (F7): who last edited/reverted a match, and when. */
+export interface MatchCorrection {
+  admin_id: number
+  created_at: string
+}
+
+/** S14-04 (F4): `GET/PUT /digest` — the single `digest_settings` row, plus
+ * "Próximo envio" and the pending queue for the panel. */
+export interface DigestQueueItem {
+  match_id: number
+  price_cents: number | null
+  title: string
+  message_link: string | null
+  matched_at: string
+}
+
+export interface DigestSettings {
+  enabled: boolean
+  send_at_local: string
+  top_n: number
+  mute_individual: boolean
+  next_run_at_utc: string
+  next_run_at_local: string
+  queue_count: number
+  queue: DigestQueueItem[]
+}
+
+/** S14-05 (F5): `GET/PUT /settings/feed` — for now, just the "Agrupar
+ * duplicatas" toggle. */
+export interface FeedSettings {
+  group_duplicates: boolean
 }
 
 /** S14-01: lowest price of one day, `date` as `YYYY-MM-DD` in the
