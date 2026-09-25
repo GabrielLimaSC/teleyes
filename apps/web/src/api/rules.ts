@@ -6,6 +6,10 @@ export interface RuleInput {
   include_terms: string
   exclude_terms?: string | null
   max_price_cents?: number | null
+  /** S14-02 (F6) / S14-07: "Avise-me abaixo de" — the card's "Definir alvo"
+   * action sends only this field (never mixed with the others in the same
+   * call), matching the backend's "if provided" PATCH semantics. */
+  target_price_cents?: number | null
 }
 
 export interface RuleTestInput {

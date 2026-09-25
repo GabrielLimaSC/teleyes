@@ -1,8 +1,28 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FeedPage } from './FeedPage'
+
+// S14-07: FeedPage now reads `csrfToken` from `useAuth()` (the card's
+// "Silenciar 7 dias"/"Definir alvo" actions and the sidebar's digest/
+// grouping toggles) — same stub every other authenticated-page suite
+// already uses (SaudePage.test.tsx), preserving every other real export
+// (`CSRF_MISSING_MESSAGE`) instead of replacing the whole module.
+vi.mock('../auth/AuthContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../auth/AuthContext')>()
+  return {
+    ...actual,
+    useAuth: () => ({
+      status: 'authenticated',
+      adminId: 1,
+      csrfMissing: false,
+      csrfToken: 'test-csrf',
+      login: vi.fn(),
+      logout: vi.fn(),
+    }),
+  }
+})
 
 class InertEventSource {
   addEventListener() {}
@@ -192,11 +212,14 @@ describe('FeedPage', () => {
     await screen.findByText('Produto A1')
 
     // Sem filtro: os 3 matches contam, 1 entregue, menor preço R$ 30,00.
-    const matchesTile = screen.getByText('Matches').closest('.feed-summary__tile')
+    // S14-07: scoped to the "Resumo" aside — the new "Resumo de hoje" tile
+    // (barra lateral) also has a "Matches" label, for a different number.
+    const resumoRail = document.querySelector('.feed-summary') as HTMLElement
+    const matchesTile = within(resumoRail).getByText('Matches').closest('.feed-summary__tile')
     expect(matchesTile).toHaveTextContent('3')
-    const sentTile = screen.getByText('Enviados').closest('.feed-summary__tile')
+    const sentTile = within(resumoRail).getByText('Enviados').closest('.feed-summary__tile')
     expect(sentTile).toHaveTextContent('1')
-    const priceTile = screen.getByText('Menor preço').closest('.feed-summary__tile')
+    const priceTile = within(resumoRail).getByText('Menor preço').closest('.feed-summary__tile')
     expect(priceTile).toHaveTextContent('R$ 30,00')
     // Nenhum contador existente conta mensagens (`vista` = matches persistidos
     // por par mensagem×regra), então não há tile "Mensagens lidas/vistas" —
@@ -256,7 +279,8 @@ describe('FeedPage', () => {
 
     expect(screen.getByText('Produto A1')).toBeInTheDocument()
     expect(screen.queryByText('Produto B1')).not.toBeInTheDocument()
-    const matchesTile = screen.getByText('Matches').closest('.feed-summary__tile')
+    const resumoRail = document.querySelector('.feed-summary') as HTMLElement
+    const matchesTile = within(resumoRail).getByText('Matches').closest('.feed-summary__tile')
     expect(matchesTile).toHaveTextContent('1')
   })
 
@@ -337,5 +361,252 @@ describe('FeedPage', () => {
       await user.click(screen.getByRole('button', { name: 'Fechar painel do produto' }))
       await waitFor(() => expect(trigger).toHaveFocus())
     })
+  })
+})
+
+describe('FeedPage — barra lateral (S14-07, 06)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const rules = [
+    {
+      id: 1,
+      name: 'RTX 5070 Ti',
+      include_terms: 'rtx',
+      exclude_terms: null,
+      max_price_cents: null,
+      target_price_cents: 5_800_00,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      lowest_price_cents: 5_749_00,
+      snoozed_until: null,
+    },
+    {
+      id: 2,
+      name: 'Ryzen 7 9800X3D',
+      include_terms: 'ryzen',
+      exclude_terms: null,
+      max_price_cents: null,
+      target_price_cents: 2_050_00,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      lowest_price_cents: 2_249_00,
+      snoozed_until: null,
+    },
+  ]
+
+  const snoozes = [
+    {
+      id: 10,
+      scope: 'product',
+      rule_id: null,
+      product_key: 'corsair-32gb-ddr5',
+      until: new Date(Date.now() + 6 * 86_400_000).toISOString(),
+      label: 'Corsair 32GB DDR5',
+    },
+  ]
+
+  const digest = {
+    enabled: true,
+    send_at_local: '09:00',
+    top_n: 5,
+    mute_individual: false,
+    next_run_at_utc: '2026-01-02T12:00:00Z',
+    next_run_at_local: '2026-01-02 09:00',
+    queue_count: 3,
+    queue: [],
+  }
+
+  const feedSettings = { group_duplicates: true }
+
+  function stubSidebarFetch(overrides: Record<string, () => Response> = {}) {
+    vi.stubGlobal('EventSource', InertEventSource)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        for (const [prefix, respond] of Object.entries(overrides)) {
+          if (url.startsWith(prefix)) return Promise.resolve(respond())
+        }
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
+        if (url.startsWith('/snoozes')) {
+          if (init?.method === 'DELETE') return Promise.resolve(new Response(null, { status: 204 }))
+          return Promise.resolve(jsonResponse(snoozes))
+        }
+        if (url.startsWith('/digest')) return Promise.resolve(jsonResponse(digest))
+        if (url.startsWith('/settings/feed')) return Promise.resolve(jsonResponse(feedSettings))
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+  }
+
+  it('lists every rule with a target price, "atingido" when the true lowest already reached it', async () => {
+    stubSidebarFetch()
+    renderFeedPage()
+
+    await screen.findByText('Alvos de preço')
+    // Scoped to `.feed-target` rows specifically — "RTX 5070 Ti" is also a
+    // rule name in the unrelated "Filtrar por regra" list further down.
+    const targetRows = document.querySelectorAll('.feed-target')
+    const rtxTarget = [...targetRows].find((row) => row.textContent?.includes('RTX 5070 Ti')) as HTMLElement
+    expect(within(rtxTarget).getByText('atingido')).toBeInTheDocument()
+
+    const ryzenTarget = [...targetRows].find((row) => row.textContent?.includes('Ryzen 7 9800X3D')) as HTMLElement
+    expect(within(ryzenTarget).getByText('falta 9%')).toBeInTheDocument()
+  })
+
+  it('lists active snoozes with a "Reativar" button that deletes the snooze', async () => {
+    stubSidebarFetch()
+    const user = userEvent.setup()
+    renderFeedPage()
+
+    await screen.findByText('Corsair 32GB DDR5')
+    const fetchMock = vi.mocked(fetch)
+    const callsBefore = fetchMock.mock.calls.length
+
+    await user.click(screen.getByRole('button', { name: 'Reativar' }))
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input, init]) => String(input) === '/snoozes/10' && init?.method === 'DELETE'),
+      ).toBe(true),
+    )
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBefore)
+  })
+
+  it('the "Agrupar duplicatas" toggle reads the real setting and flips it on click', async () => {
+    stubSidebarFetch()
+    const user = userEvent.setup()
+    renderFeedPage()
+
+    const toggle = await screen.findByRole('button', { name: /Agrupar duplicatas/ })
+    expect(toggle).toHaveTextContent('Agrupar duplicatas: ligado')
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+
+    let putBody: unknown = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.startsWith('/settings/feed') && init?.method === 'PUT') {
+          putBody = init.body
+          return Promise.resolve(jsonResponse({ group_duplicates: false }))
+        }
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
+        if (url.startsWith('/snoozes')) return Promise.resolve(jsonResponse(snoozes))
+        if (url.startsWith('/digest')) return Promise.resolve(jsonResponse(digest))
+        if (url.startsWith('/settings/feed')) return Promise.resolve(jsonResponse(feedSettings))
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+
+    await user.click(toggle)
+
+    await waitFor(() => expect(putBody).not.toBeNull())
+    expect(JSON.parse(putBody as string)).toEqual({ group_duplicates: false })
+  })
+
+  it('shows the digest\'s real horário/itens/próximo envio, and the mute toggle flips mute_individual', async () => {
+    stubSidebarFetch()
+    const user = userEvent.setup()
+    renderFeedPage()
+
+    await screen.findByText('Digest diário')
+    expect(screen.getByLabelText('Horário')).toHaveValue('09:00')
+    expect(screen.getByLabelText('Itens')).toHaveValue('5')
+    expect(screen.getByText(/Próximo envio: 2026-01-02 09:00/)).toBeInTheDocument()
+    expect(screen.getByText(/3 itens na fila/)).toBeInTheDocument()
+
+    let putBody: unknown = null
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.startsWith('/digest') && init?.method === 'PUT') {
+          putBody = init.body
+          return Promise.resolve(jsonResponse({ ...digest, mute_individual: true }))
+        }
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
+        if (url.startsWith('/snoozes')) return Promise.resolve(jsonResponse(snoozes))
+        if (url.startsWith('/digest')) return Promise.resolve(jsonResponse(digest))
+        if (url.startsWith('/settings/feed')) return Promise.resolve(jsonResponse(feedSettings))
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: /Silenciar pings individuais/ }))
+
+    await waitFor(() => expect(putBody).not.toBeNull())
+    expect(JSON.parse(putBody as string)).toMatchObject({ mute_individual: true })
+  })
+
+  it('"Resumo de hoje" counts real matches (not cards) and target hits for today only', async () => {
+    const now = new Date()
+    const todayIso = now.toISOString()
+    const yesterdayIso = new Date(now.getTime() - 2 * 86_400_000).toISOString()
+
+    stubSidebarFetch({
+      '/matches': () =>
+        jsonResponse([
+          {
+            id: 1,
+            source_id: 1,
+            rule_id: 1,
+            message_text: 'RTX hoje',
+            price_cents: 5_749_00,
+            price_cash_cents: null,
+            price_card_cents: null,
+            message_link: null,
+            matched_at: todayIso,
+            created_at: todayIso,
+            deliveries: [],
+            is_lowest_price_ever: false,
+            grouped_source_ids: null,
+            product_key: 'rtx',
+            sparkline: [],
+            snoozed: false,
+            target_price_cents: 5_800_00,
+            target_hit: true,
+            target_gap_pct: 0,
+            seen_count: 3,
+            grouped_match_ids: [1, 2, 3],
+          },
+          {
+            id: 4,
+            source_id: 1,
+            rule_id: 2,
+            message_text: 'Ryzen ontem',
+            price_cents: 2_249_00,
+            price_cash_cents: null,
+            price_card_cents: null,
+            message_link: null,
+            matched_at: yesterdayIso,
+            created_at: yesterdayIso,
+            deliveries: [],
+            is_lowest_price_ever: false,
+            grouped_source_ids: null,
+            product_key: 'ryzen',
+            sparkline: [],
+            snoozed: false,
+            target_price_cents: 2_050_00,
+            target_hit: false,
+            target_gap_pct: 9,
+            seen_count: 1,
+            grouped_match_ids: [4],
+          },
+        ]),
+    })
+    renderFeedPage()
+
+    await screen.findByText('RTX hoje')
+    const resumoHoje = screen.getByText('Resumo de hoje').closest('.feed-today') as HTMLElement
+    expect(within(resumoHoje).getByText('Matches').nextElementSibling).toHaveTextContent('3')
+    expect(within(resumoHoje).getByText('Duplicatas unidas').nextElementSibling).toHaveTextContent('2')
+    expect(within(resumoHoje).getByText('Alvos atingidos').nextElementSibling).toHaveTextContent('1')
+    expect(within(resumoHoje).getByText('Silenciados').nextElementSibling).toHaveTextContent('1')
   })
 })

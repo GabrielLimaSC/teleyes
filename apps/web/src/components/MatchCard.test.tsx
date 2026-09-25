@@ -737,3 +737,255 @@ describe('MatchCard — "Abrir produto" trigger (S14-08, 07b)', () => {
     expect(card.onclick).toBeNull()
   })
 })
+
+describe('MatchCard — selos (S14-07, 06)', () => {
+  it('shows "Alvo atingido" only when the match itself hit the target', () => {
+    const { rerender } = render(
+      <MatchCard match={buildMatch({ target_hit: false })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.queryByText('Alvo atingido')).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard match={buildMatch({ target_hit: true })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.getByText('Alvo atingido')).toBeInTheDocument()
+  })
+
+  it('shows "Visto em N fontes" only when seen_count is above 1 — a different mechanism from "Visto em: <names>" (S7-11)', () => {
+    const { rerender } = render(
+      <MatchCard match={buildMatch({ seen_count: 1 })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.queryByText(/Visto em \d+ fontes/)).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard match={buildMatch({ seen_count: 3 })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.getByText('Visto em 3 fontes')).toBeInTheDocument()
+  })
+
+  it('shows the "preço não identificado" chip whenever price_cents is null, alongside the price placeholder text', () => {
+    render(
+      <MatchCard match={buildMatch({ price_cents: null })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.getByText('preço não identificado')).toBeInTheDocument()
+    expect(screen.getByText('Preço não identificado')).toBeInTheDocument()
+  })
+
+  it('shows "editado manualmente" only when price_source is "manual" (S14-06)', () => {
+    const { rerender } = render(
+      <MatchCard match={buildMatch({ price_source: null })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.queryByText('editado manualmente')).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard match={buildMatch({ price_source: 'manual' })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.getByText('editado manualmente')).toBeInTheDocument()
+  })
+
+  it('shows the delivery status pill in the same badges row', () => {
+    render(
+      <MatchCard
+        match={buildMatch({
+          deliveries: [{ id: 1, recipient_id: 1, status: 'sent', delivered_at: '2026-01-01T00:00:01Z', created_at: '2026-01-01T00:00:01Z' }],
+        })}
+        rule={rule}
+        source={source}
+        recipients={recipients}
+      />,
+    )
+    expect(screen.getByText('Entregue')).toBeInTheDocument()
+  })
+})
+
+describe('MatchCard — sparkline (S14-07, 06)', () => {
+  it('renders nothing when the match has no sparkline points', () => {
+    render(<MatchCard match={buildMatch({ sparkline: [] })} rule={rule} source={source} recipients={[]} />)
+    expect(screen.queryByRole('img', { name: /Histórico de preço/ })).not.toBeInTheDocument()
+  })
+
+  it('renders the chart, plus the target caption only when a target price is set', () => {
+    const { rerender } = render(
+      <MatchCard
+        match={buildMatch({
+          sparkline: [
+            { date: '2026-01-01', price_cents: 500_00 },
+            { date: '2026-01-02', price_cents: 480_00 },
+          ],
+          target_price_cents: null,
+        })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+    expect(screen.getByRole('img', { name: /Histórico de preço/ })).toBeInTheDocument()
+    expect(screen.queryByText('linha = alvo')).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard
+        match={buildMatch({
+          sparkline: [
+            { date: '2026-01-01', price_cents: 500_00 },
+            { date: '2026-01-02', price_cents: 480_00 },
+          ],
+          target_price_cents: 450_00,
+        })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+    expect(screen.getByText('linha = alvo')).toBeInTheDocument()
+  })
+})
+
+describe('MatchCard — ações (S14-07, 06)', () => {
+  it('only renders "Criar regra disso" and "Silenciar 7 dias" with a product_key and their handlers', () => {
+    const { rerender } = render(
+      <MatchCard
+        match={buildMatch({ product_key: null })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onCreateRule={vi.fn()}
+        onSnooze={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Criar regra disso' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Silenciar/ })).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard
+        match={buildMatch({ product_key: 'produto-x' })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Criar regra disso' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Silenciar/ })).not.toBeInTheDocument()
+  })
+
+  it('"Criar regra disso" calls onCreateRule with the product_key', async () => {
+    const onCreateRule = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <MatchCard
+        match={buildMatch({ product_key: 'produto-x' })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onCreateRule={onCreateRule}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Criar regra disso' }))
+    expect(onCreateRule).toHaveBeenCalledWith('produto-x')
+  })
+
+  it('"Silenciar 7 dias" becomes "Reativar" once match.snoozed is true, both calling onSnooze with the match', async () => {
+    const onSnooze = vi.fn()
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <MatchCard
+        match={buildMatch({ product_key: 'produto-x', snoozed: false })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onSnooze={onSnooze}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Silenciar 7 dias' }))
+    expect(onSnooze).toHaveBeenCalledTimes(1)
+    expect(onSnooze.mock.calls[0][0]).toMatchObject({ product_key: 'produto-x' })
+
+    rerender(
+      <MatchCard
+        match={buildMatch({ product_key: 'produto-x', snoozed: true })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onSnooze={onSnooze}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Silenciar 7 dias' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Reativar' }))
+    expect(onSnooze).toHaveBeenCalledTimes(2)
+  })
+
+  it('"Definir alvo" opens an inline form and calls onSetTarget with cents parsed from reais', async () => {
+    const onSetTarget = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
+    const input = screen.getByLabelText('Alvo (R$)')
+    await user.clear(input)
+    await user.type(input, '2050')
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(onSetTarget).toHaveBeenCalledWith(rule.id, 2_050_00)
+  })
+
+  it('"Definir alvo" prefills the field with the rule\'s current target, in reais', async () => {
+    const user = userEvent.setup()
+    render(
+      <MatchCard
+        match={buildMatch({ target_price_cents: 2050_00 })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onSetTarget={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
+    expect(screen.getByLabelText('Alvo (R$)')).toHaveValue(2050)
+  })
+
+  it('"Cancelar" closes the inline form without calling onSetTarget', async () => {
+    const onSetTarget = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByLabelText('Alvo (R$)')).not.toBeInTheDocument()
+    expect(onSetTarget).not.toHaveBeenCalled()
+  })
+
+  it('"Corrigir" opens the product panel — only shown with a product_key and no identified price', async () => {
+    const onOpenProduct = vi.fn()
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <MatchCard
+        match={buildMatch({ product_key: 'produto-x', price_cents: 500_00 })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onOpenProduct={onOpenProduct}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Corrigir' })).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard
+        match={buildMatch({ product_key: 'produto-x', price_cents: null })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onOpenProduct={onOpenProduct}
+      />,
+    )
+    const corrigir = screen.getByRole('button', { name: 'Corrigir' })
+    await user.click(corrigir)
+    expect(onOpenProduct).toHaveBeenCalledWith('produto-x', corrigir)
+  })
+})

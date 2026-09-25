@@ -122,8 +122,16 @@ export function SaudePage() {
     fetchSources()
       .then((sources) => setActiveSources(sources.filter((source) => source.active).length))
       .catch(() => setActiveSources(null))
+    // S14-07: `fetchMatches().length` used to count CARDS, not matches — once
+    // duplicate grouping (S14-05) folds several real matches into one card,
+    // that undercounts. `grouped_match_ids` is every match id a card stands
+    // for (representative included, always at least `[id]`), so summing its
+    // length gives the real total regardless of how the "Agrupar
+    // duplicatas" toggle currently folds the list.
     fetchMatches()
-      .then((matches) => setMatchCount(matches.length))
+      .then((matches) =>
+        setMatchCount(matches.reduce((sum, match) => sum + (match.grouped_match_ids?.length ?? 1), 0)),
+      )
       .catch(() => setMatchCount(null))
   }, [])
 
