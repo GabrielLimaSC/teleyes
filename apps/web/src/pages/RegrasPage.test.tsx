@@ -21,9 +21,40 @@ const baseRule = {
   include_terms: 'iphone',
   exclude_terms: null,
   max_price_cents: 400_000,
+  target_price_cents: null,
   active: true,
   created_at: '2026-01-01T00:00:00Z',
   lowest_price_cents: null,
+  snoozed_until: null,
+  history_30d: [],
+}
+
+/** S14-09: default `GET /digest` body — a real digest is always enabled
+ * with real settings, never absent, so every test that doesn't care about
+ * delivery still gets a shape `RegrasPage` can render without crashing. */
+const DEFAULT_DIGEST = {
+  enabled: true,
+  send_at_local: '09:00',
+  top_n: 5,
+  mute_individual: false,
+  next_run_at_utc: '2026-09-25T12:00:00Z',
+  next_run_at_local: '2026-09-25 09:00',
+  queue_count: 0,
+  queue: [],
+}
+
+/** Shared by every ad hoc fetch router below: a GET to `/snoozes` or
+ * `/digest` that a test doesn't explicitly care about must not silently
+ * fall into that test's own "anything else is the rules list" catch-all —
+ * that fed a bare rules array to `setDigest`/`setSnoozes` and crashed
+ * rendering (`Cannot read properties of undefined`) the moment the digest
+ * card or the snoozed list tried to read its real fields. Returns `null`
+ * when the caller should keep handling the request itself (every other
+ * method/URL, including a test's own `POST /snoozes` or `PUT /digest`). */
+function defaultSnoozeOrDigestResponse(url: string, method: string): Response | null {
+  if (url.startsWith('/snoozes') && method === 'GET') return jsonResponse([])
+  if (url.startsWith('/digest') && method === 'GET') return jsonResponse(DEFAULT_DIGEST)
+  return null
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -42,26 +73,32 @@ function deferred<T>() {
  * `RegrasPage` renders more than the rules list on its own: `DestinatariosSection`
  * (S7-01) answers `GET /recipients`, and the "Como uma regra casa" panel
  * (S11-05) calls `GET /metrics` and an unfiltered `GET /matches`, and the
- * "Aplicar regras" panel (S13-06) polls `GET /listener/status`. Every test
- * here has to answer those too — otherwise it either throws on an unhandled
- * URL or, worse, silently reuses the rules mock data as if it were a
- * recipient/metric/match row (a rule named "iPhone" becomes a fake "ativa"
- * recipient, breaking `getByRole('button', { name: 'ativa' })` uniqueness).
- * They answer empty here, except a `GET /matches?rule_id=…` (the S10-04 clear
- * check) which goes to the test's own handler; the stats panel has its own
- * tests below with real numbers.
+ * "Aplicar regras" panel (S13-06) polls `GET /listener/status`, and (S14-09)
+ * the delivery card and "Silenciados agora" rail answer `GET /digest` and
+ * `GET /snoozes`. Every test here has to answer those too — otherwise it
+ * either throws on an unhandled URL or, worse, silently reuses the rules
+ * mock data as if it were a recipient/metric/match/digest/snooze row (a rule
+ * named "iPhone" becomes a fake "ativa" recipient, breaking
+ * `getByRole('button', { name: 'ativa' })` uniqueness, or a digest with no
+ * real fields that crashes the "Próximo envio" line). They answer empty (or
+ * a sane default digest) here, except a `GET /matches?rule_id=…` (the S10-04
+ * clear check), which goes to the test's own handler; the stats, delivery
+ * and snoozed-list panels have their own tests below with real data.
  */
 function withEmptyRecipients(
   handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
 ) {
   return (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
+    const method = init?.method ?? 'GET'
     if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
     if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
     if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
-    if (url.startsWith('/matches') && !url.includes('rule_id=') && (init?.method ?? 'GET') === 'GET') {
+    if (url.startsWith('/matches') && !url.includes('rule_id=') && method === 'GET') {
       return Promise.resolve(jsonResponse([]))
     }
+    const defaulted = defaultSnoozeOrDigestResponse(url, method)
+    if (defaulted) return Promise.resolve(defaulted)
     return handler(input, init)
   }
 }
@@ -82,14 +119,15 @@ describe('RegrasPage', () => {
     expect(await screen.findByText('iPhone')).toBeInTheDocument()
     expect(screen.getByText('R$ 4.000,00')).toBeInTheDocument()
     expect(screen.getByText('ativa')).toBeInTheDocument()
-    // baseRule has no priced match yet — falls back to "—", not "R$ 0,00".
-    // "Termos bloqueados" also renders "—" for a null exclude_terms, so this
-    // targets the specific cell by its data-label instead of the bare text.
+    // baseRule has no target price yet — the Alvo column falls back to "—",
+    // not "R$ 0,00". Targets the specific cell by its data-label since other
+    // cells (e.g. "Termos bloqueados" for a null exclude_terms elsewhere)
+    // could also render a bare "—".
     const row = screen.getByText('iPhone').closest('tr') as HTMLElement
-    expect(row.querySelector('[data-label="Menor preço já visto"]')).toHaveTextContent('—')
+    expect(row.querySelector('[data-label="Alvo"]')).toHaveTextContent('—')
   })
 
-  it('shows the real rule count as the page subtitle (S10-07, moved to the header in S11-05)', async () => {
+  it('shows the real rule count as the page subtitle (S10-07, reworded for alvo/silêncio in S14-09)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule, { ...baseRule, id: 2, name: 'RTX 5070' }])))),
@@ -97,7 +135,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    expect(await screen.findByText('2 regras · ações disponíveis em cada linha')).toBeInTheDocument()
+    expect(await screen.findByText('2 regras · alvo e silêncio por linha')).toBeInTheDocument()
   })
 
   it('the subtitle count uses the singular for exactly one rule (S10-07)', async () => {
@@ -105,7 +143,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    expect(await screen.findByText('1 regra · ações disponíveis em cada linha')).toBeInTheDocument()
+    expect(await screen.findByText('1 regra · alvo e silêncio por linha')).toBeInTheDocument()
   })
 
   it('shows the Destinatários section header with its subtitle (S10-07)', async () => {
@@ -117,20 +155,45 @@ describe('RegrasPage', () => {
     expect(screen.getByText('Quem recebe os alertas')).toBeInTheDocument()
   })
 
-  it('shows the real lowest price ever seen for a rule with a priced match (S7-06)', async () => {
+  it('the Alvo column marks the target "atingido" once the real lowest price seen reaches it (S7-06 folded into S14-09)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(
         withEmptyRecipients(() =>
-          Promise.resolve(jsonResponse([{ ...baseRule, lowest_price_cents: 199_00 }])),
+          Promise.resolve(
+            jsonResponse([{ ...baseRule, target_price_cents: 200_00, lowest_price_cents: 199_00 }]),
+          ),
         ),
       ),
     )
 
     render(<RegrasPage />)
 
-    expect(await screen.findByText('iPhone')).toBeInTheDocument()
-    expect(screen.getByText('R$ 199,00')).toBeInTheDocument()
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
+    expect(alvoCell).toHaveTextContent('R$ 200,00')
+    expect(alvoCell).toHaveTextContent('atingido')
+  })
+
+  it('the Alvo column shows how far the real lowest price is from an unmet target (S14-09)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        withEmptyRecipients(() =>
+          Promise.resolve(
+            jsonResponse([{ ...baseRule, target_price_cents: 200_00, lowest_price_cents: 250_00 }]),
+          ),
+        ),
+      ),
+    )
+
+    render(<RegrasPage />)
+
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
+    expect(alvoCell).toHaveTextContent('R$ 200,00')
+    // 20% above the target: (250 - 200) / 250 = 20%.
+    expect(alvoCell).toHaveTextContent('falta 20%')
   })
 
   it('creates a rule and shows the API validation error on failure', async () => {
@@ -745,7 +808,7 @@ describe('RegrasPage', () => {
     // Still typed (no Enter/comma) when the button is clicked: not lost.
     await user.type(terms, 'ips')
     await user.type(screen.getByLabelText('Termos bloqueados'), 'usado')
-    await user.type(screen.getByLabelText(/Preço máximo/), '1500')
+    await user.type(screen.getByLabelText(/Teto \(R\$\)/), '1500')
     await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     await waitFor(() => expect(postedBody).not.toBeNull())
@@ -754,6 +817,7 @@ describe('RegrasPage', () => {
       include_terms: 'monitor 27, 165hz, ips',
       exclude_terms: 'usado',
       max_price_cents: 150_000,
+      target_price_cents: null,
     })
   })
 
@@ -786,8 +850,9 @@ describe('RegrasPage', () => {
   it('shows the real cumulative stats in the "Como uma regra casa" panel (S11-05)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn((input: RequestInfo | URL) => {
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input)
+        const method = init?.method ?? 'GET'
         if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
         if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
         if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([{ id: 1 }, { id: 2 }, { id: 3 }]))
@@ -801,6 +866,8 @@ describe('RegrasPage', () => {
             ]),
           )
         }
+        const defaulted = defaultSnoozeOrDigestResponse(url, method)
+        if (defaulted) return Promise.resolve(defaulted)
         return Promise.resolve(jsonResponse([baseRule]))
       }),
     )
@@ -819,13 +886,16 @@ describe('RegrasPage', () => {
   it('shows "—" instead of a made-up number when the stats cannot load (S11-05)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn((input: RequestInfo | URL) => {
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input)
+        const method = init?.method ?? 'GET'
         if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
         if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
         if (url.startsWith('/matches') || url.startsWith('/metrics')) {
           return Promise.resolve(new Response('boom', { status: 500 }))
         }
+        const defaulted = defaultSnoozeOrDigestResponse(url, method)
+        if (defaulted) return Promise.resolve(defaulted)
         return Promise.resolve(jsonResponse([baseRule]))
       }),
     )
@@ -875,6 +945,329 @@ describe('RegrasPage', () => {
 })
 
 /**
+ * S14-09: Regras v2 — the target column, per-row silence, the delivery
+ * (digest) card and the "nova regra a partir do produto" prefill. Each test
+ * below routes every URL itself instead of `withEmptyRecipients`, since most
+ * of them need to answer `GET /snoozes`/`GET /digest`/`GET /products/…`
+ * with real, test-specific data rather than the shared safe defaults.
+ */
+describe('RegrasPage — Regras v2 (S14-09)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('the Histórico 30d column renders the rule\'s real daily series as an accessible sparkline', async () => {
+    const withHistory = {
+      ...baseRule,
+      history_30d: [
+        { date: '2026-09-01', price_cents: 700_000 },
+        { date: '2026-09-05', price_cents: 650_000 },
+      ],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([withHistory])))),
+    )
+
+    render(<RegrasPage />)
+
+    expect(
+      await screen.findByRole('img', { name: /Histórico real de 2 dias, de R\$\s7\.000,00 a R\$\s6\.500,00/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('a rule with no priced history yet shows "Sem preços" instead of an empty chart', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))),
+    )
+
+    render(<RegrasPage />)
+
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    expect(within(row).getByText('Sem preços')).toBeInTheDocument()
+  })
+
+  it('an active rule shows "ativo" and "Silenciar", which POSTs a 7-day snooze for that rule', async () => {
+    let postedBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
+      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(DEFAULT_DIGEST))
+      if (url === '/snoozes' && method === 'POST') {
+        postedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+        return Promise.resolve(
+          jsonResponse(
+            { id: 9, scope: 'rule', rule_id: 1, product_key: null, until: '2026-10-01T00:00:00Z', label: 'iPhone' },
+            201,
+          ),
+        )
+      }
+      if (url.startsWith('/snoozes') && method === 'GET') return Promise.resolve(jsonResponse([]))
+      if (method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+      throw new Error(`unexpected ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    expect(within(row).getByText('ativo')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Silenciar' }))
+
+    await waitFor(() => expect(postedBody).toEqual({ scope: 'rule', rule_id: 1, days: 7 }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Regra silenciada por 7 dias.')
+  })
+
+  it('a silenced rule shows "até DD/MM" and "Reativar", which DELETEs the matching snooze (row and rail agree)', async () => {
+    const snoozedRule = { ...baseRule, snoozed_until: '2026-09-28T15:00:00Z' }
+    const snooze = {
+      id: 55,
+      scope: 'rule',
+      rule_id: 1,
+      product_key: null,
+      until: '2026-09-28T15:00:00Z',
+      label: 'iPhone',
+    }
+    const productSnooze = {
+      id: 56,
+      scope: 'product',
+      rule_id: null,
+      product_key: 'corsair-32gb-ddr5',
+      until: '2026-09-30T15:00:00Z',
+      label: 'Corsair 32GB DDR5',
+    }
+    const deleteCalls: string[] = []
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
+      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(DEFAULT_DIGEST))
+      if (url.startsWith('/snoozes/') && method === 'DELETE') {
+        deleteCalls.push(url)
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (url === '/snoozes' && method === 'GET') {
+        return Promise.resolve(jsonResponse(deleteCalls.length > 0 ? [productSnooze] : [snooze, productSnooze]))
+      }
+      if (url.startsWith('/rules') && method === 'GET') {
+        return Promise.resolve(jsonResponse(deleteCalls.length > 0 ? [baseRule] : [snoozedRule]))
+      }
+      throw new Error(`unexpected ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    // Both the row and the "Silenciados agora" rail read the same silence
+    // ("iPhone" appears in both — and there are two <table>s on this page,
+    // Regras and Destinatários — so the row is picked out by its own <tr>).
+    await screen.findByText('Silenciados agora')
+    const row = screen
+      .getAllByText('iPhone')
+      .map((node) => node.closest('tr'))
+      .find((node): node is HTMLTableRowElement => node !== null) as HTMLElement
+    expect(within(row).getByText('até 28/09')).toBeInTheDocument()
+    const railPanel = screen.getByRole('heading', { name: 'Silenciados agora' }).closest('section') as HTMLElement
+    expect(within(railPanel).getByText('iPhone')).toBeInTheDocument()
+    expect(within(railPanel).getByText(/regra · até 28\/09/)).toBeInTheDocument()
+    expect(within(railPanel).getByText('Corsair 32GB DDR5')).toBeInTheDocument()
+    expect(within(railPanel).getByText(/produto · até 30\/09/)).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Reativar' }))
+
+    await waitFor(() => expect(deleteCalls).toEqual(['/snoozes/55']))
+    expect(await screen.findByRole('status')).toHaveTextContent('Regra reativada.')
+    // The rail drops the item that was just reactivated, keeps the other.
+    await waitFor(() => expect(within(railPanel).queryByText('iPhone')).not.toBeInTheDocument())
+    expect(within(railPanel).getByText('Corsair 32GB DDR5')).toBeInTheDocument()
+  })
+
+  it('reactivating straight from the "Silenciados agora" rail DELETEs that item too', async () => {
+    const productSnooze = {
+      id: 56,
+      scope: 'product',
+      rule_id: null,
+      product_key: 'corsair-32gb-ddr5',
+      until: '2026-09-30T15:00:00Z',
+      label: 'Corsair 32GB DDR5',
+    }
+    const deleteCalls: string[] = []
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
+      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(DEFAULT_DIGEST))
+      if (url.startsWith('/snoozes/') && method === 'DELETE') {
+        deleteCalls.push(url)
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (url === '/snoozes' && method === 'GET') {
+        return Promise.resolve(jsonResponse(deleteCalls.length > 0 ? [] : [productSnooze]))
+      }
+      if (url.startsWith('/rules') && method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+      throw new Error(`unexpected ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const railPanel = await screen.findByText('Corsair 32GB DDR5')
+    await user.click(within(railPanel.closest('li') as HTMLElement).getByRole('button', { name: 'Reativar' }))
+
+    await waitFor(() => expect(deleteCalls).toEqual(['/snoozes/56']))
+    expect(await screen.findByRole('status')).toHaveTextContent('Silêncio removido.')
+  })
+
+  it('shows the empty state when nothing is silenced', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([])))))
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText('Nenhuma regra ou produto silenciado.')).toBeInTheDocument()
+  })
+
+  it('the "Entrega dos alertas" card shows the real digest settings, states that a hit target fura digest and silence, and saves edits via PUT /digest', async () => {
+    const digest = {
+      enabled: true,
+      send_at_local: '09:00',
+      top_n: 5,
+      mute_individual: false,
+      next_run_at_utc: '2026-09-25T12:00:00Z',
+      next_run_at_local: '2026-09-25 09:00',
+      queue_count: 2,
+      queue: [],
+    }
+    let putBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
+      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/snoozes')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/digest') && method === 'PUT') {
+        putBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+        return Promise.resolve(jsonResponse({ ...digest, ...putBody }))
+      }
+      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(digest))
+      if (url.startsWith('/rules') && method === 'GET') return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText(/Próximo envio: 25\/09 09:00/)).toBeInTheDocument()
+    expect(screen.getByText(/2 itens na fila/)).toBeInTheDocument()
+    expect(screen.getByText(/fura o digest e o silêncio/)).toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText('Máximo de itens'))
+    await user.type(screen.getByLabelText('Máximo de itens'), '8')
+    await user.click(screen.getByRole('button', { name: 'Salvar entrega' }))
+
+    await waitFor(() => expect(putBody).not.toBeNull())
+    expect(putBody).toMatchObject({ enabled: true, send_at_local: '09:00', top_n: 8, mute_individual: false })
+    expect(await screen.findByRole('status')).toHaveTextContent('Entrega dos alertas atualizada.')
+  })
+
+  it('opening /regras?produto=<key> prefills the "Nova regra" rail from the real suggestion, badged, and "Testar" tests exactly those prefilled fields', async () => {
+    window.history.pushState({}, '', '/regras?produto=palit-rtx-5070-ti-16gb')
+    const suggestion = {
+      product_key: 'palit-rtx-5070-ti-16gb',
+      name: 'Palit RTX 5070 Ti 16GB',
+      include_terms: 'palit rtx 5070 ti',
+      max_price_cents: 630_000,
+      target_price_cents: 580_000,
+      average_30d_cents: 651_200,
+      lowest_90d_cents: 580_000,
+    }
+    let testRequestBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
+      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/snoozes')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(DEFAULT_DIGEST))
+      if (url === '/products/palit-rtx-5070-ti-16gb/rule-suggestion' && method === 'GET') {
+        return Promise.resolve(jsonResponse(suggestion))
+      }
+      if (url === '/rules/test' && method === 'POST') {
+        testRequestBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+        return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+      }
+      if (url.startsWith('/rules') && method === 'GET') return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText('pré-preenchida do produto')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Nome/)).toHaveValue('Palit RTX 5070 Ti 16GB')
+    expect(screen.getByRole('button', { name: 'Remover termo palit rtx 5070 ti' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Teto/)).toHaveValue(6300)
+    expect(screen.getByLabelText(/Alvo/)).toHaveValue(5800)
+    const note = screen.getByText(/Sugerido a partir do histórico/)
+    expect(note).toHaveTextContent('R$ 6.512,00')
+    expect(note).toHaveTextContent('R$ 5.800,00')
+
+    await user.click(screen.getByRole('button', { name: 'Testar' }))
+
+    await waitFor(() => expect(testRequestBody).not.toBeNull())
+    expect(testRequestBody).toEqual({
+      include_terms: 'palit rtx 5070 ti',
+      exclude_terms: null,
+      max_price_cents: 630_000,
+    })
+  })
+
+  it('an unknown product in ?produto= shows a readable error instead of a blank rail', async () => {
+    window.history.pushState({}, '', '/regras?produto=inexistente')
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
+      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/snoozes')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(DEFAULT_DIGEST))
+      if (url === '/products/inexistente/rule-suggestion' && method === 'GET') {
+        return Promise.resolve(jsonResponse({ detail: 'Product not found' }, 404))
+      }
+      if (url.startsWith('/rules') && method === 'GET') return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Product not found')
+    expect(screen.queryByText('pré-preenchida do produto')).not.toBeInTheDocument()
+  })
+})
+
+/**
  * S13-06: the "Aplicar regras" panel. `statuses` is what `GET /listener/status`
  * answers, in order (the last one repeats); a POST to `/listener/reload` records
  * the request headers and answers `reloadAnswer`.
@@ -903,6 +1296,8 @@ function listenerAwareFetch(options: {
     }
     if (url.startsWith('/recipients') || url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
     if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+    const defaulted = defaultSnoozeOrDigestResponse(url, method)
+    if (defaulted) return Promise.resolve(defaulted)
     if (method === 'POST') return Promise.resolve(jsonResponse({ ...baseRule, id: 9, name: 'Nova' }, 201))
     return Promise.resolve(jsonResponse(options.rules ?? [baseRule]))
   })

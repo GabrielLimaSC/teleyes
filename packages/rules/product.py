@@ -280,6 +280,41 @@ _DROP_TOKEN_SETS = (
     _TRAILING_CONNECTOR_TOKENS,
 )
 
+
+def is_spec_noise_token(token: str) -> bool:
+    """True for an already-normalised token that is pure capacity/frequency/
+    bus/socket/port noise, a chip-maker name, a generic component
+    descriptor, banner/footer/marketing filler, a leading hype word, a
+    trailing connector, or a bare multiplier ("2x") — never a token that
+    could identify a specific product on its own.
+
+    The exact per-token judgement `_model_fingerprint` already applies when
+    building a `product_key`, exposed publicly so another caller (S14-09's
+    rule suggestion, which needs to tell noise from identity in a title's
+    *original* word order — the key's own brand-first, deduped, reordered
+    tokens are not a contiguous phrase of the real text any more) never
+    disagrees with what the key itself considers noise.
+    """
+    if (
+        _MULTIPLIER_RE.match(token)
+        or _UNIT_SUFFIX_RE.match(token)
+        or _FREQ_SUFFIX_RE.match(token)
+        or _BARE_CHIPSET_RE.match(token)
+    ):
+        return True
+    return any(token in drop_set for drop_set in _DROP_TOKEN_SETS)
+
+
+def is_model_code_token(token: str) -> bool:
+    """True for an already-normalised token that carries a digit and is not
+    itself spec noise (`is_spec_noise_token`) — a real vendor model/SKU
+    fragment ("9800x3d", "5070", "b650m") rather than a capacity/frequency/
+    bus spec ("16gb", "4800mhz", "ddr5") that varies post to post for the
+    same product and never belongs in a rule term meant to survive every
+    posting of it.
+    """
+    return any(char.isdigit() for char in token) and not is_spec_noise_token(token)
+
 # Line/variant words worth keeping: they are what tells two boards with the
 # same brand and chip apart (GamingPro vs Inspire, Challenger vs Challenger
 # Wifi White). A trailing lone "s" after one of these ("GamingPro-S") is
@@ -404,9 +439,35 @@ def _clean_line(line: str) -> str | None:
     marker = _NOISE_MARKER_RE.search(line)
     kept = line[: marker.start()] if marker is not None else line
     kept = _WHITESPACE_RE.sub(" ", _strip_symbols(kept)).strip(_EDGE_PUNCTUATION)
+    if marker is not None:
+        kept = _strip_dangling_connector_word(kept)
     tokens = normalize_text(kept).split()
     if not tokens or all(token in _BANNER_TOKENS for token in tokens):
         return None
+    return kept
+
+
+def _strip_dangling_connector_word(kept: str) -> str:
+    """Drop one connector word a price cut just left dangling at the end.
+
+    Only called right after `_clean_line` actually cuts a line at its noise
+    marker — a same-line post ("Placa ... 16GB por R$ 5.899,90") cuts to
+    "...16GB por", leaving the connector that introduced the price. Fine for
+    `product_key` (`_trim_edges`/`_DROP_TOKEN_SETS` already strip it from the
+    normalised tokens there), but wrong for a human-facing title: S14-09's
+    rule suggestion drops it straight into the "Nome" field, and the product
+    panel/digest/snooze label show it too. Never applied when nothing was
+    cut, so an untruncated title's own last word (however short, however
+    much it happens to spell a connector) is always left alone. Compares the
+    normalised word so case/accents never matter, but keeps the original
+    word's casing for everything before it.
+    """
+    words = kept.split(" ")
+    if len(words) <= 1:
+        return kept
+    last = normalize_text(words[-1]).strip(_EDGE_PUNCTUATION)
+    if last in _TRAILING_CONNECTOR_TOKENS:
+        return " ".join(words[:-1])
     return kept
 
 

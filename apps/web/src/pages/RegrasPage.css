@@ -63,6 +63,11 @@ main.regras-page {
   gap: 16px;
 }
 
+.regras-page__loading,
+.regras-page__empty {
+  color: var(--plane-text-secondary);
+}
+
 @media (max-width: 1100px) {
   .regras-page__grid {
     grid-template-columns: minmax(0, 1fr);
@@ -117,6 +122,17 @@ main.regras-page {
   color: var(--plane-text-primary);
 }
 
+.crud-table.wide-table .crud-table__name > span {
+  display: block;
+}
+
+.crud-table.wide-table .crud-table__name .wide-table__terms {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--plane-text-helper);
+}
+
 /* Needs the table's own specificity: `.crud-table th` (CrudTable.css)
    left-aligns every header. */
 .crud-table.wide-table th.wide-table__num,
@@ -141,6 +157,68 @@ td.wide-table__num {
   overflow-wrap: anywhere;
 }
 
+.rule-target,
+.rule-target__detail {
+  display: block;
+}
+
+.rule-target--hit,
+.rule-target--hit + .rule-target__detail {
+  color: var(--plane-status-good);
+}
+
+.rule-target__detail {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--plane-text-helper);
+}
+
+.rule-sparkline {
+  display: block;
+  width: 100%;
+  min-width: 108px;
+  height: 30px;
+}
+
+.rule-sparkline polyline {
+  fill: none;
+  stroke: var(--plane-chart-line);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rule-sparkline__empty {
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.rule-silence,
+.delivery-card__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-status-good);
+  white-space: nowrap;
+}
+
+.rule-silence > span,
+.delivery-card__state i,
+.regras-form__suggestion-note > span {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.rule-silence--muted {
+  color: var(--plane-status-warning);
+}
+
 /* The buttons live in a wrapper: a `display: flex` on the <td> itself would
    take the cell out of the table layout and let it overflow the card. The
    cell asks for ~2 rows of buttons and the terms columns give way. */
@@ -152,11 +230,98 @@ td.wide-table__num {
   /* Room for three buttons per row (Editar + Duplicar + Testar): two rows for five
      actions instead of one button per line when the terms columns are wide;
      the other columns (headers wrap) give way for it. */
-  min-width: 204px;
+  min-width: 196px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+}
+
+/* ---- Delivery policy ---- */
+.delivery-panel {
+  padding: 20px;
+}
+
+.delivery-panel__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.delivery-panel__heading h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: var(--plane-text-primary);
+}
+
+.delivery-panel__heading p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.delivery-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.delivery-card {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--plane-divider-color);
+  background: var(--plane-surface-sunken);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+}
+
+.delivery-card strong {
+  font-size: 13px;
+  color: var(--plane-text-primary);
+}
+
+.delivery-card__state--neutral {
+  color: var(--plane-status-neutral);
+}
+
+.delivery-card--controls label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.delivery-card--controls label:has(input[type='time'], input[type='number']) {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.delivery-card--controls input[type='time'],
+.delivery-card--controls input[type='number'] {
+  min-width: 0;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--plane-input-border-color);
+  border-radius: 8px;
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.delivery-card--controls input:focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
 }
 
 .wide-table__actions button {
@@ -305,6 +470,56 @@ td.wide-table__num {
   width: 100%;
 }
 
+.regras-form__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.regras-form__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-control-border);
+  background: var(--glass-control-bg);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.regras-form__helper {
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+.regras-form__price-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.regras-form__suggestion-note {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--glass-control-border);
+  border-radius: 12px;
+  background: var(--glass-control-bg);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.regras-form__suggestion-note > span {
+  margin-top: 5px;
+}
+
 /* Row above the tester panel's own heading — title + "Fechar". */
 .regras-panel__heading {
   display: flex;
@@ -436,6 +651,53 @@ td.wide-table__num {
   padding: 18px;
 }
 
+.snoozed-panel {
+  padding: 18px;
+}
+
+.snoozed-panel .regras-rail__eyebrow {
+  margin-bottom: 12px;
+}
+
+.snoozed-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.snoozed-panel li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.snoozed-panel li + li {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.snoozed-panel li div,
+.snoozed-panel li strong,
+.snoozed-panel li span {
+  display: block;
+  min-width: 0;
+}
+
+.snoozed-panel li strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: var(--plane-text-primary);
+}
+
+.snoozed-panel li span,
+.snoozed-panel__empty {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
 .regras-how .regras-rail__eyebrow {
   margin-bottom: 12px;
 }
@@ -502,5 +764,39 @@ td.wide-table__num {
 
   .wide-table__actions-inner {
     min-width: 0;
+  }
+
+  .regras-page__header {
+    align-items: stretch;
+  }
+
+  .regras-page__new-button {
+    width: 100%;
+  }
+
+  .delivery-panel__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .delivery-panel__grid,
+  .regras-form__price-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1240px) {
+  .delivery-panel__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regras-page *,
+  .regras-page *::before,
+  .regras-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
