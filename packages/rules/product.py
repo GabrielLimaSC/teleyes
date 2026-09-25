@@ -280,6 +280,41 @@ _DROP_TOKEN_SETS = (
     _TRAILING_CONNECTOR_TOKENS,
 )
 
+
+def is_spec_noise_token(token: str) -> bool:
+    """True for an already-normalised token that is pure capacity/frequency/
+    bus/socket/port noise, a chip-maker name, a generic component
+    descriptor, banner/footer/marketing filler, a leading hype word, a
+    trailing connector, or a bare multiplier ("2x") — never a token that
+    could identify a specific product on its own.
+
+    The exact per-token judgement `_model_fingerprint` already applies when
+    building a `product_key`, exposed publicly so another caller (S14-09's
+    rule suggestion, which needs to tell noise from identity in a title's
+    *original* word order — the key's own brand-first, deduped, reordered
+    tokens are not a contiguous phrase of the real text any more) never
+    disagrees with what the key itself considers noise.
+    """
+    if (
+        _MULTIPLIER_RE.match(token)
+        or _UNIT_SUFFIX_RE.match(token)
+        or _FREQ_SUFFIX_RE.match(token)
+        or _BARE_CHIPSET_RE.match(token)
+    ):
+        return True
+    return any(token in drop_set for drop_set in _DROP_TOKEN_SETS)
+
+
+def is_model_code_token(token: str) -> bool:
+    """True for an already-normalised token that carries a digit and is not
+    itself spec noise (`is_spec_noise_token`) — a real vendor model/SKU
+    fragment ("9800x3d", "5070", "b650m") rather than a capacity/frequency/
+    bus spec ("16gb", "4800mhz", "ddr5") that varies post to post for the
+    same product and never belongs in a rule term meant to survive every
+    posting of it.
+    """
+    return any(char.isdigit() for char in token) and not is_spec_noise_token(token)
+
 # Line/variant words worth keeping: they are what tells two boards with the
 # same brand and chip apart (GamingPro vs Inspire, Challenger vs Challenger
 # Wifi White). A trailing lone "s" after one of these ("GamingPro-S") is

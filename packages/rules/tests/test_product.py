@@ -8,7 +8,13 @@ line ahead of the product line) — never copied from a real message."""
 
 import pytest
 
-from packages.rules.product import product_key, product_text, product_title
+from packages.rules.product import (
+    is_model_code_token,
+    is_spec_noise_token,
+    product_key,
+    product_text,
+    product_title,
+)
 
 PALIT_KEY = "palit-rtx-5070-ti-gamingpro"
 
@@ -270,3 +276,50 @@ def test_very_long_titles_are_capped_on_a_word_boundary() -> None:
     assert key is not None
     assert len(key) <= 200
     assert key.split("-")[-1].startswith("palavra")
+
+
+# S14-09: `is_spec_noise_token`/`is_model_code_token` let another caller
+# (the rule suggestion's candidate-term search) tell noise from identity in
+# a title's *own* word order, without reimplementing `_model_fingerprint`'s
+# per-token judgement.
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("16gb", True),  # capacity
+        ("4800mhz", True),  # frequency
+        ("ddr5", True),  # bus
+        ("hdmi", True),  # port
+        ("placa", True),  # generic descriptor
+        ("nvidia", True),  # chip maker
+        ("oferta", True),  # banner/hype
+        ("por", True),  # dangling connector
+        ("2x", True),  # bare multiplier
+        ("b840", True),  # bare chipset generation
+        ("palit", False),  # brand — real identity
+        ("5070", False),  # model-code digits — real identity
+        ("dt3", False),  # alnum-mixed code fragment — real identity
+        ("fury", False),  # unrecognised word — kept, per `_model_fingerprint`
+    ],
+)
+def test_is_spec_noise_token_matches_what_model_fingerprint_already_drops(
+    token: str, expected: bool
+) -> None:
+    assert is_spec_noise_token(token) is expected
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("5070", True),  # real model-code digits
+        ("9800x3d", True),  # alnum-mixed SKU
+        ("dt3", True),  # alnum-mixed code fragment
+        ("16gb", False),  # capacity spec, not a model code
+        ("4800mhz", False),  # frequency spec, not a model code
+        ("b840", False),  # bare chipset generation, not a model code
+        ("palit", False),  # no digit at all
+    ],
+)
+def test_is_model_code_token_excludes_capacity_and_frequency_specs(
+    token: str, expected: bool
+) -> None:
+    assert is_model_code_token(token) is expected
