@@ -35,7 +35,12 @@ test('with web storage blocked the app still opens, signs in, saves and signs ou
   await page.getByLabel(/Termos incluídos/).fill('semarmazenamento')
   await page.getByLabel(/Termos incluídos/).press('Enter')
   await page.getByRole('button', { name: 'Criar regra' }).click()
-  await expect(page.getByRole('status')).toContainText('Regra criada.')
+  // Strict mode: "Carregando regras…" (a `role="status"` on the still-in-
+  // flight reload) and the "Regra criada." toast (also `role="status"`) can
+  // coexist for a moment — `getByRole('status')` alone then resolves to two
+  // elements and Playwright rejects the locator instead of waiting. Filter
+  // to the one that actually carries the text this assertion cares about.
+  await expect(page.getByRole('status').filter({ hasText: 'Regra criada.' })).toBeVisible()
 
   // The theme button still cycles (its choice just is not remembered).
   await page.getByRole('button', { name: /^Tema: / }).click()

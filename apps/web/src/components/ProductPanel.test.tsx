@@ -248,6 +248,98 @@ describe('ProductPanel', () => {
     expect(screen.getByText('Editar dados')).toBeInTheDocument()
   })
 
+  it('"Salvar alvo" parses the pt-BR thousands dot and calls onSaveTarget with cents', async () => {
+    const product = buildProduct()
+    const onSaveTarget = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+    const user = userEvent.setup()
+
+    render(
+      <ProductPanel
+        productKey={product.product_key}
+        phase="open"
+        onClose={() => {}}
+        onSaveTarget={onSaveTarget}
+        targetRuleName="Placa de vídeo RTX"
+      />,
+    )
+    await screen.findByRole('heading', { name: product.title })
+
+    expect(screen.getByText('Regra: Placa de vídeo RTX')).toBeInTheDocument()
+    const input = screen.getByRole('textbox', { name: 'Avise-me abaixo de' })
+    await user.clear(input)
+    await user.type(input, '5.749')
+    await user.click(screen.getByRole('button', { name: 'Salvar alvo' }))
+
+    expect(onSaveTarget).toHaveBeenCalledWith(574_900)
+  })
+
+  it('prefills "Avise-me abaixo de" from targetPriceCents and shows a pt-BR error without calling onSaveTarget on an invalid value', async () => {
+    const product = buildProduct()
+    const onSaveTarget = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+    const user = userEvent.setup()
+
+    render(
+      <ProductPanel
+        productKey={product.product_key}
+        phase="open"
+        onClose={() => {}}
+        onSaveTarget={onSaveTarget}
+        targetPriceCents={580_000}
+      />,
+    )
+    const input = await screen.findByRole('textbox', { name: 'Avise-me abaixo de' })
+    expect(input).toHaveValue('5.800,00')
+
+    await user.clear(input)
+    await user.type(input, 'abc')
+    await user.click(screen.getByRole('button', { name: 'Salvar alvo' }))
+
+    expect(
+      screen.getByRole('alert'),
+    ).toHaveTextContent('Preço inválido. Use um formato como 5749, 5749,00, 5.749 ou 5.749,00.')
+    expect(onSaveTarget).not.toHaveBeenCalled()
+  })
+
+  it('shows "Reativar" instead of "Silenciar 7 dias" when snoozed is true', async () => {
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+
+    render(
+      <ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} onSnooze={() => {}} snoozed />,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Reativar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Silenciar 7 dias' })).not.toBeInTheDocument()
+  })
+
+  it('calls onEdited after a save and after a revert, with the resulting match', async () => {
+    const product = buildProduct({ current_price_cents: 699_100 })
+    const match = buildEditableMatch()
+    const saved = buildEditableMatch({ price_cents: 574_900, price_source: 'manual' })
+    const onEdited = vi.fn()
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (init?.method === 'PATCH') return Promise.resolve(jsonResponse(saved))
+      if (path.startsWith('/matches')) return Promise.resolve(jsonResponse([match]))
+      return Promise.resolve(jsonResponse(product))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(
+      <ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} onEdited={onEdited} />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    const price = await screen.findByRole('textbox', { name: 'Preço' })
+    await user.clear(price)
+    await user.type(price, '5.749')
+    await user.click(screen.getByRole('button', { name: 'Salvar correção' }))
+
+    await waitFor(() => expect(onEdited).toHaveBeenCalledWith(saved))
+  })
+
   it('opens its own editor, highlights the original candidates and notifies onEditData when provided', async () => {
     const product = buildProduct()
     const match = buildEditableMatch()

@@ -15,6 +15,7 @@ import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { fetchFeedSettings, updateFeedSettings } from '../api/feedSettings'
 import { updateRule } from '../api/rules'
 import { targetGapPct, targetHit } from '../utils/target'
+import { latestMatchForProduct } from '../utils/productMatch'
 import { isSameLocalDay, parseApiDate } from '../utils/dates'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import '../styles/materials.css'
@@ -571,9 +572,30 @@ export function FeedPage() {
           </div>
         </div>
           </div>
-          {panel.phase !== 'closed' && panel.productKey !== null && (
-            <ProductPanel productKey={panel.productKey} phase={panel.phase} onClose={panel.close} />
-          )}
+          {panel.phase !== 'closed' && panel.productKey !== null && (() => {
+            // S14-08 parte 2 (rodada 2): the panel only knows a
+            // `product_key` — the rule its "Alvo de preço"/"Silenciar"
+            // blocks act on is the product's most-recently-matched match
+            // (never the historical minimum or an arbitrary rule), read
+            // straight from the live `matches` already loaded here, same as
+            // every other card action on this page.
+            const panelMatch = latestMatchForProduct(matches, panel.productKey as string)
+            const panelRule = panelMatch ? rules.find((rule) => rule.id === panelMatch.rule_id) : undefined
+            return (
+              <ProductPanel
+                productKey={panel.productKey}
+                phase={panel.phase}
+                onClose={panel.close}
+                onSaveTarget={panelMatch ? (cents) => handleSetTarget(panelMatch.rule_id, cents) : undefined}
+                onCreateRule={() => handleCreateRule(panel.productKey as string)}
+                onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
+                onEdited={() => refresh()}
+                targetPriceCents={panelMatch?.target_price_cents ?? null}
+                targetRuleName={panelRule?.name}
+                snoozed={panelMatch?.snoozed ?? false}
+              />
+            )
+          })()}
         </div>
       )}
     </main>

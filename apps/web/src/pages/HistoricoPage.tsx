@@ -1,16 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
 import { summarizeDeliveryStatus } from '../components/deliveryStatus'
 import { Tooltip } from '../components/Tooltip'
+import { Toast } from '../components/Toast'
 import { cardTitle, productText } from '../components/matchTitle'
 import { ProductPanel, PRODUCT_OPEN_CONTROL_ATTR } from '../components/ProductPanel'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import type { MatchFilters, MatchSort } from '../api/matches'
-import type { Match, Recipient, Rule, Source } from '../api/types'
+import { ApiError } from '../api/auth'
+import { updateRule } from '../api/rules'
+import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
+import type { Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
+import { parseOptionalPriceInput } from '../utils/priceInput'
+import { latestMatchForProduct } from '../utils/productMatch'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { useToast } from '../hooks/useToast'
+import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import '../styles/productOpenTrigger.css'
@@ -61,8 +70,15 @@ export function toApiFilters(form: FilterForm): MatchFilters {
   if (form.ruleId !== '') filters.ruleId = Number(form.ruleId)
   if (form.sourceId !== '') filters.sourceId = Number(form.sourceId)
   if (form.recipientId !== '') filters.recipientId = Number(form.recipientId)
-  if (form.minPriceReais !== '') filters.minPriceCents = Math.round(Number(form.minPriceReais) * 100)
-  if (form.maxPriceReais !== '') filters.maxPriceCents = Math.round(Number(form.maxPriceReais) * 100)
+  // S14-13: `parseOptionalPriceInput` replaces `Math.round(Number(x) * 100)`
+  // — that read the pt-BR thousands dot as a decimal point ("5.749" silently
+  // became 575 cents). An invalid, non-blank value is simply left out of the
+  // filters (never sent as `NaN`) — the field's own inline error is what
+  // tells Gabriel it wasn't applied, never a silently wrong query.
+  const minPrice = parseOptionalPriceInput(form.minPriceReais)
+  if (minPrice.cents !== null) filters.minPriceCents = minPrice.cents
+  const maxPrice = parseOptionalPriceInput(form.maxPriceReais)
+  if (maxPrice.cents !== null) filters.maxPriceCents = maxPrice.cents
   if (form.deliveryStatus !== '') filters.deliveryStatus = form.deliveryStatus
   if (form.sort !== '') filters.sort = form.sort
   return filters
@@ -164,19 +180,88 @@ interface HistoricoRow {
 
 export function HistoricoPage() {
   const panel = useProductPanel()
+  const navigate = useNavigate()
+  const { csrfToken } = useAuth()
+  const { toast, showToast, dismiss } = useToast()
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
+  const [snoozes, setSnoozes] = useState<Snooze[]>([])
   const [form, setForm] = useState<FilterForm>(EMPTY_FILTERS)
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const loadRules = () => fetchRules().then(setRules).catch(() => setRules([]))
+  const loadSnoozes = () => listSnoozes().then(setSnoozes).catch(() => setSnoozes([]))
+
   useEffect(() => {
-    fetchRules().then(setRules).catch(() => setRules([]))
+    loadRules()
     fetchSources().then(setSources).catch(() => setSources([]))
     fetchRecipients().then(setRecipients).catch(() => setRecipients([]))
+    loadSnoozes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function reportError(err: unknown, fallback: string) {
+    showToast(err instanceof ApiError ? err.message : fallback, 'error')
+  }
+
+  function requireCsrf(): string | null {
+    if (csrfToken === null) {
+      showToast(CSRF_MISSING_MESSAGE, 'error')
+      return null
+    }
+    return csrfToken
+  }
+
+  // S14-08 parte 2 (rodada 2): same contract as FeedPage's own
+  // "Criar regra disso" — Regras v2's `/regras?produto=<key>` deep link
+  // (#102), nothing owned here past the navigation itself.
+  function handleCreateRule(productKey: string) {
+    navigate(`/regras?produto=${encodeURIComponent(productKey)}`)
+  }
+
+  // S14-08 parte 2 (rodada 2): same silence/reactivate flow as FeedPage's
+  // `handleCardSnooze` — always scope 'product', always 7 days; reactivating
+  // needs the snooze's own id, looked up from `snoozes` (this page's own
+  // `listSnoozes()`, not a second endpoint).
+  async function handleCardSnooze(match: Match) {
+    const token = requireCsrf()
+    if (token === null || match.product_key === null) return
+    try {
+      if (match.snoozed) {
+        const existing = snoozes.find(
+          (snooze) => snooze.scope === 'product' && snooze.product_key === match.product_key,
+        )
+        if (existing) await reactivateSnooze(token, existing.id)
+        showToast('Silenciamento removido.')
+      } else {
+        await snoozeProduct(token, match.product_key, 7)
+        showToast('Produto silenciado por 7 dias.')
+      }
+      await loadSnoozes()
+      loadMatches()
+    } catch (err) {
+      reportError(err, 'Não foi possível atualizar o silenciamento.')
+    }
+  }
+
+  // S14-08 parte 2 (rodada 2): same `PATCH /rules/{id}` as FeedPage's
+  // `handleSetTarget` and MatchCard's "Definir alvo" — only
+  // `target_price_cents` in the body.
+  async function handleSetTarget(ruleId: number, targetCents: number) {
+    const token = requireCsrf()
+    if (token === null) return
+    try {
+      await updateRule(token, ruleId, { target_price_cents: targetCents })
+      showToast('Alvo de preço salvo.')
+      await loadRules()
+      loadMatches()
+    } catch (err) {
+      reportError(err, 'Não foi possível salvar o alvo.')
+    }
+  }
 
   // S7-02: named and stable per filter combination so a visible "Atualizar"
   // button can trigger the exact same reload on demand, not just the effect
@@ -284,8 +369,22 @@ export function HistoricoPage() {
 
   const exportCsv = () => downloadCsv(buildCsv(rows))
 
+  // S14-13: inline pt-BR error for an unparseable, non-blank price filter —
+  // `toApiFilters` already drops it from the query instead of sending `NaN`,
+  // so this is what tells Gabriel that silently happened.
+  const minPriceError = useMemo(() => parseOptionalPriceInput(form.minPriceReais).error, [form.minPriceReais])
+  const maxPriceError = useMemo(() => parseOptionalPriceInput(form.maxPriceReais).error, [form.maxPriceReais])
+
+  // S14-08 parte 2 (rodada 2): the panel only knows a `product_key` — same
+  // "most-recently-matched match decides the rule" resolution as FeedPage,
+  // against this page's own filtered `matches` (already loaded, no second
+  // request).
+  const panelMatch = panel.productKey !== null ? latestMatchForProduct(matches, panel.productKey) : null
+  const panelRule = panelMatch ? rules.find((rule) => rule.id === panelMatch.rule_id) : undefined
+
   return (
     <main className="historico-page">
+      <Toast toast={toast} onDismiss={dismiss} />
       <div className="historico-page__header">
         <div>
           <h1>Histórico</h1>
@@ -394,23 +493,44 @@ export function HistoricoPage() {
           <div className="historico-rail__price-grid">
             <label>
               Preço mínimo (R$)
+              {/* `aria-label` pins the accessible name to the label's own
+                  text — same fix as the Regra/Fonte/Destinatário selects
+                  above (S14-07 revisão 2): without it, an implicit label
+                  association folds the error span's own text into this
+                  field's name the moment it shows up. */}
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
+                aria-label="Preço mínimo (R$)"
+                placeholder="5.749,00"
+                aria-invalid={minPriceError !== null}
+                aria-describedby={minPriceError !== null ? 'min-price-error' : undefined}
                 value={form.minPriceReais}
                 onChange={(event) => updateField('minPriceReais')(event.target.value)}
               />
+              {minPriceError !== null && (
+                <span id="min-price-error" role="alert" className="historico-rail__price-error">
+                  {minPriceError}
+                </span>
+              )}
             </label>
             <label>
               Preço máximo (R$)
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
+                aria-label="Preço máximo (R$)"
+                placeholder="5.749,00"
+                aria-invalid={maxPriceError !== null}
+                aria-describedby={maxPriceError !== null ? 'max-price-error' : undefined}
                 value={form.maxPriceReais}
                 onChange={(event) => updateField('maxPriceReais')(event.target.value)}
               />
+              {maxPriceError !== null && (
+                <span id="max-price-error" role="alert" className="historico-rail__price-error">
+                  {maxPriceError}
+                </span>
+              )}
             </label>
           </div>
           <div className="historico-rail__divider" />
@@ -573,7 +693,18 @@ export function HistoricoPage() {
       </div>
       </div>
       {panel.phase !== 'closed' && panel.productKey !== null && (
-        <ProductPanel productKey={panel.productKey} phase={panel.phase} onClose={panel.close} />
+        <ProductPanel
+          productKey={panel.productKey}
+          phase={panel.phase}
+          onClose={panel.close}
+          onSaveTarget={panelMatch ? (cents) => handleSetTarget(panelMatch.rule_id, cents) : undefined}
+          onCreateRule={() => handleCreateRule(panel.productKey as string)}
+          onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
+          onEdited={() => loadMatches()}
+          targetPriceCents={panelMatch?.target_price_cents ?? null}
+          targetRuleName={panelRule?.name}
+          snoozed={panelMatch?.snoozed ?? false}
+        />
       )}
       </div>
     </main>

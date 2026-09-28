@@ -5,6 +5,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HistoricoPage, toApiFilters } from './HistoricoPage'
 import type { FilterForm } from './HistoricoPage'
 
+// S14-08 parte 2 (rodada 2): HistoricoPage now reads `csrfToken` from
+// `useAuth()` too (the panel's "Definir alvo"/"Silenciar" actions) — same
+// stub every other authenticated-page suite already uses (FeedPage.test.tsx,
+// SaudePage.test.tsx), preserving every other real export
+// (`CSRF_MISSING_MESSAGE`) instead of replacing the whole module.
+vi.mock('../auth/AuthContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../auth/AuthContext')>()
+  return {
+    ...actual,
+    useAuth: () => ({
+      status: 'authenticated',
+      adminId: 1,
+      csrfMissing: false,
+      csrfToken: 'test-csrf',
+      login: vi.fn(),
+      logout: vi.fn(),
+    }),
+  }
+})
+
 // S14-08: HistoricoPage now reads/writes `?produto=` via react-router-dom's
 // useSearchParams (the product panel's deep link) — it needs a Router in
 // its tree even when a given test has nothing to do with the panel itself.
@@ -36,6 +56,18 @@ describe('toApiFilters', () => {
       minPriceCents: 1990,
       maxPriceCents: 389_900,
     })
+  })
+
+  // S14-13: `parseOptionalPriceInput` replaces `Math.round(Number(x) * 100)`
+  // — that read the pt-BR thousands dot as a decimal point ("5.749" silently
+  // became 575 cents instead of 574900).
+  it('reads the pt-BR thousands dot correctly — "5.749" is R$ 5.749, never R$ 5,75', () => {
+    expect(toApiFilters({ ...EMPTY, minPriceReais: '5.749' })).toEqual({ minPriceCents: 574_900 })
+    expect(toApiFilters({ ...EMPTY, minPriceReais: '5.749' })).not.toEqual({ minPriceCents: 575 })
+  })
+
+  it('leaves an unparseable, non-blank price filter out of the query instead of sending NaN', () => {
+    expect(toApiFilters({ ...EMPTY, minPriceReais: 'abc', maxPriceReais: '5,749' })).toEqual({})
   })
 
   it('parses the numeric ids and forwards the delivery status as-is', () => {
@@ -580,6 +612,24 @@ describe('HistoricoPage', () => {
 
     expect(screen.queryByRole('button', { name: 'Aplicar filtros' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument()
+  })
+
+  it('shows a pt-BR error under an unparseable price filter, visibly, never silently (S14-13)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(jsonResponse([]))),
+    )
+    const user = userEvent.setup()
+
+    renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+    await user.type(screen.getByLabelText('Preço mínimo (R$)'), '5,749')
+
+    expect(
+      await screen.findByText('Preço inválido. Use um formato como 5749, 5749,00, 5.749 ou 5.749,00.'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveAttribute('aria-invalid', 'true')
   })
 
   it('a title long enough to be clipped by the 2-line clamp keeps its full text in a Tooltip (S11-04 review)', async () => {

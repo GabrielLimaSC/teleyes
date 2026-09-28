@@ -124,6 +124,12 @@
   gap: 10px;
 }
 
+.historico-rail__price-error {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--plane-status-danger);
+}
+
 .historico-rail__divider {
   height: 1px;
   background: var(--glass-divider-bg);

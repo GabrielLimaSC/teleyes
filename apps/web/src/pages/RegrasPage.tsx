@@ -19,6 +19,7 @@ import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
 import { ApiError } from '../api/auth'
 import type { DigestSettings, PricePoint, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
+import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
 import { formatDayMonth, formatMatchedAt } from '../utils/dates'
 import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
@@ -63,14 +64,19 @@ function ruleToForm(rule: Rule, { asCopy }: { asCopy: boolean }): RuleForm {
   }
 }
 
+// S14-13: `parseOptionalPriceInput` replaces `Math.round(Number(x) * 100)` —
+// that read the pt-BR thousands dot as a decimal point ("5.749" silently
+// became 575 cents instead of 574900). `.cents` is `null` for both "left
+// blank" and "unparseable" here; `submitForm` validates both fields with the
+// same parser first and blocks the save with a visible pt-BR error before
+// either of these ever runs on a malformed value.
 function formToInput(form: RuleForm): RuleInput {
   return {
     name: form.name,
     include_terms: form.includeTerms,
     exclude_terms: form.excludeTerms.trim() === '' ? null : form.excludeTerms,
-    max_price_cents: form.maxPriceReais.trim() === '' ? null : Math.round(Number(form.maxPriceReais) * 100),
-    target_price_cents:
-      form.targetPriceReais.trim() === '' ? null : Math.round(Number(form.targetPriceReais) * 100),
+    max_price_cents: parseOptionalPriceInput(form.maxPriceReais).cents,
+    target_price_cents: parseOptionalPriceInput(form.targetPriceReais).cents,
   }
 }
 
@@ -81,7 +87,7 @@ function formToTestInput(form: RuleForm): RuleTestInput {
   return {
     include_terms: form.includeTerms,
     exclude_terms: form.excludeTerms.trim() === '' ? null : form.excludeTerms,
-    max_price_cents: form.maxPriceReais.trim() === '' ? null : Math.round(Number(form.maxPriceReais) * 100),
+    max_price_cents: parseOptionalPriceInput(form.maxPriceReais).cents,
   }
 }
 
@@ -393,6 +399,19 @@ export function RegrasPage() {
     }
     if (parseTermList(form.includeTerms).length === 0) {
       setFormError(NO_TERMS_MESSAGE)
+      return
+    }
+    // S14-13: validate both price fields with the one parser before ever
+    // building the request — a malformed "Teto"/"Alvo" now shows its own
+    // pt-BR error instead of silently saving `null`/`NaN`.
+    const maxPrice = parseOptionalPriceInput(form.maxPriceReais)
+    if (maxPrice.error !== null) {
+      setFormError(maxPrice.error)
+      return
+    }
+    const targetPrice = parseOptionalPriceInput(form.targetPriceReais)
+    if (targetPrice.error !== null) {
+      setFormError(targetPrice.error)
       return
     }
     setSubmitting(true)
@@ -1053,9 +1072,8 @@ export function RegrasPage() {
               <label className="regras-form__field">
                 Teto (R$)
                 <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={form.maxPriceReais}
                   onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
                   placeholder="sem teto"
@@ -1064,9 +1082,8 @@ export function RegrasPage() {
               <label className="regras-form__field">
                 Alvo (R$)
                 <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={form.targetPriceReais}
                   onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
                   placeholder="sem alvo"

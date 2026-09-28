@@ -821,6 +821,55 @@ describe('RegrasPage', () => {
     })
   })
 
+  it('parses the pt-BR thousands dot in "Teto"/"Alvo" — "5.749" is R$ 5.749, never R$ 5,75 (S14-13)', async () => {
+    // Regression: `Math.round(Number(form.maxPriceReais) * 100)` read the
+    // dot as a decimal point, turning "5.749" into 575 cents instead of
+    // 574900 — same bug MatchCard's "Definir alvo" already had (S14-07).
+    let postedBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn(
+      withEmptyRecipients((_input, init) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'POST') {
+          postedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+          return Promise.resolve(jsonResponse({ ...baseRule, id: 2 }, 201))
+        }
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.type(await screen.findByLabelText(/Nome/), 'Placa de vídeo')
+    await user.type(screen.getByLabelText(/Termos incluídos/), 'rtx{Enter}')
+    await user.type(screen.getByLabelText(/Teto \(R\$\)/), '5.749')
+    await user.type(screen.getByLabelText(/Alvo \(R\$\)/), '5.749,90')
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
+
+    await waitFor(() => expect(postedBody).not.toBeNull())
+    expect(postedBody).toMatchObject({ max_price_cents: 574_900, target_price_cents: 574_990 })
+    expect(postedBody).not.toMatchObject({ max_price_cents: 575 })
+  })
+
+  it('a malformed "Teto"/"Alvo" shows a pt-BR error and never saves (S14-13)', async () => {
+    const fetchMock = vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([]))))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    await user.type(await screen.findByLabelText(/Nome/), 'Placa de vídeo')
+    await user.type(screen.getByLabelText(/Termos incluídos/), 'rtx{Enter}')
+    await user.type(screen.getByLabelText(/Teto \(R\$\)/), '5,749')
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
+
+    expect(
+      await screen.findByText('Preço inválido. Use um formato como 5749, 5749,00, 5.749 ou 5.749,00.'),
+    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'POST' }))
+  })
+
   it('editing a rule loads its terms as chips; removing one saves the shorter string (S11-05)', async () => {
     let patchedBody: Record<string, unknown> | null = null
     const fetchMock = vi.fn(
@@ -1225,8 +1274,8 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     expect(await screen.findByText('pré-preenchida do produto')).toBeInTheDocument()
     expect(screen.getByLabelText(/Nome/)).toHaveValue('Palit RTX 5070 Ti 16GB')
     expect(screen.getByRole('button', { name: 'Remover termo palit rtx 5070 ti' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/Teto/)).toHaveValue(6300)
-    expect(screen.getByLabelText(/Alvo/)).toHaveValue(5800)
+    expect(screen.getByLabelText(/Teto/)).toHaveValue('6300')
+    expect(screen.getByLabelText(/Alvo/)).toHaveValue('5800')
     const note = screen.getByText(/Sugerido a partir do histórico/)
     expect(note).toHaveTextContent('R$ 6.512,00')
     expect(note).toHaveTextContent('R$ 5.800,00')
