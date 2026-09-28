@@ -1201,6 +1201,25 @@
         "title": "RuleCreate",
         "type": "object"
       },
+      "RuleHistoryPointResponse": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "price_cents"
+        ],
+        "title": "RuleHistoryPointResponse",
+        "type": "object"
+      },
       "RuleResponse": {
         "properties": {
           "active": {
@@ -1222,6 +1241,14 @@
               }
             ],
             "title": "Exclude Terms"
+          },
+          "history_30d": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RuleHistoryPointResponse"
+            },
+            "title": "History 30D",
+            "type": "array"
           },
           "id": {
             "title": "Id",
@@ -1292,6 +1319,77 @@
           "created_at"
         ],
         "title": "RuleResponse",
+        "type": "object"
+      },
+      "RuleSuggestionResponse": {
+        "properties": {
+          "average_30d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average 30D Cents"
+          },
+          "include_terms": {
+            "title": "Include Terms",
+            "type": "string"
+          },
+          "lowest_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest 90D Cents"
+          },
+          "max_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Price Cents"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
+          }
+        },
+        "required": [
+          "product_key",
+          "name",
+          "include_terms",
+          "max_price_cents",
+          "target_price_cents",
+          "average_30d_cents",
+          "lowest_90d_cents"
+        ],
+        "title": "RuleSuggestionResponse",
         "type": "object"
       },
       "RuleTestMatch": {
@@ -2887,6 +2985,66 @@
           }
         },
         "summary": "Get Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{key}/rule-suggestion": {
+      "get": {
+        "operationId": "get_rule_suggestion_products__key__rule_suggestion_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSuggestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Rule Suggestion",
         "tags": [
           "products"
         ]

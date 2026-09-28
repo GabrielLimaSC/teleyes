@@ -8,7 +8,13 @@ line ahead of the product line) — never copied from a real message."""
 
 import pytest
 
-from packages.rules.product import product_key, product_text, product_title
+from packages.rules.product import (
+    is_model_code_token,
+    is_spec_noise_token,
+    product_key,
+    product_text,
+    product_title,
+)
 
 PALIT_KEY = "palit-rtx-5070-ti-gamingpro"
 
@@ -217,6 +223,29 @@ def test_no_product_text_means_no_key(message_text: str) -> None:
     assert product_title(message_text) is None
 
 
+@pytest.mark.parametrize(
+    ("message_text", "expected"),
+    [
+        # S14-09 review 3: a rule-suggestion candidate treats "headset" as a
+        # generic product-type word (see `apps.routers.products.
+        # _SUGGESTION_EDGE_NOISE`), but `product_key` must never do the
+        # same — review 2 tried adding it to this module's own
+        # `_GENERIC_DISCARD_TOKENS` and it silently moved every one of these
+        # three keys (dropping "headset"), which would fragment a real
+        # headset's already-recorded history/target/snooze without a
+        # backfill migration. Pinned here so nobody reintroduces that by
+        # touching this module instead of the router-local set.
+        ("Headset Gamer Logitech G435 Lightspeed\n\nR$ 349,00", "g435-headset-logitech-lightspeed"),
+        ("Headset Redragon Zeus X H510\n\nR$ 279,90", "redragon-h510-headset-zeus"),
+        ("Fone Headset JBL Quantum 100\n\nR$ 149,00", "100-fone-headset-jbl-quantum"),
+    ],
+)
+def test_headset_products_with_a_model_code_keep_the_word_in_their_key(
+    message_text: str, expected: str
+) -> None:
+    assert product_key(message_text) == expected
+
+
 def test_link_near_the_start_falls_back_to_the_full_text_like_the_web_card() -> None:
     text = "https://loja.example/p\nMouse Logitech G305\nR$ 199"
 
@@ -234,6 +263,22 @@ def test_title_keeps_original_case_without_emojis_or_price() -> None:
     text = "🔥 Placa de Vídeo Palit RTX 5070 Ti 16GB 🔥\n\n💵 R$ 5.749,00 no pix\nhttps://x.example"
 
     assert product_title(text) == "Placa de Vídeo Palit RTX 5070 Ti 16GB"
+
+
+def test_title_drops_the_connector_word_a_same_line_price_cut_leaves_dangling() -> None:
+    # "por" introduced the price on the *same* line as the title — cutting
+    # at the price marker alone would leave "...16GB por" (S14-09: this
+    # title lands verbatim in the rule-suggestion "Nome" field).
+    text = "Placa de Vídeo Palit RTX 5070 Ti GamingPro 16GB por R$ 5.899,90\nhttps://x.example/2"
+
+    assert product_title(text) == "Placa de Vídeo Palit RTX 5070 Ti GamingPro 16GB"
+
+
+def test_title_never_drops_a_real_trailing_word_that_only_happens_to_spell_a_connector() -> None:
+    # No price/noise marker on this line at all — "A" is the title's own
+    # last word (e.g. distinguishing it from a "Barato B"), not a leftover
+    # from a cut, so it must survive.
+    assert product_title("Barato A") == "Barato A"
 
 
 def test_key_is_deterministic_and_url_safe() -> None:
@@ -254,3 +299,50 @@ def test_very_long_titles_are_capped_on_a_word_boundary() -> None:
     assert key is not None
     assert len(key) <= 200
     assert key.split("-")[-1].startswith("palavra")
+
+
+# S14-09: `is_spec_noise_token`/`is_model_code_token` let another caller
+# (the rule suggestion's candidate-term search) tell noise from identity in
+# a title's *own* word order, without reimplementing `_model_fingerprint`'s
+# per-token judgement.
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("16gb", True),  # capacity
+        ("4800mhz", True),  # frequency
+        ("ddr5", True),  # bus
+        ("hdmi", True),  # port
+        ("placa", True),  # generic descriptor
+        ("nvidia", True),  # chip maker
+        ("oferta", True),  # banner/hype
+        ("por", True),  # dangling connector
+        ("2x", True),  # bare multiplier
+        ("b840", True),  # bare chipset generation
+        ("palit", False),  # brand — real identity
+        ("5070", False),  # model-code digits — real identity
+        ("dt3", False),  # alnum-mixed code fragment — real identity
+        ("fury", False),  # unrecognised word — kept, per `_model_fingerprint`
+    ],
+)
+def test_is_spec_noise_token_matches_what_model_fingerprint_already_drops(
+    token: str, expected: bool
+) -> None:
+    assert is_spec_noise_token(token) is expected
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("5070", True),  # real model-code digits
+        ("9800x3d", True),  # alnum-mixed SKU
+        ("dt3", True),  # alnum-mixed code fragment
+        ("16gb", False),  # capacity spec, not a model code
+        ("4800mhz", False),  # frequency spec, not a model code
+        ("b840", False),  # bare chipset generation, not a model code
+        ("palit", False),  # no digit at all
+    ],
+)
+def test_is_model_code_token_excludes_capacity_and_frequency_specs(
+    token: str, expected: bool
+) -> None:
+    assert is_model_code_token(token) is expected

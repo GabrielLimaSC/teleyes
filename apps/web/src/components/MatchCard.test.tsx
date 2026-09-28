@@ -15,6 +15,7 @@ const rule: Rule = {
   created_at: '2026-01-01T00:00:00Z',
   lowest_price_cents: null,
   snoozed_until: null,
+  history_30d: [],
 }
 
 const source: Source = {

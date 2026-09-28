@@ -278,6 +278,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/{key}/rule-suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rule Suggestion */
+        get: operations["get_rule_suggestion_products__key__rule_suggestion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipients": {
         parameters: {
             query?: never;
@@ -1004,6 +1021,16 @@ export interface components {
             /** Target Price Cents */
             target_price_cents?: number | null;
         };
+        /** RuleHistoryPointResponse */
+        RuleHistoryPointResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Price Cents */
+            price_cents: number;
+        };
         /** RuleResponse */
         RuleResponse: {
             /** Active */
@@ -1015,6 +1042,11 @@ export interface components {
             created_at: string;
             /** Exclude Terms */
             exclude_terms: string | null;
+            /**
+             * History 30D
+             * @default []
+             */
+            history_30d: components["schemas"]["RuleHistoryPointResponse"][];
             /** Id */
             id: number;
             /** Include Terms */
@@ -1027,6 +1059,23 @@ export interface components {
             name: string;
             /** Snoozed Until */
             snoozed_until?: string | null;
+            /** Target Price Cents */
+            target_price_cents: number | null;
+        };
+        /** RuleSuggestionResponse */
+        RuleSuggestionResponse: {
+            /** Average 30D Cents */
+            average_30d_cents: number | null;
+            /** Include Terms */
+            include_terms: string;
+            /** Lowest 90D Cents */
+            lowest_90d_cents: number | null;
+            /** Max Price Cents */
+            max_price_cents: number | null;
+            /** Name */
+            name: string;
+            /** Product Key */
+            product_key: string;
             /** Target Price Cents */
             target_price_cents: number | null;
         };
@@ -1752,6 +1801,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rule_suggestion_products__key__rule_suggestion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleSuggestionResponse"];
                 };
             };
             /** @description Validation Error */

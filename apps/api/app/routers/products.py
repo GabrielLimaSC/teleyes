@@ -15,8 +15,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.main import get_current_session, get_db
+from app.pipeline import evaluate_rule
 from app.product_history import (
     HistoryRange,
+    Posting,
     PricePoint,
     get_display_timezone,
     load_postings,
@@ -24,7 +26,14 @@ from app.product_history import (
     series_for_range,
 )
 from app.utc import UtcDatetime, utc_now
-from packages.rules.product import product_title
+from models import Rule
+from packages.rules.normalize import normalize_text
+from packages.rules.product import (
+    is_model_code_suffix,
+    is_model_code_token,
+    is_spec_noise_token,
+    product_title,
+)
 
 POSTINGS_LIMIT = 100
 
@@ -75,6 +84,330 @@ class ProductResponse(BaseModel):
     series: list[PricePointResponse]
     # Newest first, at most POSTINGS_LIMIT; `total_count` is the real total.
     postings: list[ProductPostingResponse]
+
+
+class RuleSuggestionResponse(BaseModel):
+    product_key: str
+    name: str
+    include_terms: str
+    max_price_cents: int | None
+    target_price_cents: int | None
+    average_30d_cents: int | None
+    lowest_90d_cents: int | None
+
+
+_MAX_CANDIDATE_WIDTH = 6  # a wider window past this never reads as "conservative" any more
+
+# S14-09 review 3: generic product-type descriptors that must never count as
+# identity content in a *rule-suggestion candidate*, even though a store's
+# wording keeps them right next to the real product name ("Headset HyperX
+# Cloud III") — the audio/peripheral/furniture counterparts of
+# `packages.rules.product`'s own "placa"/"processador"/"memoria". This is
+# deliberately its own, local set rather than an addition to that module's
+# `_GENERIC_DISCARD_TOKENS`/`is_spec_noise_token`: review 2 tried adding
+# "headset" there and it looked safe against the review's synthetic corpus,
+# but it silently changes `product_key` for any headset that *does* carry a
+# model code ("Headset Gamer Logitech G435 Lightspeed":
+# `g435-headset-logitech-lightspeed` -> `g435-logitech-lightspeed`),
+# fragmenting that product's already-recorded history/target/snooze without a
+# backfill migration. A rule-suggestion candidate only needs these words
+# excluded from its own edges and from `_specificity_key`'s identity count —
+# the stable, persisted `product_key` never needs to agree, and does not.
+_SUGGESTION_EDGE_NOISE = frozenset("headset fone mouse teclado monitor cadeira".split())
+
+
+def _is_suggestion_noise(token: str) -> bool:
+    """`is_spec_noise_token`, plus `_SUGGESTION_EDGE_NOISE` — noise for the
+    purpose of building/ranking a rule-suggestion candidate only, never for
+    `product_key` (see `_SUGGESTION_EDGE_NOISE`'s docstring)."""
+    return is_spec_noise_token(token) or token in _SUGGESTION_EDGE_NOISE
+
+
+def _identity_runs(tokens: list[str]) -> list[tuple[int, int]]:
+    """Maximal contiguous `[start, end)` spans of tokens `_is_suggestion_noise` rejects."""
+    runs: list[tuple[int, int]] = []
+    start: int | None = None
+    for index, token in enumerate(tokens):
+        if _is_suggestion_noise(token):
+            if start is not None:
+                runs.append((start, index))
+                start = None
+        elif start is None:
+            start = index
+    if start is not None:
+        runs.append((start, len(tokens)))
+    return runs
+
+
+def _valid_boundary(span: list[str]) -> bool:
+    """A candidate phrase may never start or end mid-noise (S14-09 review).
+
+    The leading edge always rejects a noise token (`_is_suggestion_noise` —
+    which already covers a dangling connector like "por" and a generic
+    product-type word like "headset"). The trailing edge checks the
+    single-letter-suffix case *first*: a lone single letter right after a
+    model-code token ("a" in "b650m a") is a real model-code suffix, even
+    though `_is_suggestion_noise` also happens to classify it as a dangling
+    connector word ("a" is Portuguese "at/to") — the generic noise check must
+    never run first and reject it before this carve-out gets a chance to
+    recognise it in context (that was the bug: `_is_suggestion_noise
+    (span[-1])` short-circuited "a" out before the model-code check below
+    ever ran, so "b650m a"/"pro b650m a" were silently dropped and every
+    candidate anchored on that model code fell back to a fragment missing its
+    own suffix). A lone letter with nothing model-coded before it ("s" in a
+    stray "GamingPro-S" window that dropped "GamingPro") is just noise-shaped
+    padding that would out-rank a shorter, equally-real candidate under
+    `_specificity_key` without identifying anything, so it stays rejected.
+    Anything else at the trailing edge falls through to the ordinary noise
+    check.
+    """
+    if _is_suggestion_noise(span[0]):
+        return False
+    last = span[-1]
+    if len(last) == 1 and last.isalpha():
+        return len(span) >= 2 and is_model_code_token(span[-2])
+    return not _is_suggestion_noise(last)
+
+
+def _candidate_terms_for_title(title: str) -> list[str]:
+    """Contiguous phrases of `title` worth trying as a rule's include term —
+    never a single token, never a phrase built only from noise words, never
+    a reordering of the real text (unlike `product_key`, which deliberately
+    puts brand first and drops duplicates — perfect for a stable identity,
+    wrong for a rule term that must appear verbatim in the message it is
+    supposed to catch).
+
+    Candidates are built two ways:
+
+    1. Anchored on every "código de modelo" token (`is_model_code_token` — a
+       token with a digit that is not itself a capacity/frequency/bus spec,
+       "5070"/"9800x3d"/"dt3" rather than "16gb"/"4800mhz"/"ddr5"), widening
+       outward up to `_MAX_CANDIDATE_WIDTH`. When the code is immediately
+       followed by a suffix that only ever continues it (`is_model_code_suffix`
+       — "ti" in "5070 ti", the "a" in "b650m a"), every window anchored
+       there is required to reach past it: a candidate is never allowed to
+       cut a code off from its own suffix ("rtx 5070" alone also catches a
+       non-Ti 5070; "pro b650m" alone merges "B650M-A" with "B650M-P" —
+       exactly the fragmentation S14-01 built the key to prevent).
+    2. Only when the title has no model-code token at all (a brand-only
+       product — "Kingston Fury Beast", "Memtech" — S14-01's own
+       `product_key` falls back to capacity there for the very same
+       reason): every contiguous run of non-noise tokens, widened the same
+       way; a run one token long still yields a two-token candidate by
+       bridging to one real neighbour.
+
+    `_valid_boundary` filters every window as it is built. The caller
+    (`get_rule_suggestion`) validates each surviving candidate against the
+    product's *real* postings and picks the most specific one that covers
+    them (`_specificity_key`) — this function only proposes plausible,
+    literal substrings, never guarantees a match or a ranking on its own.
+    """
+    tokens = normalize_text(title).split()
+    total = len(tokens)
+    if total < 2:
+        return []
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def consider(start: int, end: int) -> None:
+        if end - start < 2 or start < 0 or end > total:
+            return
+        span = tokens[start:end]
+        if not _valid_boundary(span):
+            return
+        phrase = " ".join(span)
+        if phrase in seen:
+            return
+        seen.add(phrase)
+        candidates.append(phrase)
+
+    def required_end(anchor: int) -> int:
+        """The minimum `end` a window covering `anchor` must reach: past a
+        mandatory suffix right after it, if there is one."""
+        if anchor + 1 < total and is_model_code_suffix(tokens[anchor + 1]):
+            return anchor + 2
+        return anchor + 1
+
+    model_indexes = [index for index, token in enumerate(tokens) if is_model_code_token(token)]
+    if model_indexes:
+        for anchor in model_indexes:
+            minimum_end = required_end(anchor)
+            max_width = min(total, _MAX_CANDIDATE_WIDTH)
+            for width in range(2, max_width + 1):
+                for start in range(max(0, anchor - width + 1), min(anchor, total - width) + 1):
+                    end = start + width
+                    if end < minimum_end:
+                        continue
+                    consider(start, end)
+    else:
+        for run_start, run_end in _identity_runs(tokens):
+            if run_end - run_start >= 2:
+                max_width = min(run_end - run_start, _MAX_CANDIDATE_WIDTH)
+                for width in range(2, max_width + 1):
+                    for start in range(run_start, run_end - width + 1):
+                        consider(start, start + width)
+            else:
+                # A lone identity token: bridge to one real neighbour (still
+                # a literal, contiguous slice of the title) so it can still
+                # produce a two-token candidate.
+                consider(run_start - 1, run_start + 1)
+                consider(run_start, run_start + 2)
+
+    if not candidates:
+        # Every token was noise, or the only runs were unbridgeable — the
+        # whole (still real, still literal) title is the last, honest
+        # resort, exactly like the old fingerprint fallback used to be.
+        return [" ".join(tokens)]
+
+    return candidates
+
+
+def _specificity_key(phrase: str) -> tuple[int, int, int]:
+    """Sort key that picks the *most specific* of several equally-valid
+    candidates (S14-09 review): most non-noise tokens first (real identity
+    content), then fewest noise tokens (no padding), then the fewest tokens
+    overall. Applied only to candidates that already matched every real
+    posting, never to decide whether one matches at all.
+    """
+    tokens = phrase.split()
+    noise = sum(1 for token in tokens if _is_suggestion_noise(token))
+    non_noise = len(tokens) - noise
+    return (-non_noise, noise, len(tokens))
+
+
+def _matches_every_word(term: str, message_text: str) -> bool:
+    """Would a rule with this one include term (no ceiling) catch `message_text`?
+
+    Reuses `app.pipeline.evaluate_rule` — the exact function the live path,
+    the historical scan and `POST /rules/test` all run — against a
+    transient, never-persisted `Rule`, so "does this candidate really match"
+    means precisely what it would mean once Gabriel saves it for real.
+    """
+    candidate_rule = Rule(include_terms=term, exclude_terms=None, max_price_cents=None)
+    return evaluate_rule(candidate_rule, message_text).discard_reason is None
+
+
+def _choose_include_terms(candidates: list[str], postings: list[Posting]) -> str:
+    """Pick real, verbatim include term(s) that cover every posting of the product.
+
+    Among every candidate that matches *every* posting's text, the most
+    specific one wins outright (`_specificity_key`, S14-09 review 2) — the
+    common case, one term. Picking the first/shortest full match used to be
+    the rule, but the shortest term that still matches everyone is often
+    *too* generic to trust ("rtx 5070" also catches a non-Ti 5070 that never
+    posted; "kingston fury" also catches an unrelated Kingston Fury Renegade)
+    even though it is, technically, a correct answer for these postings.
+    Postings of the same `product_key` can still differ in wording (a
+    different store, a different capacity/frequency variant that the key
+    intentionally folds together), so when no single candidate covers
+    everyone this falls back to a greedy set cover: repeatedly keep whichever
+    remaining candidate matches the most still-uncovered postings — ties
+    broken the same way, by specificity — until either every posting is
+    covered or no remaining candidate matches anything left —
+    `include_terms` then carries more than one comma-separated term, which
+    `MatchRule` already treats as OR alternatives (never AND), so this is
+    exactly what the rule form already expects. A posting is only ever left
+    uncovered when *no* candidate matches it at all — nothing here invents a
+    term never seen in the text.
+    """
+    texts = [posting.message_text for posting in postings]
+    if not candidates:
+        return ""
+    if not texts:
+        return min(candidates, key=_specificity_key)
+
+    full_matches = [
+        candidate
+        for candidate in candidates
+        if all(_matches_every_word(candidate, text) for text in texts)
+    ]
+    if full_matches:
+        return min(full_matches, key=_specificity_key)
+
+    remaining = set(range(len(texts)))
+    pool = list(candidates)
+    chosen: list[str] = []
+    while remaining and pool:
+        best_term: str | None = None
+        best_cover: set[int] = set()
+        for term in pool:
+            cover = {index for index in remaining if _matches_every_word(term, texts[index])}
+            if best_term is None or len(cover) > len(best_cover):
+                if cover:
+                    best_cover = cover
+                    best_term = term
+            elif len(cover) == len(best_cover) and cover and (
+                _specificity_key(term) < _specificity_key(best_term)
+            ):
+                best_cover = cover
+                best_term = term
+        if best_term is None or not best_cover:
+            break
+        chosen.append(best_term)
+        remaining -= best_cover
+        pool.remove(best_term)
+
+    return ", ".join(chosen) if chosen else min(candidates, key=_specificity_key)
+
+
+def _three_percent_below(price_cents: int | None) -> int | None:
+    """Subtract 3%, rounding half-up to the nearest cent with integer math."""
+    if price_cents is None:
+        return None
+    return (price_cents * 97 + 50) // 100
+
+
+@router.get("/{key}/rule-suggestion", response_model=RuleSuggestionResponse)
+def get_rule_suggestion(
+    key: str = Path(min_length=1, max_length=255),
+    db: Session = Depends(get_db),
+    now: datetime = Depends(utc_now),
+) -> RuleSuggestionResponse:
+    postings = load_postings(db, key)
+    if not postings:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    # Every distinct title across the product's own postings (newest first,
+    # per `load_postings`) — not just the newest one — so a candidate is
+    # proposed from each real wording and `_choose_include_terms` can cover
+    # postings whose title differs (a different store, a different
+    # capacity/frequency variant `product_key` intentionally folds
+    # together). `name` stays the newest posting's own title, unchanged.
+    titles = list(
+        dict.fromkeys(
+            cleaned
+            for posting in postings
+            if (cleaned := product_title(posting.message_text)) is not None
+        )
+    )
+    name = titles[0] if titles else key
+
+    # Order does not matter here any more: `_choose_include_terms` picks by
+    # `_specificity_key`, not by whichever candidate comes first.
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    for candidate_title in titles:
+        for phrase in _candidate_terms_for_title(candidate_title):
+            if phrase not in seen_candidates:
+                seen_candidates.add(phrase)
+                candidates.append(phrase)
+
+    if candidates:
+        include_terms = _choose_include_terms(candidates, postings)
+    else:
+        include_terms = normalize_text(key.replace("-", " "))
+
+    stats = price_stats(postings, now)
+    return RuleSuggestionResponse(
+        product_key=key,
+        name=name,
+        include_terms=include_terms,
+        max_price_cents=_three_percent_below(stats.average_30d_cents),
+        target_price_cents=stats.lowest_90d_cents,
+        average_30d_cents=stats.average_30d_cents,
+        lowest_90d_cents=stats.lowest_90d_cents,
+    )
 
 
 @router.get("/{key}", response_model=ProductResponse)

@@ -1,5 +1,5 @@
 import { apiRequest } from './http'
-import type { Product, ProductHistoryRange } from './types'
+import type { Product, ProductHistoryRange, RuleSuggestion } from './types'
 
 /** S14-08: `GET /products/{key}?range=` (backend from S14-01). `key` travels
  * URL-encoded — it is derived from free text (`packages/rules/product.py`),
@@ -8,3 +8,8 @@ import type { Product, ProductHistoryRange } from './types'
  * left for the caller (`ProductPanel`) to turn into a "não encontrado" state. */
 export const fetchProduct = (key: string, range: ProductHistoryRange = '90d'): Promise<Product> =>
   apiRequest<Product>(`/products/${encodeURIComponent(key)}?range=${range}`)
+
+/** S14-09: `GET /products/{key}/rule-suggestion` — prefill for "nova regra a
+ * partir do produto" (F2). Same 404-as-`ApiError` contract as `fetchProduct`. */
+export const fetchRuleSuggestion = (productKey: string): Promise<RuleSuggestion> =>
+  apiRequest<RuleSuggestion>(`/products/${encodeURIComponent(productKey)}/rule-suggestion`)

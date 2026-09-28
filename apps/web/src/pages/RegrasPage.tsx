@@ -13,11 +13,14 @@ import {
 import type { RuleInput, RuleTestInput } from '../api/rules'
 import { fetchMatches } from '../api/matches'
 import { fetchMetrics } from '../api/metrics'
+import { fetchRuleSuggestion } from '../api/products'
+import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
+import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
 import { ApiError } from '../api/auth'
-import type { Rule, RuleTestResult } from '../api/types'
+import type { DigestSettings, PricePoint, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
 import { previewRuleMatch } from '../utils/ruleMatchPreview'
 import { parseTermList } from '../utils/termList'
-import { formatMatchedAt } from '../utils/dates'
+import { formatDayMonth, formatMatchedAt } from '../utils/dates'
 import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
 import { settledToast } from '../components/listenerState'
 import { StatusToggle } from '../components/StatusToggle'
@@ -36,9 +39,16 @@ interface RuleForm {
   includeTerms: string
   excludeTerms: string
   maxPriceReais: string
+  targetPriceReais: string
 }
 
-const EMPTY_FORM: RuleForm = { name: '', includeTerms: '', excludeTerms: '', maxPriceReais: '' }
+const EMPTY_FORM: RuleForm = {
+  name: '',
+  includeTerms: '',
+  excludeTerms: '',
+  maxPriceReais: '',
+  targetPriceReais: '',
+}
 
 const NO_TERMS_MESSAGE = 'Informe ao menos um termo incluído.'
 
@@ -48,6 +58,8 @@ function ruleToForm(rule: Rule, { asCopy }: { asCopy: boolean }): RuleForm {
     includeTerms: rule.include_terms,
     excludeTerms: rule.exclude_terms ?? '',
     maxPriceReais: rule.max_price_cents !== null ? String(rule.max_price_cents / 100) : '',
+    targetPriceReais:
+      rule.target_price_cents !== null ? String(rule.target_price_cents / 100) : '',
   }
 }
 
@@ -57,6 +69,8 @@ function formToInput(form: RuleForm): RuleInput {
     include_terms: form.includeTerms,
     exclude_terms: form.excludeTerms.trim() === '' ? null : form.excludeTerms,
     max_price_cents: form.maxPriceReais.trim() === '' ? null : Math.round(Number(form.maxPriceReais) * 100),
+    target_price_cents:
+      form.targetPriceReais.trim() === '' ? null : Math.round(Number(form.targetPriceReais) * 100),
   }
 }
 
@@ -81,6 +95,44 @@ function formatLowestPrice(cents: number | null): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function priceToInput(cents: number | null): string {
+  return cents === null ? '' : String(cents / 100)
+}
+
+/** `digest.next_run_at_local` is already a "YYYY-MM-DD HH:MM" wall-clock
+ * string in the display timezone (`app.routers.digest`) — not an instant to
+ * reinterpret, so this is plain string slicing, never `new Date(...)` (the
+ * S13-01 guard only allows that for `utils/dates.ts`, and this value has no
+ * zone to get wrong in the first place). */
+function formatNextDigestRun(value: string): string {
+  const [datePart, timePart] = value.split(' ')
+  const [, month, day] = datePart.split('-')
+  return `${day}/${month} ${timePart}`
+}
+
+function RuleSparkline({ points }: { points: PricePoint[] }) {
+  if (points.length === 0) return <span className="rule-sparkline__empty">Sem preços</span>
+  const values = points.map((point) => point.price_cents)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = Math.max(max - min, 1)
+  const denominator = Math.max(points.length - 1, 1)
+  const polyline = points
+    .map((point, index) => `${(index / denominator) * 150},${26 - ((point.price_cents - min) / span) * 22}`)
+    .join(' ')
+  return (
+    <svg
+      className="rule-sparkline"
+      viewBox="0 0 150 30"
+      role="img"
+      aria-label={`Histórico real de ${points.length} dias, de ${formatLowestPrice(values[0])} a ${formatLowestPrice(values.at(-1) ?? null)}`}
+      preserveAspectRatio="none"
+    >
+      <polyline points={polyline} />
+    </svg>
+  )
+}
+
 type FormTarget = { kind: 'create' } | { kind: 'edit'; rule: Rule }
 
 export function RegrasPage() {
@@ -99,6 +151,14 @@ export function RegrasPage() {
   const [rules, setRules] = useState<Rule[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
+  const [snoozes, setSnoozes] = useState<Snooze[]>([])
+  const [snoozeBusyId, setSnoozeBusyId] = useState<number | null>(null)
+  const [digest, setDigest] = useState<DigestSettings | null>(null)
+  const [digestError, setDigestError] = useState<string | null>(null)
+  const [digestSaving, setDigestSaving] = useState(false)
+  const [suggestion, setSuggestion] = useState<RuleSuggestion | null>(null)
+  const [suggestionLoading, setSuggestionLoading] = useState(false)
+  const [suggestionError, setSuggestionError] = useState<string | null>(null)
 
   // S11-05: the form is a permanent rail beside the table, not a panel that
   // opens above it — `create` is its resting state, Editar/Duplicar load a
@@ -176,14 +236,111 @@ export function RegrasPage() {
       .catch(() => setCeilingDiscards(null))
   }
 
+  const loadSnoozes = () => {
+    listSnoozes().then(setSnoozes).catch(() => setListError('Não foi possível carregar os silêncios.'))
+  }
+
+  const loadDigest = () => {
+    fetchDigestSettings()
+      .then((settings) => {
+        setDigest(settings)
+        setDigestError(null)
+      })
+      .catch(() => setDigestError('Não foi possível carregar a entrega dos alertas.'))
+  }
+
   useEffect(reload, [])
   useEffect(loadStats, [])
+  useEffect(loadSnoozes, [])
+  useEffect(loadDigest, [])
+  useEffect(() => {
+    const productKey = new URLSearchParams(window.location.search).get('produto')
+    if (productKey === null) return
+    setSuggestionLoading(true)
+    fetchRuleSuggestion(productKey)
+      .then((next) => {
+        setSuggestion(next)
+        setSuggestionError(null)
+        loadForm(
+          { kind: 'create' },
+          {
+            name: next.name,
+            includeTerms: next.include_terms,
+            excludeTerms: '',
+            maxPriceReais: priceToInput(next.max_price_cents),
+            targetPriceReais: priceToInput(next.target_price_cents),
+          },
+        )
+        requestAnimationFrame(() => nameInputRef.current?.focus())
+      })
+      .catch((error: unknown) =>
+        setSuggestionError(
+          error instanceof ApiError ? error.message : 'Não foi possível sugerir uma regra para este produto.',
+        ),
+      )
+      .finally(() => setSuggestionLoading(false))
+    // The deep link is an initial navigation contract, not a live query editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // A rule (or source/recipient) changed: reload the table and re-check what the
   // listener still has to apply, without waiting for the next poll.
   const configChanged = () => {
     reload()
+    loadSnoozes()
     listener.refresh()
+  }
+
+  const handleSnooze = (rule: Rule) => {
+    if (csrfToken === null) {
+      setListError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    const existing = snoozes.find((item) => item.scope === 'rule' && item.rule_id === rule.id)
+    setSnoozeBusyId(rule.id)
+    const request = existing
+      ? reactivateSnooze(csrfToken, existing.id)
+      : snoozeRule(csrfToken, rule.id, 7)
+    request
+      .then(() => {
+        configChanged()
+        showToast(existing ? 'Regra reativada.' : 'Regra silenciada por 7 dias.')
+      })
+      .catch(() => setListError('Não foi possível alterar o silêncio da regra.'))
+      .finally(() => setSnoozeBusyId(null))
+  }
+
+  const handleReactivate = (snooze: Snooze) => {
+    if (csrfToken === null) {
+      setListError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    setSnoozeBusyId(snooze.rule_id ?? -snooze.id)
+    reactivateSnooze(csrfToken, snooze.id)
+      .then(() => {
+        configChanged()
+        showToast('Silêncio removido.')
+      })
+      .catch(() => setListError('Não foi possível reativar este item.'))
+      .finally(() => setSnoozeBusyId(null))
+  }
+
+  const saveDigest = () => {
+    if (csrfToken === null || digest === null) {
+      setDigestError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    setDigestSaving(true)
+    updateDigestSettings(csrfToken, digest)
+      .then((next) => {
+        setDigest(next)
+        setDigestError(null)
+        showToast('Entrega dos alertas atualizada.')
+      })
+      .catch((error: unknown) =>
+        setDigestError(error instanceof ApiError ? error.message : 'Não foi possível salvar a entrega.'),
+      )
+      .finally(() => setDigestSaving(false))
   }
 
   const loadForm = (target: FormTarget, next: RuleForm) => {
@@ -207,6 +364,8 @@ export function RegrasPage() {
   }
 
   const openCreate = () => {
+    setSuggestion(null)
+    setSuggestionError(null)
     loadForm({ kind: 'create' }, EMPTY_FORM)
     nameInputRef.current?.focus()
   }
@@ -221,7 +380,10 @@ export function RegrasPage() {
     nameInputRef.current?.focus()
   }
 
-  const resetForm = () => loadForm({ kind: 'create' }, EMPTY_FORM)
+  const resetForm = () => {
+    setSuggestion(null)
+    loadForm({ kind: 'create' }, EMPTY_FORM)
+  }
 
   const submitForm = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -472,8 +634,7 @@ export function RegrasPage() {
           <h1>Regras</h1>
           {!loading && !listError && (
             <p className="regras-page__subtitle">
-              {rules.length === 1 ? '1 regra' : `${rules.length} regras`} · ações disponíveis em
-              cada linha
+              {rules.length === 1 ? '1 regra' : `${rules.length} regras`} · alvo e silêncio por linha
             </p>
           )}
         </div>
@@ -496,7 +657,7 @@ export function RegrasPage() {
 
       <div className="regras-page__grid">
         <div className="regras-page__main">
-          {loading && <p>Carregando…</p>}
+          {loading && <p role="status" className="regras-page__loading">Carregando regras…</p>}
           {listError && (
             <p role="alert" className="crud-page__error">
               {listError}
@@ -509,11 +670,10 @@ export function RegrasPage() {
                 <thead>
                   <tr>
                     <th>Regra</th>
-                    <th>Termos incluídos</th>
-                    <th>Bloqueados</th>
-                    <th className="wide-table__num">Preço máximo</th>
-                    <th className="wide-table__num">Menor já visto</th>
-                    <th>Status</th>
+                    <th className="wide-table__num">Teto</th>
+                    <th className="wide-table__num">Alvo</th>
+                    <th>Histórico 30d</th>
+                    <th>Silêncio</th>
                     <th className="wide-table__num">Ações</th>
                   </tr>
                 </thead>
@@ -528,26 +688,37 @@ export function RegrasPage() {
                       }
                     >
                       <td className="crud-table__name" data-label="Regra">
-                        {rule.name}
+                        <span>{rule.name}</span>
+                        <span className="wide-table__terms">{rule.include_terms}</span>
                       </td>
-                      <td className="wide-table__terms" data-label="Termos incluídos">
-                        {rule.include_terms}
-                      </td>
-                      <td className="wide-table__terms" data-label="Termos bloqueados">
-                        {rule.exclude_terms ?? '—'}
-                      </td>
-                      <td className="wide-table__num" data-label="Preço máximo">
+                      <td className="wide-table__num" data-label="Teto">
                         {formatPriceLimit(rule.max_price_cents)}
                       </td>
-                      <td className="wide-table__num" data-label="Menor preço já visto">
-                        {formatLowestPrice(rule.lowest_price_cents)}
+                      <td className="wide-table__num" data-label="Alvo">
+                        <span className={rule.target_price_cents !== null && rule.lowest_price_cents !== null && rule.lowest_price_cents <= rule.target_price_cents ? 'rule-target rule-target--hit' : 'rule-target'}>
+                          {formatLowestPrice(rule.target_price_cents ?? null)}
+                        </span>
+                        {rule.target_price_cents !== null && rule.lowest_price_cents !== null && (
+                          <span className="rule-target__detail">
+                            {rule.lowest_price_cents <= rule.target_price_cents
+                              ? 'atingido'
+                              : `falta ${Math.max(1, Math.round(((rule.lowest_price_cents - rule.target_price_cents) / rule.lowest_price_cents) * 100))}%`}
+                          </span>
+                        )}
                       </td>
-                      <td data-label="Status">
-                        <StatusToggle
-                          active={rule.active}
-                          pausing={pausingId === rule.id}
-                          onPause={() => handlePause(rule)}
-                        />
+                      <td data-label="Histórico 30d">
+                        <RuleSparkline points={rule.history_30d ?? []} />
+                      </td>
+                      <td data-label="Silêncio">
+                        {rule.snoozed_until ? (
+                          <span className="rule-silence rule-silence--muted">
+                            <span aria-hidden="true" />até {formatDayMonth(rule.snoozed_until)}
+                          </span>
+                        ) : (
+                          <span className="rule-silence">
+                            <span aria-hidden="true" />ativo
+                          </span>
+                        )}
                       </td>
                       <td className="wide-table__actions" data-label="Ações">
                         <div className="wide-table__actions-inner">
@@ -561,9 +732,14 @@ export function RegrasPage() {
                           <button
                             type="button"
                             className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => openDuplicate(rule)}
+                            onClick={() => handleSnooze(rule)}
+                            disabled={snoozeBusyId === rule.id}
                           >
-                            Duplicar
+                            {snoozeBusyId === rule.id
+                              ? 'Salvando…'
+                              : rule.snoozed_until
+                                ? 'Reativar'
+                                : 'Silenciar'}
                           </button>
                           <button
                             type="button"
@@ -572,6 +748,18 @@ export function RegrasPage() {
                           >
                             Testar
                           </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => openDuplicate(rule)}
+                          >
+                            Duplicar
+                          </button>
+                          <StatusToggle
+                            active={rule.active}
+                            pausing={pausingId === rule.id}
+                            onPause={() => handlePause(rule)}
+                          />
                           <button
                             type="button"
                             className="plane-action plane-action--danger plane-action--compact"
@@ -594,7 +782,9 @@ export function RegrasPage() {
                   ))}
                   {rules.length === 0 && (
                     <tr>
-                      <td colSpan={7}>Nenhuma regra cadastrada ainda.</td>
+                      <td colSpan={6} className="regras-page__empty">
+                        Nenhuma regra cadastrada. Use “Nova regra” para começar com termos específicos.
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -746,12 +936,93 @@ export function RegrasPage() {
             </div>
           )}
 
+          <section className="plane-pearl delivery-panel" aria-labelledby="delivery-heading">
+            <div className="delivery-panel__heading">
+              <div>
+                <h2 id="delivery-heading">Entrega dos alertas</h2>
+                <p>Uma decisão por tipo de evento — o restante pode ir no digest.</p>
+              </div>
+              {digest && (
+                <button
+                  type="button"
+                  className="plane-action plane-action--secondary plane-action--compact"
+                  onClick={saveDigest}
+                  disabled={digestSaving}
+                >
+                  {digestSaving ? 'Salvando…' : 'Salvar entrega'}
+                </button>
+              )}
+            </div>
+            {digestError && <p role="alert" className="regras-panel__error">{digestError}</p>}
+            {!digest && !digestError && <p role="status">Carregando configuração…</p>}
+            {digest && (
+              <div className="delivery-panel__grid">
+                <div className="delivery-card">
+                  <strong>Alvo atingido</strong>
+                  <span>Ping imediato — fura o digest e o silêncio da regra ou do produto.</span>
+                  <span className="delivery-card__state"><i /> prioritário</span>
+                </div>
+                <div className="delivery-card delivery-card--controls">
+                  <strong>Match comum</strong>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={digest.enabled}
+                      onChange={(event) => setDigest({ ...digest, enabled: event.target.checked })}
+                    />
+                    Digest diário
+                  </label>
+                  <label>
+                    Horário
+                    <input
+                      type="time"
+                      value={digest.send_at_local}
+                      onChange={(event) => setDigest({ ...digest, send_at_local: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Máximo de itens
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={digest.top_n}
+                      onChange={(event) => setDigest({ ...digest, top_n: Number(event.target.value) })}
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={digest.mute_individual}
+                      onChange={(event) => setDigest({ ...digest, mute_individual: event.target.checked })}
+                    />
+                    Não enviar matches comuns individualmente
+                  </label>
+                  <span>
+                    Próximo envio: {formatNextDigestRun(digest.next_run_at_local)} · {digest.queue_count}{' '}
+                    {digest.queue_count === 1 ? 'item' : 'itens'} na fila
+                  </span>
+                </div>
+                <div className="delivery-card">
+                  <strong>Repetição da mesma oferta</strong>
+                  <span>Agrupa no card e não dispara outra entrega.</span>
+                  <span className="delivery-card__state delivery-card__state--neutral"><i /> silencioso</span>
+                </div>
+              </div>
+            )}
+          </section>
+
           <DestinatariosSection onChanged={listener.refresh} />
         </div>
 
         <aside className="regras-page__rail">
           <form className="plane-glass regras-form" onSubmit={submitForm}>
-            <h2 className="regras-rail__eyebrow">{isEditing ? 'Editar regra' : 'Nova regra'}</h2>
+            <div className="regras-form__title-row">
+              <h2 className="regras-rail__eyebrow">{isEditing ? 'Editar regra' : 'Nova regra'}</h2>
+              {suggestion && !isEditing && <span className="regras-form__badge">pré-preenchida do produto</span>}
+            </div>
+            {suggestionLoading && <p role="status" className="regras-form__helper">Buscando sugestão do histórico…</p>}
+            {suggestionError && <p role="alert" className="regras-form__error">{suggestionError}</p>}
             <label className="regras-form__field">
               Nome
               <input
@@ -778,17 +1049,36 @@ export function RegrasPage() {
                 placeholder="usado, caixa aberta…"
               />
             </label>
-            <label className="regras-form__field">
-              Preço máximo (R$)
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.maxPriceReais}
-                onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
-                placeholder="sem teto"
-              />
-            </label>
+            <div className="regras-form__price-grid">
+              <label className="regras-form__field">
+                Teto (R$)
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={form.maxPriceReais}
+                  onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
+                  placeholder="sem teto"
+                />
+              </label>
+              <label className="regras-form__field">
+                Alvo (R$)
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={form.targetPriceReais}
+                  onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
+                  placeholder="sem alvo"
+                />
+              </label>
+            </div>
+            {suggestion && (
+              <p className="regras-form__suggestion-note">
+                <span aria-hidden="true" />
+                Sugerido a partir do histórico: teto = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
+              </p>
+            )}
             <div className="regras-form__actions">
               <button
                 type="submit"
@@ -827,6 +1117,32 @@ export function RegrasPage() {
               </p>
             )}
           </form>
+
+          <section className="plane-pearl snoozed-panel" aria-labelledby="snoozed-heading">
+            <h2 id="snoozed-heading" className="regras-rail__eyebrow">Silenciados agora</h2>
+            {snoozes.length === 0 ? (
+              <p className="snoozed-panel__empty">Nenhuma regra ou produto silenciado.</p>
+            ) : (
+              <ul>
+                {snoozes.map((item) => (
+                  <li key={item.id}>
+                    <div>
+                      <strong>{item.label}</strong>
+                      <span>{item.scope === 'rule' ? 'regra' : 'produto'} · até {formatDayMonth(item.until)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="plane-action plane-action--secondary plane-action--compact"
+                      onClick={() => handleReactivate(item)}
+                      disabled={snoozeBusyId === (item.rule_id ?? -item.id)}
+                    >
+                      Reativar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="plane-pearl regras-how">
             <h2 className="regras-rail__eyebrow">Como uma regra casa</h2>

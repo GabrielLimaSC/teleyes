@@ -6,6 +6,7 @@ export interface RuleInput {
   include_terms: string
   exclude_terms?: string | null
   max_price_cents?: number | null
+  target_price_cents?: number | null
 }
 
 export interface RuleTestInput {
