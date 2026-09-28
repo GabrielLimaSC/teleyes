@@ -27,6 +27,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/matches/{match_id}": {"patch"},
     "/matches/{match_id}/revert": {"post"},
     "/products/{key}": {"get"},
+    "/products/{key}/rule-suggestion": {"get"},
     "/snoozes": {"get", "post"},
     "/snoozes/{snooze_id}": {"delete"},
     "/metrics": {"get"},
@@ -57,6 +58,7 @@ EXPECTED_RESPONSE_SCHEMAS = [
     "ListenerStatusResponse",
     "DigestSettingsResponse",
     "DigestQueueItemResponse",
+    "RuleSuggestionResponse",
 ]
 
 
