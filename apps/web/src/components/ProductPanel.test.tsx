@@ -3,6 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProductPanel } from './ProductPanel'
 import type { Product } from '../api/types'
+import type { EditableMatch } from '../api/matches'
+
+vi.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({ csrfToken: 'csrf-test' }),
+}))
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -50,6 +55,36 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
         message_link: null,
       },
     ],
+    ...overrides,
+  }
+}
+
+function buildEditableMatch(overrides: Partial<EditableMatch> = {}): EditableMatch {
+  return {
+    id: 1,
+    source_id: 1,
+    rule_id: 1,
+    message_text: 'Placa de Vídeo Exemplo RTX 5070 Ti GamingPro-S 16GB por R$ 6.991,00',
+    price_cents: 699_100,
+    price_cash_cents: null,
+    price_card_cents: null,
+    message_link: 'https://t.me/c/demo/1',
+    matched_at: '2026-09-20T12:00:00Z',
+    created_at: '2026-09-20T12:00:00Z',
+    deliveries: [],
+    is_lowest_price_ever: false,
+    grouped_source_ids: null,
+    product_key: 'placa-video-exemplo-rtx',
+    sparkline: [],
+    snoozed: false,
+    target_price_cents: null,
+    target_hit: false,
+    target_gap_pct: null,
+    display_name: null,
+    model_variant: null,
+    price_source: null,
+    original_price_cents: null,
+    last_correction: null,
     ...overrides,
   }
 }
@@ -177,7 +212,7 @@ describe('ProductPanel', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('hides the target/rule/snooze/edit blocks when their handlers are not passed', async () => {
+  it('hides optional target/rule/snooze blocks and keeps internal editing available', async () => {
     const product = buildProduct()
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
 
@@ -187,7 +222,7 @@ describe('ProductPanel', () => {
     expect(screen.queryByText('Alvo de preço')).not.toBeInTheDocument()
     expect(screen.queryByText('Criar regra disso')).not.toBeInTheDocument()
     expect(screen.queryByText('Silenciar 7 dias')).not.toBeInTheDocument()
-    expect(screen.queryByText('Editar dados')).not.toBeInTheDocument()
+    expect(screen.getByText('Editar dados')).toBeInTheDocument()
   })
 
   it('shows those blocks once their handler is passed', async () => {
@@ -211,5 +246,163 @@ describe('ProductPanel', () => {
     expect(screen.getByText('Criar regra disso')).toBeInTheDocument()
     expect(screen.getByText('Silenciar 7 dias')).toBeInTheDocument()
     expect(screen.getByText('Editar dados')).toBeInTheDocument()
+  })
+
+  it('opens its own editor, highlights the original candidates and notifies onEditData when provided', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    const onEditData = vi.fn()
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const path = String(input)
+      return Promise.resolve(jsonResponse(path.startsWith('/matches') ? [match] : product))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(
+      <ProductPanel
+        productKey={product.product_key}
+        phase="open"
+        onClose={() => {}}
+        onEditData={onEditData}
+      />,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+
+    expect(onEditData).toHaveBeenCalledOnce()
+    expect(await screen.findByRole('textbox', { name: 'Nome exibido' })).toHaveValue(product.title)
+    expect(screen.getByRole('textbox', { name: 'Preço' })).toHaveValue('6.991,00')
+    expect(screen.getByTestId('original-message').querySelectorAll('mark')).toHaveLength(2)
+    expect(screen.getByRole('switch', { name: 'Aplicar o nome a todos os matches deste produto' })).toBeInTheDocument()
+  })
+
+  it('validates a short name and malformed price in the fields before saving', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product)),
+      ),
+    )
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    const name = await screen.findByRole('textbox', { name: 'Nome exibido' })
+    const price = screen.getByRole('textbox', { name: 'Preço' })
+    await user.clear(name)
+    await user.type(name, 'ab')
+    await user.tab()
+    await user.clear(price)
+    await user.type(price, '1,999')
+    await user.tab()
+
+    expect(screen.getByText('O nome deve ter entre 3 e 120 caracteres.')).toBeInTheDocument()
+    expect(screen.getByText(/Preço inválido/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvar correção' })).toBeDisabled()
+  })
+
+  it('saves a pt-BR thousands value and updates the read view', async () => {
+    const product = buildProduct({ current_price_cents: 699_100 })
+    const match = buildEditableMatch()
+    const saved = buildEditableMatch({
+      display_name: 'Placa Palit RTX 5070 Ti',
+      price_cents: 574_900,
+      price_source: 'manual',
+      original_price_cents: 699_100,
+      last_correction: { admin_id: 1, created_at: '2026-09-22T22:12:00Z' },
+    })
+    let wrote = false
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (init?.method === 'PATCH') {
+        wrote = true
+        return Promise.resolve(jsonResponse(saved))
+      }
+      if (path.startsWith('/matches')) return Promise.resolve(jsonResponse([match]))
+      return Promise.resolve(jsonResponse(wrote ? { ...product, current_price_cents: 574_900 } : product))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    const name = await screen.findByRole('textbox', { name: 'Nome exibido' })
+    const price = screen.getByRole('textbox', { name: 'Preço' })
+    await user.clear(name)
+    await user.type(name, saved.display_name ?? '')
+    await user.clear(price)
+    await user.type(price, '5.749')
+    await user.click(screen.getByRole('switch', { name: /Aplicar o nome/ }))
+    await user.click(screen.getByRole('button', { name: 'Salvar correção' }))
+
+    await waitFor(() => expect(screen.getByText('Preço atual').parentElement).toHaveTextContent('R$ 5.749,00'))
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({
+      display_name: 'Placa Palit RTX 5070 Ti',
+      price: '5749,00',
+      apply_name_to_product: true,
+    })
+  })
+
+  it('places a 422 server detail on the corresponding field', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'PATCH') {
+          return Promise.resolve(jsonResponse({ detail: 'O nome já não pode ser usado.' }, 422))
+        }
+        return Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product))
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    await screen.findByRole('textbox', { name: 'Nome exibido' })
+    await user.click(screen.getByRole('button', { name: 'Salvar correção' }))
+
+    expect(await screen.findByText('O nome já não pode ser usado.')).toHaveAttribute('id', 'product-name-error')
+  })
+
+  it('shows the last correction and restores the detected value', async () => {
+    const product = buildProduct({ current_price_cents: 574_900 })
+    const edited = buildEditableMatch({
+      display_name: 'Nome manual',
+      price_cents: 574_900,
+      price_source: 'manual',
+      original_price_cents: 699_100,
+      last_correction: { admin_id: 1, created_at: '2026-09-22T22:12:00Z' },
+    })
+    const reverted = buildEditableMatch({
+      price_cents: 699_100,
+      price_source: 'parsed',
+      original_price_cents: 699_100,
+      last_correction: { admin_id: 1, created_at: '2026-09-22T22:13:00Z' },
+    })
+    let revertedOnServer = false
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        revertedOnServer = true
+        return Promise.resolve(jsonResponse(reverted))
+      }
+      if (String(input).startsWith('/matches')) return Promise.resolve(jsonResponse([edited]))
+      return Promise.resolve(
+        jsonResponse(revertedOnServer ? { ...product, current_price_cents: 699_100 } : product),
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    expect(await screen.findByText(/Última correção:/)).toHaveTextContent('R$ 6.991,00')
+    await user.click(screen.getByRole('button', { name: 'Reverter ao detectado' }))
+
+    await waitFor(() => expect(screen.getByText('Preço atual').parentElement).toHaveTextContent('R$ 6.991,00'))
+    expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/matches/1/revert') && init?.method === 'POST')).toBe(true)
   })
 })

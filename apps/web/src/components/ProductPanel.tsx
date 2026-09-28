@@ -1,10 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { FormEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { fetchProduct } from '../api/products'
+import { fetchEditableMatches, revertMatch, updateMatch } from '../api/matches'
+import type { EditableMatch } from '../api/matches'
 import { ApiError } from '../api/auth'
 import type { Product, ProductHistoryRange, ProductPosting } from '../api/types'
-import { formatDayMonth, formatMatchedAt } from '../utils/dates'
+import { formatClockMoment, formatDayMonth, formatMatchedAt } from '../utils/dates'
 import { useIsProductPanelSheet } from '../hooks/useMediaQuery'
+import { useAuth } from '../auth/AuthContext'
+import { parsePriceInput } from '../utils/priceInput'
 import './ProductPanel.css'
 
 const RANGES: ProductHistoryRange[] = ['90d', '30d', '7d']
@@ -18,6 +22,313 @@ export const PRODUCT_OPEN_CONTROL_ATTR = 'data-product-open-control'
 
 function formatCurrency(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatPriceInput(cents: number | null): string {
+  if (cents === null) return ''
+  const reais = Math.floor(cents / 100).toLocaleString('pt-BR')
+  return `${reais},${String(cents % 100).padStart(2, '0')}`
+}
+
+function formatPriceForApi(cents: number): string {
+  return `${Math.floor(cents / 100)},${String(cents % 100).padStart(2, '0')}`
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function HighlightedMessage({ message, title }: { message: string; title: string }) {
+  const titlePattern = escapeRegExp(title)
+  const pricePattern = String.raw`R\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\b\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?\b`
+  const pattern = new RegExp(`(${titlePattern}|${pricePattern})`, 'gi')
+  const exactCandidate = new RegExp(`^(?:${titlePattern}|${pricePattern})$`, 'i')
+  const parts = message.split(pattern)
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        const isCandidate = exactCandidate.test(part)
+        const isTitle = part.toLocaleLowerCase('pt-BR') === title.toLocaleLowerCase('pt-BR')
+        return isCandidate ? (
+          <mark
+            key={`${index}-${part}`}
+            style={{
+              background:
+                isTitle
+                  ? 'color-mix(in srgb, var(--product-panel-accent) 35%, var(--product-panel-well-bg))'
+                  : 'var(--plane-status-warn-bg)',
+              boxShadow: isTitle ? 'inset 0 -2px var(--product-panel-accent)' : undefined,
+              color: 'var(--plane-text-primary)',
+              fontWeight: 600,
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={`${index}-${part}`}>{part}</span>
+        )
+      })}
+    </>
+  )
+}
+
+interface ProductEditorProps {
+  match: EditableMatch
+  product: Product
+  onCancel: () => void
+  onSaved: (match: EditableMatch) => void
+  onReverted: (match: EditableMatch) => void
+}
+
+function ProductEditor({ match, product, onCancel, onSaved, onReverted }: ProductEditorProps) {
+  const { csrfToken } = useAuth()
+  const [name, setName] = useState(match.display_name ?? product.title)
+  const [price, setPrice] = useState(formatPriceInput(match.price_cents))
+  const [applyNameToProduct, setApplyNameToProduct] = useState(false)
+  const [nameTouched, setNameTouched] = useState(false)
+  const [priceTouched, setPriceTouched] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [reverting, setReverting] = useState(false)
+  const [nameServerError, setNameServerError] = useState<string | null>(null)
+  const [priceServerError, setPriceServerError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const trimmedName = name.trim()
+  const nameError =
+    trimmedName.length < 3 || trimmedName.length > 120
+      ? 'O nome deve ter entre 3 e 120 caracteres.'
+      : null
+  const parsedPrice = parsePriceInput(price)
+  const priceError = parsedPrice.error
+  const canSubmit = !nameError && !priceError && !submitting && !reverting
+  const canRevert =
+    match.price_source === 'manual' || match.display_name !== null || match.model_variant !== null
+
+  function surfaceServerError(error: unknown): void {
+    const message = error instanceof ApiError ? error.message : 'Não foi possível salvar a correção.'
+    if (/nome|display_name/i.test(message)) setNameServerError(message)
+    else if (/preço|price/i.test(message)) setPriceServerError(message)
+    else setFormError(message)
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setNameTouched(true)
+    setPriceTouched(true)
+    setNameServerError(null)
+    setPriceServerError(null)
+    setFormError(null)
+    if (!canSubmit || parsedPrice.cents === null) return
+    if (csrfToken === null) {
+      setFormError('Sua sessão não tem um token de segurança. Atualize a página e entre novamente.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const saved = await updateMatch(csrfToken, match.id, {
+        display_name: trimmedName,
+        price: formatPriceForApi(parsedPrice.cents),
+        apply_name_to_product: applyNameToProduct,
+      })
+      onSaved(saved)
+    } catch (error) {
+      surfaceServerError(error)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleRevert() {
+    setNameServerError(null)
+    setPriceServerError(null)
+    setFormError(null)
+    if (csrfToken === null) {
+      setFormError('Sua sessão não tem um token de segurança. Atualize a página e entre novamente.')
+      return
+    }
+
+    setReverting(true)
+    try {
+      onReverted(await revertMatch(csrfToken, match.id))
+    } catch (error) {
+      setFormError(
+        error instanceof ApiError ? error.message : 'Não foi possível reverter ao valor detectado.',
+      )
+    } finally {
+      setReverting(false)
+    }
+  }
+
+  const fieldStyle = {
+    width: '100%',
+    height: 42,
+    borderRadius: 10,
+    border: '1px solid var(--glass-inner-border-color)',
+    background: 'var(--product-panel-well-bg)',
+    color: 'var(--plane-text-primary)',
+    padding: '0 12px',
+    font: 'inherit',
+    boxSizing: 'border-box' as const,
+  }
+  const helperStyle = { margin: 0, fontSize: 11, lineHeight: 1.45, color: 'var(--plane-text-helper)' }
+  const errorStyle = { ...helperStyle, color: 'var(--plane-status-danger)' }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div
+        style={{
+          borderRadius: 14,
+          padding: 14,
+          background: 'var(--product-panel-well-bg)',
+          border: '1px solid var(--product-panel-border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 7,
+        }}
+      >
+        <div className="product-panel__label">Texto original da mensagem (somente leitura)</div>
+        <div
+          data-testid="original-message"
+          style={{
+            borderRadius: 10,
+            padding: '10px 12px',
+            background: 'var(--glass-tile-bg)',
+            border: '1px solid var(--glass-inner-border-color)',
+            color: 'var(--plane-text-primary)',
+            fontFamily: 'ui-monospace, Menlo, monospace',
+            fontSize: 12,
+            lineHeight: 1.6,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          <HighlightedMessage message={match.message_text} title={product.title} />
+        </div>
+        <p style={helperStyle}>O título e o trecho candidato a preço ficam destacados para conferência.</p>
+      </div>
+
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span className="product-panel__label">Nome exibido</span>
+        <input
+          aria-label="Nome exibido"
+          value={name}
+          maxLength={120}
+          aria-invalid={Boolean((nameTouched && nameError) || nameServerError)}
+          aria-describedby={`product-name-help${(nameTouched && nameError) || nameServerError ? ' product-name-error' : ''}`}
+          onChange={(event) => {
+            setName(event.target.value)
+            setNameServerError(null)
+          }}
+          onBlur={() => setNameTouched(true)}
+          autoFocus={match.price_cents !== null}
+          style={fieldStyle}
+        />
+        <span id="product-name-help" style={helperStyle}>Substitui o título bruto no feed, no histórico e no digest.</span>
+        {(nameTouched && nameError) || nameServerError ? (
+          <span id="product-name-error" role="alert" style={errorStyle}>{nameServerError ?? nameError}</span>
+        ) : null}
+      </label>
+
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span className="product-panel__label">Preço</span>
+        <span style={{ position: 'relative', display: 'block' }}>
+          <span
+            aria-hidden="true"
+            style={{ position: 'absolute', left: 12, top: 12, color: 'var(--plane-text-helper)', fontSize: 14 }}
+          >
+            R$
+          </span>
+          <input
+            aria-label="Preço"
+            value={price}
+            inputMode="decimal"
+            aria-invalid={Boolean((priceTouched && priceError) || priceServerError)}
+            aria-describedby={`product-price-help${(priceTouched && priceError) || priceServerError ? ' product-price-error' : ''}`}
+            onChange={(event) => {
+              setPrice(event.target.value)
+              setPriceServerError(null)
+            }}
+            onBlur={() => setPriceTouched(true)}
+            autoFocus={match.price_cents === null}
+            style={{ ...fieldStyle, height: 46, paddingLeft: 39, fontSize: 18, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
+          />
+        </span>
+        <span id="product-price-help" style={helperStyle}>Aceita 5.749,00 ou 5749. O valor precisa ser maior que zero.</span>
+        {(priceTouched && priceError) || priceServerError ? (
+          <span id="product-price-error" role="alert" style={errorStyle}>{priceServerError ?? priceError}</span>
+        ) : null}
+      </label>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          minHeight: 44,
+          padding: 12,
+          borderRadius: 12,
+          background: 'var(--glass-tile-bg)',
+          border: '1px solid var(--glass-inner-border-color)',
+          color: 'var(--plane-text-primary)',
+          fontSize: 13,
+          fontWeight: 600,
+        }}
+      >
+        <span>Aplicar o nome a todos os matches deste produto</span>
+        <button
+          type="button"
+          className="plane-action"
+          role="switch"
+          aria-label="Aplicar o nome a todos os matches deste produto"
+          aria-checked={applyNameToProduct}
+          onClick={() => setApplyNameToProduct((current) => !current)}
+          style={{
+            width: 34,
+            height: 20,
+            flex: 'none',
+            padding: 2,
+            border: 0,
+            borderRadius: 999,
+            background: applyNameToProduct ? 'var(--plane-status-good)' : 'var(--glass-divider-bg)',
+            display: 'flex',
+            justifyContent: applyNameToProduct ? 'flex-end' : 'flex-start',
+            cursor: 'pointer',
+          }}
+        >
+          <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--toggle-knob-bg)' }} />
+        </button>
+      </div>
+
+      <p style={helperStyle}>
+        {match.last_correction ? (
+          <>
+            Última correção: {formatClockMoment(match.last_correction.created_at)} · valor detectado original:{' '}
+            <span style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>
+              {match.original_price_cents === null ? 'não identificado' : formatCurrency(match.original_price_cents)}
+            </span>
+          </>
+        ) : (
+          'Ainda não há correções manuais neste match.'
+        )}
+      </p>
+
+      {formError && <p role="alert" style={{ ...errorStyle, fontSize: 12 }}>{formError}</p>}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <button type="submit" className="plane-action" disabled={!canSubmit} style={{ flex: '1 1 150px', minHeight: 42 }}>
+          {submitting ? 'Salvando…' : 'Salvar correção'}
+        </button>
+        <button type="button" className="plane-action plane-action--secondary" onClick={onCancel} disabled={submitting || reverting} style={{ minHeight: 42 }}>
+          Cancelar
+        </button>
+        <button type="button" className="plane-action plane-action--secondary" onClick={handleRevert} disabled={!canRevert || submitting || reverting} style={{ minHeight: 42 }}>
+          {reverting ? 'Revertendo…' : 'Reverter ao detectado'}
+        </button>
+      </div>
+    </form>
+  )
 }
 
 /** `PricePoint.date` already comes as `YYYY-MM-DD` in the display timezone
@@ -95,6 +406,7 @@ export function ProductPanel({
   const panelRef = useRef<HTMLElement | null>(null)
   const headingRef = useRef<HTMLHeadingElement | null>(null)
   const focusedOnceRef = useRef(false)
+  const editRequestIdRef = useRef(0)
   const isSheet = useIsProductPanelSheet()
 
   // The panel mounts already at its "entering" (pre-transition) styles; two
@@ -121,6 +433,10 @@ export function ProductPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [rangeLoading, setRangeLoading] = useState(false)
   const [showPostings, setShowPostings] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editableMatch, setEditableMatch] = useState<EditableMatch | null>(null)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editLoadError, setEditLoadError] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState(0)
   const dragStartYRef = useRef(0)
   const draggingRef = useRef(false)
@@ -141,6 +457,11 @@ export function ProductPanel({
     setStatus('loading')
     setErrorMessage(null)
     setShowPostings(false)
+    setEditing(false)
+    setEditableMatch(null)
+    setEditLoading(false)
+    setEditLoadError(null)
+    editRequestIdRef.current += 1
   }, [productKey])
 
   // Loads whenever the product or the selected range changes. `cancelled`
@@ -251,6 +572,73 @@ export function ProductPanel({
     setDragOffset(0)
   }
 
+  async function handleEditData() {
+    onEditData?.()
+    if (!product) return
+    setEditing(true)
+    setEditLoading(true)
+    setEditLoadError(null)
+    const requestId = ++editRequestIdRef.current
+    try {
+      const matches = await fetchEditableMatches()
+      if (requestId !== editRequestIdRef.current) return
+      const newestPostingId = product.postings[0]?.id
+      const selected =
+        matches.find((match) => match.id === newestPostingId) ??
+        matches.find((match) => match.product_key === product.product_key)
+      if (!selected) {
+        setEditableMatch(null)
+        setEditLoadError('Não foi possível localizar o match mais recente deste produto para edição.')
+        return
+      }
+      setEditableMatch(selected)
+    } catch (error) {
+      if (requestId !== editRequestIdRef.current) return
+      setEditLoadError(
+        error instanceof ApiError ? error.message : 'Não foi possível carregar os dados para edição.',
+      )
+    } finally {
+      if (requestId === editRequestIdRef.current) setEditLoading(false)
+    }
+  }
+
+  async function refreshProduct(match: EditableMatch) {
+    setEditableMatch(match)
+    setProduct((current) =>
+      current?.product_key === match.product_key
+        ? {
+            ...current,
+            title: match.display_name ?? current.title,
+            current_price_cents: match.price_cents,
+            postings: current.postings.map((posting) =>
+              posting.id === match.id ? { ...posting, price_cents: match.price_cents } : posting,
+            ),
+          }
+        : current,
+    )
+    try {
+      const refreshed = await fetchProduct(productKey, range)
+      setProduct((current) =>
+        current?.product_key === refreshed.product_key
+          ? { ...refreshed, title: match.display_name ?? refreshed.title }
+          : current,
+      )
+    } catch {
+      // The write succeeded and the returned match is already reflected above.
+      // A later range change retries the product aggregate request normally.
+    }
+  }
+
+  function handleSaved(match: EditableMatch) {
+    void refreshProduct(match)
+    setEditing(false)
+  }
+
+  function handleReverted(match: EditableMatch) {
+    void refreshProduct(match)
+    setEditing(false)
+  }
+
   const chart = product ? buildChartGeometry(product.series) : null
 
   return (
@@ -279,14 +667,21 @@ export function ProductPanel({
 
       <div className="product-panel__header">
         <div className="product-panel__header-info" key={productKey}>
-          <div className="product-panel__icon" aria-hidden="true">
-            <span className="product-panel__icon-mark" />
-          </div>
+          {!editing && (
+            <div className="product-panel__icon" aria-hidden="true">
+              <span className="product-panel__icon-mark" />
+            </div>
+          )}
           <div className="product-panel__header-text">
+            {editing && product && (
+              <div style={{ marginBottom: 5, color: 'var(--plane-text-eyebrow)', fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase' }}>
+                Editando produto
+              </div>
+            )}
             <h2 id={headingId} ref={headingRef} tabIndex={-1} className="product-panel__title">
-              {product?.title ?? 'Carregando produto…'}
+              {editing && product ? editableMatch?.display_name ?? product.title : product?.title ?? 'Carregando produto…'}
             </h2>
-            {product && (
+            {product && !editing && (
               <p className="product-panel__subtitle">
                 {product.total_count} {product.total_count === 1 ? 'registro' : 'registros'} desde{' '}
                 {formatDayMonth(product.first_seen_at)} · {product.sources.length}{' '}
@@ -295,12 +690,18 @@ export function ProductPanel({
             )}
           </div>
         </div>
-        {onEditData && product && (
-          <button type="button" className="plane-action plane-action--secondary product-panel__chip" onClick={onEditData}>
+        {!editing && product && (
+          <button type="button" className="plane-action plane-action--secondary product-panel__chip" onClick={handleEditData}>
             Editar dados
           </button>
         )}
-        <button type="button" className="product-panel__close" onClick={onClose} aria-label="Fechar painel do produto">
+        <button
+          type="button"
+          className="product-panel__close"
+          onClick={onClose}
+          aria-label="Fechar painel do produto"
+          style={editing ? { marginRight: 44 } : undefined}
+        >
           <span aria-hidden="true">×</span>
         </button>
       </div>
@@ -318,7 +719,33 @@ export function ProductPanel({
           </p>
         )}
 
-        {status === 'ready' && product && (
+        {status === 'ready' && product && editing && (
+          <>
+            {editLoading && <p className="product-panel__status">Carregando edição…</p>}
+            {editLoadError && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                <p className="product-panel__status product-panel__status--error" role="alert">
+                  {editLoadError}
+                </p>
+                <button type="button" className="plane-action plane-action--secondary" onClick={handleEditData}>
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+            {!editLoading && !editLoadError && editableMatch && (
+              <ProductEditor
+                key={`${editableMatch.id}-${editableMatch.last_correction?.created_at ?? 'new'}`}
+                match={editableMatch}
+                product={product}
+                onCancel={() => setEditing(false)}
+                onSaved={handleSaved}
+                onReverted={handleReverted}
+              />
+            )}
+          </>
+        )}
+
+        {status === 'ready' && product && !editing && (
           <>
             <div className="product-panel__well">
               <div className="product-panel__price-row">

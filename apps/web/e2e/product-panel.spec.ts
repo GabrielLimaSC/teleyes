@@ -224,3 +224,51 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
   })
 }
+
+for (const scenario of [
+  { theme: 'light' as const, width: 1280, height: 900, tag: 'edit-light' },
+  { theme: 'dark' as const, width: 1280, height: 900, tag: 'edit-dark' },
+  { theme: 'dark' as const, width: 390, height: 844, tag: 'edit-dark-mobile' },
+]) {
+  test(`edits and reverts a product in ${scenario.theme} at ${scenario.width}px`, async ({ page }, testInfo) => {
+    await page.emulateMedia({ colorScheme: scenario.theme })
+    await page.setViewportSize({ width: scenario.width, height: scenario.height })
+    const title = `Monitor Dell U2725QE Demo ${scenario.tag}`
+    const seed = await seedProduct(page, scenario.tag, title, '6.991')
+    await openPanel(page, seed)
+
+    await page.getByRole('button', { name: 'Editar dados' }).click()
+    const nameInput = page.getByRole('textbox', { name: 'Nome exibido' })
+    const priceInput = page.getByRole('textbox', { name: 'Preço' })
+    await expect(nameInput).toBeVisible()
+    await expect(page.getByText('Texto original da mensagem (somente leitura)')).toBeVisible()
+    await expect(page.locator('[data-testid="original-message"] mark')).toHaveCount(2)
+
+    await nameInput.fill('ab')
+    await nameInput.blur()
+    await expect(page.getByText('O nome deve ter entre 3 e 120 caracteres.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Salvar correção' })).toBeDisabled()
+
+    const correctedName = `Monitor Dell U2725QE Corrigido ${scenario.tag}`
+    await nameInput.fill(correctedName)
+    await priceInput.fill('5.749')
+    await page.getByRole('switch', { name: 'Aplicar o nome a todos os matches deste produto' }).click()
+    await page.getByRole('button', { name: 'Salvar correção' }).click()
+
+    await expect(page.getByRole('heading', { name: correctedName })).toBeVisible()
+    await expect(page.locator('.product-panel').getByText('R$ 5.749,00').first()).toBeVisible()
+
+    await page.getByRole('button', { name: 'Editar dados' }).click()
+    await expect(page.getByText(/Última correção:/)).toContainText('R$ 6.991,00')
+    await expect(page.getByRole('button', { name: 'Reverter ao detectado' })).toBeEnabled()
+
+    await testInfo.attach(`tela-08-${scenario.theme}-${scenario.width}px`, {
+      body: await page.locator('.product-panel').screenshot(),
+      contentType: 'image/png',
+    })
+
+    await page.getByRole('button', { name: 'Reverter ao detectado' }).click()
+    await expect(page.getByRole('heading', { name: title })).toBeVisible()
+    await expect(page.locator('.product-panel').getByText('R$ 6.991,00').first()).toBeVisible()
+  })
+}
