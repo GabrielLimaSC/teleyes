@@ -61,6 +61,67 @@ describe('HistoricoPage', () => {
     vi.useRealTimers()
   })
 
+  // S14-07 revisão 2: an implicit label-wraps-select association computes
+  // its accessible name from the label's text concatenated with EVERY
+  // option (not just the selected one) — harmless with a handful of items,
+  // but with dozens of real rules/sources/recipients (production-realistic,
+  // per Gabriel's own data) the resulting name balloons into an
+  // indistinguishable blob, and `getByLabel('Regra')` (a screen reader,
+  // Playwright, or Testing Library itself) can resolve the WRONG combobox.
+  // `aria-label` pins each select's own accessible name to its short, real
+  // label regardless of option count.
+  it('keeps "Regra"/"Fonte"/"Destinatário" as distinct accessible names with many, similarly-prefixed options', async () => {
+    const rules = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: `Regra item-${i}`,
+      include_terms: `item${i}`,
+      exclude_terms: null,
+      max_price_cents: null,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+    }))
+    const sources = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: `Fonte item-${i}`,
+      telegram_chat_id: `chat-${i}`,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+    }))
+    const recipients = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: `Dest item-${i}`,
+      telegram_chat_id: `dest-${i}`,
+      allowlisted: true,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+    }))
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
+      if (url.startsWith('/sources')) return Promise.resolve(jsonResponse(sources))
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse(recipients))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderHistoricoPage()
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Regra item-0' })).toBeInTheDocument())
+
+    // Each combobox resolves uniquely by its own short label — never 2 or 3
+    // elements, and never the wrong one (asserted via `selector: 'select'`
+    // plus a direct element-identity check against each field's own select).
+    const ruleSelect = screen.getByLabelText('Regra', { selector: 'select' })
+    const sourceSelect = screen.getByLabelText('Fonte', { selector: 'select' })
+    const recipientSelect = screen.getByLabelText('Destinatário', { selector: 'select' })
+    expect(ruleSelect).not.toBe(sourceSelect)
+    expect(ruleSelect).not.toBe(recipientSelect)
+    expect(sourceSelect).not.toBe(recipientSelect)
+    expect(within(ruleSelect).getByRole('option', { name: 'Regra item-0' })).toBeInTheDocument()
+    expect(within(sourceSelect).getByRole('option', { name: 'Fonte item-0' })).toBeInTheDocument()
+    expect(within(recipientSelect).getByRole('option', { name: 'Dest item-0' })).toBeInTheDocument()
+  })
+
   it('refetches with the rule filter when the selection changes', async () => {
     const rule = {
       id: 1,

@@ -212,6 +212,35 @@ describe('SaudePage', () => {
     }
   })
 
+  it('counts real matches, not cards — a duplicate-grouped card counts every id it stands for (S14-07)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse(health))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        return Promise.resolve(
+          summaryEndpoints(url, {
+            '/sources': () => jsonResponse([]),
+            // Two feed cards: one folds 3 real matches (duplicate grouping),
+            // the other stands for itself alone — 4 real matches total, even
+            // though `fetchMatches()` only returns 2 items.
+            '/matches': () =>
+              jsonResponse([
+                { id: 1, grouped_match_ids: [1, 2, 3] },
+                { id: 4, grouped_match_ids: [4] },
+              ]),
+          }) ?? jsonResponse([]),
+        )
+      }),
+    )
+
+    render(<SaudePage />)
+
+    const panel = (await screen.findByRole('heading', { name: 'Resumo do coletor' })).closest('section') as HTMLElement
+    await waitFor(() => expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('4'))
+  })
+
   it('shows "—" instead of a made-up number when the summary cannot load (S11-06)', async () => {
     vi.stubGlobal(
       'fetch',

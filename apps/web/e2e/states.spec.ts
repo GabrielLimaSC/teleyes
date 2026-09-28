@@ -93,7 +93,11 @@ test('a message with no extractable price shows the honest placeholder, live', a
   // priceless matches from other spec files.
   const card = page.locator('.match-card', { hasText: 'Air fryer nova chegou na loja' })
   await expect(card).toBeVisible()
-  await expect(card.getByText('Preço não identificado')).toBeVisible()
+  // S14-07: exact — Playwright's text matcher is case-insensitive substring
+  // by default, and the card now also carries a lowercase "preço não
+  // identificado" chip (the S14-07 badge) alongside this exact-case price
+  // placeholder; without `exact: true` the two collide.
+  await expect(card.getByText('Preço não identificado', { exact: true })).toBeVisible()
 })
 
 test('a long product name wraps instead of being cut with an ellipsis (S7-02)', async ({ page }) => {

@@ -262,3 +262,66 @@ test('the tooltip of the FIRST Histórico row is not cut off by the table edge (
   })
   expect(clippedBy).toEqual([])
 })
+
+// S14-07 revisão 2: real bug found during review — with an implicit
+// label-wraps-select association, a browser's computed accessible name for
+// the select is the label's text CONCATENATED WITH EVERY option (not just
+// the selected one). Harmless with a couple of options, but with a
+// realistic rule/source/recipient count (this is real data shape, not a
+// test-only edge case — Gabriel's own account has this many) the name
+// balloons past readability and `getByLabel('Regra')` starts resolving the
+// wrong `<select>` (Fonte's, Destinatário's) instead of — or alongside —
+// Regra's own. Fixed with an explicit `aria-label` on each select
+// (`HistoricoPage.tsx`), which pins the accessible name regardless of how
+// many options exist. This test seeds enough rules/sources/recipients on
+// its own to reproduce the bug without depending on another spec file's
+// leftover data (self-contained, own unique names).
+test('the Regra/Fonte/Destinatário filters stay independently selectable with many rules, sources and recipients (S14-07 revisão 2)', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+  const tag = `manyfilt-${Math.random().toString(36).slice(2, 8)}`
+
+  let targetRuleId = -1
+  let targetSourceId = -1
+  for (let i = 0; i < 15; i++) {
+    const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+      name: `Fonte ${tag}-${i}`,
+      telegram_chat_id: `chat-${tag}-${i}`,
+    })
+    const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+      name: `Regra ${tag}-${i}`,
+      include_terms: `${tag}item${i}`,
+    })
+    await apiPost(page, '/recipients', csrfToken, {
+      name: `Dest ${tag}-${i}`,
+      telegram_chat_id: `dest-${tag}-${i}`,
+      allowlisted: true,
+    })
+    if (i === 0) {
+      targetRuleId = rule.id
+      targetSourceId = source.id
+    }
+  }
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: `Alvo ${tag}`,
+    telegram_chat_id: `alvo-${tag}`,
+    allowlisted: true,
+  })
+  await apiPost(page, '/demo/messages', csrfToken, {
+    source_id: targetSourceId,
+    rule_id: targetRuleId,
+    recipient_ids: [recipient.id],
+    text: `${tag}item0 achado por R$ 321`,
+  })
+
+  await page.goto('/historico')
+  // Each locator must resolve to exactly one <select> — the actionability
+  // check inside `selectOption` already asserts single-element strict mode,
+  // so simply not throwing here is the real assertion.
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: `Regra ${tag}-0` })
+  await page.getByLabel('Fonte', { exact: true }).selectOption({ label: `Fonte ${tag}-0` })
+  await expect(page.getByText(`${tag}item0 achado por R$ 321`)).toBeVisible()
+  await page.getByLabel('Destinatário', { exact: true }).selectOption({ label: `Alvo ${tag}` })
+})
