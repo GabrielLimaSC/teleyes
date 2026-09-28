@@ -58,6 +58,12 @@
   font-size: 13px;
 }
 
+.feed-page__group-toggle {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
 .feed-page__error {
   color: var(--plane-status-danger);
 }
@@ -70,6 +76,30 @@
   grid-template-columns: 272px minmax(0, 1fr) 312px;
   gap: 20px;
   align-items: start;
+}
+
+/* S14-07: the same collapse, keyed off the actual available width
+   (`.product-panel-layout__content`, a query container) instead of the
+   viewport — narrows well below 1100px once the product panel takes its own
+   520px, which a viewport-only `@media` breakpoint can't see. Both stay
+   declared: the `@media` version below still covers panel-closed pages and
+   any browser without container query support. */
+@container (max-width: 1100px) {
+  .feed-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feed-page__list {
+    order: 1;
+  }
+
+  .feed-rail {
+    order: 2;
+  }
+
+  .feed-page__side-rail {
+    order: 3;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -85,7 +115,7 @@
     order: 2;
   }
 
-  .feed-summary {
+  .feed-page__side-rail {
     order: 3;
   }
 }
@@ -253,4 +283,230 @@
   margin-top: 4px;
   font-size: 11px;
   color: var(--plane-text-helper-on-glass);
+}
+
+/* S14-07 (06): the grid's third track — "Resumo" (existing, S11-03) stacked
+   with the new "Digest diário" and "Resumo de hoje" boxes below it. */
+.feed-page__side-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- "Alvos de preço" (06) ---- */
+.feed-target {
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feed-target__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.feed-target__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.feed-target__status {
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+.feed-target__status--hit {
+  font-weight: 600;
+  color: var(--plane-status-good);
+}
+
+.feed-target__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--plane-tint-bg);
+  overflow: hidden;
+}
+
+.feed-target__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--plane-status-neutral);
+}
+
+.feed-target__bar-fill--hit {
+  background: var(--pill-good-dot);
+}
+
+.feed-target__foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+.feed-target__foot span:last-child {
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-primary);
+  font-weight: 600;
+}
+
+/* ---- "Silenciados" (06) ---- */
+.feed-snooze {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feed-snooze__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.feed-snooze__meta {
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+  margin-top: 2px;
+}
+
+.feed-snooze__reactivate {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  flex: none;
+}
+
+/* ---- "Digest diário" (06) ---- */
+.feed-digest {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.feed-digest__description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.feed-digest__row {
+  display: flex;
+  gap: 10px;
+}
+
+.feed-digest__field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.feed-digest__field input,
+.feed-digest__field select {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-digest__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.feed-digest__toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.feed-toggle-switch {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--plane-disabled-bg);
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  box-sizing: border-box;
+  flex: none;
+  transition: background-color 150ms ease;
+}
+
+.feed-toggle-switch--on {
+  background: var(--pill-good-dot);
+  justify-content: flex-end;
+}
+
+.feed-toggle-switch__knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--toggle-knob-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.feed-digest__next {
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+/* ---- "Resumo de hoje" (06) — a pearl (flat) card, not glass, per the comp. ---- */
+.feed-today {
+  padding: 18px;
+}
+
+.feed-today__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.feed-today__tile {
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--plane-surface-sunken);
+  border: 1px solid var(--plane-divider-color);
+}
+
+.feed-today__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+  margin-bottom: 4px;
+}
+
+.feed-today__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
 }

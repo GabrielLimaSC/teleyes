@@ -323,7 +323,22 @@ export function HistoricoPage() {
           </div>
           <label>
             Regra
-            <select value={form.ruleId} onChange={(event) => updateField('ruleId')(event.target.value)}>
+            {/* S14-07 revisão 2: an implicit label-wraps-select association
+                computes its accessible name (and what `getByLabel`/screen
+                readers match against) from the label's own text CONCATENATED
+                WITH EVERY <option>, not just the selected one — harmless with
+                a handful of rules, but with dozens (a real rule count) the
+                resulting name is a multi-hundred-character blob, and browsers
+                stop reliably telling "Regra"'s blob apart from "Fonte"'s or
+                "Destinatário"'s: `getByLabel('Regra')`/a screen reader can
+                genuinely match the wrong combobox. `aria-label` pins the
+                accessible name to the short, real label regardless of how
+                many options exist — same fix on the 3 selects below. */}
+            <select
+              aria-label="Regra"
+              value={form.ruleId}
+              onChange={(event) => updateField('ruleId')(event.target.value)}
+            >
               <option value="">Todas</option>
               {rules.map((rule) => (
                 <option key={rule.id} value={rule.id}>
@@ -335,6 +350,7 @@ export function HistoricoPage() {
           <label>
             Fonte
             <select
+              aria-label="Fonte"
               value={form.sourceId}
               onChange={(event) => updateField('sourceId')(event.target.value)}
             >
@@ -349,6 +365,7 @@ export function HistoricoPage() {
           <label>
             Destinatário
             <select
+              aria-label="Destinatário"
               value={form.recipientId}
               onChange={(event) => updateField('recipientId')(event.target.value)}
             >
@@ -363,6 +380,7 @@ export function HistoricoPage() {
           <label>
             Entrega
             <select
+              aria-label="Entrega"
               value={form.deliveryStatus}
               onChange={(event) => updateField('deliveryStatus')(event.target.value)}
             >
