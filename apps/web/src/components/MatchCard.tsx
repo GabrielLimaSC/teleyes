@@ -8,7 +8,7 @@ import { cardTitle, productText } from './matchTitle'
 import { PRODUCT_OPEN_CONTROL_ATTR } from './ProductPanel'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 import { formatMatchedAt } from '../utils/dates'
-import { parseManualPriceCents, PriceParseError } from '../utils/manualPrice'
+import { parsePriceInput } from '../utils/priceInput'
 import './MatchCard.css'
 import '../components/GlassCard.css'
 import '../components/AuroraGlow.css'
@@ -217,17 +217,19 @@ export function MatchCard({
     if (onSetTarget === undefined) return
     // S14-07 fix: this used to be `Math.round(Number(targetInput) * 100)`,
     // which reads the pt-BR thousands dot as a decimal point — "5.749"
-    // silently became 575 cents (a R$ 5,75 target) instead of R$ 5.749. The
-    // parser below mirrors `packages/rules/manual_price.py`'s fixed,
-    // unambiguous format set exactly, same pt-BR rejection messages.
-    try {
-      const cents = parseManualPriceCents(targetInput)
-      setTargetError(null)
-      onSetTarget(match.rule_id, cents)
-      setShowTargetForm(false)
-    } catch (error) {
-      setTargetError(error instanceof PriceParseError ? error.message : 'Preço inválido.')
+    // silently became 575 cents (a R$ 5,75 target) instead of R$ 5.749.
+    // S14-13: `parsePriceInput` is the one parser for every manually-typed
+    // price in this app (mirrors `packages/rules/manual_price.py`'s fixed,
+    // unambiguous format set, same pt-BR rejection messages) — this used to
+    // be its own near-identical `manualPrice.ts` module.
+    const parsed = parsePriceInput(targetInput)
+    if (parsed.cents === null) {
+      setTargetError(parsed.error)
+      return
     }
+    setTargetError(null)
+    onSetTarget(match.rule_id, parsed.cents)
+    setShowTargetForm(false)
   }
 
   return (

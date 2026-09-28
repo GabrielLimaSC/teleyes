@@ -331,6 +331,100 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
   )
 }
 
+interface TargetEditorProps {
+  /** `null` with no target yet — starts the field empty, same as
+   * MatchCard's "Definir alvo". */
+  targetPriceCents: number | null
+  ruleName?: string
+  onSave: (targetCents: number) => void
+}
+
+/** S14-08 parte 2 (rodada 2) / tela 07 "Alvo de preço": the panel's own
+ * "Avise-me abaixo de" field + "Salvar alvo" — same inline-parse-on-submit
+ * shape as MatchCard's "Definir alvo" (`utils/priceInput.ts`'s `{cents,
+ * error}`, no full-form validation state needed for a single field). The
+ * page (`onSave`) owns the actual `PATCH /rules/{id}` and its own success/
+ * failure toast; this only ever blocks on a malformed value it can catch
+ * before that call is even made. */
+function TargetEditor({ targetPriceCents, ruleName, onSave }: TargetEditorProps) {
+  const [value, setValue] = useState(formatPriceInput(targetPriceCents))
+  const [error, setError] = useState<string | null>(null)
+  const errorId = useId()
+
+  // A different rule's target (product switch, or the page's own reload
+  // after a save) always replaces whatever was mid-typing — never merges
+  // with it, so this never shows a stale value next to a fresh rule name.
+  useEffect(() => {
+    setValue(formatPriceInput(targetPriceCents))
+    setError(null)
+  }, [targetPriceCents, ruleName])
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const parsed = parsePriceInput(value)
+    if (parsed.cents === null) {
+      setError(parsed.error)
+      return
+    }
+    setError(null)
+    onSave(parsed.cents)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {ruleName && (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--plane-text-helper)' }}>Regra: {ruleName}</p>
+      )}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <label style={{ flex: '1 1 160px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span className="product-panel__label">Avise-me abaixo de</span>
+          <span style={{ position: 'relative', display: 'block' }}>
+            <span
+              aria-hidden="true"
+              style={{ position: 'absolute', left: 12, top: 13, color: 'var(--plane-text-helper)', fontSize: 14 }}
+            >
+              R$
+            </span>
+            <input
+              aria-label="Avise-me abaixo de"
+              value={value}
+              inputMode="decimal"
+              placeholder="5.749,00"
+              aria-invalid={error !== null}
+              aria-describedby={error !== null ? errorId : undefined}
+              onChange={(event) => {
+                setValue(event.target.value)
+                setError(null)
+              }}
+              style={{
+                width: '100%',
+                height: 42,
+                borderRadius: 10,
+                border: '1px solid var(--glass-inner-border-color)',
+                background: 'var(--product-panel-well-bg)',
+                color: 'var(--plane-text-primary)',
+                padding: '0 12px 0 39px',
+                font: 'inherit',
+                fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
+                boxSizing: 'border-box',
+              }}
+            />
+          </span>
+        </label>
+        <button type="submit" className="plane-action" style={{ minHeight: 42 }}>
+          Salvar alvo
+        </button>
+      </div>
+      {error !== null && (
+        <p id={errorId} role="alert" style={{ margin: 0, fontSize: 11, color: 'var(--plane-status-danger)' }}>
+          {error}
+        </p>
+      )}
+    </form>
+  )
+}
+
 /** `PricePoint.date` already comes as `YYYY-MM-DD` in the display timezone
  * (the backend's `series_for_range`) — a plain string split, never a `Date`
  * (the display timezone already equals the viewer's local one, so a round
@@ -384,13 +478,32 @@ export interface ProductPanelProps {
    * exit transition has something to animate. */
   phase: 'open' | 'closing'
   onClose: () => void
-  /** S14-08: hidden this delivery (their backend — S14-02/S14-03/S14-06 —
-   * is not part of this PR). Each block only renders once its handler is
-   * actually passed, so nothing here is ever a fake button. */
+  /** S14-08 parte 2 (rodada 2): the page resolves which rule this saves to
+   * (the product's most-recently-matched rule, `utils/productMatch.ts`) and
+   * owns the actual `PATCH /rules/{id}` — this only carries the parsed
+   * cents up. Each block below only renders once its handler is actually
+   * passed, so nothing here is ever a fake button. */
   onSaveTarget?: (targetCents: number) => void
   onCreateRule?: () => void
   onSnooze?: () => void
   onEditData?: () => void
+  /** Current target of the rule `onSaveTarget` will PATCH, `null`/omitted
+   * for "no target yet" — prefills "Avise-me abaixo de". Ignored while
+   * `onSaveTarget` is unset (the whole block is hidden then). */
+  targetPriceCents?: number | null
+  /** Name of that same rule — shown next to the field so a product with
+   * more than one rule never saves a target to the wrong one silently. */
+  targetRuleName?: string
+  /** Whether the product is silenced right now — swaps the "Silenciar 7
+   * dias" chip's label for "Reativar", same wording as MatchCard's own
+   * toggle. The page still owns which call (`snoozeProduct`/
+   * `reactivateSnooze`) `onSnooze` makes. */
+  snoozed?: boolean
+  /** Fires after `onEditData`'s own in-panel save/revert lands (S14-08
+   * parte 2 rodada 2) — the page's own match list (Feed's live `matches`,
+   * Histórico's filtered one) has no idea the panel just changed a price/
+   * name until it refetches; this is that signal. */
+  onEdited?: (match: EditableMatch) => void
 }
 
 export function ProductPanel({
@@ -401,6 +514,10 @@ export function ProductPanel({
   onCreateRule,
   onSnooze,
   onEditData,
+  targetPriceCents = null,
+  targetRuleName,
+  snoozed = false,
+  onEdited,
 }: ProductPanelProps) {
   const headingId = useId()
   const panelRef = useRef<HTMLElement | null>(null)
@@ -632,11 +749,13 @@ export function ProductPanel({
   function handleSaved(match: EditableMatch) {
     void refreshProduct(match)
     setEditing(false)
+    onEdited?.(match)
   }
 
   function handleReverted(match: EditableMatch) {
     void refreshProduct(match)
     setEditing(false)
+    onEdited?.(match)
   }
 
   const chart = product ? buildChartGeometry(product.series) : null
@@ -825,8 +944,7 @@ export function ProductPanel({
             {onSaveTarget && (
               <div className="product-panel__well product-panel__target">
                 <div className="product-panel__label">Alvo de preço</div>
-                {/* S14-02 not part of this delivery: the input/"Salvar alvo"
-                    controls arrive with that task, wired to this handler. */}
+                <TargetEditor targetPriceCents={targetPriceCents} ruleName={targetRuleName} onSave={onSaveTarget} />
               </div>
             )}
 
@@ -838,7 +956,7 @@ export function ProductPanel({
               )}
               {onSnooze && (
                 <button type="button" className="plane-action plane-action--secondary product-panel__chip" onClick={onSnooze}>
-                  Silenciar 7 dias
+                  {snoozed ? 'Reativar' : 'Silenciar 7 dias'}
                 </button>
               )}
               {product.postings.length > 0 && (

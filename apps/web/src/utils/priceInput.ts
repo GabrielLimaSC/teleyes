@@ -31,9 +31,20 @@ function amountToCents(reais: string, decimal = ''): number | null {
 }
 
 /**
- * Parses the strict set of price formats accepted by PATCH /matches/{id}.
+ * S14-13: the single parser for every manually-typed pt-BR price in this
+ * app — `PATCH /matches/{id}`'s own `price` field (S14-06), the "Definir
+ * alvo" inline form (MatchCard) and the product panel's "Avise-me abaixo
+ * de" before `PATCH /rules/{id}`'s `target_price_cents`, and Regras'
+ * "Teto"/"Alvo" and Histórico's preço mínimo/máximo filters. Used to live
+ * split across two near-identical modules (`manualPrice.ts` returning
+ * `{cents, error}` via a thrown `PriceParseError`, this one returning a
+ * plain result) — merged into this one, keeping this module's `{cents,
+ * error}` shape since it never needs a try/catch at the call site.
+ *
  * A three-digit dot group is always a pt-BR thousands separator, so "5.749"
- * means 5,749 reais rather than 5.749 reais.
+ * means 5,749 reais rather than 5.749 reais — never `Number(x) * 100` on the
+ * whole string, which reads that dot as a decimal point and silently turns
+ * R$ 5.749 into R$ 5,75.
  */
 export function parsePriceInput(raw: string): PriceInputResult {
   let text = raw.trim()
@@ -60,4 +71,15 @@ export function parsePriceInput(raw: string): PriceInputResult {
   if (cents === null) return { cents: null, error: 'O preço informado é muito alto.' }
   if (cents <= 0) return { cents: null, error: 'O preço deve ser maior que zero.' }
   return { cents, error: null }
+}
+
+/**
+ * Same parsing, for a field where leaving it blank is valid (Regras'
+ * optional "Teto"/"Alvo", Histórico's optional preço mínimo/máximo) —
+ * blank is `{ cents: null, error: null }`, never the "Informe um preço."
+ * message `parsePriceInput` gives a required field.
+ */
+export function parseOptionalPriceInput(raw: string): { cents: number | null; error: string | null } {
+  if (raw.trim() === '') return { cents: null, error: null }
+  return parsePriceInput(raw)
 }
