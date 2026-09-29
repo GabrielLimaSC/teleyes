@@ -580,7 +580,7 @@
   :root[data-chrome='compact'] .feed-page__header-actions {
     position: fixed;
     z-index: 50;
-    top: 32px;
+    top: calc(var(--chrome-band-center) - 20px);
     right: 80px;
     margin: 0;
   }
@@ -642,9 +642,47 @@
     display: grid;
     grid-template-rows: 0fr 1fr;
     gap: 0;
+    box-sizing: border-box;
     transition:
       grid-template-rows var(--chrome-spring-duration) var(--chrome-spring),
-      padding var(--chrome-spring-duration) var(--chrome-spring);
+      padding var(--chrome-spring-duration) var(--chrome-spring),
+      width var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  /* S15-04: the rail's own box has its own width, pinned to the outer edge of
+     its column, instead of filling the column — so a folded rail is 64px
+     wide at once while the column (and the feed next to it) springs, never
+     a wide empty box shrinking along with the column. */
+  .feed-page__grid[data-rails] .feed-rail {
+    justify-self: start;
+    width: 272px;
+  }
+
+  .feed-page__grid[data-rails] .feed-page__side-rail {
+    justify-self: end;
+    width: 312px;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail {
+    width: 64px;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail {
+    width: 64px;
+  }
+
+  /* Folded because it was scrolled away: swap faces at once (see
+     `railsSnap` in FeedPage.tsx); the strip's icons still stagger in. */
+  .feed-page__grid[data-left-snap] .feed-rail,
+  .feed-page__grid[data-left-snap] .feed-rail > .feed-rail__full,
+  .feed-page__grid[data-right-snap] .feed-page__side-rail,
+  .feed-page__grid[data-right-snap] .feed-page__side-rail > .feed-rail__full {
+    transition: none;
+  }
+
+  /* …and the folded box eases in where it lands instead of popping. */
+  .feed-page__grid[data-left-snap][data-left-rail='collapsed'] .feed-rail {
+    animation: feed-rail-fold-in 380ms var(--chrome-spring) both;
   }
 
   .feed-page__grid[data-rails] .feed-rail__strip,
@@ -737,6 +775,15 @@
     max-height: calc(100vh - var(--chrome-band-height) - 20px + 24px);
     margin: -12px;
     padding: 12px;
+  }
+
+  /* Its 12px of shadow room on each side is part of its border box. */
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    width: calc(312px + 24px);
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail {
+    width: calc(64px + 24px);
   }
 
   .feed-rail__collapse {
@@ -846,7 +893,19 @@
   }
 }
 
+@keyframes feed-rail-fold-in {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+    scale: 0.96;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .feed-page__grid[data-left-snap][data-left-rail='collapsed'] .feed-rail {
+    animation: none;
+  }
+
   .feed-page__title,
   .feed-chrome-scrim,
   .feed-page__grid[data-rails],

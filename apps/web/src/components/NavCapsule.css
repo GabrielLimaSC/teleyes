@@ -343,7 +343,8 @@
    spot from the start (`rest`), so going compact only ever animates its own
    box: it shrinks to a disc around the mascot and slides to the top-left
    (`compact`); hovering, keyboard focus inside it or clicking the mascot grows the
-   same pill back out of the disc, tabs reappearing centre-out (Scene.mp4).
+   same pill back out of the disc, the mascot first and the tabs after it,
+   left to right (Scene.mp4).
    `.nav-shell` keeps its normal height, so the page never moves under it. */
 @property --nav-capsule-height {
   syntax: '<length>';
@@ -396,14 +397,76 @@
       visibility 0s;
   }
 
+  /* ---- Compact: one disc at the top-left of the band, centred on its
+     40px line (S15-04). The mascot moves to the left end of the capsule and
+     drops its own disc, so collapsed there is exactly one circle — the
+     capsule's glass — and opened, the tabs run in one row after it. */
   :root[data-chrome='compact'] .nav-capsule {
     /* Room left for the docked Feed controls + theme button on the right. */
-    --nav-open-width: min(720px, calc(100vw - 600px));
+    --nav-open-width: min(640px, calc(100vw - 600px));
     --nav-capsule-height: 56px;
-    top: 24px;
+    top: calc(var(--chrome-band-center) - 28px);
     left: 24px;
     width: var(--nav-capsule-height);
     translate: 0 0;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule__glass {
+    inset: 0;
+  }
+
+  :root[data-chrome][data-chrome-animating] .nav-mascot,
+  :root[data-chrome='compact'] .nav-mascot {
+    transition:
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 220ms ease-out,
+      left var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .nav-mascot {
+    left: calc(var(--nav-capsule-height) / 2);
+    box-shadow: none;
+  }
+
+  :root[data-chrome='compact'] .nav-mascot:hover {
+    box-shadow: none;
+  }
+
+  :root[data-chrome] .nav-mascot__refraction,
+  :root[data-chrome] .nav-mascot__tint,
+  :root[data-chrome] .nav-mascot__shine {
+    transition: opacity 200ms ease-out;
+  }
+
+  :root[data-chrome='compact'] .nav-mascot__refraction,
+  :root[data-chrome='compact'] .nav-mascot__tint,
+  :root[data-chrome='compact'] .nav-mascot__shine {
+    opacity: 0;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule__menu {
+    left: var(--nav-capsule-height);
+    width: calc(var(--nav-open-width) - var(--nav-capsule-height));
+    translate: 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px 0 6px;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule__wing {
+    display: contents;
+  }
+
+  :root[data-chrome='compact'] .nav-tab {
+    transition:
+      color 200ms ease-out,
+      background-color 200ms ease-out,
+      box-shadow 200ms ease-out,
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 240ms ease-out calc(70ms + var(--nav-order, 0) * 40ms),
+      scale var(--chrome-spring-duration) var(--chrome-spring) calc(40ms + var(--nav-order, 0) * 40ms),
+      visibility 0s;
   }
 
   :root[data-chrome='compact'] .nav-capsule:is(:hover, :has(:focus-visible), .nav-capsule--chrome-open) {
@@ -423,6 +486,16 @@
       opacity 120ms ease-out,
       scale 160ms ease-out,
       visibility 0s 160ms;
+  }
+
+  /* The theme button rides the same line as the rest of the band. */
+  :root[data-chrome][data-chrome-animating] .theme-toggle,
+  :root[data-chrome='compact'] .theme-toggle {
+    transition: top var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .theme-toggle {
+    top: calc(var(--chrome-band-center) - 20px);
   }
 }
 

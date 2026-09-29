@@ -369,6 +369,13 @@ export function FeedPage() {
   const [gridIsWide, setGridIsWide] = useState(false)
   const [openRails, setOpenRails] = useState({ left: false, right: false })
   const [railsPassed, setRailsPassed] = useState({ left: false, right: false })
+  // S15-04: a rail that folds because it was scrolled out of view swaps faces
+  // at once — it is off screen, and morphing it made the full, tall box flash
+  // back into view (sticky) before shrinking. The folded box fades in where
+  // it lands and its icons stagger in. Cleared after that entrance, so
+  // opening/closing from the strip and the way back to the top keep their
+  // morph.
+  const [railsSnap, setRailsSnap] = useState({ left: false, right: false })
   const railsManaged = chromeMode !== 'off' && gridIsWide
   const railsCompact = chromeMode === 'compact' && gridIsWide
   // A rail only folds into its strip once the page has scrolled past it —
@@ -389,7 +396,7 @@ export function FeedPage() {
     if (!railsCompact) return
     // Measured on entering compact, when both rails are still open in the
     // flow: the scroll position at which each one's bottom leaves the band.
-    const band = 96
+    const band = 84
     const bottomOf = (element: HTMLElement | null) =>
       element ? element.getBoundingClientRect().bottom + window.scrollY - band : Infinity
     const thresholds = { left: bottomOf(leftRailRef.current), right: bottomOf(rightRailRef.current) }
@@ -398,10 +405,13 @@ export function FeedPage() {
       const y = window.scrollY
       const next = { left: passed.left || y > thresholds.left, right: passed.right || y > thresholds.right }
       if (next.left === passed.left && next.right === passed.right) return
+      const snap = { left: next.left && !passed.left, right: next.right && !passed.right }
       passed = next
       markChromeAnimating()
       anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
+      setRailsSnap(snap)
       setRailsPassed(next)
+      window.setTimeout(() => setRailsSnap({ left: false, right: false }), 450)
     }
     check()
     window.addEventListener('scroll', check, { passive: true })
@@ -508,6 +518,8 @@ export function FeedPage() {
           data-rails={railsManaged ? chromeMode : undefined}
           data-left-rail={leftState}
           data-right-rail={rightState}
+          data-left-snap={railsSnap.left || undefined}
+          data-right-snap={railsSnap.right || undefined}
         >
           <aside ref={leftRailRef} id="feed-rail-left" className="plane-glass feed-rail">
             <div className="feed-rail__strip" inert={!leftCollapsed}>

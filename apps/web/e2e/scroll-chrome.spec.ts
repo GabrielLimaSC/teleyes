@@ -58,12 +58,22 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
 
   // Título sumiu; controles no topo, dentro da faixa; navbar virou o disco.
   await expect(page.locator('.feed-page__title')).toHaveCSS('opacity', '0')
-  const band = 96
+  const band = 84
   const actions = await box(page.locator('.feed-page__header-actions'))
   expect(actions.y + actions.height).toBeLessThanOrEqual(band)
   const capsule = await box(page.locator('.nav-capsule'))
   expect(capsule.width).toBeLessThan(70)
   expect(capsule.x).toBeLessThan(40)
+  // S15-04: disco, controles e botão de tema na mesma linha central da faixa.
+  const centerOf = (b: { y: number; height: number }) => b.y + b.height / 2
+  const toggle = await box(page.locator('.theme-toggle__button'))
+  expect(Math.abs(centerOf(capsule) - centerOf(actions))).toBeLessThan(2)
+  expect(Math.abs(centerOf(toggle) - centerOf(actions))).toBeLessThan(2)
+  // Recolhida, só um círculo: o mascote não desenha disco próprio.
+  await expect(page.locator('.nav-mascot__tint')).toHaveCSS('opacity', '0')
+  const mascot = await box(page.locator('.nav-mascot'))
+  expect(mascot.x).toBeGreaterThanOrEqual(capsule.x)
+  expect(mascot.x + mascot.width).toBeLessThanOrEqual(capsule.x + capsule.width + 1)
 
   // Um trilho ainda na tela continua aberto (nunca some debaixo do ponteiro)…
   const grid = page.locator('.feed-page__grid')

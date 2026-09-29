@@ -9,7 +9,11 @@
   --chrome-spring-duration: 680ms;
   /* Height of the band the compact chrome lives in; sticky content starts
      below it, so nothing fixed ever sits on top of a card. */
-  --chrome-band-height: 96px;
+  --chrome-band-height: 84px;
+  /* The line the compact chrome's items (capsule, docked controls, theme
+     button) are centred on — the middle of the band's solid part (S15-04:
+     at 52px they sat on its lower edge). */
+  --chrome-band-center: 40px;
 }
 
 /* chrome/scrollChrome.ts anchors the scroll itself while the layout springs;
