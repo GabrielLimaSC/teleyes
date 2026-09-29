@@ -294,6 +294,12 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
     await card.getByRole('button', { name: 'Silenciar 7 dias' }).click()
     await expect(card.getByRole('button', { name: 'Reativar' })).toBeVisible()
 
+    // S15-03: com muitos cards na rodada, o clique acima rola a página e o
+    // Feed entra no modo compacto (trilho recolhido em ícones). Volta ao topo,
+    // onde a trilha "Silenciados" está aberta, como o usuário faria.
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await expect(page.locator('html')).not.toHaveAttribute('data-chrome', 'compact')
+
     const snoozeRow = page.locator('.feed-snooze', { hasText: title })
     await expect(snoozeRow).toBeVisible()
     await snoozeRow.getByRole('button', { name: 'Reativar' }).click()

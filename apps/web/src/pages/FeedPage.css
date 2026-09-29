@@ -134,6 +134,30 @@
   container-type: inline-size;
 }
 
+/* S15-03: while the compact chrome springs the feed column's width
+   (`data-chrome-animating`, one spring long), cards off screen skip layout
+   and paint — re-laying out every card of a long feed on every frame showed
+   up as dropped frames. At rest cards are plain again (exact geometry for
+   anything that measures them). `auto 300px` keeps each card's real height.
+   Content-visibility clips paint at the padding box: the 32px padding
+   (cancelled by the negative margin, so grid and container width don't
+   change) is room for the card's shadow — no `overflow-clip-margin`, which
+   Safari lacks. The padding overlaps the neighbours, hence clicks only on
+   the card itself. */
+@media (min-width: 1101px) {
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-page__card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 300px;
+    margin: -32px;
+    padding: 32px;
+    pointer-events: none;
+  }
+
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-page__card > * {
+    pointer-events: auto;
+  }
+}
+
 @media (max-width: 720px) {
   .feed-page__list {
     grid-template-columns: minmax(0, 1fr);
@@ -509,4 +533,328 @@
   font-weight: 700;
   color: var(--plane-text-heading);
   font-variant-numeric: tabular-nums;
+}
+
+/* ==== S15-03: compact chrome while the Feed is scrolled ====================
+   `html[data-chrome]` (chrome/scrollChrome.ts): `rest` at the top, `compact`
+   once scrolled past the header; only on wide screens. Everything below is
+   the same element moving between two states on one spring
+   (`--chrome-spring`, styles/chrome.css) — reversible by construction, since
+   each property simply transitions back. */
+
+/* Outside the managed layout (narrow screens, stacked grid, chrome off) the
+   strip simply doesn't exist. */
+.feed-rail__strip {
+  display: none;
+}
+
+/* Every rule of the compact chrome is also gated on the width itself, not
+   only on the attributes: on a resize the attributes follow a frame later
+   (media listener, ResizeObserver), and for that frame the wide rules must
+   already be gone. */
+@media (min-width: 1101px) {
+  .feed-page__grid[data-rails] .feed-rail__strip {
+    display: block;
+  }
+
+  /* The title fades in place: the header keeps its height (the docked controls
+     leave the flow, the title block alone sets it), so nothing below it moves. */
+  .feed-page__title {
+    transform-origin: left bottom;
+    transition:
+      opacity 240ms ease-out,
+      translate var(--chrome-spring-duration) var(--chrome-spring),
+      scale var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .feed-page__title {
+    opacity: 0;
+    translate: 0 -10px;
+    scale: 0.97;
+    pointer-events: none;
+  }
+
+  /* SSE / Agrupar / Atualizar dock into the top band, right of the capsule and
+     left of the theme button (centred on its 52px line). The travel between the
+     two places is a FLIP (scrollChrome.ts `registerChromeFlip`). */
+  :root[data-chrome='compact'] .feed-page__header-actions {
+    position: fixed;
+    z-index: 50;
+    top: 32px;
+    right: 80px;
+    margin: 0;
+  }
+
+  .feed-chrome-scrim {
+    position: fixed;
+    z-index: 45;
+    inset: 0 0 auto;
+    height: var(--chrome-band-height);
+    pointer-events: none;
+    opacity: 0;
+    background: color-mix(in srgb, var(--color-paper) 86%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-mask-image: linear-gradient(to bottom, var(--color-text) 78%, transparent);
+    mask-image: linear-gradient(to bottom, var(--color-text) 78%, transparent);
+    transition: opacity 260ms ease-out;
+  }
+
+  :root[data-chrome='compact'] .feed-chrome-scrim {
+    opacity: 1;
+  }
+
+  /* The product panel is sticky too: below the band, not under it. */
+  :root[data-chrome] .product-panel {
+    top: calc(var(--chrome-band-height) + 4px);
+    max-height: calc(100vh - var(--chrome-band-height) - 24px);
+  }
+
+  /* ---- Rails: two faces of the same box ----
+     `data-rails` is only set while the grid really has its 3 columns. The
+     columns spring between their full widths and a 64px strip, and the feed
+     column takes (or gives back) the difference — a rail opened while compact
+     pushes the cards aside, it never opens on top of them. */
+  .feed-page__grid[data-rails] {
+    --rail-left-width: 272px;
+    --rail-right-width: 312px;
+    grid-template-columns: var(--rail-left-width) minmax(0, 1fr) var(--rail-right-width);
+    transition: grid-template-columns var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] {
+    --rail-left-width: 64px;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] {
+    --rail-right-width: 64px;
+  }
+
+  /* Strip on top, full content below; each face is a grid row that springs
+     between 0fr and 1fr, so the box's height morphs instead of snapping. */
+  .feed-rail__strip,
+  .feed-rail__full {
+    min-height: 0;
+  }
+
+  .feed-page__grid[data-rails] .feed-rail,
+  .feed-page__grid[data-rails] .feed-page__side-rail {
+    display: grid;
+    grid-template-rows: 0fr 1fr;
+    gap: 0;
+    transition:
+      grid-template-rows var(--chrome-spring-duration) var(--chrome-spring),
+      padding var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  .feed-page__grid[data-rails] .feed-rail__strip,
+  .feed-page__grid[data-rails] .feed-rail__full {
+    overflow: hidden;
+    transition:
+      opacity 220ms ease-out,
+      scale var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  /* The right rail is three separate glass boxes: its clip boxes reach 24px
+     past the content (negative margin = padding) so their shadows survive it. */
+  .feed-page__grid[data-rails] .feed-page__side-rail > .feed-rail__strip,
+  .feed-page__grid[data-rails] .feed-page__side-rail > .feed-rail__full {
+    margin: -24px;
+    padding: 24px;
+  }
+
+  .feed-page__grid[data-rails] .feed-rail__strip {
+    opacity: 0;
+    scale: 0.9;
+  }
+
+  .feed-rail__full-inner,
+  .feed-side__full-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .feed-rail__full-inner {
+    gap: 18px;
+  }
+
+  .feed-side__full-inner {
+    gap: 16px;
+  }
+
+  /* Keep the content at its full width while the column springs, so the text
+     is clipped by the shrinking box instead of re-wrapping every frame. */
+  .feed-page__grid[data-rails] .feed-rail__full-inner {
+    width: calc(272px - 40px);
+  }
+
+  .feed-page__grid[data-rails] .feed-side__full-inner {
+    width: 312px;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail {
+    grid-template-rows: 1fr 0fr;
+    padding: 8px;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail {
+    grid-template-rows: 1fr 0fr;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-rail__strip,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail > .feed-rail__strip {
+    opacity: 1;
+    scale: 1;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-rail__full,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail > .feed-rail__full {
+    opacity: 0;
+    scale: 0.96;
+  }
+
+  /* Follow the scroll once folded (or opened again from the strip): sticky
+     right below the band, and never taller than what's left of the viewport
+     (the rail scrolls inside). An `open` rail stays in the flow. */
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail,
+  .feed-page__grid[data-left-rail='pinned'] .feed-rail,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail,
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    position: sticky;
+    top: calc(var(--chrome-band-height) + 4px);
+    max-height: calc(100vh - var(--chrome-band-height) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  /* The right rail has no glass of its own: room for its boxes' shadows (and
+     the same visual top as the left rail, hence the -12px on `top`). */
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail,
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    top: calc(var(--chrome-band-height) + 4px - 12px);
+    max-height: calc(100vh - var(--chrome-band-height) - 20px + 24px);
+    margin: -12px;
+    padding: 12px;
+  }
+
+  .feed-rail__collapse {
+    position: absolute;
+    z-index: 1;
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--plane-divider-color);
+    border-radius: 50%;
+    background: var(--glass-tile-bg);
+    color: var(--plane-text-secondary);
+    cursor: pointer;
+  }
+
+  .feed-side__full-inner > .feed-rail__collapse {
+    top: 14px;
+    right: 14px;
+  }
+
+  .feed-rail__collapse:hover {
+    color: var(--plane-text-primary);
+  }
+
+  .feed-rail__collapse:focus-visible,
+  .rail-strip__button:focus-visible {
+    outline: none;
+    box-shadow: var(--plane-focus-ring);
+  }
+
+  /* ---- The strip itself (components/RailStrip.tsx) ---- */
+  .rail-strip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  .feed-side__strip .rail-strip {
+    padding: 8px 0;
+  }
+
+  .rail-strip__button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--plane-text-secondary);
+    cursor: pointer;
+    transition:
+      background-color 160ms ease-out,
+      color 160ms ease-out,
+      opacity 220ms ease-out calc(80ms + var(--rail-stagger, 0) * 40ms),
+      translate var(--chrome-spring-duration) var(--chrome-spring) calc(40ms + var(--rail-stagger, 0) * 40ms);
+  }
+
+  .rail-strip__button:hover {
+    background: var(--glass-tile-bg);
+    color: var(--plane-text-primary);
+  }
+
+  .rail-strip__button--toggle {
+    color: var(--plane-text-primary);
+    border: 1px solid var(--plane-divider-color);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 4px;
+  }
+
+  /* Icons arrive one after the other once the strip is showing (Scene.mp4). */
+  .feed-page__grid:not([data-left-rail='collapsed']) .feed-rail .rail-strip__button,
+  .feed-page__grid:not([data-right-rail='collapsed']) .feed-page__side-rail .rail-strip__button {
+    opacity: 0;
+    translate: 0 -6px;
+    transition-delay: 0s;
+  }
+
+  .rail-strip__icon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .rail-strip__flag {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--plane-status-good-dot);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-page__title,
+  .feed-chrome-scrim,
+  .feed-page__grid[data-rails],
+  .feed-page__grid[data-rails] .feed-rail,
+  .feed-page__grid[data-rails] .feed-page__side-rail,
+  .feed-page__grid[data-rails] .feed-rail__strip,
+  .feed-page__grid[data-rails] .feed-rail__full,
+  .rail-strip__button {
+    transition: none;
+  }
 }
