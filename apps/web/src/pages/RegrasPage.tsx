@@ -122,9 +122,12 @@ function RuleSparkline({ points }: { points: PricePoint[] }) {
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = Math.max(max - min, 1)
-  const denominator = Math.max(points.length - 1, 1)
-  const polyline = points
-    .map((point, index) => `${(index / denominator) * 150},${26 - ((point.price_cents - min) / span) * 22}`)
+  // S15-02: a single day (every match so far on the same day) is still a
+  // real price — drawn as a flat line across the chart; a one-point polyline
+  // paints nothing, which left the column blank.
+  const plotted = points.length === 1 ? [points[0], points[0]] : points
+  const polyline = plotted
+    .map((point, index) => `${(index / Math.max(plotted.length - 1, 1)) * 150},${26 - ((point.price_cents - min) / span) * 22}`)
     .join(' ')
   return (
     <svg
@@ -714,16 +717,20 @@ export function RegrasPage() {
                         {formatPriceLimit(rule.max_price_cents)}
                       </td>
                       <td className="wide-table__num" data-label="Alvo">
-                        <span className={rule.target_price_cents !== null && rule.lowest_price_cents !== null && rule.lowest_price_cents <= rule.target_price_cents ? 'rule-target rule-target--hit' : 'rule-target'}>
-                          {formatLowestPrice(rule.target_price_cents ?? null)}
-                        </span>
-                        {rule.target_price_cents !== null && rule.lowest_price_cents !== null && (
-                          <span className="rule-target__detail">
-                            {rule.lowest_price_cents <= rule.target_price_cents
-                              ? 'atingido'
-                              : `falta ${Math.max(1, Math.round(((rule.lowest_price_cents - rule.target_price_cents) / rule.lowest_price_cents) * 100))}%`}
+                        {/* S15-02: one box, so the stacked phone card keeps value and
+                            gap together on the right instead of spreading them. */}
+                        <div>
+                          <span className={rule.target_price_cents !== null && rule.lowest_price_cents !== null && rule.lowest_price_cents <= rule.target_price_cents ? 'rule-target rule-target--hit' : 'rule-target'}>
+                            {formatLowestPrice(rule.target_price_cents ?? null)}
                           </span>
-                        )}
+                          {rule.target_price_cents !== null && rule.lowest_price_cents !== null && (
+                            <span className="rule-target__detail">
+                              {rule.lowest_price_cents <= rule.target_price_cents
+                                ? 'atingido'
+                                : `falta ${Math.max(1, Math.round(((rule.lowest_price_cents - rule.target_price_cents) / rule.lowest_price_cents) * 100))}%`}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td data-label="Histórico 30d">
                         <RuleSparkline points={rule.history_30d ?? []} />
@@ -740,61 +747,68 @@ export function RegrasPage() {
                         )}
                       </td>
                       <td className="wide-table__actions" data-label="Ações">
+                        {/* S15-02: two fixed rows instead of a free wrap that
+                            stacked the seven controls in four — everyday
+                            actions first, the rarer/destructive ones below. */}
                         <div className="wide-table__actions-inner">
-                          <button
-                            type="button"
-                            className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => openEdit(rule)}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => handleSnooze(rule)}
-                            disabled={snoozeBusyId === rule.id}
-                          >
-                            {snoozeBusyId === rule.id
-                              ? 'Salvando…'
-                              : rule.snoozed_until
-                                ? 'Reativar'
-                                : 'Silenciar'}
-                          </button>
-                          <button
-                            type="button"
-                            className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => toggleRowTester(rule)}
-                          >
-                            Testar
-                          </button>
-                          <button
-                            type="button"
-                            className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => openDuplicate(rule)}
-                          >
-                            Duplicar
-                          </button>
-                          <StatusToggle
-                            active={rule.active}
-                            pausing={pausingId === rule.id}
-                            onPause={() => handlePause(rule)}
-                          />
-                          <button
-                            type="button"
-                            className="plane-action plane-action--danger plane-action--compact"
-                            onClick={() => openClearConfirm(rule)}
-                            disabled={checkingClearId === rule.id}
-                          >
-                            {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
-                          </button>
-                          <button
-                            type="button"
-                            className="plane-action plane-action--danger plane-action--compact"
-                            onClick={() => handleDelete(rule)}
-                            disabled={deletingId === rule.id}
-                          >
-                            Excluir
-                          </button>
+                          <div className="wide-table__actions-row">
+                            <StatusToggle
+                              active={rule.active}
+                              pausing={pausingId === rule.id}
+                              onPause={() => handlePause(rule)}
+                            />
+                            <button
+                              type="button"
+                              className="plane-action plane-action--secondary plane-action--compact"
+                              onClick={() => openEdit(rule)}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="plane-action plane-action--secondary plane-action--compact"
+                              onClick={() => toggleRowTester(rule)}
+                            >
+                              Testar
+                            </button>
+                            <button
+                              type="button"
+                              className="plane-action plane-action--secondary plane-action--compact"
+                              onClick={() => handleSnooze(rule)}
+                              disabled={snoozeBusyId === rule.id}
+                            >
+                              {snoozeBusyId === rule.id
+                                ? 'Salvando…'
+                                : rule.snoozed_until
+                                  ? 'Reativar'
+                                  : 'Silenciar'}
+                            </button>
+                          </div>
+                          <div className="wide-table__actions-row">
+                            <button
+                              type="button"
+                              className="plane-action plane-action--secondary plane-action--compact"
+                              onClick={() => openDuplicate(rule)}
+                            >
+                              Duplicar
+                            </button>
+                            <button
+                              type="button"
+                              className="plane-action plane-action--danger plane-action--compact"
+                              onClick={() => openClearConfirm(rule)}
+                              disabled={checkingClearId === rule.id}
+                            >
+                              {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
+                            </button>
+                            <button
+                              type="button"
+                              className="plane-action plane-action--danger plane-action--compact"
+                              onClick={() => handleDelete(rule)}
+                              disabled={deletingId === rule.id}
+                            >
+                              Excluir
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>

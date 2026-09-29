@@ -266,21 +266,23 @@ export function DestinatariosSection({ onChanged }: { onChanged?: () => void }) 
                   </td>
                   <td className="wide-table__actions" data-label="Ações">
                     <div className="wide-table__actions-inner">
-                      <button
-                        type="button"
-                        className="plane-action plane-action--secondary plane-action--compact"
-                        onClick={() => openEdit(recipient)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="plane-action plane-action--danger plane-action--compact"
-                        onClick={() => handleDelete(recipient)}
-                        disabled={deletingId === recipient.id}
-                      >
-                        Excluir
-                      </button>
+                      <div className="wide-table__actions-row">
+                        <button
+                          type="button"
+                          className="plane-action plane-action--secondary plane-action--compact"
+                          onClick={() => openEdit(recipient)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="plane-action plane-action--danger plane-action--compact"
+                          onClick={() => handleDelete(recipient)}
+                          disabled={deletingId === recipient.id}
+                        >
+                          Excluir
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>

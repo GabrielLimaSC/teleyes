@@ -1026,6 +1026,21 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     ).toBeInTheDocument()
   })
 
+  it('a single day of history still draws a visible line, not an empty chart (S15-02)', async () => {
+    const oneDay = { ...baseRule, history_30d: [{ date: '2026-09-29', price_cents: 219_900 }] }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([oneDay])))),
+    )
+
+    render(<RegrasPage />)
+
+    const chart = await screen.findByRole('img', { name: /Histórico real de 1 dias/ })
+    const points = chart.querySelector('polyline')?.getAttribute('points')?.split(' ') ?? []
+    expect(points).toHaveLength(2)
+    expect(points[0]).not.toBe(points[1])
+  })
+
   it('a rule with no priced history yet shows "Sem preços" instead of an empty chart', async () => {
     vi.stubGlobal(
       'fetch',
