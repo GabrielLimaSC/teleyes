@@ -15,7 +15,7 @@
   position: relative;
   border: 0;
   /* The normal card's 1px border, as padding, so the content does not move. */
-  padding: 17px 21px;
+  padding: 17px 19px;
   border-radius: 18px;
   background: var(--plane-pearl-bg);
   box-shadow: none;
