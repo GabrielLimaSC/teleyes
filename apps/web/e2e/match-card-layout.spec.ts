@@ -7,6 +7,9 @@ import { apiLogin, apiPost } from './helpers'
  * `height: 100%` + padding em content-box, cada card ficava 32-34px mais alto
  * que a própria célula do grid e pintava por cima do card de baixo.
  *
+ * Nome começa com "match-" de propósito: feed.spec.ts espera o backend
+ * compartilhado ainda vazio, então este spec precisa rodar depois dele.
+ *
  * Real backend (`/demo/messages`), mesmo padrão de feedv2.spec.ts; tag e
  * preços aleatórios porque o backend de e2e é compartilhado pela rodada.
  */
