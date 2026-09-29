@@ -4,15 +4,16 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useChromeMode } from '../chrome/scrollChrome'
 import './NavCapsule.css'
 
-// `stagger`: distance from the mascot, the order the tabs reappear in when
-// the compact capsule (S15-03) grows back from a circle — centre out.
+// `stagger`: distance from the mascot, the order the tabs reappear in —
+// centre out in the normal capsule, left to right (`order`) in the compact
+// one (S15-03/S15-04), where the mascot sits before every tab.
 const TABS = [
-  { to: '/', label: 'Login', stagger: 2 },
-  { to: '/feed', label: 'Feed', stagger: 1 },
-  { to: '/regras', label: 'Regras', stagger: 0 },
-  { to: '/fontes', label: 'Fontes', stagger: 0 },
-  { to: '/historico', label: 'Histórico', stagger: 1 },
-  { to: '/saude', label: 'Saúde', stagger: 2 },
+  { to: '/', label: 'Login', stagger: 2, order: 0 },
+  { to: '/feed', label: 'Feed', stagger: 1, order: 1 },
+  { to: '/regras', label: 'Regras', stagger: 0, order: 2 },
+  { to: '/fontes', label: 'Fontes', stagger: 0, order: 3 },
+  { to: '/historico', label: 'Histórico', stagger: 1, order: 4 },
+  { to: '/saude', label: 'Saúde', stagger: 2, order: 5 },
 ]
 
 const COMPACT_NAV_QUERY = '(max-width: 760px)'
@@ -30,13 +31,13 @@ function isCompactNavigation() {
     : window.matchMedia(COMPACT_NAV_QUERY).matches
 }
 
-function NavTab({ to, label, stagger, onNavigate }: (typeof TABS)[number] & { onNavigate: () => void }) {
+function NavTab({ to, label, stagger, order, onNavigate }: (typeof TABS)[number] & { onNavigate: () => void }) {
   return (
     <NavLink
       to={to}
       end={to === '/'}
       className={({ isActive }) => 'nav-tab' + (isActive ? ' nav-tab--active' : '')}
-      style={{ '--nav-stagger': stagger } as CSSProperties}
+      style={{ '--nav-stagger': stagger, '--nav-order': order } as CSSProperties}
       onClick={onNavigate}
     >
       {label}
