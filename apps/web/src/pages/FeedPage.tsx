@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MatchCard } from '../components/MatchCard'
 import { ProductPanel } from '../components/ProductPanel'
 import { Toast } from '../components/Toast'
+import { RailChevron, RailStrip } from '../components/RailStrip'
+import type { RailStripItem } from '../components/RailStrip'
+import {
+  anchorScrollDuring,
+  CHROME_SPRING_MS,
+  markChromeAnimating,
+  onBeforeChromeChange,
+  registerChromeFlip,
+  useScrollChrome,
+} from '../chrome/scrollChrome'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { useLiveMatches } from '../hooks/useLiveMatches'
 import type { FeedConnectionState } from '../hooks/useLiveMatches'
@@ -59,6 +69,67 @@ interface TargetRuleRow {
   gapPct: number | null
   progressPct: number
 }
+
+/** A callback whose identity never changes but always runs the latest
+ * closure — lets the memoized card list below skip re-renders that only the
+ * page's own chrome state caused. */
+function useStableCallback<Args extends unknown[], Result>(callback: (...args: Args) => Result) {
+  const ref = useRef(callback)
+  useLayoutEffect(() => {
+    ref.current = callback
+  })
+  return useCallback((...args: Args) => ref.current(...args), [])
+}
+
+/** S15-03: the cards, memoized — scrolling in and out of the compact chrome
+ * re-renders FeedPage (rail state, chrome mode) and a long feed's cards made
+ * that frame visibly long; they only depend on the data below. */
+const FeedMatchList = memo(function FeedMatchList({
+  visibleMatches,
+  hasAnyMatch,
+  rules,
+  sources,
+  recipients,
+  onOpenProduct,
+  onCreateRule,
+  onSnooze,
+  onSetTarget,
+}: {
+  visibleMatches: Match[]
+  hasAnyMatch: boolean
+  rules: Rule[]
+  sources: Source[]
+  recipients: Recipient[]
+  onOpenProduct: (key: string, trigger: HTMLElement | null) => void
+  onCreateRule: (productKey: string) => void
+  onSnooze: (match: Match) => void
+  onSetTarget: (ruleId: number, targetCents: number) => void
+}) {
+  return (
+    <div className="feed-page__list">
+      {visibleMatches.length === 0 && !hasAnyMatch && <p>Nenhum match ainda.</p>}
+      {visibleMatches.length === 0 && hasAnyMatch && <p>Nenhum match para esta regra ainda.</p>}
+      {visibleMatches.map((match) => (
+        <div key={match.id} className="feed-page__card">
+          <MatchCard
+            match={match}
+            rule={rules.find((rule) => rule.id === match.rule_id)}
+            source={sources.find((source) => source.id === match.source_id)}
+            recipients={recipients}
+            isLowestPriceEver={match.is_lowest_price_ever}
+            groupedSourceNames={match.grouped_source_ids
+              ?.map((sourceId) => sources.find((source) => source.id === sourceId)?.name)
+              .filter((name): name is string => Boolean(name))}
+            onOpenProduct={onOpenProduct}
+            onCreateRule={onCreateRule}
+            onSnooze={onSnooze}
+            onSetTarget={onSetTarget}
+          />
+        </div>
+      ))}
+    </div>
+  )
+})
 
 export function FeedPage() {
   const { matches, loading, error, connectionState, refresh } = useLiveMatches()
@@ -282,16 +353,117 @@ export function FeedPage() {
   }, [matches, snoozes])
 
   const connectionLabel = CONNECTION_LABELS[connectionState]
+  const stableCreateRule = useStableCallback(handleCreateRule)
+  const stableCardSnooze = useStableCallback(handleCardSnooze)
+  const stableSetTarget = useStableCallback(handleSetTarget)
+
+  // S15-03: compact chrome while scrolled (chrome/scrollChrome.ts). The rails
+  // only fold into icon strips while the grid actually has its 3 columns —
+  // the width the grid really gets (the product panel can take 520px of it),
+  // measured, not guessed from the viewport.
+  const chromeMode = useScrollChrome(true)
+  const headerActionsRef = useRef<HTMLDivElement>(null)
+  const leftRailRef = useRef<HTMLElement>(null)
+  const rightRailRef = useRef<HTMLDivElement>(null)
+  const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null)
+  const [gridIsWide, setGridIsWide] = useState(false)
+  const [openRails, setOpenRails] = useState({ left: false, right: false })
+  const [railsPassed, setRailsPassed] = useState({ left: false, right: false })
+  const railsManaged = chromeMode !== 'off' && gridIsWide
+  const railsCompact = chromeMode === 'compact' && gridIsWide
+  // A rail only folds into its strip once the page has scrolled past it —
+  // while any of it is still on screen it stays open and in the flow, so a
+  // rail never collapses under the pointer of someone scrolling to reach its
+  // bottom (a long rule/source list). Opened from the strip it is "pinned":
+  // sticky, scrolling inside itself, until closed or back at the top.
+  const railState = (side: 'left' | 'right') =>
+    !railsManaged ? undefined : !railsCompact ? 'open' : openRails[side] ? 'pinned' : railsPassed[side] ? 'collapsed' : 'open'
+  const leftState = railState('left')
+  const rightState = railState('right')
+  const leftCollapsed = leftState === 'collapsed'
+  const rightCollapsed = rightState === 'collapsed'
+  if (!railsCompact && (openRails.left || openRails.right)) setOpenRails({ left: false, right: false })
+  if (!railsCompact && (railsPassed.left || railsPassed.right)) setRailsPassed({ left: false, right: false })
+
+  useEffect(() => {
+    if (!railsCompact) return
+    // Measured on entering compact, when both rails are still open in the
+    // flow: the scroll position at which each one's bottom leaves the band.
+    const band = 96
+    const bottomOf = (element: HTMLElement | null) =>
+      element ? element.getBoundingClientRect().bottom + window.scrollY - band : Infinity
+    const thresholds = { left: bottomOf(leftRailRef.current), right: bottomOf(rightRailRef.current) }
+    let passed = { left: false, right: false }
+    const check = () => {
+      const y = window.scrollY
+      const next = { left: passed.left || y > thresholds.left, right: passed.right || y > thresholds.right }
+      if (next.left === passed.left && next.right === passed.right) return
+      passed = next
+      markChromeAnimating()
+      anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
+      setRailsPassed(next)
+    }
+    check()
+    window.addEventListener('scroll', check, { passive: true })
+    return () => window.removeEventListener('scroll', check)
+  }, [railsCompact])
+
+  useEffect(() => {
+    if (gridElement === null || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => setGridIsWide(entry.contentRect.width > 1100))
+    observer.observe(gridElement)
+    return () => observer.disconnect()
+  }, [gridElement])
+
+  useEffect(() => {
+    const element = headerActionsRef.current
+    const unregisterFlip = element ? registerChromeFlip(element) : () => {}
+    const unregisterAnchor = onBeforeChromeChange(() => anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80))
+    return () => {
+      unregisterFlip()
+      unregisterAnchor()
+    }
+  }, [])
+
+  function setRailOpen(side: 'left' | 'right', open: boolean, sectionId?: string) {
+    markChromeAnimating()
+    anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
+    setOpenRails((current) => ({ ...current, [side]: open }))
+    if (!open) return
+    const rail = side === 'left' ? leftRailRef.current : rightRailRef.current
+    const section = sectionId ? document.getElementById(sectionId) : null
+    window.requestAnimationFrame(() => {
+      rail?.scrollTo({ top: section ? Math.max(0, section.offsetTop - 16) : 0, behavior: 'smooth' })
+      // Focus follows the click into the rail it opened (the strip it came
+      // from is about to become inert).
+      rail?.querySelector<HTMLElement>('.feed-rail__collapse')?.focus({ preventScroll: true })
+    })
+  }
+
+  const leftStripItems: RailStripItem[] = [
+    { sectionId: 'feed-rail-targets', label: 'Alvos de preço', icon: 'target' },
+    { sectionId: 'feed-rail-snoozed', label: 'Silenciados', icon: 'snooze', flagged: snoozes.length > 0 },
+    { sectionId: 'feed-rail-filter', label: 'Filtrar por regra', icon: 'filter', flagged: selectedRuleId !== null },
+    { sectionId: 'feed-rail-sources', label: 'Fontes', icon: 'sources' },
+  ]
+  const rightStripItems: RailStripItem[] = [
+    { sectionId: 'feed-side-summary', label: 'Resumo', icon: 'summary' },
+    ...(digest !== null ? [{ sectionId: 'feed-side-digest', label: 'Digest diário', icon: 'digest' as const }] : []),
+    { sectionId: 'feed-side-today', label: 'Resumo de hoje', icon: 'today' },
+  ]
 
   return (
     <main className="feed-page">
       <Toast toast={toast} onDismiss={dismiss} />
+      {/* S15-03: the band the compact chrome (capsule, docked controls)
+          lives in — cards scroll under it, never under a bare control. */}
+      <div className="feed-chrome-scrim" aria-hidden="true" />
       <div className="feed-page__header">
-        <div>
+        <div className="feed-page__title">
           <h1>Feed ao vivo</h1>
           <p className="feed-page__subtitle">Ofertas encontradas pelas suas regras, em tempo real.</p>
         </div>
-        <div className="feed-page__header-actions">
+        <div ref={headerActionsRef} className="feed-page__header-actions">
           <span
             className="feed-page__connection-badge"
             role="status"
@@ -330,9 +502,33 @@ export function FeedPage() {
       {!loading && !error && (
         <div className="product-panel-layout" data-panel-phase={panel.phase}>
           <div className="product-panel-layout__content">
-        <div className="feed-page__grid">
-          <aside className="plane-glass feed-rail">
-            <div>
+        <div
+          ref={setGridElement}
+          className="feed-page__grid"
+          data-rails={railsManaged ? chromeMode : undefined}
+          data-left-rail={leftState}
+          data-right-rail={rightState}
+        >
+          <aside ref={leftRailRef} id="feed-rail-left" className="plane-glass feed-rail">
+            <div className="feed-rail__strip" inert={!leftCollapsed}>
+              <RailStrip side="left" items={leftStripItems} controls="feed-rail-left" onOpen={(id) => setRailOpen('left', true, id)} />
+            </div>
+            <div className="feed-rail__full" inert={leftCollapsed}>
+            <div className="feed-rail__full-inner">
+            {leftState === 'pinned' && (
+              <button
+                type="button"
+                className="feed-rail__collapse"
+                aria-label="Recolher painel"
+                aria-controls="feed-rail-left"
+                aria-expanded={true}
+                title="Recolher painel"
+                onClick={() => setRailOpen('left', false)}
+              >
+                <RailChevron direction="left" />
+              </button>
+            )}
+            <div id="feed-rail-targets">
               <div className="feed-rail__eyebrow">Alvos de preço</div>
               {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum alvo definido ainda.</p>}
               <div className="feed-rail__list">
@@ -359,7 +555,7 @@ export function FeedPage() {
               </div>
             </div>
             <div className="feed-rail__divider" />
-            <div>
+            <div id="feed-rail-snoozed">
               <div className="feed-rail__eyebrow">Silenciados</div>
               {snoozes.length === 0 && <p className="feed-rail__empty">Nada silenciado agora.</p>}
               <div className="feed-rail__list">
@@ -384,7 +580,7 @@ export function FeedPage() {
               </div>
             </div>
             <div className="feed-rail__divider" />
-            <div>
+            <div id="feed-rail-filter">
               <div className="feed-rail__eyebrow">Filtrar por regra</div>
               <div className="feed-rail__list">
                 <button
@@ -409,7 +605,7 @@ export function FeedPage() {
               </div>
             </div>
             <div className="feed-rail__divider" />
-            <div>
+            <div id="feed-rail-sources">
               <div className="feed-rail__eyebrow">Fontes</div>
               <div className="feed-rail__sources">
                 {sources.map((source) => (
@@ -434,35 +630,42 @@ export function FeedPage() {
                 {sources.length === 0 && <p className="feed-rail__empty">Nenhuma fonte cadastrada.</p>}
               </div>
             </div>
+            </div>
+            </div>
           </aside>
 
-          <div className="feed-page__list">
-            {visibleMatches.length === 0 && matches.length === 0 && <p>Nenhum match ainda.</p>}
-            {visibleMatches.length === 0 && matches.length > 0 && (
-              <p>Nenhum match para esta regra ainda.</p>
-            )}
-            {visibleMatches.map((match) => (
-              <div key={match.id} className="feed-page__card">
-                <MatchCard
-                  match={match}
-                  rule={rules.find((rule) => rule.id === match.rule_id)}
-                  source={sources.find((source) => source.id === match.source_id)}
-                  recipients={recipients}
-                  isLowestPriceEver={match.is_lowest_price_ever}
-                  groupedSourceNames={match.grouped_source_ids
-                    ?.map((sourceId) => sources.find((source) => source.id === sourceId)?.name)
-                    .filter((name): name is string => Boolean(name))}
-                  onOpenProduct={panel.open}
-                  onCreateRule={handleCreateRule}
-                  onSnooze={handleCardSnooze}
-                  onSetTarget={handleSetTarget}
-                />
-              </div>
-            ))}
-          </div>
+          <FeedMatchList
+            visibleMatches={visibleMatches}
+            hasAnyMatch={matches.length > 0}
+            rules={rules}
+            sources={sources}
+            recipients={recipients}
+            onOpenProduct={panel.open}
+            onCreateRule={stableCreateRule}
+            onSnooze={stableCardSnooze}
+            onSetTarget={stableSetTarget}
+          />
 
-          <div className="feed-page__side-rail">
-            <aside className="plane-glass feed-summary">
+          <div ref={rightRailRef} id="feed-rail-right" className="feed-page__side-rail">
+            <div className="feed-rail__strip feed-side__strip" inert={!rightCollapsed}>
+              <RailStrip className="plane-glass" side="right" items={rightStripItems} controls="feed-rail-right" onOpen={(id) => setRailOpen('right', true, id)} />
+            </div>
+            <div className="feed-rail__full" inert={rightCollapsed}>
+            <div className="feed-side__full-inner">
+            {rightState === 'pinned' && (
+              <button
+                type="button"
+                className="feed-rail__collapse"
+                aria-label="Recolher painel"
+                aria-controls="feed-rail-right"
+                aria-expanded={true}
+                title="Recolher painel"
+                onClick={() => setRailOpen('right', false)}
+              >
+                <RailChevron direction="right" />
+              </button>
+            )}
+            <aside id="feed-side-summary" className="plane-glass feed-summary">
               <div className="feed-rail__eyebrow">Resumo</div>
               <div className="feed-summary__grid">
                 <div className="feed-summary__tile">
@@ -487,7 +690,7 @@ export function FeedPage() {
             </aside>
 
             {digest !== null && (
-              <aside className="plane-glass feed-digest">
+              <aside id="feed-side-digest" className="plane-glass feed-digest">
                 <div className="feed-rail__eyebrow">Digest diário</div>
                 <p className="feed-digest__description">
                   Um resumo por dia com os melhores preços. Alvos atingidos continuam avisando na hora.
@@ -548,7 +751,7 @@ export function FeedPage() {
               </aside>
             )}
 
-            <div className="plane-pearl feed-today">
+            <div id="feed-side-today" className="plane-pearl feed-today">
               <div className="feed-rail__eyebrow">Resumo de hoje</div>
               <div className="feed-today__grid">
                 <div className="feed-today__tile">
@@ -568,6 +771,8 @@ export function FeedPage() {
                   <div className="feed-today__value">{todayStats.snoozed}</div>
                 </div>
               </div>
+            </div>
+            </div>
             </div>
           </div>
         </div>

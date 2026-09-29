@@ -5,6 +5,7 @@ import './styles/tokens.css'
 import './styles/materials.css'
 import './index.css'
 import './styles/viewTransitions.css'
+import './styles/chrome.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
 

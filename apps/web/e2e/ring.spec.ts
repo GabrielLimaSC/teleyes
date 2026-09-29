@@ -87,6 +87,10 @@ test('the lowest-price ring paints nothing outside the card box (S12-05)', async
 
   // ---- pixels: the 16px band around the box equals the same band without the ring ----
   await page.evaluate(() => window.scrollTo(0, 0))
+  // S15-03: back at the top the compact chrome springs back for ~0.7s (and
+  // lets off-screen cards skip paint meanwhile) — compare settled pixels.
+  await expect(page.locator('html')).not.toHaveAttribute('data-chrome', 'compact')
+  await expect(page.locator('html')).not.toHaveAttribute('data-chrome-animating', /.*/)
   const box = await ringCard.boundingBox()
   expect(box).not.toBeNull()
   const margin = 16

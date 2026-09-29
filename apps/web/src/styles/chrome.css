@@ -1,0 +1,25 @@
+/* S15-03: the one spring the Feed's compact chrome moves on (NavCapsule.css,
+   FeedPage.css; `CHROME_SPRING_EASING` in chrome/scrollChrome.ts is the same
+   curve for WAAPI). An underdamped spring sampled into `linear()`: ζ≈0.72,
+   ~4% overshoot, then a short settle — Scene.mp4's bounce, without the
+   wobble. Browsers without `linear()` keep the cubic-bezier fallback. */
+:root {
+  --chrome-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --chrome-spring: linear(0, 0.0265, 0.094, 0.1868, 0.2929, 0.4029, 0.5102, 0.6102, 0.7001, 0.7783, 0.8445, 0.8988, 0.942, 0.9754, 1, 1.0174, 1.0287, 1.0353, 1.0381, 1.0382, 1.0363, 1.0332, 1.0293, 1.0251, 1.0209, 1.0169, 1.0133, 1.01, 1.0072, 1.0049, 1.003, 1.0016, 1.0005, 0.9996, 0.9991, 0.9988, 1);
+  --chrome-spring-duration: 680ms;
+  /* Height of the band the compact chrome lives in; sticky content starts
+     below it, so nothing fixed ever sits on top of a card. */
+  --chrome-band-height: 96px;
+}
+
+/* chrome/scrollChrome.ts anchors the scroll itself while the layout springs;
+   the native anchor would fight it (and Safari has none anyway). */
+:root[data-chrome] {
+  overflow-anchor: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --chrome-spring-duration: 1ms;
+  }
+}
