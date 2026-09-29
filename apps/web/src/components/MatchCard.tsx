@@ -185,13 +185,16 @@ export function MatchCard({
     <button
       type="button"
       className="match-card__product match-card__product--button"
+      title={wasTruncated ? undefined : title}
       {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
       onClick={(event) => openProduct(event.currentTarget)}
     >
       {title}
     </button>
   ) : (
-    <p className="match-card__product">{title}</p>
+    <p className="match-card__product" title={wasTruncated ? undefined : title}>
+      {title}
+    </p>
   )
 
   // S14-05 (F5) — "Visto em N fontes" pill, a different mechanism from the
@@ -234,175 +237,194 @@ export function MatchCard({
 
   return (
     <article className={'glass-card match-card' + (isLowestPriceEver ? ' match-card--aurora' : '')}>
-      <div className="match-card__icon" style={{ background: CATEGORY_BACKGROUND[category], color: CATEGORY_ICON_COLOR[category] }}>
-        <CategoryIcon category={category} />
-      </div>
-      <div className="match-card__body">
-        <div className="match-card__badges">
-          {match.target_hit && (
-            <span className="match-card__badge match-card__badge--good">Alvo atingido</span>
-          )}
-          {showSeenBadge && (
-            <span className="match-card__badge match-card__badge--neutral">Visto em {seenCount} fontes</span>
-          )}
-          {priceUnidentified && (
-            <span className="match-card__badge match-card__badge--warn">
-              <span className="match-card__badge-dot" aria-hidden="true" />
-              preço não identificado
-            </span>
-          )}
-          {manuallyEdited && (
-            <span className="match-card__badge match-card__badge--manual">
-              <span className="match-card__badge-dot" aria-hidden="true" />
-              editado manualmente
-            </span>
-          )}
-          <span
-            className="match-card__status"
-            style={{ background: status.background, color: status.foreground }}
-          >
-            <span className="match-card__status-dot" style={{ background: status.dotColor }} />
-            {status.label}
-          </span>
+      {/* S15-01: the icon only sits beside the heading (badges, title, meta)
+          — price and actions below span the card's full width, as in the
+          Claude Design comp, instead of living in a column indented by the
+          icon. */}
+      <div className="match-card__header">
+        <div className="match-card__icon" style={{ background: CATEGORY_BACKGROUND[category], color: CATEGORY_ICON_COLOR[category] }}>
+          <CategoryIcon category={category} />
         </div>
-        {wasTruncated ? <Tooltip label={linkCutText}>{productTitle}</Tooltip> : productTitle}
-        <p className="match-card__meta">
-          Fonte: {source?.name ?? `#${match.source_id}`} · Regra: {rule?.name ?? `#${match.rule_id}`}
-          {recipientNames.length > 0 && <> · Para: {recipientNames.join(', ')}</>}
-        </p>
-        {groupedSourceNames !== undefined && groupedSourceNames.length > 0 && (
-          <p className="match-card__grouped-sources">Visto em: {groupedSourceNames.join(', ')}</p>
-        )}
-
-        {/* S14-07 (06b): price + sparkline share one row; `margin-top: auto`
-            (MatchCard.css) pushes this row — and the actions row right after
-            it — to the card's base, the same anchor for every card in a grid
-            row regardless of how many badge/title lines sit above it. */}
-        <div className="match-card__price-row">
-          <div className="match-card__price-block">
-            {match.price_cash_cents !== null && match.price_card_cents !== null ? (
-              <p className="match-card__price">
-                {formatCurrency(match.price_cash_cents)}
-                <span className="match-card__price-sub">
-                  À vista · Cartão {formatCurrency(match.price_card_cents)}
-                </span>
-              </p>
-            ) : (
-              <p className="match-card__price">{formatPrice(match.price_cents)}</p>
+        <div className="match-card__body">
+          <div className="match-card__badges">
+            {match.target_hit && (
+              <span className="match-card__badge match-card__badge--good">Alvo atingido</span>
             )}
-            {showTargetGapLine && (
-              <span className="match-card__price-sub">
-                falta {match.target_gap_pct}% para o alvo {formatCurrency(match.target_price_cents as number)}
+            {showSeenBadge && (
+              <span className="match-card__badge match-card__badge--neutral">Visto em {seenCount} fontes</span>
+            )}
+            {priceUnidentified && (
+              <span className="match-card__badge match-card__badge--warn">
+                <span className="match-card__badge-dot" aria-hidden="true" />
+                preço não identificado
               </span>
             )}
-            {isLowestPriceEver && <span className="match-card__aurora-label">Menor preço já visto</span>}
-          </div>
-          <MatchSparkline match={match} />
-        </div>
-
-        {/* S14-07 (06b): its own border-top/padding-top, so the divider also
-            aligns between cards in the same grid row. */}
-        <div className="match-card__actions">
-          {canOpenProduct && (
-            <button
-              type="button"
-              className={'product-open-trigger' + (isLowestPriceEver ? ' product-open-trigger--featured' : '')}
-              {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
-              onClick={(event) => openProduct(event.currentTarget)}
-            >
-              Abrir produto <span aria-hidden="true">›</span>
-            </button>
-          )}
-          {canCreateRule && (
-            <button
-              type="button"
-              className="plane-action plane-action--secondary plane-action--compact match-card__action"
-              onClick={() => onCreateRule?.(productKey as string)}
-            >
-              Criar regra disso
-            </button>
-          )}
-          {canSnooze && (
-            <button
-              type="button"
-              className="plane-action plane-action--secondary plane-action--compact match-card__action"
-              onClick={() => onSnooze?.(match)}
-            >
-              {match.snoozed ? 'Reativar' : 'Silenciar 7 dias'}
-            </button>
-          )}
-          {canSetTarget && (
-            <button
-              type="button"
-              className="plane-action plane-action--secondary plane-action--compact match-card__action"
-              aria-expanded={showTargetForm}
-              onClick={() => {
-                setTargetError(null)
-                setShowTargetForm((current) => !current)
-              }}
-            >
-              Definir alvo
-            </button>
-          )}
-          {canCorrect && (
-            <button
-              type="button"
-              className="plane-action plane-action--secondary plane-action--compact match-card__action"
-              {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
-              onClick={(event) => openProduct(event.currentTarget)}
-            >
-              Corrigir
-            </button>
-          )}
-          <span className="match-card__timestamp">{formatMatchedAt(match.matched_at)}</span>
-          {match.message_link !== null && (
-            <a
-              className="match-card__link"
-              href={match.message_link}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Abrir promoção
-            </a>
-          )}
-        </div>
-
-        {showTargetForm && canSetTarget && (
-          <form className="match-card__target-form" onSubmit={submitTarget}>
-            <label className="match-card__target-label">
-              Alvo (R$)
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="5.749,00"
-                autoFocus
-                aria-invalid={targetError !== null}
-                aria-describedby={targetError !== null ? targetErrorId : undefined}
-                value={targetInput}
-                onChange={(event) => {
-                  setTargetInput(event.target.value)
-                  setTargetError(null)
-                }}
-              />
-            </label>
-            <button type="submit" className="plane-action plane-action--compact match-card__action">
-              Salvar
-            </button>
-            <button
-              type="button"
-              className="plane-action plane-action--secondary plane-action--compact match-card__action"
-              onClick={() => setShowTargetForm(false)}
-            >
-              Cancelar
-            </button>
-            {targetError !== null && (
-              <p id={targetErrorId} role="alert" className="match-card__target-error">
-                {targetError}
-              </p>
+            {manuallyEdited && (
+              <span className="match-card__badge match-card__badge--manual">
+                <span className="match-card__badge-dot" aria-hidden="true" />
+                editado manualmente
+              </span>
             )}
-          </form>
+            <span
+              className="match-card__status"
+              style={{ background: status.background, color: status.foreground }}
+            >
+              <span className="match-card__status-dot" style={{ background: status.dotColor }} />
+              {status.label}
+            </span>
+            {/* S15-01: moved up from the actions row, so that row only holds
+                actions and fits on one line in the 2-column grid. */}
+            <span className="match-card__timestamp">{formatMatchedAt(match.matched_at)}</span>
+          </div>
+          {wasTruncated ? <Tooltip label={linkCutText}>{productTitle}</Tooltip> : productTitle}
+          <p className="match-card__meta">
+            Fonte: {source?.name ?? `#${match.source_id}`} · Regra: {rule?.name ?? `#${match.rule_id}`}
+            {recipientNames.length > 0 && <> · Para: {recipientNames.join(', ')}</>}
+          </p>
+          {groupedSourceNames !== undefined && groupedSourceNames.length > 0 && (
+            <p className="match-card__grouped-sources">Visto em: {groupedSourceNames.join(', ')}</p>
+          )}
+        </div>
+      </div>
+
+      {/* S14-07 (06b): `margin-top: auto` (MatchCard.css) pushes this row —
+          and the actions row right after it — to the card's base, the same
+          anchor for every card in a grid row regardless of how many
+          badge/title lines sit above it. */}
+      <div className="match-card__price-row">
+        <div className="match-card__price-block">
+          {match.price_cash_cents !== null && match.price_card_cents !== null ? (
+            <p className="match-card__price">
+              {formatCurrency(match.price_cash_cents)}
+              <span className="match-card__price-sub">
+                À vista · Cartão {formatCurrency(match.price_card_cents)}
+              </span>
+            </p>
+          ) : (
+            <p className="match-card__price">{formatPrice(match.price_cents)}</p>
+          )}
+          {showTargetGapLine && (
+            <span className="match-card__price-sub">
+              falta {match.target_gap_pct}% para o alvo {formatCurrency(match.target_price_cents as number)}
+            </span>
+          )}
+          {isLowestPriceEver && <span className="match-card__aurora-label">Menor preço já visto</span>}
+        </div>
+        <MatchSparkline match={match} />
+      </div>
+
+      {/* S14-07 (06b): its own border-top/padding-top, so the divider also
+          aligns between cards in the same grid row. S15-01: comp order —
+          primary action, then target and snooze, then the rest. */}
+      <div className="match-card__actions">
+        {canOpenProduct && (
+          <button
+            type="button"
+            className={'product-open-trigger' + (isLowestPriceEver ? ' product-open-trigger--featured' : '')}
+            {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+            onClick={(event) => openProduct(event.currentTarget)}
+          >
+            Abrir produto <span aria-hidden="true">›</span>
+          </button>
+        )}
+        {canSetTarget && (
+          <button
+            type="button"
+            className="plane-action plane-action--secondary plane-action--compact match-card__action"
+            aria-expanded={showTargetForm}
+            onClick={() => {
+              setTargetError(null)
+              setShowTargetForm((current) => !current)
+            }}
+          >
+            Definir alvo
+          </button>
+        )}
+        {canSnooze && (
+          <button
+            type="button"
+            className="plane-action plane-action--secondary plane-action--compact match-card__action"
+            // S15-01: short visible label so the three comp buttons fit on
+            // one row; the accessible name keeps the full "7 dias".
+            aria-label={match.snoozed ? undefined : 'Silenciar 7 dias'}
+            title={match.snoozed ? undefined : 'Silenciar por 7 dias'}
+            onClick={() => onSnooze?.(match)}
+          >
+            {match.snoozed ? 'Reativar' : 'Silenciar'}
+          </button>
+        )}
+        {canCorrect && (
+          <button
+            type="button"
+            className="plane-action plane-action--secondary plane-action--compact match-card__action"
+            {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+            onClick={(event) => openProduct(event.currentTarget)}
+          >
+            Corrigir
+          </button>
+        )}
+        {/* S15-01: the secondary, link-weight actions — pushed right, and
+            wrapping together onto one quiet line when the card is narrow. */}
+        {(canCreateRule || match.message_link !== null) && (
+          <span className="match-card__links">
+            {canCreateRule && (
+              <button
+                type="button"
+                className="match-card__text-action"
+                onClick={() => onCreateRule?.(productKey as string)}
+              >
+                Criar regra disso
+              </button>
+            )}
+            {match.message_link !== null && (
+              <a
+                className="match-card__link"
+                href={match.message_link}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Abrir promoção
+              </a>
+            )}
+          </span>
         )}
       </div>
+
+      {showTargetForm && canSetTarget && (
+        <form className="match-card__target-form" onSubmit={submitTarget}>
+          <label className="match-card__target-label">
+            Alvo (R$)
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="5.749,00"
+              autoFocus
+              aria-invalid={targetError !== null}
+              aria-describedby={targetError !== null ? targetErrorId : undefined}
+              value={targetInput}
+              onChange={(event) => {
+                setTargetInput(event.target.value)
+                setTargetError(null)
+              }}
+            />
+          </label>
+          <button type="submit" className="plane-action plane-action--compact match-card__action">
+            Salvar
+          </button>
+          <button
+            type="button"
+            className="plane-action plane-action--secondary plane-action--compact match-card__action"
+            onClick={() => setShowTargetForm(false)}
+          >
+            Cancelar
+          </button>
+          {targetError !== null && (
+            <p id={targetErrorId} role="alert" className="match-card__target-error">
+              {targetError}
+            </p>
+          )}
+        </form>
+      )}
     </article>
   )
 }
