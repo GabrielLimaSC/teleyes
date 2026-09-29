@@ -77,6 +77,7 @@ main.regras-page {
 /* ---- Wide tables (Regras + Destinatários) ---- */
 .wide-table-wrap {
   overflow-x: auto;
+  container-type: inline-size;
 }
 
 .crud-table.wide-table th {
@@ -89,7 +90,7 @@ main.regras-page {
 }
 
 .crud-table.wide-table td {
-  padding: 16px 10px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--plane-divider-color);
   font-size: 13px;
   color: var(--plane-text-secondary);
@@ -183,7 +184,9 @@ td.wide-table__num {
 
 .rule-sparkline polyline {
   fill: none;
-  stroke: var(--plane-chart-line);
+  /* S15-02: was `--plane-chart-line`, a token no theme defines — the line
+     had no stroke at all, so the column looked empty. */
+  stroke: var(--product-panel-accent);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -227,14 +230,34 @@ td.wide-table__num {
 }
 
 .wide-table__actions-inner {
-  /* Room for three buttons per row (Editar + Duplicar + Testar): two rows for five
-     actions instead of one button per line when the terms columns are wide;
-     the other columns (headers wrap) give way for it. */
-  min-width: 196px;
+  /* S15-02: two rows (RegrasPage.tsx), each on one line — the old free wrap
+     stacked the seven controls in up to four lines per rule. The cell is
+     `width: 1%` (shrinks to min-content), so this floor is what keeps each
+     row on one line; it is a share of the table's own width (`cqi`, the wrap
+     is the container), so a tight table (1280px, long unbreakable terms)
+     lets a row wrap instead of pushing the table past its card. */
+  min-width: clamp(200px, 31cqi, 296px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.wide-table__actions-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 6px;
+}
+
+/* S15-02: `.plane-action` leaves sizing to each caller (materials.css); these
+   compact buttons had none of their own, so some rendered squashed (the
+   delivery panel's "Salvar entrega", for one). */
+.regras-page .plane-action--compact {
+  height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
 }
 
 /* ---- Delivery policy ---- */
@@ -468,6 +491,9 @@ td.wide-table__num {
 
 .regras-form__test-button {
   width: 100%;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
 }
 
 .regras-form__title-row {
@@ -762,8 +788,35 @@ td.wide-table__num {
     width: 100%;
   }
 
+  /* S15-02: the rule's name + terms read as the card's heading, not as a
+     "Regra" label/value pair squeezed side by side. */
+  .crud-table.wide-table td.crud-table__name {
+    display: block;
+    text-align: left;
+  }
+
+  .crud-table.wide-table td.crud-table__name::before {
+    display: none;
+  }
+
+  .crud-table.wide-table td.wide-table__actions {
+    display: block;
+  }
+
+  .crud-table.wide-table td.wide-table__actions::before {
+    display: none;
+  }
+
+  /* The two desktop rows dissolve into one wrapping line on a phone card. */
   .wide-table__actions-inner {
     min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .wide-table__actions-row {
+    display: contents;
   }
 
   .regras-page__header {
