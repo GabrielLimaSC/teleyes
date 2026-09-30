@@ -711,6 +711,12 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    /* S15-05: at rest, fill whatever width the rail's scroll container (the
+       rule below reserves its scrollbar's gutter) actually has left —
+       `pinned` scrolls the rail inside itself, and a fixed pixel width here
+       ignored that gutter, running the cards/buttons/chevron past the real
+       right edge and under the scrollbar. */
+    width: 100%;
   }
 
   .feed-rail__full-inner {
@@ -722,12 +728,15 @@
   }
 
   /* Keep the content at its full width while the column springs, so the text
-     is clipped by the shrinking box instead of re-wrapping every frame. */
-  .feed-page__grid[data-rails] .feed-rail__full-inner {
+     is clipped by the shrinking box instead of re-wrapping every frame —
+     only for the spring itself (S15-05): at rest the rule above (100%)
+     takes back over, so the fixed width here never outlives the animation
+     it exists for. */
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-rail__full-inner {
     width: calc(272px - 40px);
   }
 
-  .feed-page__grid[data-rails] .feed-side__full-inner {
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-side__full-inner {
     width: 312px;
   }
 
@@ -765,6 +774,12 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+    /* S15-05: reserve the classic scrollbar's width whether or not one is
+       drawn right now, so the content sized at 100% above (and this box's
+       own layout) never depends on the instant a scrollbar appears —
+       Safari/older browsers without support just keep their previous
+       behaviour (no gutter, overlay scrollbars need none anyway). */
+    scrollbar-gutter: stable;
   }
 
   /* The right rail has no glass of its own: room for its boxes' shadows (and
@@ -789,13 +804,20 @@
   .feed-rail__collapse {
     position: absolute;
     z-index: 1;
-    top: -6px;
-    right: -6px;
+    /* S15-05: stay inside `.feed-rail__full`'s own box — it clips with plain
+       `overflow: hidden` (used for the open/collapsed cross-fade, a few
+       rules up), so a negative inset here poked past its top-right corner
+       and got cut, same as the content's right edge above. The right rail's
+       own override below already used a positive inset and never had this. */
+    top: 0;
+    right: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    /* 24px: fits on the eyebrow's line, above the first tile (30px ran into
+       its top-right corner). */
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: 1px solid var(--plane-divider-color);
     border-radius: 50%;
