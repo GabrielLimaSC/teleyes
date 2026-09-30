@@ -18,6 +18,7 @@ import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { usePersistentFilters } from '../hooks/usePersistentFilters'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import '../styles/materials.css'
@@ -63,6 +64,56 @@ const EMPTY_FILTERS: FilterForm = {
   maxPriceReais: '',
   deliveryStatus: '',
   sort: '',
+}
+
+// S15-06: "aplico filtros, vou pro Feed, volto pro Histórico e tenho que
+// filtrar de novo" — NavCapsule always links to `/historico` bare (no query
+// string), so the URL can't carry the filters back; they're kept in
+// sessionStorage instead (per tab, survives an F5, gone when the tab closes).
+export const HISTORICO_FILTERS_STORAGE_KEY = 'teleyes:historico-filters'
+
+const FILTER_FORM_KEYS = [
+  'ruleId',
+  'sourceId',
+  'recipientId',
+  'minPriceReais',
+  'maxPriceReais',
+  'deliveryStatus',
+  'sort',
+] as const satisfies readonly (keyof FilterForm)[]
+
+const SORT_VALUES = SORT_OPTIONS.map((option) => option.value)
+
+/**
+ * Validates what a prior session left in storage before trusting it.
+ * Anything off — invalid JSON, not a plain object, a field this version of
+ * `FilterForm` doesn't know about, a field with the wrong type, or a `sort`
+ * outside the 3 real options — throws the WHOLE entry away (`null`, which
+ * `usePersistentFilters` turns into `EMPTY_FILTERS`) rather than half-trust
+ * it: a stale shape from a future/older build must never leak a wrong query
+ * into `toApiFilters`. A stale but well-typed id (a rule/source/recipient
+ * that got deleted since) is NOT rejected here — same as typing it by hand,
+ * it just won't match any option in its <select> and the API returns no
+ * rows for it, which is already the existing, safe behaviour.
+ */
+export function parseStoredHistoricoFilters(raw: string): FilterForm | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+  const record = parsed as Record<string, unknown>
+  const hasUnknownField = Object.keys(record).some(
+    (key) => !(FILTER_FORM_KEYS as readonly string[]).includes(key),
+  )
+  if (hasUnknownField) return null
+  for (const key of FILTER_FORM_KEYS) {
+    if (key in record && typeof record[key] !== 'string') return null
+  }
+  if ('sort' in record && !(SORT_VALUES as readonly unknown[]).includes(record.sort)) return null
+  return { ...EMPTY_FILTERS, ...(record as Partial<FilterForm>) }
 }
 
 export function toApiFilters(form: FilterForm): MatchFilters {
@@ -187,7 +238,13 @@ export function HistoricoPage() {
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [snoozes, setSnoozes] = useState<Snooze[]>([])
-  const [form, setForm] = useState<FilterForm>(EMPTY_FILTERS)
+  // S15-06: persisted per tab (sessionStorage) so navigating away via
+  // NavCapsule and back — or an F5 — keeps the applied filters and results.
+  const [form, setForm, resetForm] = usePersistentFilters<FilterForm>({
+    key: HISTORICO_FILTERS_STORAGE_KEY,
+    emptyValue: EMPTY_FILTERS,
+    parse: parseStoredHistoricoFilters,
+  })
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -416,7 +473,10 @@ export function HistoricoPage() {
         <form className="plane-glass historico-rail" onSubmit={(event) => event.preventDefault()}>
           <div className="historico-rail__head">
             <span className="historico-rail__eyebrow">Filtros</span>
-            <button type="button" className="historico-rail__clear" onClick={() => setForm(EMPTY_FILTERS)}>
+            {/* S15-06: also clears what's saved — reopening the page (or
+                coming back from the Feed) must not resurrect the filters
+                Gabriel just cleared. */}
+            <button type="button" className="historico-rail__clear" onClick={() => resetForm()}>
               Limpar filtros
             </button>
           </div>

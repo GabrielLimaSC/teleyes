@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { HistoricoPage, toApiFilters } from './HistoricoPage'
+import { HISTORICO_FILTERS_STORAGE_KEY, HistoricoPage, parseStoredHistoricoFilters, toApiFilters } from './HistoricoPage'
 import type { FilterForm } from './HistoricoPage'
 
 // S14-08 parte 2 (rodada 2): HistoricoPage now reads `csrfToken` from
@@ -91,6 +91,9 @@ describe('HistoricoPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
+    // S15-06: filters now persist to sessionStorage — without this, a filter
+    // applied by one test would leak into the next one's first render.
+    window.sessionStorage.clear()
   })
 
   // S14-07 revisão 2: an implicit label-wraps-select association computes
@@ -827,6 +830,146 @@ describe('HistoricoPage', () => {
 
       expect(await screen.findByRole('heading', { name: 'Placa de vídeo exemplo' })).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'Fechar painel do produto' }))
+    })
+  })
+
+  // S15-06: "aplico um filtro em Histórico, vou pro Feed, volto e já tenho
+  // que colocar de novo" — the filters now live in sessionStorage
+  // (`HISTORICO_FILTERS_STORAGE_KEY`), not just component state, so a fresh
+  // mount of the page (what happens on every SPA navigation, and on F5)
+  // restores them instead of starting from `EMPTY_FILTERS`.
+  describe('persisted filters (S15-06)', () => {
+    function stubEmptyFetch() {
+      const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(jsonResponse([])))
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+
+    it('restores a filter left by a previous mount (simulating navigating back via NavCapsule)', async () => {
+      const firstFetchMock = stubEmptyFetch()
+      const first = renderHistoricoPage()
+      const ruleSelect = await screen.findByLabelText('Regra')
+      // No rule options loaded here (empty list), but the select itself
+      // still carries whatever `form.ruleId` was set to underneath, and
+      // that's what the query below asserts.
+      await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+      await userEvent.setup().type(screen.getByLabelText('Preço mínimo (R$)'), '100')
+      await waitFor(() => {
+        const last = firstFetchMock.mock.calls.filter(([input]) => String(input).startsWith('/matches')).at(-1)
+        expect(String(last?.[0])).toBe('/matches?min_price_cents=10000')
+      })
+      expect(ruleSelect).toBeInTheDocument()
+
+      // A second mount — same tab, no explicit prop carrying the filter —
+      // is exactly what happens navigating Feed -> Histórico via NavCapsule
+      // (which links bare, no query string) or reloading (F5). Unmounting
+      // the first render first is what makes this an honest remount rather
+      // than two copies of the page coexisting in the same DOM.
+      first.unmount()
+      const fetchMock = stubEmptyFetch()
+      renderHistoricoPage()
+
+      expect(await screen.findByLabelText('Preço mínimo (R$)')).toHaveValue('100')
+      await waitFor(() => {
+        const last = fetchMock.mock.calls.filter(([input]) => String(input).startsWith('/matches')).at(-1)
+        expect(String(last?.[0])).toBe('/matches?min_price_cents=10000')
+      })
+    })
+
+    it('"Limpar filtros" also clears what is stored — a later mount stays empty', async () => {
+      stubEmptyFetch()
+      const user = userEvent.setup()
+      const first = renderHistoricoPage()
+      await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+      await user.type(screen.getByLabelText('Preço mínimo (R$)'), '100')
+      expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('100')
+      expect(window.sessionStorage.getItem(HISTORICO_FILTERS_STORAGE_KEY)).not.toBeNull()
+
+      await user.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+      expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('')
+      expect(window.sessionStorage.getItem(HISTORICO_FILTERS_STORAGE_KEY)).toBeNull()
+
+      first.unmount()
+      renderHistoricoPage()
+      expect(await screen.findByLabelText('Preço mínimo (R$)')).toHaveValue('')
+    })
+
+    it('works with no persistence when storage is blocked (S12-04 contract), no crash', async () => {
+      const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('blocked', 'SecurityError')
+      })
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('blocked', 'SecurityError')
+      })
+      stubEmptyFetch()
+      const user = userEvent.setup()
+
+      renderHistoricoPage()
+      await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+      await expect(user.type(screen.getByLabelText('Preço mínimo (R$)'), '100')).resolves.not.toThrow()
+      expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('100')
+
+      getItemSpy.mockRestore()
+      setItemSpy.mockRestore()
+    })
+  })
+})
+
+describe('parseStoredHistoricoFilters (S15-06)', () => {
+  const EMPTY: FilterForm = {
+    ruleId: '',
+    sourceId: '',
+    recipientId: '',
+    minPriceReais: '',
+    maxPriceReais: '',
+    deliveryStatus: '',
+    sort: '',
+  }
+
+  it('parses a complete, well-formed stored value', () => {
+    const stored: FilterForm = { ...EMPTY, ruleId: '3', minPriceReais: '100', sort: 'price_asc' }
+    expect(parseStoredHistoricoFilters(JSON.stringify(stored))).toEqual(stored)
+  })
+
+  it('merges a partial value (missing fields) with EMPTY_FILTERS', () => {
+    expect(parseStoredHistoricoFilters(JSON.stringify({ ruleId: '5' }))).toEqual({ ...EMPTY, ruleId: '5' })
+  })
+
+  it('returns null for invalid JSON', () => {
+    expect(parseStoredHistoricoFilters('{not json')).toBeNull()
+  })
+
+  it('returns null for a JSON value that is not a plain object (array, string, number, null)', () => {
+    expect(parseStoredHistoricoFilters('[]')).toBeNull()
+    expect(parseStoredHistoricoFilters('"abc"')).toBeNull()
+    expect(parseStoredHistoricoFilters('42')).toBeNull()
+    expect(parseStoredHistoricoFilters('null')).toBeNull()
+  })
+
+  it('returns null when an unknown field is present', () => {
+    expect(parseStoredHistoricoFilters(JSON.stringify({ ruleId: '1', bogusField: 'x' }))).toBeNull()
+  })
+
+  it('returns null when a known field has the wrong type', () => {
+    expect(parseStoredHistoricoFilters(JSON.stringify({ ruleId: 1 }))).toBeNull()
+    expect(parseStoredHistoricoFilters(JSON.stringify({ sourceId: null }))).toBeNull()
+    expect(parseStoredHistoricoFilters(JSON.stringify({ sort: true }))).toBeNull()
+  })
+
+  it('returns null when sort is a string outside the 3 real options', () => {
+    expect(parseStoredHistoricoFilters(JSON.stringify({ sort: 'price_random' }))).toBeNull()
+  })
+
+  it('accepts a stale (no-longer-existing) rule/source/recipient id as plain valid data', () => {
+    // S15-06: existence is not this function's job — a deleted rule's id is
+    // just a string like any other; the page already handles it safely (the
+    // <select> simply has no matching <option>, and the API returns no rows).
+    expect(parseStoredHistoricoFilters(JSON.stringify({ ruleId: '999999' }))).toEqual({
+      ...EMPTY,
+      ruleId: '999999',
     })
   })
 })
