@@ -809,13 +809,15 @@
        rules up), so a negative inset here poked past its top-right corner
        and got cut, same as the content's right edge above. The right rail's
        own override below already used a positive inset and never had this. */
-    top: 4px;
-    right: 4px;
+    top: 0;
+    right: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    /* 24px: fits on the eyebrow's line, above the first tile (30px ran into
+       its top-right corner). */
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: 1px solid var(--plane-divider-color);
     border-radius: 50%;
