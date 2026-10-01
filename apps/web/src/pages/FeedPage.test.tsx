@@ -522,9 +522,8 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     const user = userEvent.setup()
     renderFeedPage()
 
-    const toggle = await screen.findByRole('button', { name: /Agrupar duplicatas/ })
-    expect(toggle).toHaveTextContent('Agrupar duplicatas: ligado')
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    const toggle = await screen.findByRole('switch', { name: 'Agrupar duplicatas' })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
 
     let putBody: unknown = null
     vi.stubGlobal(

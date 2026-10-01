@@ -26,42 +26,96 @@
   color: var(--plane-text-secondary);
 }
 
+/* S16-01: one glass capsule, three segments divided by hairlines — SSE /
+   Agrupar / Atualizar used to be three separate dark buttons with gaps
+   between them. 48px tall always (the measure the design calls fixed for
+   the collapsed bar); only its position changes between resting (here,
+   end of the title row) and docked (FeedPage.css's `@media (min-width:
+   1101px)` block below, FLIP-animated by chrome/scrollChrome.ts). */
 .feed-page__header-actions {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: stretch;
+  height: 48px;
   margin-bottom: 20px;
+  overflow: hidden;
 }
 
-.feed-page__connection-badge {
-  display: inline-flex;
+.feed-page__toolbar-segment {
+  display: flex;
   align-items: center;
   gap: 7px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: var(--plane-status-warn-bg);
-  font-size: 12px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--glass-divider-bg);
+  background: transparent;
+  color: var(--plane-text-primary);
+  font-size: 13px;
   font-weight: 600;
-  border: 1px solid currentColor;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.feed-page__toolbar-segment:first-child {
+  border-left: 0;
+}
+
+.feed-page__toolbar-status {
+  font-size: 12px;
+}
+
+.feed-page__toolbar-switch,
+.feed-page__toolbar-refresh {
+  cursor: pointer;
+}
+
+.feed-page__toolbar-switch:hover,
+.feed-page__toolbar-refresh:hover {
+  background: var(--glass-tile-bg);
+}
+
+.feed-page__toolbar-switch:focus-visible,
+.feed-page__toolbar-refresh:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
 }
 
 .feed-page__connection-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  flex: none;
 }
 
-.feed-page__refresh {
-  height: 40px;
-  padding: 0 16px;
-  font-size: 13px;
+/* Below the width the three segments stop fitting on one line (390px,
+   S16-01's own check), the capsule stacks instead of overflowing — still
+   one piece, just tall instead of wide. Only reachable here: the compact,
+   fixed-width band (`@media (min-width: 1101px)` below) never gets this
+   narrow. */
+@media (max-width: 560px) {
+  .feed-page__header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+  }
+
+  .feed-page__toolbar-segment {
+    justify-content: space-between;
+    height: 44px;
+    border-left: 0;
+    border-top: 1px solid var(--glass-divider-bg);
+  }
+
+  .feed-page__toolbar-segment:first-child {
+    border-top: 0;
+  }
 }
 
-.feed-page__group-toggle {
-  height: 40px;
-  padding: 0 16px;
-  font-size: 13px;
+/* S16-01: "Feed ao vivo · N matches" — appears only once the bar is
+   compact (below, gated to wide screens); hidden and non-interactive at
+   rest, where the real title already says it in full. */
+.feed-page__context-capsule {
+  display: none;
 }
 
 .feed-page__error {
@@ -583,34 +637,84 @@
     pointer-events: none;
   }
 
-  /* SSE / Agrupar / Atualizar dock into the top band, right of the capsule and
-     left of the theme button (centred on its 52px line). The travel between the
-     two places is a FLIP (scrollChrome.ts `registerChromeFlip`). */
+  /* S16-01: docks into the top band with its right edge on the cards
+     column's own right edge (`--feed-toolbar-right`, measured in
+     FeedPage.tsx off the grid's real columns — never a guessed px). Still
+     the one 48px-tall capsule, centred on the band's line the mascot and
+     theme button share. The travel between the two places is a FLIP
+     (scrollChrome.ts `registerChromeFlip`). */
   :root[data-chrome='compact'] .feed-page__header-actions {
     position: fixed;
     z-index: 50;
-    top: calc(var(--chrome-band-center) - 20px);
-    right: 80px;
+    top: calc(var(--chrome-band-center) - 24px);
+    right: var(--feed-toolbar-right, 80px);
     margin: 0;
   }
 
+  /* S16-01: "sem faixa preta" — this repaints the page's own background
+     (same `--color-paper` + `--body-wash` as index.css's `body`/
+     `body::before`, fixed the same way so the gradient's own % positions
+     line up pixel-for-pixel) behind a 56→112px mask, nothing else. A card
+     scrolling under the band dissolves into the real page instead of
+     disappearing under a visible dark/blurred strip. No blur here — the
+     band itself carries no material; only the capsules floating in it do. */
   .feed-chrome-scrim {
     position: fixed;
     z-index: 45;
-    inset: 0 0 auto;
-    height: var(--chrome-band-height);
+    inset: 0;
     pointer-events: none;
     opacity: 0;
-    background: color-mix(in srgb, var(--color-paper) 86%, transparent);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-mask-image: linear-gradient(to bottom, var(--color-text) 78%, transparent);
-    mask-image: linear-gradient(to bottom, var(--color-text) 78%, transparent);
+    background-color: var(--color-paper);
+    background-image: var(--body-wash);
+    -webkit-mask-image: linear-gradient(to bottom, var(--color-text) 56px, transparent 112px);
+    mask-image: linear-gradient(to bottom, var(--color-text) 56px, transparent 112px);
     transition: opacity 260ms ease-out;
   }
 
   :root[data-chrome='compact'] .feed-chrome-scrim {
     opacity: 1;
+  }
+
+  /* S16-01: "Feed ao vivo · N matches" next to the mascot disc, fading in
+     on the same spring once compact. Centred on the band's shared line;
+     its left edge starts right past the 56px mascot disc
+     (`--feed-rail-left-center` is the disc's own centre). */
+  :root[data-chrome] .feed-page__context-capsule {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    z-index: 48;
+    top: calc(var(--chrome-band-center) - 20px);
+    left: calc(var(--feed-rail-left-center, 52px) + 28px + 12px);
+    height: 40px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--plane-text-primary);
+    white-space: nowrap;
+    opacity: 0;
+    scale: 0.94;
+    pointer-events: none;
+    transition:
+      opacity 200ms ease-out,
+      scale var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .feed-page__context-capsule {
+    opacity: 1;
+    scale: 1;
+  }
+
+  /* Never over the navbar once it grows open (hover, keyboard focus inside
+     it, or the mascot click) — `.nav-shell` and `.feed-page` are siblings
+     under the app shell, so `:has()` reaches across from one to the other
+     the same way NavCapsule.css's own hover rule is written. */
+  :root[data-chrome='compact'] .nav-shell:has(.nav-capsule:is(:hover, :has(:focus-visible), .nav-capsule--chrome-open))
+    ~ .feed-page
+    .feed-page__context-capsule {
+    opacity: 0;
+    scale: 0.94;
+    transition: opacity 120ms ease-out;
   }
 
   /* The product panel is sticky too: below the band, not under it. */
@@ -992,6 +1096,7 @@
 
   .feed-page__title,
   .feed-chrome-scrim,
+  .feed-page__context-capsule,
   .feed-page__grid[data-rails],
   .feed-page__grid[data-rails] .feed-rail,
   .feed-page__grid[data-rails] .feed-page__side-rail,
