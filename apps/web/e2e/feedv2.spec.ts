@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { apiLogin, apiPost, apiPut } from './helpers'
+import { apiLogin, apiPost, apiPut, clickRuleFilter } from './helpers'
 
 /**
  * S14-07 (06/06b): selos, ações e barra lateral do Feed v2 — real backend
@@ -378,14 +378,16 @@ test.describe('Feed v2 — barra lateral (S14-07)', () => {
     await apiPut(page, '/settings/feed', csrfToken, { group_duplicates: true })
   })
 
-  test('"Resumo de hoje" e o digest mostram números reais (S14-04/S14-07)', async ({ page }) => {
+  // S16-02: a "Resumo de hoje" separada saiu do design — "Resumo" (4 tiles:
+  // Matches/Enviados/Falhas/Menor preço) e o digest seguem reais.
+  test('"Resumo" e o digest mostram números reais (S14-04/S14-07/S16-02)', async ({ page }) => {
     const tag = uniqueTag('hoje')
     const price = randomPrice()
     const seed = await seedBase(page, tag)
 
     await page.goto('/feed')
-    const resumoHojeBefore = page.locator('.feed-today')
-    await expect(resumoHojeBefore).toBeVisible()
+    const resumo = page.locator('.feed-summary')
+    await expect(resumo).toBeVisible()
 
     await apiPost(page, '/demo/messages', seed.csrfToken, {
       source_id: seed.sourceId,
@@ -395,10 +397,11 @@ test.describe('Feed v2 — barra lateral (S14-07)', () => {
     })
 
     await expect(page.locator('.match-card', { hasText: `Produto ${tag}` })).toBeVisible()
+    await expect(resumo.getByText('Falhas')).toBeVisible()
 
     const digest = page.locator('.feed-digest')
     await expect(digest).toBeVisible()
-    await expect(digest.getByText(/Próximo envio:/)).toBeVisible()
+    await expect(digest.getByText(/Próximo envio/)).toBeVisible()
     await expect(digest.getByLabel('Horário')).toBeVisible()
   })
 })
@@ -451,7 +454,7 @@ test.describe('Feed v2 — regra 06b (cards alinhados na mesma linha)', () => {
       text: `Produto B ${tag} por R$ ${priceMiss},00`,
     })
 
-    await page.getByRole('button', { name: new RegExp(`Regra ${tag}`) }).click()
+    await clickRuleFilter(page, new RegExp(`Regra ${tag}`))
 
     const cardA = page.locator('.match-card', { hasText: `Produto A ${tag}` })
     const cardB = page.locator('.match-card', { hasText: `Produto B ${tag}` })

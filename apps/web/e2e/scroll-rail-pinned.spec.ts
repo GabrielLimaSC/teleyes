@@ -144,7 +144,11 @@ test('trilho esquerdo pinned: cards, botões e o chevron ficam inteiros dentro d
   await expect(page.locator('.feed-page__grid')).toHaveAttribute('data-left-rail', 'collapsed')
   await settle(page)
 
-  await page.getByRole('button', { name: 'Alvos de preço', exact: true }).click()
+  // S16-02: the collapsed button's accessible name now includes its badge
+  // count ("Alvos de preço · 10") when there's at least one active target —
+  // this seed has 10, so matching the label prefix (not `exact`) is what
+  // keeps the check "click the opener of 'Alvos de preço'", not a specific count.
+  await page.getByRole('button', { name: /^Alvos de preço/ }).click()
   await expect(page.locator('.feed-page__grid')).toHaveAttribute('data-left-rail', 'pinned')
   await settle(page)
 
@@ -199,7 +203,10 @@ test('trilho direito pinned: os cards de resumo e o chevron ficam inteiros dentr
   await expect(page.locator('.feed-page__grid')).toHaveAttribute('data-right-rail', 'collapsed')
   await settle(page)
 
-  await page.getByRole('button', { name: 'Resumo', exact: true }).click()
+  // S16-02: the right strip now has two openers of "Resumo" (Matches/graph,
+  // Enviados/plane) — the Matches one keeps the "Resumo" accessible name,
+  // with its own badge count appended once there's at least one match.
+  await page.getByRole('button', { name: /^Resumo/ }).click()
   await expect(page.locator('.feed-page__grid')).toHaveAttribute('data-right-rail', 'pinned')
   await settle(page)
 
