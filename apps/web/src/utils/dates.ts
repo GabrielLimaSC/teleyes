@@ -86,3 +86,17 @@ export function localDateStamp(now: Date = new Date()): string {
   const day = String(now.getDate()).padStart(2, '0')
   return `${now.getFullYear()}-${month}-${day}`
 }
+
+/**
+ * S16-03 (06): true when `dateStamp` (a plain "YYYY-MM-DD" local day, e.g.
+ * `PricePoint.date` — never an API instant) falls within the last `days`
+ * days counting back from `now`. Stamps the cutoff the same way
+ * (`localDateStamp`) and compares as strings — "YYYY-MM-DD" sorts
+ * lexically the same as chronologically, so `dateStamp` itself never goes
+ * through `new Date()`, unlike an API timestamp (`parseApiDate`'s own job).
+ */
+export function isWithinLastDays(dateStamp: string, days: number, now: Date = new Date()): boolean {
+  const cutoff = new Date(now)
+  cutoff.setDate(cutoff.getDate() - days)
+  return dateStamp >= localDateStamp(cutoff)
+}
