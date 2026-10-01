@@ -119,8 +119,32 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   await settle(page)
   expect((await box(leftRail)).width).toBeLessThan(80)
 
-  // De volta ao topo: tudo volta ao layout normal.
+  // De volta ao topo: tudo volta ao layout normal. S15-08: Digest e "Resumo
+  // de hoje" se desdobram com o MESMO tamanho em todo frame visível (antes
+  // ficavam mais largos durante a mola e re-quebravam o texto ao fim dela).
+  await page.evaluate(() => {
+    const w = window as unknown as { __sizes: string[] }
+    w.__sizes = []
+    const t0 = performance.now()
+    const tick = (now: number) => {
+      const more = document.querySelector('.feed-side__more') as HTMLElement
+      if (Number(getComputedStyle(more).opacity) > 0.05) {
+        for (const id of ['#feed-side-digest', '#feed-side-today']) {
+          const r = document.querySelector(id)?.getBoundingClientRect()
+          if (r) w.__sizes.push(`${id} ${Math.round(r.width)}x${Math.round(r.height)}`)
+        }
+      }
+      if (now - t0 < 1200) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
   await page.evaluate(() => window.scrollTo(0, 0))
+  await page.waitForTimeout(1300)
+  const sizes = await page.evaluate(() => (window as unknown as { __sizes: string[] }).__sizes)
+  for (const id of ['#feed-side-digest', '#feed-side-today']) {
+    const distinct = new Set(sizes.filter((size) => size.startsWith(id)))
+    expect([...distinct], `${id}: um tamanho só durante a mola`).toHaveLength(1)
+  }
   await expect(html).toHaveAttribute('data-chrome', 'rest')
   await settle(page)
   await expect(page.locator('.feed-page__title')).toHaveCSS('opacity', '1')
