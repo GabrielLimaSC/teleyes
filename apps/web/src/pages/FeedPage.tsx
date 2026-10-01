@@ -31,7 +31,6 @@ import { isSameLocalDay, parseApiDate } from '../utils/dates'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
-import '../components/FillButton.css'
 import './FeedPage.css'
 
 const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: string; dot: string }> = {
@@ -439,6 +438,57 @@ export function FeedPage() {
     return () => observer.disconnect()
   }, [gridElement])
 
+  // S16-01: the compact bar's own pieces that live outside this component
+  // (NavCapsule's mascot, ThemeToggle — both rendered by App, siblings of
+  // this page) read these three x-positions off `<html>`. The two rail
+  // widths come from FeedPage.css's own track contract (64px collapsed,
+  // its open default otherwise) — NEVER sampled off the grid's resolved
+  // `grid-template-columns` while it's mid-spring: that chased the rail's
+  // own 680ms width transition, and since the pieces reading the variable
+  // (NavCapsule.css, ThemeToggle) transition `left` too, the two springs
+  // stacked and visibly lagged behind the rail by almost a second. Only
+  // `rect.left`/`rect.right` are measured — the grid's own outer box, which
+  // a rail collapsing never resizes (its parent does, e.g. the product
+  // panel opening), so this still tracks that case via ResizeObserver
+  // without the compounding bug. `rect.right` and `window.innerWidth` share
+  // one coordinate space — never `100vw`, which can disagree with them by a
+  // classic scrollbar's width.
+  useEffect(() => {
+    if (gridElement === null) return
+    const root = document.documentElement
+    const leftWidth = leftState === 'collapsed' ? 64 : 272
+    const rightWidth = rightState === 'collapsed' ? 64 : 312
+    const update = () => {
+      const rect = gridElement.getBoundingClientRect()
+      const gap = Number.parseFloat(window.getComputedStyle(gridElement).columnGap) || 0
+      root.style.setProperty('--feed-rail-left-center', `${rect.left + leftWidth / 2}px`)
+      root.style.setProperty('--feed-rail-right-center', `${rect.right - rightWidth / 2}px`)
+      root.style.setProperty('--feed-toolbar-right', `${window.innerWidth - (rect.right - rightWidth - gap)}px`)
+    }
+    update()
+    // jsdom (unit tests) has no ResizeObserver — the one-shot `update()`
+    // above is all a test ever needs.
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(update)
+    observer.observe(gridElement)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [gridElement, leftState, rightState])
+
+  // Never leaves a stale Feed geometry behind for another page.
+  useEffect(
+    () => () => {
+      const root = document.documentElement
+      root.style.removeProperty('--feed-rail-left-center')
+      root.style.removeProperty('--feed-rail-right-center')
+      root.style.removeProperty('--feed-toolbar-right')
+    },
+    [],
+  )
+
   useEffect(() => {
     const element = headerActionsRef.current
     const unregisterFlip = element ? registerChromeFlip(element) : () => {}
@@ -497,19 +547,36 @@ export function FeedPage() {
   return (
     <main className="feed-page">
       <Toast toast={toast} onDismiss={dismiss} />
-      {/* S15-03: the band the compact chrome (capsule, docked controls)
-          lives in — cards scroll under it, never under a bare control. */}
+      {/* S16-01: no gradient/blur band anymore — this repaints the page's
+          own background (color-paper + body-wash, same as index.css's
+          `body`/`body::before`) behind a 56→112px mask, so a card scrolling
+          under the bar dissolves into the real page instead of a visible
+          dark strip. Only the bar's own pieces (mascote, cápsula, toolbar,
+          tema) carry glass. */}
       <div className="feed-chrome-scrim" aria-hidden="true" />
+      {/* S16-01: "Feed ao vivo · N matches" — compact-only context next to
+          the mascot disc; the `summary.matches` already shown accessibly
+          by "Resumo" below, so this is decorative (aria-hidden). Hides
+          itself (FeedPage.css, a `:has()` off `.nav-shell`) the instant the
+          navbar grows over it — never a double, unreadable glass surface. */}
+      <div className="feed-page__context-capsule plane-glass" aria-hidden="true">
+        Feed ao vivo · {summary.matches} matches
+      </div>
       <div className="feed-page__header">
         <div className="feed-page__title">
           <h1>Feed ao vivo</h1>
           <p className="feed-page__subtitle">Ofertas encontradas pelas suas regras, em tempo real.</p>
         </div>
-        <div ref={headerActionsRef} className="feed-page__header-actions">
+        {/* S16-01: one glass capsule, three segments — SSE / Agrupar / Atualizar
+            used to be three separate dark buttons. It's the same element at
+            rest (here, end of the title row) and docked into the band once
+            compact (FeedPage.css + chrome/scrollChrome.ts's FLIP already
+            wired to this ref — only its geometry changed, not the engine). */}
+        <div ref={headerActionsRef} className="feed-page__header-actions plane-glass">
           <span
-            className="feed-page__connection-badge"
+            className="feed-page__toolbar-segment feed-page__toolbar-status"
             role="status"
-            style={{ color: connectionLabel.color, borderColor: connectionLabel.color }}
+            style={{ color: connectionLabel.color }}
           >
             <span className="feed-page__connection-dot" style={{ background: connectionLabel.dot }} />
             {connectionLabel.label}
@@ -517,19 +584,22 @@ export function FeedPage() {
           {feedSettings !== null && (
             <button
               type="button"
-              className="plane-action plane-action--secondary fill-button feed-page__group-toggle"
-              aria-pressed={feedSettings.group_duplicates}
+              className="feed-page__toolbar-segment feed-page__toolbar-switch"
+              role="switch"
+              aria-checked={feedSettings.group_duplicates}
               onClick={handleToggleGroupDuplicates}
             >
-              Agrupar duplicatas: {feedSettings.group_duplicates ? 'ligado' : 'desligado'}
+              Agrupar duplicatas
+              <span
+                className={feedSettings.group_duplicates ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}
+                aria-hidden="true"
+              >
+                <span className="feed-toggle-switch__knob" />
+              </span>
             </button>
           )}
-          <button
-            type="button"
-            className="plane-action plane-action--secondary fill-button feed-page__refresh"
-            onClick={refresh}
-          >
-            Atualizar
+          <button type="button" className="feed-page__toolbar-segment feed-page__toolbar-refresh" onClick={refresh}>
+            <span aria-hidden="true">↻</span> Atualizar
           </button>
         </div>
       </div>

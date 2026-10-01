@@ -400,13 +400,18 @@
   /* ---- Compact: one disc at the top-left of the band, centred on its
      40px line (S15-04). The mascot moves to the left end of the capsule and
      drops its own disc, so collapsed there is exactly one circle — the
-     capsule's glass — and opened, the tabs run in one row after it. */
+     capsule's glass — and opened, the tabs run in one row after it.
+     S16-01: the disc's centre sits exactly on the Feed grid's left rail
+     column centre (`--feed-rail-left-center`, set in FeedPage.tsx off the
+     grid's real columns) — `left` is that minus half the disc, same math
+     as any other centred-on-a-point box. 24px (the page's old fixed inset)
+     is only the fallback for a page that never sets the variable. */
   :root[data-chrome='compact'] .nav-capsule {
     /* Room left for the docked Feed controls + theme button on the right. */
     --nav-open-width: min(640px, calc(100vw - 600px));
     --nav-capsule-height: 56px;
     top: calc(var(--chrome-band-center) - 28px);
-    left: 24px;
+    left: calc(var(--feed-rail-left-center, 52px) - (var(--nav-capsule-height) / 2));
     width: var(--nav-capsule-height);
     translate: 0 0;
   }
@@ -488,14 +493,20 @@
       visibility 0s 160ms;
   }
 
-  /* The theme button rides the same line as the rest of the band. */
+  /* The theme button rides the same line as the rest of the band, its
+     centre on the right rail column centre (S16-01, same mechanism as the
+     mascot above — `left`, not `right`, so no 100vw/scrollbar math). */
   :root[data-chrome][data-chrome-animating] .theme-toggle,
   :root[data-chrome='compact'] .theme-toggle {
-    transition: top var(--chrome-spring-duration) var(--chrome-spring);
+    transition:
+      top var(--chrome-spring-duration) var(--chrome-spring),
+      left var(--chrome-spring-duration) var(--chrome-spring);
   }
 
   :root[data-chrome='compact'] .theme-toggle {
     top: calc(var(--chrome-band-center) - 20px);
+    right: auto;
+    left: calc(var(--feed-rail-right-center, calc(100vw - 44px)) - 20px);
   }
 }
 

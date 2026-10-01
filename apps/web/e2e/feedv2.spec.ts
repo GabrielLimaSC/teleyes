@@ -365,14 +365,14 @@ test.describe('Feed v2 — barra lateral (S14-07)', () => {
     await apiPut(page, '/settings/feed', csrfToken, { group_duplicates: true })
 
     await page.goto('/feed')
-    const toggle = page.getByRole('button', { name: /Agrupar duplicatas/ })
-    await expect(toggle).toHaveText('Agrupar duplicatas: ligado')
+    const toggle = page.getByRole('switch', { name: 'Agrupar duplicatas' })
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
 
     await toggle.click()
-    await expect(toggle).toHaveText('Agrupar duplicatas: desligado')
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
 
     await page.reload()
-    await expect(page.getByRole('button', { name: /Agrupar duplicatas/ })).toHaveText('Agrupar duplicatas: desligado')
+    await expect(page.getByRole('switch', { name: 'Agrupar duplicatas' })).toHaveAttribute('aria-checked', 'false')
 
     // Não deixa o backend compartilhado desligado para as próximas specs.
     await apiPut(page, '/settings/feed', csrfToken, { group_duplicates: true })
