@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MatchCard } from './MatchCard'
+import { MatchCard, computeAverageDelta30d } from './MatchCard'
 import type { Match, Recipient, Rule, Source } from '../api/types'
 
 const rule: Rule = {
@@ -110,8 +110,8 @@ describe('MatchCard', () => {
   it('falls back to raw ids when rule/source lookups are missing', () => {
     render(<MatchCard match={buildMatch()} rule={undefined} source={undefined} recipients={[]} />)
 
-    expect(screen.getByText(/Fonte: #1/)).toBeInTheDocument()
-    expect(screen.getByText(/Regra: #1/)).toBeInTheDocument()
+    // S16-03 (04): "Fonte · Regra · Destinatário", no labels anymore.
+    expect(screen.getByText('#1 · #1')).toBeInTheDocument()
   })
 
   it('shows a price placeholder when no price was extracted', () => {
@@ -752,16 +752,21 @@ describe('MatchCard — selos (S14-07, 06)', () => {
     expect(screen.getByText('Alvo atingido')).toBeInTheDocument()
   })
 
-  it('shows "Visto em N fontes" only when seen_count is above 1 — a different mechanism from "Visto em: <names>" (S7-11)', () => {
+  it('shows "+N fonte(s)" (N = seen_count - 1) only above 1 source — a different mechanism from "Visto em: <names>" (S7-11, S16-03 03)', () => {
     const { rerender } = render(
       <MatchCard match={buildMatch({ seen_count: 1 })} rule={rule} source={source} recipients={[]} />,
     )
-    expect(screen.queryByText(/Visto em \d+ fontes/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\+\d+ fontes?/)).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard match={buildMatch({ seen_count: 2 })} rule={rule} source={source} recipients={[]} />,
+    )
+    expect(screen.getByText('+1 fonte')).toBeInTheDocument()
 
     rerender(
       <MatchCard match={buildMatch({ seen_count: 3 })} rule={rule} source={source} recipients={[]} />,
     )
-    expect(screen.getByText('Visto em 3 fontes')).toBeInTheDocument()
+    expect(screen.getByText('+2 fontes')).toBeInTheDocument()
   })
 
   it('shows the "preço não identificado" chip whenever price_cents is null, alongside the price placeholder text', () => {
@@ -868,7 +873,7 @@ describe('MatchCard — ações (S14-07, 06)', () => {
     expect(screen.queryByRole('button', { name: /Silenciar/ })).not.toBeInTheDocument()
   })
 
-  it('"Criar regra disso" calls onCreateRule with the product_key', async () => {
+  it('"Criar regra disso" calls onCreateRule with the product_key (S16-03 05: lives in the "⋯" menu)', async () => {
     const onCreateRule = vi.fn()
     const user = userEvent.setup()
     render(
@@ -881,8 +886,12 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Criar regra disso' }))
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Criar regra disso' }))
     expect(onCreateRule).toHaveBeenCalledWith('produto-x')
+    // Picking an item closes the menu and returns focus to its trigger.
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mais ações' })).toHaveFocus()
   })
 
   it('"Silenciar 7 dias" becomes "Reativar" once match.snoozed is true, both calling onSnooze with the match', async () => {
@@ -1052,7 +1061,7 @@ describe('MatchCard — ações (S14-07, 06)', () => {
     expect(onSetTarget).not.toHaveBeenCalled()
   })
 
-  it('"Corrigir" opens the product panel — only shown with a product_key and no identified price', async () => {
+  it('"Corrigir preço" opens the product panel — only shown with a product_key and no identified price, replacing "Definir alvo" (S16-03 02)', async () => {
     const onOpenProduct = vi.fn()
     const user = userEvent.setup()
     const { rerender } = render(
@@ -1062,9 +1071,13 @@ describe('MatchCard — ações (S14-07, 06)', () => {
         source={source}
         recipients={[]}
         onOpenProduct={onOpenProduct}
+        onSetTarget={vi.fn()}
       />,
     )
-    expect(screen.queryByRole('button', { name: 'Corrigir' })).not.toBeInTheDocument()
+    // isNarrow defaults to false (no ResizeObserver in jsdom) — the wide
+    // label, "Corrigir preço", is what this environment always renders.
+    expect(screen.queryByRole('button', { name: 'Corrigir preço' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Definir alvo' })).toBeInTheDocument()
 
     rerender(
       <MatchCard
@@ -1073,10 +1086,202 @@ describe('MatchCard — ações (S14-07, 06)', () => {
         source={source}
         recipients={[]}
         onOpenProduct={onOpenProduct}
+        onSetTarget={vi.fn()}
       />,
     )
-    const corrigir = screen.getByRole('button', { name: 'Corrigir' })
+    // "Corrigir preço" takes over the "Definir alvo" slot entirely.
+    expect(screen.queryByRole('button', { name: 'Definir alvo' })).not.toBeInTheDocument()
+    const corrigir = screen.getByRole('button', { name: 'Corrigir preço' })
     await user.click(corrigir)
     expect(onOpenProduct).toHaveBeenCalledWith('produto-x', corrigir)
+  })
+
+  it('shows the amber price-missing line + "Corrija à mão" hint instead of a price (S16-03 02)', () => {
+    render(
+      <MatchCard match={buildMatch({ price_cents: null })} rule={rule} source={source} recipients={[]} />,
+    )
+
+    expect(screen.getByText('Preço não identificado')).toBeInTheDocument()
+    expect(
+      screen.getByText('Corrija à mão — o valor entra no histórico.'),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('MatchCard — menu "⋯" (S16-03 05)', () => {
+  it('"Mais ações" opens the menu with the right aria-haspopup/aria-expanded, Esc closes it and returns focus', async () => {
+    const user = userEvent.setup()
+    render(
+      <MatchCard
+        match={buildMatch({ product_key: 'produto-x' })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onCreateRule={vi.fn()}
+      />,
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Mais ações' })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Criar regra disso' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+  })
+
+  it('a click outside the menu closes it', async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <MatchCard
+          match={buildMatch({ product_key: 'produto-x' })}
+          rule={rule}
+          source={source}
+          recipients={[]}
+          onCreateRule={vi.fn()}
+        />
+        <button type="button">Fora do card</button>
+      </>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Fora do card' }))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('does not render at all without a product_key (no "Criar regra disso", no Silenciar to hold either)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({ product_key: null })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+        onCreateRule={vi.fn()}
+        onSnooze={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Mais ações' })).not.toBeInTheDocument()
+  })
+})
+
+describe('computeAverageDelta30d (S16-03 06)', () => {
+  const now = new Date('2026-03-31T12:00:00Z')
+
+  function points(entries: Array<[string, number]>): Match['sparkline'] {
+    return entries.map(([date, price_cents]) => ({ date, price_cents }))
+  }
+
+  it('returns null with fewer than 3 points inside the last 30 days', () => {
+    const sparkline = points([
+      ['2026-03-29', 100_00],
+      ['2026-03-30', 100_00],
+    ])
+    expect(computeAverageDelta30d(sparkline, 100_00, now)).toBeNull()
+  })
+
+  it('returns null without a current price', () => {
+    const sparkline = points([
+      ['2026-03-28', 100_00],
+      ['2026-03-29', 100_00],
+      ['2026-03-30', 100_00],
+    ])
+    expect(computeAverageDelta30d(sparkline, null, now)).toBeNull()
+  })
+
+  it('ignores points older than 30 days from `now`', () => {
+    const sparkline = points([
+      // Outside the window — must never pull the average toward R$ 10,00.
+      ['2026-01-01', 10_00],
+      ['2026-03-28', 100_00],
+      ['2026-03-29', 100_00],
+      ['2026-03-30', 100_00],
+    ])
+    // Average of the 3 in-window points is exactly 100,00 — 0% either way.
+    expect(computeAverageDelta30d(sparkline, 100_00, now)).toEqual({ pct: 0, belowAverage: false })
+  })
+
+  it('rounds to the nearest integer percent and flags "belowAverage" when cheaper than the average', () => {
+    const sparkline = points([
+      ['2026-03-28', 500_00],
+      ['2026-03-29', 500_00],
+      ['2026-03-30', 500_00],
+    ])
+    // 470,00 vs. average 500,00 — 6% below, rounds from -6.0 exactly.
+    const result = computeAverageDelta30d(sparkline, 470_00, now)
+    expect(result).toEqual({ pct: -6, belowAverage: true })
+  })
+
+  it('is neutral (belowAverage false) when the current price is above the average', () => {
+    const sparkline = points([
+      ['2026-03-28', 500_00],
+      ['2026-03-29', 500_00],
+      ['2026-03-30', 500_00],
+    ])
+    // 515,00 vs. average 500,00 — 3% above.
+    const result = computeAverageDelta30d(sparkline, 515_00, now)
+    expect(result).toEqual({ pct: 3, belowAverage: false })
+  })
+})
+
+describe('MatchCard — "vs. média 30d" line (S16-03 06)', () => {
+  it('shows it in place of the target-gap line when the rule has no target', () => {
+    const now = new Date()
+    const recentDate = (daysAgo: number) => {
+      const date = new Date(now)
+      date.setDate(date.getDate() - daysAgo)
+      return date.toISOString().slice(0, 10)
+    }
+    render(
+      <MatchCard
+        match={buildMatch({
+          price_cents: 470_00,
+          target_price_cents: null,
+          sparkline: [
+            { date: recentDate(3), price_cents: 500_00 },
+            { date: recentDate(2), price_cents: 500_00 },
+            { date: recentDate(1), price_cents: 500_00 },
+          ],
+        })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.getByText('-6% vs. média 30d')).toBeInTheDocument()
+    expect(screen.queryByText(/para o alvo/)).not.toBeInTheDocument()
+  })
+
+  it('never shows it with a target set, even without enough sparkline history (the gap line wins)', () => {
+    render(
+      <MatchCard
+        match={buildMatch({
+          price_cents: 470_00,
+          target_price_cents: 450_00,
+          target_gap_pct: 4,
+          sparkline: [
+            { date: '2026-01-01', price_cents: 500_00 },
+            { date: '2026-01-02', price_cents: 500_00 },
+            { date: '2026-01-03', price_cents: 500_00 },
+          ],
+        })}
+        rule={rule}
+        source={source}
+        recipients={[]}
+      />,
+    )
+
+    expect(screen.queryByText(/vs\. média 30d/)).not.toBeInTheDocument()
+    expect(screen.getByText(/para o alvo/)).toBeInTheDocument()
   })
 })

@@ -12,6 +12,18 @@ import type { Rule } from '../api/types'
 export const FIRST_LINK_RE = /https?:\/\//i
 
 /**
+ * S16-03 (06): Telegram's own `**bold**`/`__italic__` markup and the
+ * occasional double space survive into `message_text` verbatim — the comp
+ * calls for a plain title, not raw markdown. Applied once, at the very start
+ * of `productText`, so every later stage (the S8-02 link cut, the S9-06/
+ * S10-02 rule-term cut) already works off the same cleaned string instead of
+ * a second, drifting copy of this logic.
+ */
+function stripTelegramMarkup(text: string): string {
+  return text.replaceAll('**', '').replaceAll('__', '').replace(/ {2,}/g, ' ').trim()
+}
+
+/**
  * S8-02: real promo messages tend to end in one or more links plus a
  * boilerplate footer ("Cupom, preço e estoque por tempo limitado."), which
  * made the card grow to several lines showing content nobody reads. Cuts at
@@ -20,13 +32,14 @@ export const FIRST_LINK_RE = /https?:\/\//i
  * itself is never touched, only what this component renders.
  */
 export function productText(messageText: string): string {
-  const match = FIRST_LINK_RE.exec(messageText)
-  if (match === null) return messageText
-  const before = messageText.slice(0, match.index).trimEnd()
+  const cleaned = stripTelegramMarkup(messageText)
+  const match = FIRST_LINK_RE.exec(cleaned)
+  if (match === null) return cleaned
+  const before = cleaned.slice(0, match.index).trimEnd()
   // A link at (or near) the very start would otherwise leave an empty/near-
   // empty card — showing the full text is always better than showing
   // nothing.
-  return before.length > 0 ? before : messageText
+  return before.length > 0 ? before : cleaned
 }
 
 /** NFKD-decompose and drop combining marks, keeping length/position aligned

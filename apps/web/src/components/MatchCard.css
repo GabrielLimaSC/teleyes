@@ -165,13 +165,18 @@
   box-shadow: var(--plane-focus-ring);
 }
 
+/* S16-03 (04): "Fonte · Regra · Destinatário", one line, ellipsis instead of
+   wrapping — the labels are gone, so the line reads fine even cut short; the
+   full text is still in the `title` attribute (MatchCard.tsx). */
 .match-card__meta {
   margin: 3px 0 0;
   font-size: 12.5px;
   line-height: 1.4;
   font-weight: 400;
   color: var(--text-muted);
-  overflow-wrap: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match-card__grouped-sources {
@@ -212,6 +217,48 @@
   margin-top: 2px;
   font-size: 12px;
   font-weight: 500;
+  color: var(--plane-text-secondary);
+}
+
+/* S16-03 (06): "−6%/+3% vs. média 30d" — green only below the average
+   (cheaper than usual); above it stays the plain secondary color, a neutral
+   fact rather than a warning. */
+.match-card__price-sub--good {
+  color: var(--color-success);
+}
+
+/* S16-03 (02): replaces the 22px `.match-card__price` entirely when
+   `price_cents` is null — a quieter, explicitly "fix me" amber voice instead
+   of a price-shaped placeholder. */
+.match-card__price-missing {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.match-card__price-missing-label {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--plane-status-warn);
+}
+
+.match-card__price-missing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.match-card__price-missing-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--plane-text-secondary);
 }
 
@@ -286,6 +333,24 @@
   font-size: 12px;
 }
 
+/* S16-03 (02): "Corrigir"/"Corrigir preço" — same shape as the other
+   secondary actions, amber border/text instead of the usual outline (the
+   same `--plane-status-warn` the badge and the price-missing line use).
+   Chained with `.match-card__action` (not just the modifier alone): equal
+   specificity against materials.css's own `.plane-action` would otherwise
+   tie-break on import order, and MatchCard.css loads before materials.css
+   (MatchCard.tsx's own import list). */
+.match-card__action.match-card__action--warn {
+  background: var(--plane-action-secondary-bg);
+  border: 1px solid var(--plane-status-warn);
+  color: var(--plane-status-warn);
+  box-shadow: none;
+}
+
+.match-card__action.match-card__action--warn:focus-visible {
+  border-color: var(--plane-status-warn);
+}
+
 /* S15-01: rides the badges row, pinned to its right edge. */
 .match-card__timestamp {
   margin: 0 0 0 auto;
@@ -298,12 +363,17 @@
 .match-card__links {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   margin-left: auto;
 }
 
-.match-card__link,
-.match-card__text-action {
+/* S16-03 (01): "Abrir promoção ↗" — text + icon on a wide card. The icon
+   span is a plain character, not a separate `.product-open-trigger`-style
+   button, so it keeps sitting inline with the underline like before. */
+.match-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text-body);
@@ -312,24 +382,94 @@
   white-space: nowrap;
 }
 
-.match-card__text-action {
-  background: none;
-  border: none;
-  padding: 0;
-  font-family: inherit;
-  color: var(--plane-text-secondary);
-  cursor: pointer;
-}
-
-.match-card__text-action:hover {
-  color: var(--text-body);
-}
-
-.match-card__text-action:focus-visible,
 .match-card__link:focus-visible {
   outline: none;
   border-radius: 4px;
   box-shadow: var(--plane-focus-ring);
+}
+
+/* S16-03 (01): narrow card — same link, same accessible name ("Abrir
+   promoção", set via `aria-label` regardless of width in MatchCard.tsx),
+   just the icon on its own inside a 30px square so it lines up with the
+   other actions ("altura da barra de ações = altura de um botão"). */
+.match-card__link--icon {
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  text-decoration: none;
+}
+
+.match-card__link--icon:hover {
+  background: var(--plane-tint-bg);
+}
+
+/* S16-03 (01/05): the "⋯" menu — "Criar regra disso" always, plus
+   "Silenciar 7 dias"/"Reativar" once the card is narrow (MatchCard.tsx
+   decides which items are actually rendered inside). */
+.match-card__menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.match-card__menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 9px;
+  border: 1px solid var(--plane-action-secondary-border);
+  background: var(--plane-action-secondary-bg);
+  color: var(--plane-text-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.match-card__menu-trigger:hover {
+  background: var(--plane-tint-bg);
+}
+
+.match-card__menu-trigger:focus-visible,
+.match-card__menu-item:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+/* `.glass-card` (GlassCard.css, already imported by MatchCard.tsx) supplies
+   the actual glass recipe — same one the card itself and the Tooltip bubble
+   use — this only adds the popup's own position/layout. */
+.match-card__menu-popup {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 6px;
+}
+
+.match-card__menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.match-card__menu-item:hover {
+  background: var(--plane-tint-bg);
 }
 
 .match-card__target-form {

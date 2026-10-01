@@ -205,10 +205,11 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
 
     const card = page.locator('.match-card', { hasText: title })
     await expect(card).toBeVisible()
-    await expect(card.getByText('Visto em 2 fontes')).toBeVisible()
+    // S16-03 (03): "Visto em N fontes" virou "+N fonte(s)" (N = seen_count - 1).
+    await expect(card.getByText('+1 fonte', { exact: true })).toBeVisible()
   })
 
-  test('mostra o chip "preço não identificado" e "Corrigir" abre o painel de produto', async ({ page }) => {
+  test('mostra o chip "preço não identificado" e "Corrigir"/"Corrigir preço" abre o painel de produto (S16-03: substitui "Definir alvo")', async ({ page }) => {
     const tag = uniqueTag('sem-preco')
     const seed = await seedBase(page, tag)
     const title = `Placa de vídeo Palit RTX 5070 Ti GamingPro-S 16GB ${tag}`
@@ -228,7 +229,10 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
     await expect(card.getByText('preço não identificado', { exact: true })).toBeVisible()
     await expect(card.getByText('Preço não identificado', { exact: true })).toBeVisible()
 
-    await card.getByRole('button', { name: 'Corrigir' }).click()
+    // S16-03 (01): narrow card says "Corrigir", wide says "Corrigir preço" —
+    // this spec doesn't force a viewport, so either is a real outcome
+    // depending on the Feed's own rails width at the moment it runs.
+    await card.getByRole('button', { name: /^Corrigir/ }).click()
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
   })
 
@@ -270,7 +274,10 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
 
     const card = page.locator('.match-card', { hasText: title })
     await expect(card).toBeVisible()
-    await card.getByRole('button', { name: 'Criar regra disso' }).click()
+    // S16-03 (01/05): "Criar regra disso" now always lives in the "⋯" menu,
+    // wide card or narrow.
+    await card.getByRole('button', { name: 'Mais ações' }).click()
+    await card.getByRole('menuitem', { name: 'Criar regra disso' }).click()
 
     await expect(page).toHaveURL(/\/regras\?produto=/)
   })
@@ -288,15 +295,47 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
       recipient_ids: [seed.recipientId],
       text: `${title} por R$ ${price},00`,
     })
+    // S16-03: scrolling past both rails (below) needs real page height to
+    // scroll through — an isolated run of just this file may not have
+    // enough prior matches yet for that on its own.
+    for (let index = 0; index < 16; index += 1) {
+      await apiPost(page, '/demo/messages', seed.csrfToken, {
+        source_id: seed.sourceId,
+        rule_id: seed.ruleId,
+        recipient_ids: [seed.recipientId],
+        text: `Enchimento ${index} ${tag} por R$ ${1000 + index * 17},00`,
+      })
+    }
 
     const card = page.locator('.match-card', { hasText: title })
     await expect(card).toBeVisible()
+
+    // S16-03 (05): "Silenciar 7 dias" is a toolbar button on a wide card, a
+    // menu item on a narrow one — with the rails expanded (top of page) the
+    // Feed's own 2-column grid keeps cards under 480px. `data-chrome=compact`
+    // alone only shrinks the top bar; the rail columns only spring down to a
+    // 64px strip once scrolled past each rail's own bottom edge too
+    // (scroll-chrome.spec.ts's own two-step trick) — that's what actually
+    // widens the card this test exercises.
+    await page.mouse.move(720, 400)
+    await page.mouse.wheel(0, 200)
+    await expect(page.locator('html')).toHaveAttribute('data-chrome', 'compact')
+    await page.evaluate(() => {
+      const bottoms = ['.feed-rail', '.feed-page__side-rail'].map(
+        (selector) => document.querySelector(selector)!.getBoundingClientRect().bottom,
+      )
+      window.scrollBy(0, Math.max(...bottoms))
+    })
+    const grid = page.locator('.feed-page__grid')
+    await expect(grid).toHaveAttribute('data-left-rail', 'collapsed')
+    await expect(grid).toHaveAttribute('data-right-rail', 'collapsed')
+    await page.waitForTimeout(900)
+
     await card.getByRole('button', { name: 'Silenciar 7 dias' }).click()
     await expect(card.getByRole('button', { name: 'Reativar' })).toBeVisible()
 
-    // S15-03: com muitos cards na rodada, o clique acima rola a página e o
-    // Feed entra no modo compacto (trilho recolhido em ícones). Volta ao topo,
-    // onde a trilha "Silenciados" está aberta, como o usuário faria.
+    // S15-03: volta ao topo, onde a trilha "Silenciados" está aberta, como o
+    // usuário faria.
     await page.evaluate(() => window.scrollTo(0, 0))
     await expect(page.locator('html')).not.toHaveAttribute('data-chrome', 'compact')
 
@@ -305,7 +344,17 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
     await snoozeRow.getByRole('button', { name: 'Reativar' }).click()
 
     await expect(snoozeRow).not.toBeVisible()
-    await expect(card.getByRole('button', { name: 'Silenciar 7 dias' })).toBeVisible()
+    // S16-03: back at the top the rails are open again and the card is narrow
+    // (< 480px), where "Silenciar 7 dias" lives in the "Mais ações" menu
+    // instead of the toolbar — accept whichever layout the card has now.
+    await expect(card.getByRole('button', { name: 'Reativar' })).toHaveCount(0)
+    const silenceButton = card.getByRole('button', { name: 'Silenciar 7 dias' })
+    if (!(await silenceButton.isVisible())) {
+      await card.getByRole('button', { name: 'Mais ações' }).click()
+      await expect(card.getByRole('menuitem', { name: 'Silenciar 7 dias' })).toBeVisible()
+    } else {
+      await expect(silenceButton).toBeVisible()
+    }
   })
 })
 
@@ -414,21 +463,33 @@ test.describe('Feed v2 — regra 06b (cards alinhados na mesma linha)', () => {
     // do grid de 2 colunas (primeira e única linha).
     await expect(page.locator('.feed-page__card')).toHaveCount(2)
 
-    const boxA = await cardA.boundingBox()
-    const boxB = await cardB.boundingBox()
-    if (!boxA || !boxB) throw new Error('card bounding box missing')
+    // S16-03: mede com o layout assentado — numa rodada cheia o clique no
+    // filtro pode rolar a página para o modo compacto (colunas em mola) e o
+    // card escolhe o layout estreito/largo de ações um frame depois de montar
+    // (ResizeObserver). Os quatro retângulos saem de UMA leitura síncrona,
+    // então nenhum layout acontece entre medir o card A e o B.
+    await expect(page.locator('html')).not.toHaveAttribute('data-chrome-animating', /.*/)
+    await page.waitForTimeout(150)
+    const rects = await page.evaluate(([a, b]) => {
+      const cards = [...document.querySelectorAll<HTMLElement>('.match-card')]
+      const find = (text: string) => cards.find((card) => card.textContent?.includes(text)) as HTMLElement
+      const read = (card: HTMLElement) => {
+        const box = card.getBoundingClientRect()
+        const actions = (card.querySelector('.match-card__actions') as HTMLElement).getBoundingClientRect()
+        return { y: box.y, height: box.height, actionsBottom: actions.bottom }
+      }
+      return [read(find(a)), read(find(b))]
+    }, [`Produto A ${tag}`, `Produto B ${tag}`])
+    const [boxA, boxB] = rects
     // Mesma linha do grid: mesmo topo, mesma altura (o CSS grid, align-items
     // stretch por padrão, estica os dois ao mais alto).
     expect(Math.abs(boxA.y - boxB.y)).toBeLessThan(2)
     expect(Math.abs(boxA.height - boxB.height)).toBeLessThan(2)
 
-    const actionsA = await cardA.locator('.match-card__actions').boundingBox()
-    const actionsB = await cardB.locator('.match-card__actions').boundingBox()
-    if (!actionsA || !actionsB) throw new Error('actions bounding box missing')
     // A base (barra de ações) dos dois cards alinha, mesmo o A tendo um selo
     // a mais no cabeçalho — o `margin-top: auto` no bloco de preço é o que
     // empurra os dois para o mesmo lugar.
-    expect(Math.abs(actionsA.y + actionsA.height - (actionsB.y + actionsB.height))).toBeLessThan(2)
+    expect(Math.abs(boxA.actionsBottom - boxB.actionsBottom)).toBeLessThan(2)
   })
 })
 
