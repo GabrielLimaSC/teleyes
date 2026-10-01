@@ -783,15 +783,29 @@
   .feed-page__grid[data-rails] .feed-side__more-inner {
     min-height: 0;
     overflow: hidden;
+    /* Pinned to the rail's outer (right) edge like "Resumo": a panel wider
+       than the column mid-spring overflows to the left, where it is clipped,
+       instead of sliding in from the right (margin-left:auto can't do that). */
+    align-items: flex-end;
     /* The gap above them and room for their shadows, inside the clip box
        (negative margin = padding, so the layout doesn't change). */
     margin: 0 -24px -24px;
     padding: 16px 24px 24px;
   }
 
+  /* border-box (S15-08): the panels carry their own padding and border —
+     as content-box, 312px made them 354px wide (and shorter) only while the
+     flag was on, so Digest/"Resumo de hoje" re-wrapped and jumped back the
+     moment each spring ended (also on simply scrolling into compact). */
+  /* With flex-end they no longer stretch: full width at rest, the same
+     312px (border-box) while springing — identical, so nothing re-wraps. */
+  .feed-page__grid[data-rails] .feed-side__more-inner > * {
+    box-sizing: border-box;
+    width: 100%;
+  }
+
   :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-side__more-inner > * {
     width: 312px;
-    margin-left: auto;
   }
 
   .feed-page__grid[data-right-rail='collapsed'] .feed-side__more {
