@@ -176,3 +176,23 @@ export function anchorScrollDuring(selector: string, durationMs: number): void {
   }
   window.requestAnimationFrame(step)
 }
+
+/**
+ * S15-07: springs an element's height from `from` (measured before the DOM
+ * changed) to whatever it measures now — the same spring and duration as the
+ * CSS width transition next to it, so a rail's box grows and shrinks as one
+ * piece. WAAPI only: nothing is left inline, so once it ends the box is back
+ * to its natural height (and to its `max-height` rules).
+ */
+export function springHeight(element: HTMLElement, from: number): void {
+  element.getAnimations().forEach((animation) => {
+    if (animation.id === 'chrome-height') animation.cancel()
+  })
+  const to = element.getBoundingClientRect().height
+  if (Math.abs(to - from) < 1 || prefersReducedMotion()) return
+  const animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+    duration: CHROME_SPRING_MS,
+    easing: CHROME_SPRING_EASING,
+  })
+  animation.id = 'chrome-height'
+}
