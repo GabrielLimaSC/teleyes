@@ -344,7 +344,17 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
     await snoozeRow.getByRole('button', { name: 'Reativar' }).click()
 
     await expect(snoozeRow).not.toBeVisible()
-    await expect(card.getByRole('button', { name: 'Silenciar 7 dias' })).toBeVisible()
+    // S16-03: back at the top the rails are open again and the card is narrow
+    // (< 480px), where "Silenciar 7 dias" lives in the "Mais ações" menu
+    // instead of the toolbar — accept whichever layout the card has now.
+    await expect(card.getByRole('button', { name: 'Reativar' })).toHaveCount(0)
+    const silenceButton = card.getByRole('button', { name: 'Silenciar 7 dias' })
+    if (!(await silenceButton.isVisible())) {
+      await card.getByRole('button', { name: 'Mais ações' }).click()
+      await expect(card.getByRole('menuitem', { name: 'Silenciar 7 dias' })).toBeVisible()
+    } else {
+      await expect(silenceButton).toBeVisible()
+    }
   })
 })
 
@@ -453,21 +463,33 @@ test.describe('Feed v2 — regra 06b (cards alinhados na mesma linha)', () => {
     // do grid de 2 colunas (primeira e única linha).
     await expect(page.locator('.feed-page__card')).toHaveCount(2)
 
-    const boxA = await cardA.boundingBox()
-    const boxB = await cardB.boundingBox()
-    if (!boxA || !boxB) throw new Error('card bounding box missing')
+    // S16-03: mede com o layout assentado — numa rodada cheia o clique no
+    // filtro pode rolar a página para o modo compacto (colunas em mola) e o
+    // card escolhe o layout estreito/largo de ações um frame depois de montar
+    // (ResizeObserver). Os quatro retângulos saem de UMA leitura síncrona,
+    // então nenhum layout acontece entre medir o card A e o B.
+    await expect(page.locator('html')).not.toHaveAttribute('data-chrome-animating', /.*/)
+    await page.waitForTimeout(150)
+    const rects = await page.evaluate(([a, b]) => {
+      const cards = [...document.querySelectorAll<HTMLElement>('.match-card')]
+      const find = (text: string) => cards.find((card) => card.textContent?.includes(text)) as HTMLElement
+      const read = (card: HTMLElement) => {
+        const box = card.getBoundingClientRect()
+        const actions = (card.querySelector('.match-card__actions') as HTMLElement).getBoundingClientRect()
+        return { y: box.y, height: box.height, actionsBottom: actions.bottom }
+      }
+      return [read(find(a)), read(find(b))]
+    }, [`Produto A ${tag}`, `Produto B ${tag}`])
+    const [boxA, boxB] = rects
     // Mesma linha do grid: mesmo topo, mesma altura (o CSS grid, align-items
     // stretch por padrão, estica os dois ao mais alto).
     expect(Math.abs(boxA.y - boxB.y)).toBeLessThan(2)
     expect(Math.abs(boxA.height - boxB.height)).toBeLessThan(2)
 
-    const actionsA = await cardA.locator('.match-card__actions').boundingBox()
-    const actionsB = await cardB.locator('.match-card__actions').boundingBox()
-    if (!actionsA || !actionsB) throw new Error('actions bounding box missing')
     // A base (barra de ações) dos dois cards alinha, mesmo o A tendo um selo
     // a mais no cabeçalho — o `margin-top: auto` no bloco de preço é o que
     // empurra os dois para o mesmo lugar.
-    expect(Math.abs(actionsA.y + actionsA.height - (actionsB.y + actionsB.height))).toBeLessThan(2)
+    expect(Math.abs(boxA.actionsBottom - boxB.actionsBottom)).toBeLessThan(2)
   })
 })
 
