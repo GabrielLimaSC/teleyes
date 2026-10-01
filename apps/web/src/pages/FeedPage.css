@@ -543,9 +543,22 @@
    each property simply transitions back. */
 
 /* Outside the managed layout (narrow screens, stacked grid, chrome off) the
-   strip simply doesn't exist. */
-.feed-rail__strip {
+   strip simply doesn't exist, and each box shows only its full face. */
+.feed-morph__strip {
   display: none;
+}
+
+.feed-morph__full {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.feed-side__more-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* Every rule of the compact chrome is also gated on the width itself, not
@@ -553,10 +566,6 @@
    (media listener, ResizeObserver), and for that frame the wide rules must
    already be gone. */
 @media (min-width: 1101px) {
-  .feed-page__grid[data-rails] .feed-rail__strip {
-    display: block;
-  }
-
   /* The title fades in place: the header keeps its height (the docked controls
      leave the flow, the title block alone sets it), so nothing below it moves. */
   .feed-page__title {
@@ -610,7 +619,7 @@
     max-height: calc(100vh - var(--chrome-band-height) - 24px);
   }
 
-  /* ---- Rails: two faces of the same box ----
+  /* ---- Rails: one box that folds (S15-03 → S15-07) ----
      `data-rails` is only set while the grid really has its 3 columns. The
      columns spring between their full widths and a 64px strip, and the feed
      column takes (or gives back) the difference — a rail opened while compact
@@ -630,135 +639,186 @@
     --rail-right-width: 64px;
   }
 
-  /* Strip on top, full content below; each face is a grid row that springs
-     between 0fr and 1fr, so the box's height morphs instead of snapping. */
-  .feed-rail__strip,
-  .feed-rail__full {
-    min-height: 0;
-  }
-
-  .feed-page__grid[data-rails] .feed-rail,
-  .feed-page__grid[data-rails] .feed-page__side-rail {
-    display: grid;
-    grid-template-rows: 0fr 1fr;
-    gap: 0;
+  /* S15-07: each rail is ONE glass box (`.feed-morph`: the left rail itself,
+     and "Resumo" on the right) with two faces laid on the same corner. Only
+     the box's geometry moves — width here (CSS), height by FLIP in
+     FeedPage.tsx (`springHeight`), same spring — and the inactive face is
+     taken out of the flow, so it never stretches the box. Faces never slide
+     or scale: the open content keeps its width and is clipped by the moving
+     edge while it fades; the strip's icons arrive at the end. (Before: two
+     stacked grid rows trading 0fr/1fr, which pushed the content down and
+     filled the column with an empty box mid-way — "dois campos trocando".) */
+  .feed-page__grid[data-rails] .feed-morph {
+    position: relative;
+    display: block;
     box-sizing: border-box;
-    transition:
-      grid-template-rows var(--chrome-spring-duration) var(--chrome-spring),
-      padding var(--chrome-spring-duration) var(--chrome-spring),
-      width var(--chrome-spring-duration) var(--chrome-spring);
+    padding: 0;
+    gap: 0;
+    transition: width var(--chrome-spring-duration) var(--chrome-spring);
   }
 
-  /* S15-04: the rail's own box has its own width, pinned to the outer edge of
-     its column, instead of filling the column — so a folded rail is 64px
-     wide at once while the column (and the feed next to it) springs, never
-     a wide empty box shrinking along with the column. */
   .feed-page__grid[data-rails] .feed-rail {
     justify-self: start;
     width: 272px;
   }
 
-  .feed-page__grid[data-rails] .feed-page__side-rail {
-    justify-self: end;
-    width: 312px;
-  }
-
-  .feed-page__grid[data-left-rail='collapsed'] .feed-rail {
-    width: 64px;
-  }
-
-  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail {
-    width: 64px;
-  }
-
-  /* Folded because it was scrolled away: swap faces at once (see
-     `railsSnap` in FeedPage.tsx); the strip's icons still stagger in. */
-  .feed-page__grid[data-left-snap] .feed-rail,
-  .feed-page__grid[data-left-snap] .feed-rail > .feed-rail__full,
-  .feed-page__grid[data-right-snap] .feed-page__side-rail,
-  .feed-page__grid[data-right-snap] .feed-page__side-rail > .feed-rail__full {
-    transition: none;
-  }
-
-  /* …and the folded box eases in where it lands instead of popping. */
-  .feed-page__grid[data-left-snap][data-left-rail='collapsed'] .feed-rail {
-    animation: feed-rail-fold-in 380ms var(--chrome-spring) both;
-  }
-
-  .feed-page__grid[data-rails] .feed-rail__strip,
-  .feed-page__grid[data-rails] .feed-rail__full {
-    overflow: hidden;
-    transition:
-      opacity 220ms ease-out,
-      scale var(--chrome-spring-duration) var(--chrome-spring);
-  }
-
-  /* The right rail is three separate glass boxes: its clip boxes reach 24px
-     past the content (negative margin = padding) so their shadows survive it. */
-  .feed-page__grid[data-rails] .feed-page__side-rail > .feed-rail__strip,
-  .feed-page__grid[data-rails] .feed-page__side-rail > .feed-rail__full {
-    margin: -24px;
-    padding: 24px;
-  }
-
-  .feed-page__grid[data-rails] .feed-rail__strip {
-    opacity: 0;
-    scale: 0.9;
-  }
-
-  .feed-rail__full-inner,
-  .feed-side__full-inner {
-    position: relative;
+  /* Anchored to its outer (right) edge: the content stays put and the box's
+     inner edge is what moves (flex-end lets the fixed-width face overflow
+     to the left, where it is clipped). */
+  .feed-page__grid[data-rails] .feed-summary.feed-morph {
     display: flex;
-    flex-direction: column;
-    /* S15-05: at rest, fill whatever width the rail's scroll container (the
-       rule below reserves its scrollbar's gutter) actually has left —
-       `pinned` scrolls the rail inside itself, and a fixed pixel width here
-       ignored that gutter, running the cards/buttons/chevron past the real
-       right edge and under the scrollbar. */
+    justify-content: flex-end;
     width: 100%;
   }
 
-  .feed-rail__full-inner {
-    gap: 18px;
-  }
-
-  .feed-side__full-inner {
-    gap: 16px;
-  }
-
-  /* Keep the content at its full width while the column springs, so the text
-     is clipped by the shrinking box instead of re-wrapping every frame —
-     only for the spring itself (S15-05): at rest the rule above (100%)
-     takes back over, so the fixed width here never outlives the animation
-     it exists for. */
-  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-rail__full-inner {
-    width: calc(272px - 40px);
-  }
-
-  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-side__full-inner {
+  .feed-page__grid[data-rails] .feed-page__side-rail {
+    justify-self: end;
+    box-sizing: border-box;
     width: 312px;
+    gap: 0;
+    transition: width var(--chrome-spring-duration) var(--chrome-spring);
   }
 
+  .feed-page__grid[data-rails] .feed-morph__full {
+    flex: none;
+    box-sizing: border-box;
+    padding: 20px;
+    /* S15-05: at rest, the width the box (minus a scrollbar gutter) really
+       has; fixed only while springing, below. */
+    width: 100%;
+    opacity: 1;
+    /* Fades in as soon as the edge starts moving out (it is clipped by
+       that edge, so it is revealed, never floating): the two faces overlap
+       in time — the box is never an empty frame mid-way. */
+    transition: opacity 240ms ease-out 60ms;
+  }
+
+  .feed-page__grid[data-rails] .feed-morph__strip {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 64px;
+    box-sizing: border-box;
+    padding: 8px 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 110ms ease-in;
+  }
+
+  .feed-page__grid[data-rails] .feed-summary > .feed-morph__strip {
+    left: auto;
+    right: 0;
+  }
+
+  /* While springing (and while folded) the box clips what doesn't fit, and
+     the open content keeps its full width so its text never re-wraps. */
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-morph {
+    overflow: hidden;
+  }
+
+  /* The box's width minus its 1px glass border on each side: exactly the
+     width the face has at rest, so nothing re-wraps when the spring ends. */
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-rail > .feed-morph__full {
+    width: calc(272px - 2px);
+  }
+
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-summary > .feed-morph__full {
+    width: calc(312px - 2px);
+  }
+
+  /* ---- Folded ---- */
   .feed-page__grid[data-left-rail='collapsed'] .feed-rail {
-    grid-template-rows: 1fr 0fr;
-    padding: 8px;
+    width: 64px;
+    overflow: hidden;
   }
 
   .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail {
-    grid-template-rows: 1fr 0fr;
+    width: 64px;
   }
 
-  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-rail__strip,
-  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail > .feed-rail__strip {
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary.feed-morph {
+    overflow: hidden;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-morph__strip,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary > .feed-morph__strip {
+    position: static;
     opacity: 1;
-    scale: 1;
+    pointer-events: auto;
+    transition: opacity 140ms ease-out 110ms;
   }
 
-  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-rail__full,
-  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail > .feed-rail__full {
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-morph__full,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary > .feed-morph__full {
+    position: absolute;
+    top: 0;
     opacity: 0;
-    scale: 0.96;
+    pointer-events: none;
+    /* Out early, while the edge is still far: no half-clipped text lingers. */
+    transition: opacity 140ms ease-in;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-morph__full {
+    left: 0;
+    width: calc(272px - 2px);
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary > .feed-morph__full {
+    right: 0;
+    width: calc(312px - 2px);
+  }
+
+  /* Digest and "Resumo de hoje" fold up into "Resumo" before it folds
+     (and unfold from it): a 1fr → 0fr row, so their height springs too. */
+  .feed-page__grid[data-rails] .feed-side__more {
+    display: grid;
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transition:
+      grid-template-rows var(--chrome-spring-duration) var(--chrome-spring),
+      opacity 240ms ease-out 140ms;
+  }
+
+  .feed-page__grid[data-rails] .feed-side__more-inner {
+    min-height: 0;
+    overflow: hidden;
+    /* The gap above them and room for their shadows, inside the clip box
+       (negative margin = padding, so the layout doesn't change). */
+    margin: 0 -24px -24px;
+    padding: 16px 24px 24px;
+  }
+
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-side__more-inner > * {
+    width: 312px;
+    margin-left: auto;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-side__more {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--chrome-spring-duration) var(--chrome-spring),
+      opacity 140ms ease-in;
+  }
+
+  /* Folded because it was scrolled away: swap faces at once (see
+     `railsSnap` in FeedPage.tsx); the box eases in where it lands and the
+     strip's icons still stagger in. */
+  .feed-page__grid[data-left-snap] .feed-rail,
+  .feed-page__grid[data-left-snap] .feed-rail > .feed-morph__full,
+  .feed-page__grid[data-left-snap] .feed-rail > .feed-morph__strip,
+  .feed-page__grid[data-right-snap] .feed-page__side-rail,
+  .feed-page__grid[data-right-snap] .feed-summary.feed-morph,
+  .feed-page__grid[data-right-snap] .feed-summary > .feed-morph__full,
+  .feed-page__grid[data-right-snap] .feed-summary > .feed-morph__strip,
+  .feed-page__grid[data-right-snap] .feed-side__more {
+    transition: none;
+  }
+
+  .feed-page__grid[data-left-snap][data-left-rail='collapsed'] .feed-rail,
+  .feed-page__grid[data-right-snap][data-right-rail='collapsed'] .feed-summary.feed-morph {
+    animation: feed-rail-fold-in 380ms var(--chrome-spring) both;
   }
 
   /* Follow the scroll once folded (or opened again from the strip): sticky
@@ -771,14 +831,16 @@
     position: sticky;
     top: calc(var(--chrome-band-height) + 4px);
     max-height: calc(100vh - var(--chrome-band-height) - 20px);
-    overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+  }
+
+  .feed-page__grid[data-left-rail='pinned'] .feed-rail,
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    overflow-y: auto;
     /* S15-05: reserve the classic scrollbar's width whether or not one is
-       drawn right now, so the content sized at 100% above (and this box's
-       own layout) never depends on the instant a scrollbar appears —
-       Safari/older browsers without support just keep their previous
-       behaviour (no gutter, overlay scrollbars need none anyway). */
+       drawn right now, so the content sized at 100% never depends on the
+       instant a scrollbar appears. */
     scrollbar-gutter: stable;
   }
 
@@ -804,18 +866,12 @@
   .feed-rail__collapse {
     position: absolute;
     z-index: 1;
-    /* S15-05: stay inside `.feed-rail__full`'s own box — it clips with plain
-       `overflow: hidden` (used for the open/collapsed cross-fade, a few
-       rules up), so a negative inset here poked past its top-right corner
-       and got cut, same as the content's right edge above. The right rail's
-       own override below already used a positive inset and never had this. */
-    top: 0;
-    right: 0;
+    /* On the eyebrow's line, inside the face's own padding (never clipped). */
+    top: 14px;
+    right: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    /* 24px: fits on the eyebrow's line, above the first tile (30px ran into
-       its top-right corner). */
     width: 24px;
     height: 24px;
     padding: 0;
@@ -824,11 +880,6 @@
     background: var(--glass-tile-bg);
     color: var(--plane-text-secondary);
     cursor: pointer;
-  }
-
-  .feed-side__full-inner > .feed-rail__collapse {
-    top: 14px;
-    right: 14px;
   }
 
   .feed-rail__collapse:hover {
@@ -850,10 +901,6 @@
     padding: 4px 0;
   }
 
-  .feed-side__strip .rail-strip {
-    padding: 8px 0;
-  }
-
   .rail-strip__button {
     position: relative;
     display: inline-flex;
@@ -870,8 +917,9 @@
     transition:
       background-color 160ms ease-out,
       color 160ms ease-out,
-      opacity 220ms ease-out calc(80ms + var(--rail-stagger, 0) * 40ms),
-      translate var(--chrome-spring-duration) var(--chrome-spring) calc(40ms + var(--rail-stagger, 0) * 40ms);
+      /* S15-07: they arrive as the box lands on its strip width. */
+      opacity 200ms ease-out calc(130ms + var(--rail-stagger, 0) * 35ms),
+      translate var(--chrome-spring-duration) var(--chrome-spring) calc(110ms + var(--rail-stagger, 0) * 35ms);
   }
 
   .rail-strip__button:hover {
@@ -933,8 +981,10 @@
   .feed-page__grid[data-rails],
   .feed-page__grid[data-rails] .feed-rail,
   .feed-page__grid[data-rails] .feed-page__side-rail,
-  .feed-page__grid[data-rails] .feed-rail__strip,
-  .feed-page__grid[data-rails] .feed-rail__full,
+  .feed-page__grid[data-rails] .feed-morph,
+  .feed-page__grid[data-rails] .feed-morph__strip,
+  .feed-page__grid[data-rails] .feed-morph__full,
+  .feed-page__grid[data-rails] .feed-side__more,
   .rail-strip__button {
     transition: none;
   }

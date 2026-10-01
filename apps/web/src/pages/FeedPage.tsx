@@ -11,6 +11,7 @@ import {
   markChromeAnimating,
   onBeforeChromeChange,
   registerChromeFlip,
+  springHeight,
   useScrollChrome,
 } from '../chrome/scrollChrome'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
@@ -365,6 +366,17 @@ export function FeedPage() {
   const headerActionsRef = useRef<HTMLDivElement>(null)
   const leftRailRef = useRef<HTMLElement>(null)
   const rightRailRef = useRef<HTMLDivElement>(null)
+  const rightMorphRef = useRef<HTMLElement>(null)
+  // S15-07: each rail box's height right before a state change it should
+  // morph through (opening/closing from the strip, the way back to the top);
+  // `null` = nothing to animate (a fold while scrolled away swaps at once).
+  const railHeightsBefore = useRef<{ left: number | null; right: number | null }>({ left: null, right: null })
+  const captureRailHeights = () => {
+    railHeightsBefore.current = {
+      left: leftRailRef.current?.getBoundingClientRect().height ?? null,
+      right: rightMorphRef.current?.getBoundingClientRect().height ?? null,
+    }
+  }
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null)
   const [gridIsWide, setGridIsWide] = useState(false)
   const [openRails, setOpenRails] = useState({ left: false, right: false })
@@ -407,6 +419,8 @@ export function FeedPage() {
       if (next.left === passed.left && next.right === passed.right) return
       const snap = { left: next.left && !passed.left, right: next.right && !passed.right }
       passed = next
+      // Scrolled away: the box swaps faces at once, no height morph.
+      railHeightsBefore.current = { left: null, right: null }
       markChromeAnimating()
       anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
       setRailsSnap(snap)
@@ -428,14 +442,32 @@ export function FeedPage() {
   useEffect(() => {
     const element = headerActionsRef.current
     const unregisterFlip = element ? registerChromeFlip(element) : () => {}
-    const unregisterAnchor = onBeforeChromeChange(() => anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80))
+    const unregisterAnchor = onBeforeChromeChange(() => {
+      captureRailHeights()
+      anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
+    })
     return () => {
       unregisterFlip()
       unregisterAnchor()
     }
   }, [])
 
+  // S15-07: after the DOM took the new state, spring each box from the height
+  // captured just before it to its new natural one (FeedPage.css owns the
+  // width; same spring, so both move together).
+  useLayoutEffect(() => {
+    const from = railHeightsBefore.current.left
+    railHeightsBefore.current.left = null
+    if (from !== null && leftRailRef.current) springHeight(leftRailRef.current, from)
+  }, [leftState])
+  useLayoutEffect(() => {
+    const from = railHeightsBefore.current.right
+    railHeightsBefore.current.right = null
+    if (from !== null && rightMorphRef.current) springHeight(rightMorphRef.current, from)
+  }, [rightState])
+
   function setRailOpen(side: 'left' | 'right', open: boolean, sectionId?: string) {
+    captureRailHeights()
     markChromeAnimating()
     anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
     setOpenRails((current) => ({ ...current, [side]: open }))
@@ -521,12 +553,14 @@ export function FeedPage() {
           data-left-snap={railsSnap.left || undefined}
           data-right-snap={railsSnap.right || undefined}
         >
-          <aside ref={leftRailRef} id="feed-rail-left" className="plane-glass feed-rail">
-            <div className="feed-rail__strip" inert={!leftCollapsed}>
+          {/* S15-07: one box, two faces laid on the same corner (FeedPage.css
+              `.feed-morph`) — the box's own width and height spring between
+              them, so it reads as one component folding, not two swapping. */}
+          <aside ref={leftRailRef} id="feed-rail-left" className="plane-glass feed-rail feed-morph">
+            <div className="feed-morph__strip" inert={!leftCollapsed}>
               <RailStrip side="left" items={leftStripItems} controls="feed-rail-left" onOpen={(id) => setRailOpen('left', true, id)} />
             </div>
-            <div className="feed-rail__full" inert={leftCollapsed}>
-            <div className="feed-rail__full-inner">
+            <div className="feed-morph__full" inert={leftCollapsed}>
             {leftState === 'pinned' && (
               <button
                 type="button"
@@ -643,7 +677,6 @@ export function FeedPage() {
               </div>
             </div>
             </div>
-            </div>
           </aside>
 
           <FeedMatchList
@@ -659,25 +692,26 @@ export function FeedPage() {
           />
 
           <div ref={rightRailRef} id="feed-rail-right" className="feed-page__side-rail">
-            <div className="feed-rail__strip feed-side__strip" inert={!rightCollapsed}>
-              <RailStrip className="plane-glass" side="right" items={rightStripItems} controls="feed-rail-right" onOpen={(id) => setRailOpen('right', true, id)} />
-            </div>
-            <div className="feed-rail__full" inert={rightCollapsed}>
-            <div className="feed-side__full-inner">
-            {rightState === 'pinned' && (
-              <button
-                type="button"
-                className="feed-rail__collapse"
-                aria-label="Recolher painel"
-                aria-controls="feed-rail-right"
-                aria-expanded={true}
-                title="Recolher painel"
-                onClick={() => setRailOpen('right', false)}
-              >
-                <RailChevron direction="right" />
-              </button>
-            )}
-            <aside id="feed-side-summary" className="plane-glass feed-summary">
+            {/* S15-07: "Resumo" is the box that folds into the strip; the two
+                boxes below it fold up into it first (`.feed-side__more`). */}
+            <aside ref={rightMorphRef} id="feed-side-summary" className="plane-glass feed-summary feed-morph">
+              <div className="feed-morph__strip" inert={!rightCollapsed}>
+                <RailStrip side="right" items={rightStripItems} controls="feed-rail-right" onOpen={(id) => setRailOpen('right', true, id)} />
+              </div>
+              <div className="feed-morph__full" inert={rightCollapsed}>
+              {rightState === 'pinned' && (
+                <button
+                  type="button"
+                  className="feed-rail__collapse"
+                  aria-label="Recolher painel"
+                  aria-controls="feed-rail-right"
+                  aria-expanded={true}
+                  title="Recolher painel"
+                  onClick={() => setRailOpen('right', false)}
+                >
+                  <RailChevron direction="right" />
+                </button>
+              )}
               <div className="feed-rail__eyebrow">Resumo</div>
               <div className="feed-summary__grid">
                 <div className="feed-summary__tile">
@@ -699,8 +733,11 @@ export function FeedPage() {
                   </div>
                 </div>
               </div>
+              </div>
             </aside>
 
+            <div className="feed-side__more" inert={rightCollapsed}>
+            <div className="feed-side__more-inner">
             {digest !== null && (
               <aside id="feed-side-digest" className="plane-glass feed-digest">
                 <div className="feed-rail__eyebrow">Digest diário</div>

@@ -91,15 +91,16 @@ interface ClipRect {
 /** The two boxes that actually clip a pinned rail's content:
  *  - the aside itself (`.feed-rail` / `.feed-page__side-rail`), the scroll
  *    container — its scrollport excludes the scrollbar's own width;
- *  - `.feed-rail__full` inside it, a plain `overflow: hidden` (used for the
- *    open/collapsed cross-fade, no scrolling of its own).
+ *  - the morphing glass box (`.feed-morph`: the left aside itself, or
+ *    "Resumo" inside the right rail — S15-07), which clips while it springs
+ *    and while folded, no scrolling of its own.
  * `getBoundingClientRect` ignores ancestor clipping, so this measures both
  * boundaries and intersects them — the actual visible box content must stay
  * inside of. */
 async function clipRectOf(page: Page, asideSelector: string): Promise<ClipRect> {
   return page.evaluate((selector) => {
     const aside = document.querySelector(selector) as HTMLElement
-    const full = aside.querySelector('.feed-rail__full') as HTMLElement
+    const full = (aside.matches('.feed-morph') ? aside : aside.querySelector('.feed-morph')) as HTMLElement
     const asideRect = aside.getBoundingClientRect()
     const fullRect = full.getBoundingClientRect()
     const scrollbarWidth = aside.offsetWidth - aside.clientWidth
