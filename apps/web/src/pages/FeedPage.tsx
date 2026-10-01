@@ -463,7 +463,7 @@ export function FeedPage() {
       const gap = Number.parseFloat(window.getComputedStyle(gridElement).columnGap) || 0
       root.style.setProperty('--feed-rail-left-center', `${rect.left + leftWidth / 2}px`)
       root.style.setProperty('--feed-rail-right-center', `${rect.right - rightWidth / 2}px`)
-      root.style.setProperty('--feed-toolbar-right', `${window.innerWidth - (rect.right - rightWidth - gap)}px`)
+      root.style.setProperty('--feed-toolbar-right', `${root.clientWidth - (rect.right - rightWidth - gap)}px`)
     }
     update()
     // jsdom (unit tests) has no ResizeObserver — the one-shot `update()`
