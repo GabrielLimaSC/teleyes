@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apiLogin, apiPost } from './helpers'
+import { apiLogin, apiPost, clickRuleFilter } from './helpers'
 
 test('feed shows a match live via SSE, without a page refresh', async ({ page }) => {
   await page.goto('/')
@@ -280,7 +280,11 @@ test('feed rail filters by rule and shows real counts, sources and a Resumo (S11
   await expect(sourceRow).toBeVisible()
   await expect(sourceRow).toContainText('ativa')
 
-  await page.getByRole('button', { name: /Regra Trilha A/ }).click()
+  // S16-02: "Filtrar por regra" só mostra as 6 regras mais movimentadas por
+  // padrão — num backend com muitas outras regras (compartilhado com outros
+  // specs), "Regra Trilha A" pode cair atrás do fold; `clickRuleFilter` abre
+  // "Ver todas" antes se precisar.
+  await clickRuleFilter(page, /Regra Trilha A/)
 
   await expect(page.getByText('trilhaa e2e por R$ 100')).toBeVisible()
   await expect(page.getByText('trilhab e2e por R$ 200')).not.toBeVisible()

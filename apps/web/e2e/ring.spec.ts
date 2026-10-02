@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apiLogin, apiPost } from './helpers'
+import { apiLogin, apiPost, clickRuleFilter } from './helpers'
 
 /**
  * (Named `ring` so it runs after feed.spec.ts, whose first test needs an empty feed.)
@@ -36,7 +36,7 @@ test('the lowest-price ring paints nothing outside the card box (S12-05)', async
   }
 
   await page.goto('/feed')
-  await page.getByRole('button', { name: /^Regra E2E Anel/ }).click()
+  await clickRuleFilter(page, /^Regra E2E Anel/)
   const ringCard = page.locator('.match-card--aurora')
   await expect(ringCard).toHaveCount(1)
   await expect(ringCard).toContainText('aneleaurora barato por R$ 100')

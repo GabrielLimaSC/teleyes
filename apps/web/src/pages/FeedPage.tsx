@@ -27,7 +27,8 @@ import { fetchFeedSettings, updateFeedSettings } from '../api/feedSettings'
 import { updateRule } from '../api/rules'
 import { targetGapPct, targetHit } from '../utils/target'
 import { latestMatchForProduct } from '../utils/productMatch'
-import { isSameLocalDay, parseApiDate } from '../utils/dates'
+import { localDateStamp, parseApiDate } from '../utils/dates'
+import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
@@ -56,6 +57,21 @@ function formatSnoozeRemaining(until: string, now: Date): string {
   const days = Math.ceil(diffMs / 86_400_000)
   if (days <= 0) return 'expira hoje'
   return days === 1 ? '1 dia restante' : `${days} dias restantes`
+}
+
+/** S16-02: "Próximo envio hoje, 16:00" — `digest.next_run_at_local` is
+ * `"YYYY-MM-DD HH:MM"`, already rendered in the display timezone by the API
+ * (`apps/api/app/routers/digest.py`), never a UTC instant — slicing the
+ * string is deliberate: it is NOT an API timestamp in `parseApiDate`'s sense
+ * (that one assumes a zone-less string is UTC), so running it through there
+ * would double-convert an already-local value (dates.guard.test.ts only
+ * forbids a raw `new Date(...)` on one of those, never string slicing). */
+function formatDigestNextRun(nextRunAtLocal: string, now: Date): string {
+  const [datePart, timePart] = (nextRunAtLocal ?? '').split(' ')
+  if (!datePart || !timePart) return nextRunAtLocal ?? ''
+  if (datePart === localDateStamp(now)) return `hoje, ${timePart}`
+  const [, month, day] = datePart.split('-')
+  return `${day}/${month}, ${timePart}`
 }
 
 interface TargetRuleRow {
@@ -142,6 +158,9 @@ export function FeedPage() {
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null)
+  // S16-02: "Filtrar por regra" shows the 6 busiest rules + "Ver todas · N"
+  // (never collapses the selected one away, below).
+  const [rulesExpanded, setRulesExpanded] = useState(false)
   const [snoozes, setSnoozes] = useState<Snooze[]>([])
   const [digest, setDigest] = useState<DigestSettings | null>(null)
   const [feedSettings, setFeedSettings] = useState<FeedSettings | null>(null)
@@ -295,18 +314,30 @@ export function FeedPage() {
     [matches, selectedRuleId],
   )
 
+  // S16-02: "Falhas" counts delivery rows whose own status is 'failed'
+  // (components/deliveryStatus.ts's real status strings), the same
+  // per-delivery data the card's status pill already summarizes — never a
+  // guess from the match's own aggregate state. "Menor preço" runs through
+  // `robustLowestPriceCents` (utils/robustLowestPrice.ts): a price below 20%
+  // of its own rule's median is almost certainly a parsing error ("R$ 1,00")
+  // and must never win the tile just for being the smallest number.
   const summary = useMemo(() => {
     const sent = visibleMatches.reduce(
       (count, match) => count + match.deliveries.filter((delivery) => delivery.status === 'sent').length,
       0,
     )
-    const prices = visibleMatches
-      .map((match) => match.price_cents)
-      .filter((price): price is number => price !== null)
+    const failed = visibleMatches.reduce(
+      (count, match) => count + match.deliveries.filter((delivery) => delivery.status === 'failed').length,
+      0,
+    )
+    const pricedMatches = visibleMatches
+      .filter((match): match is Match & { price_cents: number } => match.price_cents !== null)
+      .map((match) => ({ ruleId: match.rule_id, priceCents: match.price_cents }))
     return {
       matches: visibleMatches.length,
       sent,
-      lowestPrice: prices.length > 0 ? Math.min(...prices) : null,
+      failed,
+      lowestPrice: robustLowestPriceCents(pricedMatches),
     }
   }, [visibleMatches])
 
@@ -336,21 +367,32 @@ export function FeedPage() {
     [rules],
   )
 
-  // S14-07 (barra lateral): "Resumo de hoje" — only matches whose
-  // `matched_at` falls on today's local calendar day. `matches` counts real
-  // persisted rows (`grouped_match_ids.length`, same fix as SaudePage's
-  // "Matches gerados"), never the number of cards a "Agrupar duplicatas"
-  // fold happens to show.
-  const todayStats = useMemo(() => {
-    const now = new Date()
-    const today = matches.filter((match) => isSameLocalDay(parseApiDate(match.matched_at), now))
-    return {
-      matches: today.reduce((sum, match) => sum + (match.grouped_match_ids?.length ?? 1), 0),
-      duplicatesFolded: today.reduce((sum, match) => sum + ((match.seen_count ?? 1) - 1), 0),
-      targetsHit: today.filter((match) => match.target_hit).length,
-      snoozed: snoozes.length,
-    }
-  }, [matches, snoozes])
+  // S16-02 (strip tooltip): "2 ativos, o mais perto falta 7%" — the smallest
+  // gap among targets not yet hit; a hit target has nothing left to close.
+  const nearestTargetGapPct = useMemo(() => {
+    const openGaps = targetRows.filter((row) => !row.hit && row.gapPct !== null).map((row) => row.gapPct as number)
+    return openGaps.length > 0 ? Math.min(...openGaps) : null
+  }, [targetRows])
+
+  // S16-02: "Filtrar por regra" — busiest rules first ("Todas as regras" is
+  // rendered separately, always first and never part of this sort/slice),
+  // the 6 busiest shown, the rest behind "Ver todas · N". The selected rule
+  // is appended when the collapse would otherwise hide it — never losable
+  // behind a fold the user didn't open.
+  const RAIL_RULES_VISIBLE = 6
+  const sortedRules = useMemo(
+    () => [...rules].sort((a, b) => (ruleCounts.get(b.id) ?? 0) - (ruleCounts.get(a.id) ?? 0)),
+    [rules, ruleCounts],
+  )
+  const hiddenRuleCount = Math.max(0, sortedRules.length - RAIL_RULES_VISIBLE)
+  const visibleRules = useMemo(() => {
+    if (rulesExpanded) return sortedRules
+    const topRules = sortedRules.slice(0, RAIL_RULES_VISIBLE)
+    const selectedHidden = selectedRuleId !== null && !topRules.some((rule) => rule.id === selectedRuleId)
+    if (!selectedHidden) return topRules
+    const selected = sortedRules.find((rule) => rule.id === selectedRuleId)
+    return selected ? [...topRules, selected] : topRules
+  }, [sortedRules, rulesExpanded, selectedRuleId])
 
   const connectionLabel = CONNECTION_LABELS[connectionState]
   const stableCreateRule = useStableCallback(handleCreateRule)
@@ -532,16 +574,77 @@ export function FeedPage() {
     })
   }
 
+  // S16-02: collapsed-strip tooltips — "rótulo · contexto", the same live
+  // numbers the expanded rail shows, so a collapsed rail never stops
+  // informing (design note 04 in the S16 reference).
+  const activeRuleName = selectedRuleId === null ? 'Todas' : rules.find((rule) => rule.id === selectedRuleId)?.name ?? 'Todas'
+  const activeSourcesCount = sources.filter((source) => source.active).length
+  const targetsTooltip =
+    targetRows.length === 0
+      ? 'Alvos de preço · nenhum'
+      : `Alvos de preço · ${targetRows.length} ${targetRows.length === 1 ? 'ativo' : 'ativos'}` +
+        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : ', alvo atingido')
+
   const leftStripItems: RailStripItem[] = [
-    { sectionId: 'feed-rail-targets', label: 'Alvos de preço', icon: 'target' },
-    { sectionId: 'feed-rail-snoozed', label: 'Silenciados', icon: 'snooze', flagged: snoozes.length > 0 },
-    { sectionId: 'feed-rail-filter', label: 'Filtrar por regra', icon: 'filter', flagged: selectedRuleId !== null },
-    { sectionId: 'feed-rail-sources', label: 'Fontes', icon: 'sources' },
+    {
+      sectionId: 'feed-rail-targets',
+      label: 'Alvos de preço',
+      icon: 'target',
+      badge: targetRows.length,
+      tooltip: targetsTooltip,
+    },
+    {
+      sectionId: 'feed-rail-snoozed',
+      label: 'Silenciados',
+      icon: 'snooze',
+      flagged: snoozes.length > 0,
+      tooltip: `Silenciados · ${snoozes.length === 0 ? 'nenhum' : `${snoozes.length} ${snoozes.length === 1 ? 'ativo' : 'ativos'}`}`,
+    },
+    {
+      sectionId: 'feed-rail-filter',
+      label: 'Filtrar por regra',
+      icon: 'filter',
+      flagged: selectedRuleId !== null,
+      tooltip: `Filtrar por regra · ${activeRuleName}`,
+    },
+    {
+      sectionId: 'feed-rail-sources',
+      label: 'Fontes',
+      icon: 'sources',
+      tooltip: `Fontes · ${activeSourcesCount} ${activeSourcesCount === 1 ? 'ativa' : 'ativas'}`,
+    },
   ]
   const rightStripItems: RailStripItem[] = [
-    { sectionId: 'feed-side-summary', label: 'Resumo', icon: 'summary' },
-    ...(digest !== null ? [{ sectionId: 'feed-side-digest', label: 'Digest diário', icon: 'digest' as const }] : []),
-    { sectionId: 'feed-side-today', label: 'Resumo de hoje', icon: 'today' },
+    // S16-02: two openers of the same "Resumo" section — a graph icon badged
+    // with Matches, a plane icon badged with Enviados (design note 04's
+    // "rails recolhidos ganham badges"); both reopen the same panel.
+    {
+      id: 'summary-matches',
+      sectionId: 'feed-side-summary',
+      label: 'Resumo',
+      icon: 'summary',
+      badge: summary.matches,
+      tooltip: `Matches · ${summary.matches}`,
+    },
+    {
+      id: 'summary-sent',
+      sectionId: 'feed-side-summary',
+      label: 'Enviados',
+      icon: 'send',
+      badge: summary.sent,
+      tooltip: `Enviados · ${summary.sent}`,
+    },
+    ...(digest !== null
+      ? [
+          {
+            id: 'digest',
+            sectionId: 'feed-side-digest',
+            label: 'Digest diário',
+            icon: 'digest' as const,
+            tooltip: `Digest diário · ${digest.queue_count === 0 ? 'fila vazia' : `${digest.queue_count} na fila`}`,
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -672,28 +775,35 @@ export function FeedPage() {
             </div>
             <div className="feed-rail__divider" />
             <div id="feed-rail-snoozed">
-              <div className="feed-rail__eyebrow">Silenciados</div>
-              {snoozes.length === 0 && <p className="feed-rail__empty">Nada silenciado agora.</p>}
-              <div className="feed-rail__list">
-                {snoozes.map((snooze) => (
-                  <div key={snooze.id} className="feed-snooze">
-                    <div>
-                      <div className="feed-snooze__label">{snooze.label}</div>
-                      <div className="feed-snooze__meta">
-                        {snooze.scope === 'rule' ? 'regra' : 'produto'} ·{' '}
-                        {formatSnoozeRemaining(snooze.until, new Date())}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="plane-action plane-action--secondary plane-action--compact feed-snooze__reactivate"
-                      onClick={() => handleReactivateSnooze(snooze.id)}
-                    >
-                      Reativar
-                    </button>
-                  </div>
-                ))}
+              {/* S16-02: compact — empty state reads "SILENCIADOS   nenhum"
+                  on one line instead of a whole empty-state paragraph; the
+                  list only grows the box when there's something in it. */}
+              <div className="feed-rail__row-head">
+                <div className="feed-rail__eyebrow feed-rail__eyebrow--row">Silenciados</div>
+                {snoozes.length === 0 && <span className="feed-rail__row-head-value">nenhum</span>}
               </div>
+              {snoozes.length > 0 && (
+                <div className="feed-rail__list">
+                  {snoozes.map((snooze) => (
+                    <div key={snooze.id} className="feed-snooze">
+                      <div>
+                        <div className="feed-snooze__label">{snooze.label}</div>
+                        <div className="feed-snooze__meta">
+                          {snooze.scope === 'rule' ? 'regra' : 'produto'} ·{' '}
+                          {formatSnoozeRemaining(snooze.until, new Date())}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="plane-action plane-action--secondary plane-action--compact feed-snooze__reactivate"
+                        onClick={() => handleReactivateSnooze(snooze.id)}
+                      >
+                        Reativar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="feed-rail__divider" />
             <div id="feed-rail-filter">
@@ -707,7 +817,10 @@ export function FeedPage() {
                   <span>Todas as regras</span>
                   <span>{matches.length}</span>
                 </button>
-                {rules.map((rule) => (
+                {/* S16-02: busiest rules first, only the top 6 (+ the
+                    selected one, if it would otherwise be hidden) — "Ver
+                    todas · N" reveals the rest. */}
+                {visibleRules.map((rule) => (
                   <button
                     key={rule.id}
                     type="button"
@@ -718,6 +831,19 @@ export function FeedPage() {
                     <span>{ruleCounts.get(rule.id) ?? 0}</span>
                   </button>
                 ))}
+                {hiddenRuleCount > 0 && (
+                  <button
+                    type="button"
+                    className="feed-rail__more"
+                    aria-expanded={rulesExpanded}
+                    onClick={() => setRulesExpanded((expanded) => !expanded)}
+                  >
+                    {/* The count really still hidden — one less than
+                        `hiddenRuleCount` whenever the selected rule was
+                        itself the one appended past the fold. */}
+                    {rulesExpanded ? 'Ver menos' : `Ver todas · ${sortedRules.length - visibleRules.length}`}
+                  </button>
+                )}
               </div>
             </div>
             <div className="feed-rail__divider" />
@@ -783,6 +909,10 @@ export function FeedPage() {
                 </button>
               )}
               <div className="feed-rail__eyebrow">Resumo</div>
+              {/* S16-02: 4 tiles — Matches/Enviados/Falhas/Menor preço, same
+                  2x2 shape as the design (no more "wide" merged tile). Values
+                  stay TOTALS, same scope the old 3-tile "Resumo" always used
+                  (never "hoje" — the number isn't scoped to today). */}
               <div className="feed-summary__grid">
                 <div className="feed-summary__tile">
                   <div className="feed-summary__label">Matches</div>
@@ -792,11 +922,11 @@ export function FeedPage() {
                   <div className="feed-summary__label">Enviados</div>
                   <div className="feed-summary__value">{summary.sent}</div>
                 </div>
-                {/* S11-07: sem tile de "Mensagens lidas" — nenhum contador
-                    existente conta mensagens (`vista` conta matches
-                    persistidos, por par mensagem×regra), então o número seria
-                    falso. Volta na Fase 2, com um contador por mensagem. */}
-                <div className="feed-summary__tile feed-summary__tile--wide">
+                <div className="feed-summary__tile">
+                  <div className="feed-summary__label">Falhas</div>
+                  <div className="feed-summary__value">{summary.failed}</div>
+                </div>
+                <div className="feed-summary__tile">
                   <div className="feed-summary__label">Menor preço</div>
                   <div className="feed-summary__value feed-summary__value--price">
                     {summary.lowestPrice !== null ? formatCurrency(summary.lowestPrice) : '—'}
@@ -806,6 +936,11 @@ export function FeedPage() {
               </div>
             </aside>
 
+            {/* S16-02: "Resumo de hoje" (a separate pearl panel) is gone —
+                the design has no such second panel; its real-data coverage
+                moved into "Resumo" above (Falhas, Menor preço robusto) and
+                into e2e/feed-rails-content.spec.ts. Only "Digest diário"
+                still folds up into "Resumo" here. */}
             <div className="feed-side__more" inert={rightCollapsed}>
             <div className="feed-side__more-inner">
             {digest !== null && (
@@ -837,60 +972,46 @@ export function FeedPage() {
                     </select>
                   </label>
                 </div>
-                <button
-                  type="button"
-                  className="feed-digest__toggle"
-                  aria-pressed={digest.enabled}
-                  onClick={() => saveDigest({ enabled: !digest.enabled })}
-                >
-                  <span>Ativar digest diário</span>
-                  <span className={digest.enabled ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}>
-                    <span className="feed-toggle-switch__knob" />
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="feed-digest__toggle"
-                  aria-pressed={digest.mute_individual}
-                  onClick={() => saveDigest({ muteIndividual: !digest.mute_individual })}
-                >
-                  <span>Silenciar pings individuais</span>
-                  <span
-                    className={
-                      digest.mute_individual ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'
-                    }
+                {/* S16-02: the two toggles grouped into one bordered block
+                    (design), shorter labels ("Ativar digest"/"Silenciar
+                    pings" — the field above it already says "digest"/"pings
+                    individuais" once, no need to repeat in each row). */}
+                <div className="feed-digest__toggles">
+                  <button
+                    type="button"
+                    className="feed-digest__toggle"
+                    aria-pressed={digest.enabled}
+                    onClick={() => saveDigest({ enabled: !digest.enabled })}
                   >
-                    <span className="feed-toggle-switch__knob" />
-                  </span>
-                </button>
+                    <span>Ativar digest</span>
+                    <span className={digest.enabled ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}>
+                      <span className="feed-toggle-switch__knob" />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="feed-digest__toggle"
+                    aria-pressed={digest.mute_individual}
+                    onClick={() => saveDigest({ muteIndividual: !digest.mute_individual })}
+                  >
+                    <span>Silenciar pings</span>
+                    <span
+                      className={
+                        digest.mute_individual ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'
+                      }
+                    >
+                      <span className="feed-toggle-switch__knob" />
+                    </span>
+                  </button>
+                </div>
                 <div className="feed-digest__next">
-                  Próximo envio: {digest.next_run_at_local} · {digest.queue_count}{' '}
-                  {digest.queue_count === 1 ? 'item na fila' : 'itens na fila'}
+                  Próximo envio {formatDigestNextRun(digest.next_run_at_local, new Date())} ·{' '}
+                  {digest.queue_count === 0
+                    ? 'fila vazia'
+                    : `${digest.queue_count} ${digest.queue_count === 1 ? 'item' : 'itens'} na fila`}
                 </div>
               </aside>
             )}
-
-            <div id="feed-side-today" className="plane-pearl feed-today">
-              <div className="feed-rail__eyebrow">Resumo de hoje</div>
-              <div className="feed-today__grid">
-                <div className="feed-today__tile">
-                  <div className="feed-today__label">Matches</div>
-                  <div className="feed-today__value">{todayStats.matches}</div>
-                </div>
-                <div className="feed-today__tile">
-                  <div className="feed-today__label">Duplicatas unidas</div>
-                  <div className="feed-today__value">{todayStats.duplicatesFolded}</div>
-                </div>
-                <div className="feed-today__tile">
-                  <div className="feed-today__label">Alvos atingidos</div>
-                  <div className="feed-today__value">{todayStats.targetsHit}</div>
-                </div>
-                <div className="feed-today__tile">
-                  <div className="feed-today__label">Silenciados</div>
-                  <div className="feed-today__value">{todayStats.snoozed}</div>
-                </div>
-              </div>
-            </div>
             </div>
             </div>
           </div>

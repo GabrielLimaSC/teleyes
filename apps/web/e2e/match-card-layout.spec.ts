@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { apiLogin, apiPost } from './helpers'
+import { apiLogin, apiPost, clickRuleFilter } from './helpers'
 
 /**
  * S15-01: cards compactos do Feed. Regressão da sobreposição: com
@@ -77,7 +77,7 @@ for (const viewport of [
     await seedVariedCards(page, tag)
 
     await page.goto('/feed')
-    await page.getByRole('button', { name: new RegExp(`Regra ${tag}`) }).click()
+    await clickRuleFilter(page, new RegExp(`Regra ${tag}`))
     await expect(page.locator('.feed-page__card')).toHaveCount(5)
 
     await expectCardsInsideTheirCells(page)

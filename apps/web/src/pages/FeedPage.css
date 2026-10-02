@@ -322,14 +322,51 @@
   color: var(--plane-text-helper-on-glass);
 }
 
+/* ---- "Silenciados" compact header (S16-02) ---- */
+.feed-rail__row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feed-rail__eyebrow--row {
+  margin-bottom: 0;
+}
+
+.feed-rail__row-head-value {
+  font-size: 13px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+/* ---- "Filtrar por regra" — "Ver todas · N" (S16-02) ---- */
+.feed-rail__more {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.feed-rail__more:hover {
+  text-decoration: underline;
+}
+
+.feed-rail__more:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: 4px;
+}
+
 .feed-summary__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-}
-
-.feed-summary__tile--wide {
-  grid-column: span 2;
 }
 
 .feed-summary__tile {
@@ -505,20 +542,34 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* S16-02: the two toggles grouped into one bordered block (design) instead
+   of two separate tiles — a single glass surface, a divider between rows. */
+.feed-digest__toggles {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  overflow: hidden;
+}
+
 .feed-digest__toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-radius: 12px;
   padding: 12px;
-  background: var(--glass-tile-bg);
-  border: 1px solid var(--glass-inner-border-color);
+  background: none;
+  border: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--plane-text-primary);
   cursor: pointer;
   font-family: inherit;
+}
+
+.feed-digest__toggle + .feed-digest__toggle {
+  border-top: 1px solid var(--glass-divider-bg);
 }
 
 .feed-digest__toggle:focus-visible {
@@ -555,38 +606,6 @@
 .feed-digest__next {
   font-size: 12px;
   color: var(--plane-text-helper-on-glass);
-}
-
-/* ---- "Resumo de hoje" (06) — a pearl (flat) card, not glass, per the comp. ---- */
-.feed-today {
-  padding: 18px;
-}
-
-.feed-today__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.feed-today__tile {
-  border-radius: 12px;
-  padding: 12px;
-  background: var(--plane-surface-sunken);
-  border: 1px solid var(--plane-divider-color);
-}
-
-.feed-today__label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--plane-text-secondary);
-  margin-bottom: 4px;
-}
-
-.feed-today__value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--plane-text-heading);
-  font-variant-numeric: tabular-nums;
 }
 
 /* ==== S15-03: compact chrome while the Feed is scrolled ====================
@@ -1028,7 +1047,8 @@
     height: 40px;
     padding: 0;
     border: 0;
-    border-radius: 12px;
+    /* S16-02: raio 20 nos botões recolhidos (design's own measurement). */
+    border-radius: 20px;
     background: transparent;
     color: var(--plane-text-secondary);
     cursor: pointer;
@@ -1079,6 +1099,46 @@
     border-radius: 50%;
     background: var(--plane-status-good-dot);
   }
+
+  /* S16-02: numeric badge — only ever rendered when the count is > 0
+     (RailStrip.tsx), e.g. "2 alvos ativos", "244 matches". */
+  .rail-strip__badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--plane-action-primary-bg);
+    color: var(--plane-action-primary-color);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* S16-02: the collapsed rail's tooltip — `position: fixed` at a JS-measured
+   coordinate, portalled to `document.body` (RailStrip.tsx), so the rail's
+   own `overflow: hidden` while collapsed/springing (above) never clips it.
+   Outside the `@media` block above on purpose: it is still only ever
+   mounted while the strip itself is (gated the same way), but the portal
+   renders outside `.feed-page__grid`'s DOM subtree entirely. */
+.rail-strip__tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 240px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--plane-text-primary);
+  pointer-events: none;
 }
 
 @keyframes feed-rail-fold-in {

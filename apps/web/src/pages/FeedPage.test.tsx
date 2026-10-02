@@ -557,7 +557,11 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     await screen.findByText('Digest diário')
     expect(screen.getByLabelText('Horário')).toHaveValue('09:00')
     expect(screen.getByLabelText('Itens')).toHaveValue('5')
-    expect(screen.getByText(/Próximo envio: 2026-01-02 09:00/)).toBeInTheDocument()
+    // S16-02: "Próximo envio DD/MM, HH:MM" (or "hoje, HH:MM" on the real
+    // current day) — `next_run_at_local` is sliced as a string, never
+    // re-parsed as a Date (dates.guard.test.ts), so this fixture's fixed
+    // 2026-01-02 always renders as a plain date, whatever day the suite runs.
+    expect(screen.getByText(/Próximo envio 02\/01, 09:00/)).toBeInTheDocument()
     expect(screen.getByText(/3 itens na fila/)).toBeInTheDocument()
 
     let putBody: unknown = null
@@ -578,17 +582,17 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
       }),
     )
 
-    await user.click(screen.getByRole('button', { name: /Silenciar pings individuais/ }))
+    await user.click(screen.getByRole('button', { name: /Silenciar pings/ }))
 
     await waitFor(() => expect(putBody).not.toBeNull())
     expect(JSON.parse(putBody as string)).toMatchObject({ mute_individual: true })
   })
 
-  it('"Resumo de hoje" counts real matches (not cards) and target hits for today only', async () => {
-    const now = new Date()
-    const todayIso = now.toISOString()
-    const yesterdayIso = new Date(now.getTime() - 2 * 86_400_000).toISOString()
-
+  // S16-02: the separate "Resumo de hoje" panel is gone (the design has no
+  // such second panel) — its real-data coverage moves into "Resumo" itself:
+  // "Falhas" (failed deliveries) and a "Menor preço" that ignores a
+  // parsing-error outlier.
+  it('the Resumo tile counts failed deliveries and "Menor preço" ignores a parsing outlier (S16-02)', async () => {
     stubSidebarFetch({
       '/matches': () =>
         jsonResponse([
@@ -596,14 +600,16 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
             id: 1,
             source_id: 1,
             rule_id: 1,
-            message_text: 'RTX hoje',
+            message_text: 'RTX 5070 Ti Gainward',
             price_cents: 5_749_00,
             price_cash_cents: null,
             price_card_cents: null,
             message_link: null,
-            matched_at: todayIso,
-            created_at: todayIso,
-            deliveries: [],
+            matched_at: '2026-01-01T00:00:00Z',
+            created_at: '2026-01-01T00:00:00Z',
+            deliveries: [
+              { id: 1, recipient_id: 1, status: 'failed', delivered_at: null, created_at: '2026-01-01T00:00:00Z' },
+            ],
             is_lowest_price_ever: false,
             grouped_source_ids: null,
             product_key: 'rtx',
@@ -612,20 +618,42 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
             target_price_cents: 5_800_00,
             target_hit: true,
             target_gap_pct: 0,
-            seen_count: 3,
-            grouped_match_ids: [1, 2, 3],
           },
           {
-            id: 4,
+            // Same rule, a botched parse ("R$ 1,00") — below 20% of rule 1's
+            // own median ([5_749_00, 100] → median 287_450, floor 57_490) —
+            // must never win the tile just for being the smallest number.
+            id: 2,
+            source_id: 1,
+            rule_id: 1,
+            message_text: 'RTX 5070 Ti (preço mal interpretado)',
+            price_cents: 100,
+            price_cash_cents: null,
+            price_card_cents: null,
+            message_link: null,
+            matched_at: '2026-01-01T00:00:00Z',
+            created_at: '2026-01-01T00:00:00Z',
+            deliveries: [],
+            is_lowest_price_ever: false,
+            grouped_source_ids: null,
+            product_key: 'rtx',
+            sparkline: [],
+            snoozed: false,
+            target_price_cents: 5_800_00,
+            target_hit: false,
+            target_gap_pct: null,
+          },
+          {
+            id: 3,
             source_id: 1,
             rule_id: 2,
-            message_text: 'Ryzen ontem',
+            message_text: 'Ryzen 7 9800X3D',
             price_cents: 2_249_00,
             price_cash_cents: null,
             price_card_cents: null,
             message_link: null,
-            matched_at: yesterdayIso,
-            created_at: yesterdayIso,
+            matched_at: '2026-01-01T00:00:00Z',
+            created_at: '2026-01-01T00:00:00Z',
             deliveries: [],
             is_lowest_price_ever: false,
             grouped_source_ids: null,
@@ -635,18 +663,17 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
             target_price_cents: 2_050_00,
             target_hit: false,
             target_gap_pct: 9,
-            seen_count: 1,
-            grouped_match_ids: [4],
           },
         ]),
     })
     renderFeedPage()
 
-    await screen.findByText('RTX hoje')
-    const resumoHoje = screen.getByText('Resumo de hoje').closest('.feed-today') as HTMLElement
-    expect(within(resumoHoje).getByText('Matches').nextElementSibling).toHaveTextContent('3')
-    expect(within(resumoHoje).getByText('Duplicatas unidas').nextElementSibling).toHaveTextContent('2')
-    expect(within(resumoHoje).getByText('Alvos atingidos').nextElementSibling).toHaveTextContent('1')
-    expect(within(resumoHoje).getByText('Silenciados').nextElementSibling).toHaveTextContent('1')
+    await screen.findByText('RTX 5070 Ti Gainward')
+    const resumoRail = document.querySelector('.feed-summary') as HTMLElement
+    const failedTile = within(resumoRail).getByText('Falhas').closest('.feed-summary__tile')
+    expect(failedTile).toHaveTextContent('1')
+    const priceTile = within(resumoRail).getByText('Menor preço').closest('.feed-summary__tile')
+    expect(priceTile).toHaveTextContent('R$ 2.249,00')
+    expect(priceTile).not.toHaveTextContent('R$ 1,00')
   })
 })
