@@ -362,3 +362,42 @@ def test_comma_decimal_with_unit_suffix_is_not_read_as_thousands() -> None:
     result = extract_price("Peso líquido de 12,5kg por unidade")
 
     assert result.price_cents is None
+
+
+def test_markdown_wrapped_coupon_is_not_taken_as_the_price() -> None:
+    # Real Grape Tec message (match 565): the bold/italic markers around the
+    # coupon value used to keep it as a candidate, so R$ 10 beat R$ 786,60.
+    text = (
+        "Placa Mãe ASRock B650M-H/M.2+, Chipset B650, AMD AM5, mATX, DDR5\n\n"
+        "R$786,60\n"
+        "Ou em até 12x de R$ 71,25\n"
+        "🎟Cupom: **__R$ 10 OFF__**\n\n"
+        "🛒 Compre aqui:\nhttps://s.shopee.com.br/7ptQB1WI16"
+    )
+
+    result = extract_price(text)
+
+    assert result.price_cents == 78660
+    assert result.ambiguous is False
+
+
+def test_markdown_coupon_and_plain_coupon_in_the_same_message_are_both_dropped() -> None:
+    # Real Grape Tec message (match 523): the same R$ 10 coupon twice, once
+    # with markdown and once in plain text.
+    text = (
+        "R$736,00\n"
+        "Ou em até 12x de R$ 66,67\n"
+        "🎟Cupom: **__R$ 10 OFF__**\n\n"
+        "🎟 Cupom de R$ 10 OFF ou `1010SHO`\n"
+    )
+
+    result = extract_price(text)
+
+    assert result.price_cents == 73600
+    assert result.ambiguous is False
+
+
+def test_markdown_bold_price_is_still_extracted() -> None:
+    result = extract_price("Placa de vídeo por **R$ 3.899,90** no pix")
+
+    assert result.price_cents == 389990
