@@ -1,148 +1,522 @@
 .nav-shell {
   display: flex;
-  align-items: center;
+  min-height: 98px;
+  align-items: flex-start;
   justify-content: center;
-  gap: 24px;
-  padding: 20px 16px 8px;
-  flex-wrap: wrap;
+  padding: 18px 12px 8px;
 }
 
-.nav-wordmark {
-  font-size: 20px;
-  font-weight: 600;
-  color: #08060d;
-  letter-spacing: -0.02em;
+.nav-glass-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 
 .nav-capsule {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #17181c;
-  border-radius: 999px;
-  padding: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  /* S12-02: 72px each side = the theme button (40px) + its 24px margin + a
+     gap, so the fixed button never sits on the capsule. */
+  width: min(720px, calc(100vw - 144px));
+  /* S9-05: named so `.nav-mascot` can size itself off the capsule's own
+     height instead of a magic number that drifts out of sync with it. */
+  --nav-capsule-height: 68px;
+  height: var(--nav-capsule-height);
+  isolation: isolate;
 }
 
-.nav-capsule__goo-layer {
+.nav-capsule__glass {
   position: absolute;
-  inset: 0;
-  /* Plain CSS filter functions instead of an SVG url(#id) filter reference —
-   * simpler, and one fewer moving part while tracking down the pill
-   * disappearing during page transitions below (S4-09 finish pass). Same
-   * blur+contrast "goo" technique the SVG version used. */
-  filter: blur(6px) contrast(20);
+  inset: 2px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  box-shadow: var(--nav-capsule-shadow);
   pointer-events: none;
 }
 
-.nav-pill {
+.nav-glass__refraction,
+.nav-mascot__refraction,
+.nav-glass__tint,
+.nav-mascot__tint,
+.nav-glass__shine,
+.nav-mascot__shine {
   position: absolute;
-  background: #ffffff;
-  border-radius: 999px;
-  /* Its own named transition group: without this, the pill (mid-repositioning
-   * on every nav click, via the transition below) gets flattened into the
-   * page-level view-transition's root snapshot and — for reasons not fully
-   * pinned down; a plain unrelated absolutely-positioned element in the same
-   * spot rendered fine — was found to render as fully invisible for the
-   * duration of the reveal, on every single page transition once the router
-   * fix (main.tsx) made that reveal actually fire (S4-09 finish pass). Its
-   * own view-transition-name pulls it out of that snapshot into an
-   * independently-tracked group, which resolved it; the group's own
-   * transform animation is disabled below so this transition remains the
-   * only thing moving it, keeping the fallback path for browsers/states
-   * without View Transitions (reduced motion, no API support) unchanged. */
-  view-transition-name: nav-pill;
-  /* ease-out-expo — smooth deceleration, no bounce/overshoot. Only takes
-   * visual effect outside an active view transition (reduced motion, or no
-   * View Transitions support) — during one, the named group below is what's
-   * actually visible, since the live element is hidden for the transition's
-   * duration in favor of its captured snapshot pair. */
-  transition:
-    left 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    top 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  inset: 0;
+  pointer-events: none;
 }
 
-/* Retunes the browser's own default transform/resize morph for this named
- * group to the same ease-out-expo curve and duration as the transition
- * above, so the slide reads identically whichever mechanism is actually
- * driving it. */
-::view-transition-group(nav-pill) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 1;
+/* S9-05: the mascot badge is the same glass "piece" as the capsule, not a
+   second material with its own blur/tint recipe (that's what made it read
+   as a sticker floating on top instead of connected to the capsule) — same
+   refraction filter, background and backdrop-filter values as
+   `.nav-glass__*`, only the shape (circle vs. pill) differs. */
+.nav-glass__refraction,
+.nav-mascot__refraction {
+  background: var(--nav-refraction-bg);
+  /* Plain blur remains when SVG backdrop displacement is unavailable. */
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(2px) url('#nav-glass-refraction') saturate(150%);
+  backdrop-filter: blur(2px) url('#nav-glass-refraction') saturate(150%);
 }
 
-/* This named group exists to opt the active label into the top layer (see
- * .nav-tab--active), so its z-index above wins against the pill's — without
- * a name here, the label stays flattened into the page-level root snapshot
- * and paints underneath the pill's top-layer group regardless of source
- * z-index. Left on the browser's default transform/cross-fade timing for
- * this group: the old and new active tab differ in both text and slot
- * position (whichever tab is active moves, the pill tracks it), so, unlike
- * nav-pill, this genuinely needs to morph between two different boxes, not
- * just relocate one. */
-::view-transition-group(nav-tab-label) {
+.nav-glass__refraction {
+  /* Fades the refraction at the pill's rounded ends — a small circle has no
+     equivalent "end" to fade, so this stays glass-only. */
+  -webkit-mask-image: var(--nav-refraction-mask);
+  mask-image: var(--nav-refraction-mask);
+}
+
+.nav-glass__tint,
+.nav-mascot__tint {
+  background: var(--nav-tint);
+}
+
+.nav-glass__shine,
+.nav-mascot__shine {
+  border: 1px solid var(--nav-shine-border-color);
+  border-radius: inherit;
+  box-shadow: var(--nav-shine-shadow);
+}
+
+/* The mascot disc has its own border/shadow values in the dark concept
+   (slightly brighter than the capsule's). */
+.nav-mascot__shine {
+  border-color: var(--nav-mascot-shine-border-color);
+  box-shadow: var(--nav-mascot-shine-shadow);
+}
+
+.nav-capsule__brand,
+.nav-capsule__current {
+  display: none;
+}
+
+.nav-capsule__menu {
+  position: relative;
   z-index: 2;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr);
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 18px;
+}
+
+.nav-capsule__wing {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav-capsule__wing--left {
+  grid-column: 1;
+  justify-content: space-between;
+}
+
+.nav-capsule__wing--right {
+  grid-column: 3;
+  justify-content: space-between;
 }
 
 .nav-tab {
   position: relative;
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: #b8b9bf;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 8px 18px;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
+  color: var(--nav-tab-text);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1;
+  padding: 9px 13px;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 200ms ease;
+  transition:
+    color 200ms ease-out,
+    background-color 200ms ease-out,
+    box-shadow 200ms ease-out,
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nav-tab:hover {
-  color: #ffffff;
+  color: var(--nav-tab-hover-text);
+  background: var(--nav-tab-hover-bg);
+  transform: translateY(-1px);
 }
 
 .nav-tab--active,
 .nav-tab--active:hover {
-  color: #08060d;
-  /* Paired with .nav-pill's own view-transition-name: giving the pill a name
-   * promotes it to the browser's top layer during a transition, which paints
-   * over normal-flow content (this label included) regardless of z-index —
-   * that's what made the active tab's text vanish behind the pill for the
-   * whole reveal (S4-09 finish pass, round 3). Naming the label too promotes
-   * it to the same top layer, where its ::view-transition-group z-index
-   * below can out-rank the pill's and restore the resting stacking order. */
-  view-transition-name: nav-tab-label;
+  color: var(--nav-tab-active-text);
+  background: var(--nav-tab-active-bg);
+  box-shadow: var(--nav-tab-active-shadow);
+  transform: none;
 }
 
-.nav-tab:focus-visible {
-  outline: 2px solid #7fb3ff;
-  outline-offset: 2px;
+.nav-tab:focus-visible,
+.nav-mascot:focus-visible {
+  outline: 3px solid var(--nav-focus-ring-color);
+  outline-offset: 3px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nav-capsule__goo-layer {
-    filter: none;
+.nav-mascot {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  /* S9-05: sized off the capsule's own height (not a magic number) so it
+     fits inside the pill instead of poking out past its top/bottom edge —
+     8px total margin, the same breathing room `.nav-capsule__glass`'s own
+     2px inset already leaves relative to the capsule on each side. */
+  width: calc(var(--nav-capsule-height) - 8px);
+  height: calc(var(--nav-capsule-height) - 8px);
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  box-shadow: var(--nav-mascot-shadow);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms ease-out;
+}
+
+.nav-mascot:hover {
+  transform: translate(-50%, -50%) scale(1.035);
+  box-shadow: var(--nav-mascot-shadow-hover);
+}
+
+.nav-mascot__refraction,
+.nav-mascot__tint,
+.nav-mascot__shine {
+  border-radius: 50%;
+}
+
+.nav-mascot img {
+  position: relative;
+  z-index: 2;
+  display: block;
+  /* S9-05: percentage, not fixed px — scales with the calc()'d badge size
+     above instead of needing its own per-breakpoint magic number. Ratios
+     match what the old fixed 66px/7px looked like on the old 76px badge. */
+  width: 87%;
+  height: 87%;
+  margin: 6% auto 0;
+  object-fit: contain;
+  filter: var(--nav-mascot-image-shadow);
+  transform: scale(1.05);
+}
+
+@media (min-width: 761px) {
+  .nav-mascot:disabled {
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .nav-shell {
+    min-height: 86px;
+    padding-inline: 8px;
   }
 
-  .nav-pill {
-    transition: none;
+  .nav-shell--open {
+    min-height: 266px;
+  }
+
+  .nav-capsule {
+    /* 52px each side = the 36px theme button + 8px margin + 8px gap. */
+    width: min(480px, calc(100vw - 104px));
+    --nav-capsule-height: 64px;
+    height: var(--nav-capsule-height);
+  }
+
+  .nav-capsule__glass {
+    inset-block: 1px;
+  }
+
+  .nav-capsule__brand,
+  .nav-capsule__current {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    display: block;
+    max-width: calc(50% - 45px);
+    overflow: hidden;
+    color: var(--nav-brand-text);
+    font-size: 13px;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transform: translateY(-50%);
+  }
+
+  .nav-capsule__brand {
+    left: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-capsule__current {
+    right: 22px;
+    color: var(--nav-tab-text);
+    font-weight: 600;
+  }
+
+  .nav-capsule__menu {
+    position: absolute;
+    top: 74px;
+    display: grid;
+    height: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    border: 1px solid var(--nav-menu-border-color);
+    border-radius: 20px;
+    padding: 13px;
+    background: var(--nav-menu-bg);
+    box-shadow: var(--nav-menu-shadow);
+    -webkit-backdrop-filter: blur(4px) url('#nav-glass-refraction') saturate(145%);
+    backdrop-filter: blur(4px) url('#nav-glass-refraction') saturate(145%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-9px) scale(0.98);
+    transform-origin: top center;
+    transition:
+      opacity 180ms ease-out,
+      transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 300ms;
+    visibility: hidden;
+  }
+
+  .nav-capsule--pinned .nav-capsule__menu {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    visibility: visible;
+  }
+
+  .nav-capsule__wing {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+  }
+
+  .nav-capsule__wing--left {
+    grid-column: 1;
+  }
+
+  .nav-capsule__wing--right {
+    grid-column: 2;
+  }
+
+  .nav-tab {
+    min-height: 44px;
+    padding: 10px 13px;
+    font-size: 13px;
+    text-align: center;
   }
 }
 
 @media (max-width: 640px) {
-  .nav-shell {
-    flex-direction: column;
-    gap: 12px;
+  .nav-capsule__brand {
+    left: 18px;
   }
 
-  .nav-capsule {
-    flex-wrap: wrap;
-    justify-content: center;
-    border-radius: 20px;
+  .nav-capsule__current {
+    right: 18px;
+  }
+
+  /* S9-05: no mascot-size override needed here anymore — `--nav-capsule-
+     height` stays 64px from the 760px breakpoint above (only the capsule's
+     *width* keeps shrinking at this width), so `.nav-mascot`'s calc()
+     already resolves to the right size without a third magic number. */
+}
+
+/* ---- S15-03: compact chrome (Feed, wide screens; `html[data-chrome]` is set
+   by chrome/scrollChrome.ts). The capsule is `position: fixed` in its usual
+   spot from the start (`rest`), so going compact only ever animates its own
+   box: it shrinks to a disc around the mascot and slides to the top-left
+   (`compact`); hovering, keyboard focus inside it or clicking the mascot grows the
+   same pill back out of the disc, the mascot first and the tabs after it,
+   left to right (Scene.mp4).
+   `.nav-shell` keeps its normal height, so the page never moves under it. */
+@property --nav-capsule-height {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 68px;
+}
+
+@media (min-width: 1101px) {
+  :root[data-chrome] .nav-capsule {
+    --nav-open-width: min(720px, calc(100vw - 144px));
+    position: fixed;
+    z-index: 50;
+    top: 18px;
+    left: 50%;
+    width: var(--nav-open-width);
+    translate: -50% 0;
+  }
+
+  /* Springs only while switching modes (`data-chrome-animating`, set by
+     scrollChrome.ts for one spring) and while compact (hover open/close) —
+     never on a plain window resize at rest. */
+  :root[data-chrome][data-chrome-animating] .nav-capsule,
+  :root[data-chrome='compact'] .nav-capsule {
+    transition:
+      left var(--chrome-spring-duration) var(--chrome-spring),
+      top var(--chrome-spring-duration) var(--chrome-spring),
+      translate var(--chrome-spring-duration) var(--chrome-spring),
+      width var(--chrome-spring-duration) var(--chrome-spring),
+      --nav-capsule-height var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  /* The tabs keep their full-width layout while the pill's glass grows and
+     shrinks around them, instead of re-flowing through every width. */
+  :root[data-chrome] .nav-capsule__menu {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: var(--nav-open-width);
+    translate: -50% 0;
+  }
+
+  :root[data-chrome] .nav-tab {
+    transition:
+      color 200ms ease-out,
+      background-color 200ms ease-out,
+      box-shadow 200ms ease-out,
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 260ms ease-out calc(90ms + var(--nav-stagger, 0) * 55ms),
+      scale var(--chrome-spring-duration) var(--chrome-spring) calc(60ms + var(--nav-stagger, 0) * 55ms),
+      visibility 0s;
+  }
+
+  /* ---- Compact: one disc at the top-left of the band, centred on its
+     40px line (S15-04). The mascot moves to the left end of the capsule and
+     drops its own disc, so collapsed there is exactly one circle — the
+     capsule's glass — and opened, the tabs run in one row after it.
+     S16-01: the disc's centre sits exactly on the Feed grid's left rail
+     column centre (`--feed-rail-left-center`, set in FeedPage.tsx off the
+     grid's real columns) — `left` is that minus half the disc, same math
+     as any other centred-on-a-point box. 24px (the page's old fixed inset)
+     is only the fallback for a page that never sets the variable. */
+  :root[data-chrome='compact'] .nav-capsule {
+    /* Room left for the docked Feed controls + theme button on the right. */
+    --nav-open-width: min(640px, calc(100vw - 600px));
+    --nav-capsule-height: 56px;
+    top: calc(var(--chrome-band-center) - 28px);
+    left: calc(var(--feed-rail-left-center, 52px) - (var(--nav-capsule-height) / 2));
+    width: var(--nav-capsule-height);
+    translate: 0 0;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule__glass {
+    inset: 0;
+  }
+
+  :root[data-chrome][data-chrome-animating] .nav-mascot,
+  :root[data-chrome='compact'] .nav-mascot {
+    transition:
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 220ms ease-out,
+      left var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .nav-mascot {
+    left: calc(var(--nav-capsule-height) / 2);
+    box-shadow: none;
+  }
+
+  :root[data-chrome='compact'] .nav-mascot:hover {
+    box-shadow: none;
+  }
+
+  :root[data-chrome] .nav-mascot__refraction,
+  :root[data-chrome] .nav-mascot__tint,
+  :root[data-chrome] .nav-mascot__shine {
+    transition: opacity 200ms ease-out;
+  }
+
+  :root[data-chrome='compact'] .nav-mascot__refraction,
+  :root[data-chrome='compact'] .nav-mascot__tint,
+  :root[data-chrome='compact'] .nav-mascot__shine {
+    opacity: 0;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule__menu {
+    left: var(--nav-capsule-height);
+    width: calc(var(--nav-open-width) - var(--nav-capsule-height));
+    translate: 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px 0 6px;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule__wing {
+    display: contents;
+  }
+
+  :root[data-chrome='compact'] .nav-tab {
+    transition:
+      color 200ms ease-out,
+      background-color 200ms ease-out,
+      box-shadow 200ms ease-out,
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 240ms ease-out calc(70ms + var(--nav-order, 0) * 40ms),
+      scale var(--chrome-spring-duration) var(--chrome-spring) calc(40ms + var(--nav-order, 0) * 40ms),
+      visibility 0s;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule:is(:hover, :has(:focus-visible), .nav-capsule--chrome-open) {
+    width: var(--nav-open-width);
+  }
+
+  :root[data-chrome='compact'] .nav-capsule:not(:hover, :has(:focus-visible), .nav-capsule--chrome-open) .nav-capsule__menu {
+    pointer-events: none;
+  }
+
+  :root[data-chrome='compact'] .nav-capsule:not(:hover, :has(:focus-visible), .nav-capsule--chrome-open) .nav-tab {
+    opacity: 0;
+    scale: 0.82;
+    visibility: hidden;
+    /* Out fast and together; only the way back in is staggered. */
+    transition:
+      opacity 120ms ease-out,
+      scale 160ms ease-out,
+      visibility 0s 160ms;
+  }
+
+  /* The theme button rides the same line as the rest of the band, its
+     centre on the right rail column centre (S16-01, same mechanism as the
+     mascot above — `left`, not `right`, so no 100vw/scrollbar math). */
+  :root[data-chrome][data-chrome-animating] .theme-toggle,
+  :root[data-chrome='compact'] .theme-toggle {
+    transition:
+      top var(--chrome-spring-duration) var(--chrome-spring),
+      left var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .theme-toggle {
+    top: calc(var(--chrome-band-center) - 20px);
+    right: auto;
+    left: calc(var(--feed-rail-right-center, calc(100vw - 44px)) - 20px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-shell,
+  .nav-capsule__menu,
+  .nav-tab,
+  .nav-mascot,
+  :root[data-chrome] .nav-capsule,
+  :root[data-chrome] .nav-tab {
+    transition: none;
   }
 }

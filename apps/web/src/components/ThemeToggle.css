@@ -1,0 +1,74 @@
+/* S12-02: fixed top-right, vertically centred on the navbar capsule (whose
+   centre sits ~52px from the top on desktop, ~50px on mobile). */
+.theme-toggle {
+  position: fixed;
+  top: 32px;
+  right: 24px;
+  z-index: 60;
+}
+
+.theme-toggle__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.theme-toggle__button:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-color: var(--plane-focus-color);
+}
+
+.theme-toggle__tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--plane-text-primary);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    visibility 150ms;
+  pointer-events: none;
+}
+
+.theme-toggle:hover .theme-toggle__tooltip,
+.theme-toggle:focus-within .theme-toggle__tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+@media (max-width: 760px) {
+  .theme-toggle {
+    top: 32px;
+    right: 8px;
+  }
+
+  .theme-toggle__button {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle__tooltip {
+    transition: none;
+  }
+}

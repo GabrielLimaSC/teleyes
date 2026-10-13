@@ -1,0 +1,36 @@
+/**
+ * S14-08 (07b): "Abrir produto ›" — the one control the comp allows for
+ * opening the product panel, styled identically wherever it appears
+ * (MatchCard's Feed cards, HistoricoPage's table rows). Outline blue
+ * (`--plane-focus-color`, already the comp's exact #315ea8), 30px on a
+ * compact card/row, 34px on a "destaque" card via the modifier below.
+ */
+.product-open-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 9px;
+  background: var(--plane-action-secondary-bg);
+  border: 1px solid var(--plane-focus-color);
+  color: var(--plane-focus-color);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.product-open-trigger:hover {
+  background: var(--product-panel-trigger-hover-bg);
+}
+
+.product-open-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.product-open-trigger--featured {
+  height: 34px;
+}

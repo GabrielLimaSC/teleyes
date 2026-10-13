@@ -1,0 +1,363 @@
+"""Processo de longa duração do listener de produção (S5-09).
+
+Uso:
+    python scripts/run_listener.py
+
+Sem argumentos: toda configuração vem do banco, cadastrada pelo painel web
+(S4-06) — fontes, regras e destinatários ativos (destinatário também precisa
+estar allowlisted). Diferente de scripts/run_pipeline_demo.py, que recebe
+uma única fonte/regra/destinatário via CLI pensado pra teste manual pontual.
+
+O schema não tem relação estática regra<->fonte nem regra<->destinatário
+(conferido em apps/api/models/*.py e nos routers de CRUD antes de escrever
+isto) — é "toda regra ativa contra toda mensagem de toda fonte ativa, entrega
+pra todo destinatário ativo e allowlisted", modelo consistente com um único
+administrador (CLAUDE.md).
+
+S13-06: a configuração é lida no boot e relida em processo quando o painel
+pede ("Aplicar regras"): o painel só grava um pedido na tabela
+`listener_control`, este processo o percebe por polling curto
+(app/listener_reload.py) e troca a configuração sem sair, sem derrubar a
+conexão MTProto e sem refazer o catch-up do boot. O handler ao vivo consulta
+`lifecycle.source_for_chat` a cada mensagem em vez de fechar sobre listas fixas,
+e filtra por chat dentro dele (um único handler, sem `chats=`), então mudar as
+fontes nunca deixa uma janela sem handler. Sem nenhuma fonte, regra ou
+destinatário ativo o processo continua vivo e conectado, escutando nada até o
+primeiro pedido.
+
+Faz catch-up (packages/telegram/cursor.py, S5-02) uma vez no boot — cobre
+reiniciar o processo — e de novo sempre que a conexão cair e voltar — cobre uma
+queda curta. Bounded por BACKFILL_MAX_MESSAGES/BACKFILL_MAX_AGE, não
+reprocessa o histórico inteiro de nenhum grupo. No boot, uma fonte sem cursor
+persistido ainda (nunca processada ao vivo antes) nunca passa por esse
+catch-up notificante — teria tratado toda sua história recente como "perdida
+numa queda" e mandado alerta retroativo de verdade (S6-04). Em vez disso, o
+cursor dela é só inicializado na ponta mais recente do chat, sem notificar
+nada; o histórico recente dessa fonte nova continua aparecendo só via o scan
+não notificante abaixo.
+
+S13-02: perder a conexão com o Telegram NÃO encerra o processo. O Telethon
+desiste depois do orçamento curto dele (5 tentativas, ~7s) e levanta
+`ConnectionError`; antes isso escapava (no boot, de `adapter.connect()`; em
+execução, de `run_until_disconnected()`, cuja exceção ninguém recuperava) e o
+processo terminava, o Docker o reiniciava e o scan de 15 dias era refeito a cada
+queda.
+Agora `packages/telegram/connection_supervisor.py` reconecta dentro do
+processo com backoff exponencial (5s -> 300s, com jitter), registra o motivo
+de cada tentativa e só escala a `blocked` (e encerra) depois de
+`CONNECT_BACKOFF.max_consecutive_failures` falhas seguidas.
+
+S13-09: escalar a `blocked` antes só aparecia no log do Docker. Agora
+`on_blocked` (abaixo) manda UMA mensagem operacional (`BLOCKED_ALERT_TEXT`)
+pelo mesmo `BotNotifier`/allowlist dos alertas de promoção — sem cliente de
+bot separado, sem conceito novo de "contato admin"; todo destinatário
+allowlisted recebe o aviso. Falha ao enviar é capturada e logada dentro do
+próprio `ConnectionSupervisor._block`, nunca atrasa o encerramento.
+
+Reconexão só faz o
+catch-up por cursor (`app.listener_lifecycle`), nunca o scan de 15 dias.
+
+Também roda, uma vez por fonte logo após registrar o handler ao vivo, um scan
+histórico independente do cursor (S6-02): reavalia os últimos
+HISTORICAL_WINDOW (15 dias desde a S13-05; 7 dias na S7-04 e 24h na S6-02
+original) de cada fonte ativa contra toda regra ativa, persiste os matches e
+cria Delivery(status="historical") por destinatário aplicável, mas nunca
+chama o BotNotifier — sem alerta retroativo. Repetir esse scan num restart
+não duplica (identidade persistente da S6-01). Não confundir com
+BACKFILL_MAX_AGE abaixo, que continua em 24h — propósito diferente, o teto
+de uma reconexão curta de verdade, não de quanto histórico uma fonte nova
+ganha na primeira instalação.
+
+Sem TG_API_ID/TG_API_HASH/BOT_TOKEN configurados, fica ocioso com uma mensagem
+clara — nunca finge ter conectado.
+
+S14-04: também roda, como mais uma tarefa asyncio deste mesmo processo (sem
+Celery, sem cron externo), o agendador do digest diário
+(app/digest.py::DigestScheduler) — poll curto contra `digest_settings`,
+dispara `run_digest_once` quando o relógio local passa de `send_at_local` e é
+idempotente por dia local (`digest_run.local_date`, chave primária). Começa
+junto com reload_task, sem depender da conexão MTProto: só precisa do
+BOT_TOKEN, já garantido nesta função antes daqui.
+
+Migrations não são aplicadas aqui: docker-compose.prod.yml garante, via
+`depends_on: api: condition: service_healthy`, que o serviço `api` (que já
+roda `alembic upgrade head` no seu próprio entrypoint) sobe primeiro — dois
+processos rodando migração ao mesmo tempo contra o mesmo arquivo SQLite seria
+uma corrida real, não uma preocupação teórica.
+"""
+
+import asyncio
+import logging
+import os
+import sys
+from datetime import timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+from telethon import TelegramClient, events
+
+from app.digest import DigestScheduler
+from app.listener_control import (
+    config_fingerprint,
+    load_active_config,
+    record_applied,
+    record_boot_scan,
+)
+from app.listener_lifecycle import ListenerLifecycle, build_listener_sources
+from app.listener_reload import ReloadWorker
+from app.pipeline import HISTORICAL_WINDOW
+from models.db import get_engine, get_sessionmaker
+from packages.monitoring.heartbeat import load_heartbeat_config, run_heartbeat
+from packages.notifications.bot import BotNotifier
+from packages.notifications.http_client import HttpBotClient
+from packages.rules.dedupe import DedupeCache
+from packages.telegram.adapter import TelegramAdapter
+from packages.telegram.connection_supervisor import (
+    BackoffPolicy,
+    ConnectionSupervisor,
+    SupervisorOutcome,
+    install_stop_signal_handlers,
+)
+from packages.telegram.reconnect_watch import supervise_reconnects
+from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
+
+SESSION_PATH = Path("data/teleyes.session")
+BACKFILL_MAX_MESSAGES = 100
+BACKFILL_MAX_AGE = timedelta(hours=24)
+RECONNECT_POLL_SECONDS = 15.0
+# The historical scan window (15 days, S13-05) lives in `app.pipeline`
+# (`HISTORICAL_WINDOW`, imported above) so there is one value, not three.
+# Unrelated to BACKFILL_MAX_AGE above, which stays 24h on purpose (a real
+# reconnect's gap, not a fresh source's first historical scan).
+# S13-02: 5s doubling up to 5min between attempts, 30 failures in a row (a bit
+# over two hours of continuous outage) before escalating to `blocked`.
+CONNECT_BACKOFF = BackoffPolicy(base_seconds=5.0, max_seconds=300.0, max_consecutive_failures=30)
+
+# S13-09: the one operational (non-match) alert this process ever sends. Same
+# BotNotifier/allowlist as promo alerts (no separate "admin contact"), so
+# today it reaches the one recipient cadastrado; adding a second allowlisted
+# recipient in the future means that one also gets it.
+BLOCKED_ALERT_TEXT = (
+    "⚠️ teleyes: o monitor parou de escutar o Telegram depois de falhas de reconexão "
+    "seguidas (backoff esgotado). Nenhuma promoção nova está sendo vista até o "
+    "serviço ser reiniciado."
+)
+
+
+def _configure_logging() -> None:
+    """Warnings and up for everything (Telethon's included), plus the
+    supervisor's own INFO events (connected / reconnect scheduled / stopped)."""
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    logging.getLogger("packages.telegram.connection_supervisor").setLevel(logging.INFO)
+    logging.getLogger("app.listener_lifecycle").setLevel(logging.INFO)
+    logging.getLogger("app.listener_reload").setLevel(logging.INFO)
+
+
+async def _idle_until_stopped(
+    stop_event: asyncio.Event, message: str, *, remind_every: float = 300.0
+) -> None:
+    """Stay up quietly instead of exiting.
+
+    `restart: unless-stopped` (docker-compose.prod.yml) restarts a container
+    on *any* exit, success included — not just failures. Exiting the moment
+    something's `not_configured` would turn into a restart-loop (repeatedly
+    starting, printing one line, exiting, over and over) instead of the same
+    calm, honestly-idle-but-up state `app.main`'s FastAPI service already
+    reports via `GET /health` for the exact same conditions. Returns as soon
+    as `stop_event` fires (see `main`'s signal handlers) rather than blocking
+    a graceful shutdown for up to `remind_every`.
+    """
+    print(message)
+    while not stop_event.is_set():
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=remind_every)
+        except TimeoutError:
+            print(message)
+
+
+async def main() -> int:
+    """Returns the process exit code: 0 on a requested stop, 1 once `blocked`."""
+    load_dotenv()
+    _configure_logging()
+
+    # A process running as the container's PID 1 (docker/listener-entrypoint.sh
+    # execs this directly) needs an *explicit* handler for a signal to reach
+    # it at all: the kernel suppresses the default action of an unhandled
+    # signal for PID 1 specifically, so without this, `docker stop`/`compose
+    # down`/a real SIGTERM-based crash test would all silently do nothing
+    # until the grace period expires and Docker escalates to SIGKILL. `api`
+    # (uvicorn) never hit this because uvicorn already installs its own
+    # SIGTERM/SIGINT handlers. The handler only sets an event, so it can't raise.
+    stop_event = asyncio.Event()
+    install_stop_signal_handlers(asyncio.get_running_loop(), stop_event)
+
+    api_id = os.environ.get("TG_API_ID")
+    api_hash = os.environ.get("TG_API_HASH")
+    bot_token = os.environ.get("BOT_TOKEN")
+    if not api_id or not api_hash:
+        await _idle_until_stopped(
+            stop_event, "TG_API_ID/TG_API_HASH ausentes — not_configured, sem fingir conexão."
+        )
+        return 0
+    if not bot_token:
+        await _idle_until_stopped(
+            stop_event, "BOT_TOKEN ausente — not_configured, sem fingir conexão."
+        )
+        return 0
+
+    session_factory = get_sessionmaker(get_engine())
+
+    with session_factory() as session:
+        sources, rules, recipients = load_active_config(session)
+        # Tell the panel what this process is running with (S13-06). Also
+        # settles any request left pending/applying by a previous process: this
+        # fresh read already is the reload. (A request made in the few
+        # milliseconds between the read and this write is settled too, but the
+        # panel's "há mudanças não aplicadas" notice compares fingerprints, so
+        # it still shows it.) A failed status write must not stop the listener.
+        try:
+            record_applied(
+                session,
+                sources_loaded=len(sources),
+                rules_loaded=len(rules),
+                recipients_loaded=len(recipients),
+                config_hash=config_fingerprint(sources, rules, recipients),
+            )
+        except Exception as error:
+            print(f"Não registrou o estado inicial no painel ({type(error).__name__}).")
+
+    listener_sources = build_listener_sources(sources, rules, recipients)
+    if listener_sources:
+        print(f"{len(sources)} fonte(s), {len(rules)} regra(s), {len(recipients)} destinatário(s).")
+    else:
+        print(
+            "Sem fonte, regra ou destinatário (ativo e allowlisted) cadastrado — nada pra "
+            "escutar por enquanto. Cadastre pelo painel e use \"Aplicar regras\"; este processo "
+            "continua vivo e passa a escutar sem reiniciar."
+        )
+
+    client = TelegramClient(str(SESSION_PATH), int(api_id), api_hash)
+    adapter = TelegramAdapter(
+        api_id=int(api_id), api_hash=api_hash, client=client, sleep=asyncio.sleep
+    )
+
+    notifier = BotNotifier(
+        bot_token=bot_token,
+        client=HttpBotClient(bot_token),
+        allowlisted_chat_ids={recipient.telegram_chat_id for recipient in recipients},
+    )
+    dedupe_cache = DedupeCache()
+    fetcher = TelethonMessageFetcher(client)
+
+    def register_live_handler() -> None:
+        # One handler, no `chats=` filter: which chats matter is decided per
+        # message from the lifecycle's *current* configuration, so an applied
+        # reload (S13-06) takes effect immediately and never leaves a window
+        # with no handler registered. Messages from chats that are not sources
+        # are dropped here, before anything is read from them or stored.
+        @client.on(events.NewMessage())
+        async def handler(event: events.NewMessage.Event) -> None:
+            if lifecycle.source_for_chat(event.chat_id) is None:
+                return
+            await lifecycle.handle_live_message(event.chat_id, to_telegram_message(event.message))
+
+        print(f"Conectado. Escutando {len(lifecycle.sources)} grupo(s)... (Ctrl+C para sair)")
+
+    lifecycle = ListenerLifecycle(
+        session_factory=session_factory,
+        fetcher=fetcher,
+        sources=listener_sources,
+        notifier=notifier,
+        dedupe_cache=dedupe_cache,
+        register_live_handler=register_live_handler,
+        backfill_max_messages=BACKFILL_MAX_MESSAGES,
+        backfill_max_age=BACKFILL_MAX_AGE,
+        historical_window=HISTORICAL_WINDOW,
+    )
+    reload_worker = ReloadWorker(
+        session_factory=session_factory,
+        lifecycle=lifecycle,
+        is_connected=client.is_connected,
+    )
+    # S14-04: the daily digest scheduler needs only `notifier`/the database,
+    # never the Telegram connection — started unconditionally alongside
+    # `reload_task` below (not gated on the first successful connect), same
+    # reasoning as `reload_task` already keeping the panel's heartbeat alive
+    # while Telegram itself is unreachable.
+    digest_scheduler = DigestScheduler(session_factory=session_factory, notifier=notifier)
+
+    watchdog: asyncio.Task[None] | None = None
+
+    async def on_connected() -> None:
+        nonlocal watchdog
+        first_connection = not lifecycle.started
+        await lifecycle.on_connected()
+        if first_connection:
+            try:
+                with session_factory() as session:
+                    record_boot_scan(
+                        session,
+                        new_matches=lifecycle.boot_scan.matches,
+                        scan_failures=lifecycle.boot_scan.failures,
+                    )
+            except Exception as error:  # a status write must never look like a lost connection
+                print(f"Não foi possível registrar o resultado do boot ({type(error).__name__}).")
+        if watchdog is None:
+            # Covers a *silent* short drop: this Telethon version's own
+            # auto-reconnect doesn't catch up on missed updates by itself (see
+            # reconnect_watch.py), so this polls the client's public
+            # is_connected() and re-runs catch-up whenever it flips back to
+            # True. Only started once boot is done — before that, the first
+            # connection would look like a "reconnect" and run the notifying
+            # catch-up on sources that have no cursor yet (S6-04).
+            watchdog = asyncio.create_task(
+                supervise_reconnects(
+                    client.is_connected,
+                    lifecycle.catch_up,
+                    poll_seconds=RECONNECT_POLL_SECONDS,
+                    sleep=asyncio.sleep,
+                )
+            )
+
+    async def on_blocked() -> None:
+        # Reuses `notifier` (same client, same allowlist as promo alerts) —
+        # no second bot client. A failure here (e.g. the bot has no network
+        # either) is caught and logged by the supervisor itself, never here.
+        await notifier.notify_operational(BLOCKED_ALERT_TEXT)
+
+    supervisor = ConnectionSupervisor(
+        adapter,
+        wait_until_disconnected=client.run_until_disconnected,
+        on_connected=on_connected,
+        stop_event=stop_event,
+        policy=CONNECT_BACKOFF,
+        on_blocked=on_blocked,
+    )
+    heartbeat = asyncio.create_task(
+        run_heartbeat(load_heartbeat_config(), client.is_connected, stop_event)
+    )
+    # Started with the process, not after the first connection: it also keeps
+    # the panel's "listener online" beat alive while Telegram is unreachable.
+    reload_task = asyncio.create_task(reload_worker.run(stop_event))
+    digest_task = asyncio.create_task(digest_scheduler.run(stop_event))
+    try:
+        outcome = await supervisor.run()
+    finally:
+        stop_event.set()
+        background = [
+            task
+            for task in (watchdog, heartbeat, reload_task, digest_task)
+            if task is not None
+        ]
+        for task in background:
+            task.cancel()
+        await asyncio.gather(*background, return_exceptions=True)
+
+    return 1 if outcome is SupervisorOutcome.BLOCKED else 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))

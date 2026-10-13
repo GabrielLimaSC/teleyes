@@ -23,8 +23,41 @@ describe('summarizeDeliveryStatus', () => {
     )
   })
 
+  it('reports the historical label for a match matched without a retroactive alert (S6-02)', () => {
+    expect(summarizeDeliveryStatus([delivery('historical')]).label).toBe('Histórico — sem alerta')
+  })
+
+  it('reports the grouped label for a match never notified because another source already alerted the same promotion (S7-11)', () => {
+    expect(summarizeDeliveryStatus([delivery('grouped')]).label).toBe(
+      'Agrupado — mesma promoção já alertada',
+    )
+  })
+
+  it('distinguishes an ambiguous digest attempt from a pending delivery', () => {
+    expect(summarizeDeliveryStatus([delivery('digest_attempted')]).label).toBe(
+      'Envio tentado — sem confirmação',
+    )
+  })
+
+  it('reports digest items outside top N as skipped rather than pending', () => {
+    expect(summarizeDeliveryStatus([delivery('digest_skipped')]).label).toBe(
+      'Fora do resumo diário',
+    )
+  })
+
   it('never encodes state by color alone — every pill carries a label', () => {
-    for (const status of ['sent', 'failed', 'not_allowlisted', 'not_configured', 'duplicate', 'weird']) {
+    for (const status of [
+      'sent',
+      'failed',
+      'not_allowlisted',
+      'not_configured',
+      'duplicate',
+      'historical',
+      'grouped',
+      'digest_attempted',
+      'digest_skipped',
+      'weird',
+    ]) {
       const pill = summarizeDeliveryStatus([delivery(status)])
       expect(pill.label.length).toBeGreaterThan(0)
       expect(pill.dotColor.length).toBeGreaterThan(0)

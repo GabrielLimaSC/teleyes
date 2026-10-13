@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { buildMatchQuery } from './matches'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { buildMatchQuery, revertMatch, updateMatch } from './matches'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('buildMatchQuery', () => {
   it('is empty for no filters', () => {
@@ -28,5 +32,55 @@ describe('buildMatchQuery', () => {
   it('omits params that were not provided', () => {
     const params = new URLSearchParams(buildMatchQuery({ ruleId: 1 }))
     expect([...params.keys()]).toEqual(['rule_id'])
+  })
+})
+
+describe('manual match corrections', () => {
+  it('PATCHes only the fields defined by the backend contract', async () => {
+    const responseBody = { id: 42, display_name: 'RTX 5070 Ti' }
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(new Response(JSON.stringify(responseBody), { status: 200 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      updateMatch('csrf-123', 42, {
+        display_name: 'RTX 5070 Ti',
+        price: '5.749',
+        apply_name_to_product: true,
+      }),
+    ).resolves.toEqual(responseBody)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/matches/42',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          display_name: 'RTX 5070 Ti',
+          price: '5.749',
+          apply_name_to_product: true,
+        }),
+      }),
+    )
+    const headers = new Headers(fetchMock.mock.calls[0][1]?.headers)
+    expect(headers.get('X-CSRF-Token')).toBe('csrf-123')
+    expect(headers.get('Content-Type')).toBe('application/json')
+  })
+
+  it('POSTs revert without inventing a request payload', async () => {
+    const responseBody = { id: 42, price_source: 'parsed' }
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(new Response(JSON.stringify(responseBody), { status: 200 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(revertMatch('csrf-123', 42)).resolves.toEqual(responseBody)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/matches/42/revert',
+      expect.objectContaining({ method: 'POST', credentials: 'same-origin' }),
+    )
+    expect(fetchMock.mock.calls[0][1]?.body).toBeUndefined()
   })
 })

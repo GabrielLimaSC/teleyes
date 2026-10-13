@@ -1,65 +1,241 @@
 .login-page {
   display: flex;
   justify-content: center;
-  padding: 48px 16px;
+  padding: 56px 16px 72px;
 }
 
-.login-card {
+/* S11-02: dois painéis lado a lado, sem coluna solta no centro — grid da
+   S11 (`minmax(0,1fr) 440px`) do concept aprovado, empilhando abaixo de
+   860px em vez de espremer o formulário. */
+.login-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  gap: 28px;
   width: 100%;
-  max-width: 360px;
-  padding: 32px;
+  max-width: 1120px;
+  align-items: stretch;
+}
+
+@media (max-width: 860px) {
+  .login-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.login-panel {
+  padding: 36px;
   display: flex;
   flex-direction: column;
+  gap: 22px;
+}
+
+/* Exceção de raio do concept pro painel de formulário (20px em vez dos
+   16px padrão do Plano 1 perolado). */
+.login-panel--form {
+  padding: 32px;
+  gap: 18px;
+  border-radius: 20px;
+}
+
+.login-panel__brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.login-panel__brand h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-strong);
+}
+
+.login-card__tagline {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--plane-text-secondary);
+}
+
+/* Soft glass ring + a diffuse color-wash glow behind the mascot — same
+   material language as the glass planes themselves (S7-09: align the login
+   card with the mascot/vidro-real direction introduced by the nav bar,
+   S7-08), not a flat drop shadow. Kept as-is through the S11-02 redesign —
+   already a real glass+glow treatment, strictly better than the concept's
+   generic placeholder circle. */
+.login-card__mascot-frame {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--login-frame-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--login-frame-border-color);
+  box-shadow: var(--login-frame-shadow);
+}
+
+.login-card__mascot-frame::before {
+  content: '';
+  position: absolute;
+  inset: -16px;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--login-frame-glow);
+  filter: blur(12px);
+}
+
+.login-card__mascot {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.login-panel__divider {
+  height: 1px;
+  background: var(--glass-divider-bg);
+  box-shadow: var(--glass-divider-shadow);
+}
+
+.login-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.login-card h1 {
-  margin: 0;
+.login-stats__tile {
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+}
+
+.login-stats__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+  margin-bottom: 6px;
+}
+
+.login-stats__value {
   font-size: 24px;
   font-weight: 700;
-  color: #08060d;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
 }
 
-.login-card label {
+.login-status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 13px;
-  font-weight: 500;
-  color: #4b4b52;
 }
 
-.login-card input {
-  font-size: 16px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.7);
+.login-status-row__label {
+  color: var(--plane-text-secondary);
 }
 
-.login-card button {
-  margin-top: 8px;
-  font-size: 15px;
+.login-status-row__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: none;
-  background: #17181c;
-  color: #ffffff;
-  cursor: pointer;
 }
 
-.login-card button:disabled {
-  background: #c7c7cc;
-  color: #6b6b70;
-  cursor: not-allowed;
+.login-status-row__value--plain {
+  color: var(--plane-text-primary);
+}
+
+.login-status-row__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.login-panel__heading h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.login-panel__heading p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.login-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.login-field input {
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--login-input-border-color);
+  background: var(--plane-input-bg);
+  padding: 0 12px;
+  font-size: 14px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+/* Adds a soft focus ring on top of the browser's own default indicator —
+   never replaces it (an explicit outline:none here would drop the one
+   accessible cue keyboard users get for free). Uses the shared Plano 2
+   focus tokens (materials.css) rather than the previous page-local blue. */
+.login-field input:focus-visible {
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.login-field__helper {
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.login-field__helper code {
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.login-submit {
+  width: 100%;
+  height: 40px;
+  font-size: 14px;
 }
 
 .login-error {
-  color: #b3261e;
+  color: var(--plane-status-danger);
   font-size: 14px;
   margin: 0;
+  text-align: center;
 }
 
 .login-warning {
-  color: #8a6d00;
+  color: var(--plane-status-warn);
   font-size: 13px;
   margin: 0;
+  text-align: center;
 }

@@ -2,7 +2,7 @@ import itertools
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +15,7 @@ from app.routers.notifications import BotNotifierFactory, get_bot_notifier_facto
 from auth.hashing import hash_password
 from auth.rate_limit import LoginRateLimiter
 from auth.session import SessionStore
-from models import Admin, Delivery, Match, Recipient, Rule, Source
+from models import Admin, Delivery, Match, MatchCorrection, Recipient, Rule, Source
 from models.base import Base
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.notifications.bot import BotNotifier
@@ -274,6 +274,712 @@ def test_invalid_match_price_range_becomes_422(api: ApiContext) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_matches_sort_by_price_puts_nulls_last_regardless_of_direction(
+    api: ApiContext,
+) -> None:
+    """S7-07: match_a=10_000, match_b=25_000, match_c=None (see _seed_matches)."""
+    ids = _seed_matches(api)
+    _login(api)
+
+    def ordered_ids(sort: str) -> list[int]:
+        response = api.client.get("/matches", params={"sort": sort})
+        assert response.status_code == 200
+        return [item["id"] for item in response.json()]
+
+    assert ordered_ids("price_asc") == [ids["match_a"], ids["match_b"], ids["match_c"]]
+    assert ordered_ids("price_desc") == [ids["match_b"], ids["match_a"], ids["match_c"]]
+
+
+def test_matches_sort_defaults_to_recency_and_rejects_unknown_values(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    _login(api)
+
+    default_response = api.client.get("/matches")
+    assert default_response.status_code == 200
+    # All three share the same `matched_at` in `_seed_matches` — this order
+    # comes from the `Match.id.desc()` *tiebreaker* (S10-03), not from
+    # `matched_at` itself, which ties here and proves nothing about recency
+    # order on its own — see the dedicated out-of-order test below for that.
+    assert [item["id"] for item in default_response.json()] == [
+        ids["match_c"],
+        ids["match_b"],
+        ids["match_a"],
+    ]
+
+    invalid_response = api.client.get("/matches", params={"sort": "price"})
+    assert invalid_response.status_code == 422
+
+
+def test_matches_default_order_is_real_chronological_order_not_insertion_order(
+    api: ApiContext,
+) -> None:
+    """S10-03: real production regression — a historical re-scan (S6-02)
+    inserts matches for old messages out of order every time the listener
+    restarts, so `Match.id.desc()` alone (insertion order) quietly stopped
+    tracking real recency. Confirmed against production data: zero
+    correlation between `id` and `matched_at` after a few restarts.
+
+    Seeds three matches whose *insertion* order is scrambled relative to
+    their `matched_at` order, mirroring the real production shape (a recent
+    real-time match inserted first, gets the lowest id; an old historical
+    match inserted after it, gets a higher id despite being older).
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo S10-03", telegram_chat_id="-1010")
+        rule = Rule(name="Regra S10-03", include_terms="produto")
+        session.add_all([source, rule])
+        session.flush()
+
+        def make(text: str, matched_at: datetime) -> Match:
+            match = Match(
+                source_id=source.id,
+                rule_id=rule.id,
+                message_text=text,
+                price_cents=10_000,
+                matched_at=matched_at,
+            )
+            session.add(match)
+            session.flush()
+            return match
+
+        # Insertion order: recent, old, middle — deliberately not sorted
+        # either way, so a passing test can't be an accident of coincidence.
+        recent = make("Produto recente", now)
+        old = make("Produto antigo", now - timedelta(days=7))
+        middle = make("Produto do meio", now - timedelta(days=1))
+        session.commit()
+        ids = {"recent": recent.id, "old": old.id, "middle": middle.id}
+
+    # Insertion order (= what `id.desc()` alone would return, the bug):
+    # middle, old, recent — the exact opposite of real chronological order.
+    assert ids["recent"] < ids["old"] < ids["middle"]
+
+    _login(api)
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [
+        ids["recent"],
+        ids["middle"],
+        ids["old"],
+    ]
+
+
+def test_matches_id_breaks_ties_when_matched_at_is_identical(api: ApiContext) -> None:
+    """S10-03: real production example — two different messages processed in
+    the same historical-scan batch can share the exact same `matched_at`.
+    `Match.id.desc()` is still the final tiebreaker in that case, same as
+    before this task.
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo Tie S10-03", telegram_chat_id="-1011")
+        rule = Rule(name="Regra Tie S10-03", include_terms="produto")
+        session.add_all([source, rule])
+        session.flush()
+
+        first = Match(
+            source_id=source.id,
+            rule_id=rule.id,
+            message_text="Produto A",
+            price_cents=10_000,
+            matched_at=now,
+        )
+        session.add(first)
+        session.flush()
+        second = Match(
+            source_id=source.id,
+            rule_id=rule.id,
+            message_text="Produto B",
+            price_cents=20_000,
+            matched_at=now,
+        )
+        session.add(second)
+        session.commit()
+        ids = {"first": first.id, "second": second.id}
+
+    _login(api)
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [ids["second"], ids["first"]]
+
+
+def test_matches_flag_the_true_historical_lowest_price_per_rule(api: ApiContext) -> None:
+    """S7-06: match_a=10_000 is rule_a's minimum, match_b=25_000 is not,
+    match_c has no price at all so it can never be flagged.
+    """
+    ids = _seed_matches(api)
+    _login(api)
+
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    by_id = {item["id"]: item for item in response.json()}
+
+    assert by_id[ids["match_a"]]["is_lowest_price_ever"] is True
+    assert by_id[ids["match_b"]]["is_lowest_price_ever"] is False
+    assert by_id[ids["match_c"]]["is_lowest_price_ever"] is False
+
+
+def test_matches_tied_at_the_lowest_price_are_both_flagged(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    with api.session_factory() as session:
+        tie = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00 de novo",
+            price_cents=10_000,
+            # Far outside GROUPING_WINDOW (S7-11) from match_a's own
+            # matched_at, on purpose: this test is about `is_lowest_price_ever`
+            # (a rule-wide historical minimum, unrelated to the grouping
+            # window), so the tie must stay its own separate card rather than
+            # collapsing into match_a's read-time display group.
+            matched_at=datetime.now(UTC) + timedelta(days=1),
+        )
+        session.add(tie)
+        session.commit()
+        tie_id = tie.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert response.status_code == 200
+    by_id = {item["id"]: item for item in response.json()}
+
+    assert by_id[ids["match_a"]]["is_lowest_price_ever"] is True
+    assert by_id[tie_id]["is_lowest_price_ever"] is True
+    assert by_id[ids["match_b"]]["is_lowest_price_ever"] is False
+
+
+def _seed_target_matches(api: ApiContext) -> dict[str, int]:
+    """S14-02: one rule with a target (`target_price_cents=205_000`) and
+    three matches — below the target, exactly at it, and above it — plus
+    the untouched `_seed_matches` fixtures' rule (no target at all), so the
+    "no target" case keeps reading as `null`/`False` alongside a real one.
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo Alvo", telegram_chat_id="-1099")
+        rule_with_target = Rule(
+            name="RTX 5070", include_terms="rtx", target_price_cents=205_000
+        )
+        rule_without_target = Rule(name="Sem alvo", include_terms="sem-alvo")
+        session.add_all([source, rule_with_target, rule_without_target])
+        session.flush()
+
+        below = Match(
+            source_id=source.id,
+            rule_id=rule_with_target.id,
+            message_text="RTX 5070 por R$ 2.000",
+            price_cents=200_000,
+            matched_at=now,
+        )
+        at_target = Match(
+            source_id=source.id,
+            rule_id=rule_with_target.id,
+            message_text="RTX 5070 por R$ 2.050",
+            price_cents=205_000,
+            matched_at=now - timedelta(days=1),
+        )
+        above = Match(
+            source_id=source.id,
+            rule_id=rule_with_target.id,
+            message_text="RTX 5070 por R$ 2.249",
+            price_cents=224_900,
+            matched_at=now - timedelta(days=2),
+        )
+        no_target = Match(
+            source_id=source.id,
+            rule_id=rule_without_target.id,
+            message_text="Produto sem alvo por R$ 50,00",
+            price_cents=5_000,
+            matched_at=now - timedelta(days=3),
+        )
+        session.add_all([below, at_target, above, no_target])
+        session.commit()
+        return {
+            "below": below.id,
+            "at_target": at_target.id,
+            "above": above.id,
+            "no_target": no_target.id,
+        }
+
+
+def test_matches_feed_exposes_target_fields(api: ApiContext) -> None:
+    ids = _seed_target_matches(api)
+    _login(api)
+
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    by_id = {item["id"]: item for item in response.json()}
+
+    below = by_id[ids["below"]]
+    assert below["target_price_cents"] == 205_000
+    assert below["target_hit"] is True
+    assert below["target_gap_pct"] == 0
+
+    at_target = by_id[ids["at_target"]]
+    assert at_target["target_hit"] is True
+    assert at_target["target_gap_pct"] == 0
+
+    # The worked example from the task: target 2050, price 2249 -> 9%.
+    above = by_id[ids["above"]]
+    assert above["target_price_cents"] == 205_000
+    assert above["target_hit"] is False
+    assert above["target_gap_pct"] == 9
+
+    no_target = by_id[ids["no_target"]]
+    assert no_target["target_price_cents"] is None
+    assert no_target["target_hit"] is False
+    assert no_target["target_gap_pct"] is None
+
+
+def test_matches_feed_sorts_target_hits_first(api: ApiContext) -> None:
+    """S14-02: target hits sort to the front of the live feed's response,
+    ahead of the newest-first default order (`above` and `at_target`/`below`
+    are otherwise ordered newest-`matched_at`-first: `below`, `at_target`,
+    `above`) — the hits (`below`, `at_target`) both move ahead of the
+    non-hit (`above`) without swapping places with each other.
+    """
+    ids = _seed_target_matches(api)
+    _login(api)
+
+    response = api.client.get("/matches")
+    assert response.status_code == 200
+    ordered_ids = [item["id"] for item in response.json()]
+
+    hit_positions = {
+        ordered_ids.index(ids["below"]),
+        ordered_ids.index(ids["at_target"]),
+    }
+    non_hit_position = ordered_ids.index(ids["above"])
+    assert max(hit_positions) < non_hit_position
+    # Stable sort: relative order within the hit group is untouched (`below`
+    # is more recent than `at_target`, same as the default recency order).
+    assert ordered_ids.index(ids["below"]) < ordered_ids.index(ids["at_target"])
+
+
+def test_matches_lowest_price_stays_correct_for_a_match_inserted_out_of_chronological_order(
+    api: ApiContext,
+) -> None:
+    """S7-06: a historical scan (S6-02) processes a source newest-to-oldest,
+    so an even cheaper *older* match can be inserted after a newer, pricier
+    one already exists. Computed fresh on every read (never persisted at
+    insert time), this stays correct regardless of insertion order — no
+    backfill of a stale flag on older matches is ever needed.
+    """
+    ids = _seed_matches(api)
+    _login(api)
+
+    before = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert {item["id"]: item["is_lowest_price_ever"] for item in before.json()} == {
+        ids["match_a"]: True,
+        ids["match_b"]: False,
+    }
+
+    with api.session_factory() as session:
+        cheaper_but_inserted_later = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 50,00 (histórico)",
+            price_cents=5_000,
+            matched_at=datetime.now(UTC) - timedelta(days=2),
+        )
+        session.add(cheaper_but_inserted_later)
+        session.commit()
+        cheaper_id = cheaper_but_inserted_later.id
+
+    after = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    after_flags = {item["id"]: item["is_lowest_price_ever"] for item in after.json()}
+    assert after_flags[cheaper_id] is True
+    assert after_flags[ids["match_a"]] is False
+
+
+def test_matches_group_same_rule_and_price_within_window_into_one_card(
+    api: ApiContext,
+) -> None:
+    """S7-11 mechanism 2: three sources post the exact same rule+price, each
+    5 minutes after the previous one (well within GROUPING_WINDOW). Only the
+    earliest survives as its own card; the other two collapse into its
+    `grouped_source_ids`, with no duplicate source id even if two of them
+    shared a source.
+    """
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source_c = Source(name="Grupo C", telegram_chat_id="-1003")
+        session.add(source_c)
+        session.flush()
+        second = Match(
+            source_id=ids["source_b"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00 também",
+            price_cents=10_000,
+            matched_at=now + timedelta(minutes=5),
+        )
+        third = Match(
+            source_id=source_c.id,
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00 de novo também",
+            price_cents=10_000,
+            matched_at=now + timedelta(minutes=10),
+        )
+        session.add_all([second, third])
+        session.commit()
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert response.status_code == 200
+    payload = response.json()
+    by_id = {item["id"]: item for item in payload}
+
+    # match_b has a different price (25_000) — it is never part of this
+    # group and keeps its own card.
+    assert set(by_id) == {ids["match_a"], ids["match_b"]}
+    assert set(by_id[ids["match_a"]]["grouped_source_ids"]) == {ids["source_b"], source_c.id}
+    assert by_id[ids["match_b"]]["grouped_source_ids"] is None
+
+
+def test_matches_grouping_survives_out_of_chronological_insertion_order(
+    api: ApiContext,
+) -> None:
+    """A historical scan (S6-02) processes newest-to-oldest, so the
+    chronologically-earliest match of a group can be the *last* one inserted.
+    Grouping is computed fresh from `matched_at` on every read, never from
+    insertion order, so the representative is still correctly the earliest
+    by time regardless of which row exists in the database first. None of
+    these matches ever sent a real alert (no `Delivery` at all), so this
+    stays a pure insertion-order check, independent of the representative's
+    separate preference for a real "sent" alert (see the dedicated test for
+    that).
+    """
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        # A dedicated rule, never rule_a: _seed_matches' own match_a already
+        # has a real "sent" delivery at essentially this same `now`, which
+        # would otherwise make it the representative regardless of order.
+        rule = Rule(name="Regra E2E Ordem Cronológica", include_terms="gadgetordeme2e")
+        source_c = Source(name="Grupo E2E Ordem C", telegram_chat_id="-1006")
+        session.add_all([rule, source_c])
+        session.flush()
+
+        newer_but_inserted_first = Match(
+            source_id=source_c.id,
+            rule_id=rule.id,
+            message_text="gadgetordeme2e por R$ 100,00 também",
+            price_cents=10_000,
+            matched_at=now + timedelta(minutes=5),
+        )
+        session.add(newer_but_inserted_first)
+        session.commit()
+
+        older_but_inserted_last = Match(
+            source_id=ids["source_a"],
+            rule_id=rule.id,
+            message_text="gadgetordeme2e por R$ 100,00, achado no histórico",
+            price_cents=10_000,
+            matched_at=now - timedelta(minutes=5),
+        )
+        session.add(older_but_inserted_last)
+        session.commit()
+        rule_id, older_id = rule.id, older_but_inserted_last.id
+        newer_id = newer_but_inserted_first.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": rule_id})
+    assert response.status_code == 200
+    payload = response.json()
+
+    # The true chronological earliest is older_but_inserted_last, even
+    # though it was the last row inserted into the database.
+    representative = next(item for item in payload if item["id"] == older_id)
+    assert representative["grouped_source_ids"] == [source_c.id]
+    returned_ids = {item["id"] for item in payload}
+    assert older_id in returned_ids
+    assert newer_id not in returned_ids
+
+
+def test_matches_outside_the_grouping_window_stay_separate_cards(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        far_apart = Match(
+            source_id=ids["source_b"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 100,00, bem depois",
+            price_cents=10_000,
+            matched_at=now + timedelta(hours=6),
+        )
+        session.add(far_apart)
+        session.commit()
+        far_apart_id = far_apart.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": ids["rule_a"]})
+    assert response.status_code == 200
+    payload = response.json()
+
+    returned_ids = {item["id"] for item in payload}
+    assert far_apart_id in returned_ids
+    assert ids["match_a"] in returned_ids
+    for item in payload:
+        assert item["grouped_source_ids"] is None
+
+
+def test_matches_group_representative_prefers_a_real_sent_alert_over_being_chronologically_first(
+    api: ApiContext,
+) -> None:
+    """A historical scan (S6-02) can insert an older, `historical`-status
+    match for a rule+price shortly before a genuinely new live message from
+    a different source triggers a real `sent` alert for the same rule+price,
+    within GROUPING_WINDOW of each other. The `historical` match is
+    chronologically earlier, but it never really alerted — picking it as the
+    representative would show a dishonest status (e.g. "Histórico — sem
+    alerta") for a group that did send a real alert, hiding the `sent`
+    match entirely. The representative must be the one that actually sent.
+    """
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        # A dedicated rule/sources, never rule_a/source_a/source_b: _seed_matches'
+        # own match_a shares rule_a, price 10_000 and a matched_at essentially
+        # equal to this test's own `now`, which would otherwise fold into the
+        # very chain this test is trying to isolate.
+        rule = Rule(name="Regra E2E Histórico vs Sent", include_terms="gadgethistsente2e")
+        historical_source = Source(name="Grupo E2E Histórico", telegram_chat_id="-1004")
+        sent_source = Source(name="Grupo E2E Sent", telegram_chat_id="-1005")
+        session.add_all([rule, historical_source, sent_source])
+        session.flush()
+
+        historical_match = Match(
+            source_id=historical_source.id,
+            rule_id=rule.id,
+            message_text="gadgethistsente2e por R$ 100,00, achado no histórico",
+            price_cents=10_000,
+            matched_at=now - timedelta(minutes=10),
+        )
+        session.add(historical_match)
+        session.flush()
+        session.add(
+            Delivery(
+                match_id=historical_match.id,
+                recipient_id=ids["recipient_a"],
+                status="historical",
+            )
+        )
+
+        sent_match = Match(
+            source_id=sent_source.id,
+            rule_id=rule.id,
+            message_text="gadgethistsente2e por R$ 100,00, alerta real",
+            price_cents=10_000,
+            matched_at=now,
+        )
+        session.add(sent_match)
+        session.flush()
+        session.add(
+            Delivery(
+                match_id=sent_match.id,
+                recipient_id=ids["recipient_a"],
+                status="sent",
+                delivered_at=now,
+            )
+        )
+        session.commit()
+        rule_id = rule.id
+        historical_id, sent_id = historical_match.id, sent_match.id
+    _login(api)
+
+    response = api.client.get("/matches", params={"rule_id": rule_id})
+    assert response.status_code == 200
+    payload = response.json()
+    returned_ids = {item["id"] for item in payload}
+
+    assert sent_id in returned_ids
+    assert historical_id not in returned_ids
+
+    representative = next(item for item in payload if item["id"] == sent_id)
+    assert {delivery["status"] for delivery in representative["deliveries"]} == {"sent"}
+    assert representative["grouped_source_ids"] == [historical_source.id]
+
+
+def test_rules_expose_the_true_lowest_price_seen_per_rule(api: ApiContext) -> None:
+    """S7-06: rule_a's own lowest is match_a's 10_000; rule_b only has
+    match_c, which has no extracted price at all, so its lowest stays
+    `None` ("—" in the UI) same as a rule with zero matches whatsoever.
+    """
+    ids = _seed_matches(api)
+    with api.session_factory() as session:
+        empty_rule = Rule(name="Sem match nenhum", include_terms="nada-e2e")
+        session.add(empty_rule)
+        session.commit()
+        empty_rule_id = empty_rule.id
+    _login(api)
+
+    response = api.client.get("/rules?include_inactive=true")
+    assert response.status_code == 200
+    by_id = {rule["id"]: rule for rule in response.json()}
+
+    assert by_id[ids["rule_a"]]["lowest_price_cents"] == 10_000
+    assert by_id[ids["rule_b"]]["lowest_price_cents"] is None
+    assert by_id[empty_rule_id]["lowest_price_cents"] is None
+
+
+def test_rules_lowest_price_recalculates_without_reprocessing_old_matches(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    _login(api)
+
+    before = api.client.get("/rules")
+    before_by_id = {rule["id"]: rule for rule in before.json()}
+    assert before_by_id[ids["rule_a"]]["lowest_price_cents"] == 10_000
+
+    with api.session_factory() as session:
+        cheaper = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Notebook por R$ 20,00",
+            price_cents=2_000,
+            matched_at=datetime.now(UTC),
+        )
+        session.add(cheaper)
+        session.commit()
+
+    after = api.client.get("/rules")
+    after_by_id = {rule["id"]: rule for rule in after.json()}
+    assert after_by_id[ids["rule_a"]]["lowest_price_cents"] == 2_000
+
+
+def test_rules_history_30d_is_real_daily_data_without_unpriced_or_old_matches(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        session.add_all(
+            [
+                Match(
+                    source_id=ids["source_a"],
+                    rule_id=ids["rule_a"],
+                    message_text="Notebook repetido por R$ 80,00",
+                    price_cents=8_000,
+                    matched_at=now,
+                ),
+                Match(
+                    source_id=ids["source_a"],
+                    rule_id=ids["rule_a"],
+                    message_text="Notebook sem preço",
+                    price_cents=None,
+                    matched_at=now - timedelta(days=1),
+                ),
+                Match(
+                    source_id=ids["source_a"],
+                    rule_id=ids["rule_a"],
+                    message_text="Notebook antigo por R$ 50,00",
+                    price_cents=5_000,
+                    matched_at=now - timedelta(days=31),
+                ),
+            ]
+        )
+        session.commit()
+    _login(api)
+
+    by_id = {rule["id"]: rule for rule in api.client.get("/rules").json()}
+
+    # `_seed_matches` has 10_000 and 25_000 on the same day; the extra
+    # duplicate contributes 8_000, so the real daily minimum is one point.
+    assert [point["price_cents"] for point in by_id[ids["rule_a"]]["history_30d"]] == [8_000]
+    assert by_id[ids["rule_b"]]["history_30d"] == []
+
+
+def test_clear_rule_matches_deletes_only_that_rules_matches_and_deliveries(
+    api: ApiContext,
+) -> None:
+    """S10-04: match_a/match_b belong to rule_a (2 + 1 deliveries between
+    them, per `_seed_matches`); match_c belongs to rule_b. Clearing rule_a's
+    history must delete match_a/match_b and every `Delivery` row pointing at
+    them, leave match_c (a different rule) completely untouched, and leave
+    rule_a itself active and still able to match new messages later.
+    """
+    ids = _seed_matches(api)
+    csrf = _login(api)
+    with api.session_factory() as session:
+        admin_id = session.query(Admin.id).scalar()
+        assert admin_id is not None
+        session.add_all(
+            [
+                MatchCorrection(
+                    match_id=ids["match_a"],
+                    admin_id=admin_id,
+                    changes={"price_cents": {"before": 10_000, "after": 9_000}},
+                ),
+                MatchCorrection(
+                    match_id=ids["match_c"],
+                    admin_id=admin_id,
+                    changes={"display_name": {"before": None, "after": "Celular"}},
+                ),
+            ]
+        )
+        session.commit()
+
+    response = api.client.delete(
+        f"/rules/{ids['rule_a']}/matches", headers={"x-csrf-token": csrf}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 2}
+
+    remaining = api.client.get("/matches").json()
+    assert _response_ids(remaining) == {ids["match_c"]}
+
+    with api.session_factory() as session:
+        assert session.get(Match, ids["match_a"]) is None
+        assert session.get(Match, ids["match_b"]) is None
+        assert session.get(Match, ids["match_c"]) is not None
+        remaining_deliveries = session.query(Delivery).all()
+        assert all(delivery.match_id == ids["match_c"] for delivery in remaining_deliveries)
+        remaining_corrections = session.query(MatchCorrection).all()
+        assert [correction.match_id for correction in remaining_corrections] == [ids["match_c"]]
+
+    rule_after = api.client.get("/rules?include_inactive=true").json()
+    rule_a_after = next(rule for rule in rule_after if rule["id"] == ids["rule_a"])
+    assert rule_a_after["active"] is True
+
+
+def test_clear_rule_matches_on_a_rule_with_no_matches_deletes_nothing(
+    api: ApiContext,
+) -> None:
+    ids = _seed_matches(api)
+    csrf = _login(api)
+    with api.session_factory() as session:
+        empty_rule = Rule(name="Sem match nenhum", include_terms="nada-s10-04")
+        session.add(empty_rule)
+        session.commit()
+        empty_rule_id = empty_rule.id
+
+    response = api.client.delete(
+        f"/rules/{empty_rule_id}/matches", headers={"x-csrf-token": csrf}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 0}
+    assert _response_ids(api.client.get("/matches").json()) == {
+        ids["match_a"],
+        ids["match_b"],
+        ids["match_c"],
+    }
+
+
+def test_clear_rule_matches_for_a_missing_rule_becomes_404(api: ApiContext) -> None:
+    csrf = _login(api)
+
+    response = api.client.delete("/rules/999/matches", headers={"x-csrf-token": csrf})
+
+    assert response.status_code == 404
 
 
 def test_metrics_are_authenticated_and_contain_only_aggregates(api: ApiContext) -> None:

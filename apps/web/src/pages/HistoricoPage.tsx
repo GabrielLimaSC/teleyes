@@ -1,18 +1,49 @@
-import { useEffect, useState } from 'react'
-import { MatchCard } from '../components/MatchCard'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { CategoryIcon } from '../components/CategoryIcon'
+import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
+import { summarizeDeliveryStatus } from '../components/deliveryStatus'
+import { Tooltip } from '../components/Tooltip'
+import { Toast } from '../components/Toast'
+import { cardTitle, productText } from '../components/matchTitle'
+import { ProductPanel, PRODUCT_OPEN_CONTROL_ATTR } from '../components/ProductPanel'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
-import type { MatchFilters } from '../api/matches'
-import type { Match, Recipient, Rule, Source } from '../api/types'
+import type { MatchFilters, MatchSort } from '../api/matches'
+import { ApiError } from '../api/auth'
+import { updateRule } from '../api/rules'
+import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
+import type { Match, Recipient, Rule, Snooze, Source } from '../api/types'
+import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
+import { parseOptionalPriceInput } from '../utils/priceInput'
+import { latestMatchForProduct } from '../utils/productMatch'
+import { useProductPanel } from '../hooks/useProductPanel'
+import { usePersistentFilters } from '../hooks/usePersistentFilters'
+import { useToast } from '../hooks/useToast'
+import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
+import '../styles/materials.css'
+import '../styles/productPanelLayout.css'
+import '../styles/productOpenTrigger.css'
+import '../components/FillButton.css'
 import './HistoricoPage.css'
 
 const DELIVERY_STATUS_OPTIONS = [
   { value: '', label: 'Qualquer status' },
   { value: 'sent', label: 'Entregue' },
+  { value: 'historical', label: 'Histórico — sem alerta' },
   { value: 'failed', label: 'Falha no envio' },
   { value: 'not_configured', label: 'Notificação desativada' },
   { value: 'not_allowlisted', label: 'Destinatário não autorizado' },
   { value: 'duplicate', label: 'Duplicado' },
+]
+
+// S7-07: ranking por preço — mais útil com uma regra específica filtrada
+// (comparar o mesmo produto/promoção), mas funciona com qualquer combinação
+// de filtros, inclusive nenhum.
+const SORT_OPTIONS: Array<{ value: '' | MatchSort; label: string }> = [
+  { value: '', label: 'Mais recentes primeiro' },
+  { value: 'price_asc', label: 'Menor preço primeiro' },
+  { value: 'price_desc', label: 'Maior preço primeiro' },
 ]
 
 export interface FilterForm {
@@ -22,6 +53,7 @@ export interface FilterForm {
   minPriceReais: string
   maxPriceReais: string
   deliveryStatus: string
+  sort: '' | MatchSort
 }
 
 const EMPTY_FILTERS: FilterForm = {
@@ -31,6 +63,57 @@ const EMPTY_FILTERS: FilterForm = {
   minPriceReais: '',
   maxPriceReais: '',
   deliveryStatus: '',
+  sort: '',
+}
+
+// S15-06: "aplico filtros, vou pro Feed, volto pro Histórico e tenho que
+// filtrar de novo" — NavCapsule always links to `/historico` bare (no query
+// string), so the URL can't carry the filters back; they're kept in
+// sessionStorage instead (per tab, survives an F5, gone when the tab closes).
+export const HISTORICO_FILTERS_STORAGE_KEY = 'teleyes:historico-filters'
+
+const FILTER_FORM_KEYS = [
+  'ruleId',
+  'sourceId',
+  'recipientId',
+  'minPriceReais',
+  'maxPriceReais',
+  'deliveryStatus',
+  'sort',
+] as const satisfies readonly (keyof FilterForm)[]
+
+const SORT_VALUES = SORT_OPTIONS.map((option) => option.value)
+
+/**
+ * Validates what a prior session left in storage before trusting it.
+ * Anything off — invalid JSON, not a plain object, a field this version of
+ * `FilterForm` doesn't know about, a field with the wrong type, or a `sort`
+ * outside the 3 real options — throws the WHOLE entry away (`null`, which
+ * `usePersistentFilters` turns into `EMPTY_FILTERS`) rather than half-trust
+ * it: a stale shape from a future/older build must never leak a wrong query
+ * into `toApiFilters`. A stale but well-typed id (a rule/source/recipient
+ * that got deleted since) is NOT rejected here — same as typing it by hand,
+ * it just won't match any option in its <select> and the API returns no
+ * rows for it, which is already the existing, safe behaviour.
+ */
+export function parseStoredHistoricoFilters(raw: string): FilterForm | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+  const record = parsed as Record<string, unknown>
+  const hasUnknownField = Object.keys(record).some(
+    (key) => !(FILTER_FORM_KEYS as readonly string[]).includes(key),
+  )
+  if (hasUnknownField) return null
+  for (const key of FILTER_FORM_KEYS) {
+    if (key in record && typeof record[key] !== 'string') return null
+  }
+  if ('sort' in record && !(SORT_VALUES as readonly unknown[]).includes(record.sort)) return null
+  return { ...EMPTY_FILTERS, ...(record as Partial<FilterForm>) }
 }
 
 export function toApiFilters(form: FilterForm): MatchFilters {
@@ -38,28 +121,209 @@ export function toApiFilters(form: FilterForm): MatchFilters {
   if (form.ruleId !== '') filters.ruleId = Number(form.ruleId)
   if (form.sourceId !== '') filters.sourceId = Number(form.sourceId)
   if (form.recipientId !== '') filters.recipientId = Number(form.recipientId)
-  if (form.minPriceReais !== '') filters.minPriceCents = Math.round(Number(form.minPriceReais) * 100)
-  if (form.maxPriceReais !== '') filters.maxPriceCents = Math.round(Number(form.maxPriceReais) * 100)
+  // S14-13: `parseOptionalPriceInput` replaces `Math.round(Number(x) * 100)`
+  // — that read the pt-BR thousands dot as a decimal point ("5.749" silently
+  // became 575 cents). An invalid, non-blank value is simply left out of the
+  // filters (never sent as `NaN`) — the field's own inline error is what
+  // tells Gabriel it wasn't applied, never a silently wrong query.
+  const minPrice = parseOptionalPriceInput(form.minPriceReais)
+  if (minPrice.cents !== null) filters.minPriceCents = minPrice.cents
+  const maxPrice = parseOptionalPriceInput(form.maxPriceReais)
+  if (maxPrice.cents !== null) filters.maxPriceCents = maxPrice.cents
   if (form.deliveryStatus !== '') filters.deliveryStatus = form.deliveryStatus
+  if (form.sort !== '') filters.sort = form.sort
   return filters
 }
 
+function formatCurrency(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatPrice(cents: number | null): string {
+  if (cents === null) return 'Preço não identificado'
+  return formatCurrency(cents)
+}
+
+function csvField(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
+  return value
+}
+
+/** S11-04: gera o CSV a partir do que já está calculado pra tela — os mesmos
+ * textos exibidos (título cortado, nomes de regra/fonte/destinatário, preço +
+ * detalhe de preço, status de entrega), não os campos crus da API. A exceção é
+ * a "Hora" (S13-01): data e hora locais completas, sem "Hoje"/"Ontem", que não
+ * dizem nada quando o arquivo é aberto no dia seguinte. Sem endpoint novo: é
+ * puramente client-side a partir de `matches` já carregados. */
+function buildCsv(rows: HistoricoRow[]): string {
+  const header = ['Produto', 'Regra', 'Fonte', 'Hora', 'Preço', 'Detalhe do preço', 'Entrega', 'Para', 'Link']
+  const lines = [header.map(csvField).join(',')]
+  for (const row of rows) {
+    lines.push(
+      [
+        row.title,
+        row.ruleName,
+        row.sourceName,
+        row.csvTime,
+        row.priceText,
+        row.priceDetails.join(' · '),
+        row.deliveryLabel,
+        row.recipientNames.join(', '),
+        // S13-03: empty when Telegram gave no address for the message.
+        row.match.message_link ?? '',
+      ]
+        .map(csvField)
+        .join(','),
+    )
+  }
+  return lines.join('\r\n')
+}
+
+function downloadCsv(csv: string): void {
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `historico-teleyes-${localDateStamp()}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+// S13-03: shown (tooltip + screen-reader text) on a row with no "Abrir
+// promoção" link — old matches saved before the message id was kept, and chats
+// that are not a `-100…` supergroup, for which Telegram has no message address.
+const NO_LINK_REASON = 'o Telegram não forneceu o endereço desta mensagem'
+
+// About two lines of the title column at the widest layout — past this the
+// 2-line clamp may clip the title, so the full text rides on a Tooltip.
+const MAY_CLIP_TITLE_LENGTH = 80
+
+interface HistoricoRow {
+  match: Match
+  rule: Rule | undefined
+  title: string
+  /** S14-08 (07b): the row's "Abrir produto" trigger only shows up when set. */
+  productKey: string | null
+  /** True when the full text is worth a Tooltip: the S9-06 cut shortened it,
+   * or it is long enough that the 2-line CSS clamp could clip it. */
+  hasFullText: boolean
+  linkCutText: string
+  ruleName: string
+  sourceName: string
+  groupedSourceNames: string[]
+  time: string
+  /** CSV "Hora": the absolute local date and time ("20/09/2026, 22:43:00"), in
+   * the exporting browser's timezone — not `time`'s "Hoje, 22:43", which stops
+   * meaning anything once the file is opened the next day. */
+  csvTime: string
+  /** Main price line — what the table's price cell and the CSV's "Preço"
+   * column both show. */
+  priceText: string
+  /** Extra lines under the price (S7-05 "À vista · Cartão", S7-06 "Menor já
+   * visto" or the rule's "Teto") — the same lines the price cell renders
+   * and the CSV joins into "Detalhe do preço". */
+  priceDetails: string[]
+  deliveryLabel: string
+  recipientNames: string[]
+}
+
 export function HistoricoPage() {
+  const panel = useProductPanel()
+  const navigate = useNavigate()
+  const { csrfToken } = useAuth()
+  const { toast, showToast, dismiss } = useToast()
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
-  const [form, setForm] = useState<FilterForm>(EMPTY_FILTERS)
+  const [snoozes, setSnoozes] = useState<Snooze[]>([])
+  // S15-06: persisted per tab (sessionStorage) so navigating away via
+  // NavCapsule and back — or an F5 — keeps the applied filters and results.
+  const [form, setForm, resetForm] = usePersistentFilters<FilterForm>({
+    key: HISTORICO_FILTERS_STORAGE_KEY,
+    emptyValue: EMPTY_FILTERS,
+    parse: parseStoredHistoricoFilters,
+  })
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchRules().then(setRules).catch(() => setRules([]))
-    fetchSources().then(setSources).catch(() => setSources([]))
-    fetchRecipients().then(setRecipients).catch(() => setRecipients([]))
-  }, [])
+  const loadRules = () => fetchRules().then(setRules).catch(() => setRules([]))
+  const loadSnoozes = () => listSnoozes().then(setSnoozes).catch(() => setSnoozes([]))
 
   useEffect(() => {
+    loadRules()
+    fetchSources().then(setSources).catch(() => setSources([]))
+    fetchRecipients().then(setRecipients).catch(() => setRecipients([]))
+    loadSnoozes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function reportError(err: unknown, fallback: string) {
+    showToast(err instanceof ApiError ? err.message : fallback, 'error')
+  }
+
+  function requireCsrf(): string | null {
+    if (csrfToken === null) {
+      showToast(CSRF_MISSING_MESSAGE, 'error')
+      return null
+    }
+    return csrfToken
+  }
+
+  // S14-08 parte 2 (rodada 2): same contract as FeedPage's own
+  // "Criar regra disso" — Regras v2's `/regras?produto=<key>` deep link
+  // (#102), nothing owned here past the navigation itself.
+  function handleCreateRule(productKey: string) {
+    navigate(`/regras?produto=${encodeURIComponent(productKey)}`)
+  }
+
+  // S14-08 parte 2 (rodada 2): same silence/reactivate flow as FeedPage's
+  // `handleCardSnooze` — always scope 'product', always 7 days; reactivating
+  // needs the snooze's own id, looked up from `snoozes` (this page's own
+  // `listSnoozes()`, not a second endpoint).
+  async function handleCardSnooze(match: Match) {
+    const token = requireCsrf()
+    if (token === null || match.product_key === null) return
+    try {
+      if (match.snoozed) {
+        const existing = snoozes.find(
+          (snooze) => snooze.scope === 'product' && snooze.product_key === match.product_key,
+        )
+        if (existing) await reactivateSnooze(token, existing.id)
+        showToast('Silenciamento removido.')
+      } else {
+        await snoozeProduct(token, match.product_key, 7)
+        showToast('Produto silenciado por 7 dias.')
+      }
+      await loadSnoozes()
+      loadMatches()
+    } catch (err) {
+      reportError(err, 'Não foi possível atualizar o silenciamento.')
+    }
+  }
+
+  // S14-08 parte 2 (rodada 2): same `PATCH /rules/{id}` as FeedPage's
+  // `handleSetTarget` and MatchCard's "Definir alvo" — only
+  // `target_price_cents` in the body.
+  async function handleSetTarget(ruleId: number, targetCents: number) {
+    const token = requireCsrf()
+    if (token === null) return
+    try {
+      await updateRule(token, ruleId, { target_price_cents: targetCents })
+      showToast('Alvo de preço salvo.')
+      await loadRules()
+      loadMatches()
+    } catch (err) {
+      reportError(err, 'Não foi possível salvar o alvo.')
+    }
+  }
+
+  // S7-02: named and stable per filter combination so a visible "Atualizar"
+  // button can trigger the exact same reload on demand, not just the effect
+  // below reacting to a filter change.
+  const loadMatches = useCallback(() => {
     setLoading(true)
     fetchMatches(toApiFilters(form))
       .then((data) => {
@@ -78,106 +342,430 @@ export function HistoricoPage() {
     form.minPriceReais,
     form.maxPriceReais,
     form.deliveryStatus,
+    form.sort,
   ])
+
+  useEffect(() => {
+    loadMatches()
+  }, [loadMatches])
 
   const updateField = (field: keyof FilterForm) => (value: string) =>
     setForm((current) => ({ ...current, [field]: value }))
 
+  // S10-07: repeated at the top of the results (S10-05 comp's `.section-row`
+  // next to "Resultados") — the same label the "Ordenar por" select already
+  // shows, just surfaced without having to look back up at the filter panel.
+  const sortLabel = SORT_OPTIONS.find((option) => option.value === form.sort)?.label ?? SORT_OPTIONS[0].label
+
+  // S11-04: tudo calculado no cliente a partir de `matches` — o conjunto já
+  // filtrado/buscado (fetchMatches(toApiFilters(form))), sem endpoint novo.
+  const rows: HistoricoRow[] = useMemo(
+    () =>
+      matches.map((match) => {
+        const rule = rules.find((candidate) => candidate.id === match.rule_id)
+        const source = sources.find((candidate) => candidate.id === match.source_id)
+        const linkCutText = productText(match.message_text)
+        const title = cardTitle(match.message_text, rule)
+        // S7-05: same split MatchCard shows — the à vista price leads, the
+        // card price rides on a "À vista · Cartão" line.
+        const hasCashAndCard = match.price_cash_cents !== null && match.price_card_cents !== null
+        const priceText = hasCashAndCard
+          ? formatCurrency(match.price_cash_cents as number)
+          : formatPrice(match.price_cents)
+        const priceDetails: string[] = []
+        if (hasCashAndCard) {
+          priceDetails.push(`À vista · Cartão ${formatCurrency(match.price_card_cents as number)}`)
+        }
+        if (match.is_lowest_price_ever) {
+          priceDetails.push('Menor já visto')
+        } else if (rule?.max_price_cents != null) {
+          priceDetails.push(`Teto ${formatCurrency(rule.max_price_cents)}`)
+        }
+        return {
+          match,
+          rule,
+          title,
+          productKey: match.product_key,
+          hasFullText: title !== linkCutText || title.length > MAY_CLIP_TITLE_LENGTH,
+          linkCutText,
+          ruleName: rule?.name ?? `#${match.rule_id}`,
+          sourceName: source?.name ?? `#${match.source_id}`,
+          // S7-11: the same "Visto em" info MatchCard shows — the other
+          // sources that posted this exact promotion within the grouping
+          // window (chained), never lost even though only this row exists.
+          groupedSourceNames: (match.grouped_source_ids ?? [])
+            .map((sourceId) => sources.find((candidate) => candidate.id === sourceId)?.name)
+            .filter((name): name is string => Boolean(name)),
+          time: formatMatchedAt(match.matched_at),
+          csvTime: formatDateTime(match.matched_at),
+          priceText,
+          priceDetails,
+          deliveryLabel: summarizeDeliveryStatus(match.deliveries).label,
+          // Same "Para:" MatchCard shows — who each delivery of this match went to.
+          recipientNames: match.deliveries
+            .map((delivery) => recipients.find((recipient) => recipient.id === delivery.recipient_id)?.name)
+            .filter((name): name is string => Boolean(name)),
+        }
+      }),
+    [matches, rules, sources, recipients],
+  )
+
+  const stats = useMemo(() => {
+    const prices = matches.map((match) => match.price_cents).filter((price): price is number => price !== null)
+    const deliveriesDone = matches.reduce(
+      (count, match) => count + match.deliveries.filter((delivery) => delivery.status === 'sent').length,
+      0,
+    )
+    return {
+      count: matches.length,
+      avgPrice: prices.length > 0 ? Math.round(prices.reduce((sum, price) => sum + price, 0) / prices.length) : null,
+      lowestPrice: prices.length > 0 ? Math.min(...prices) : null,
+      deliveriesDone,
+    }
+  }, [matches])
+
+  const exportCsv = () => downloadCsv(buildCsv(rows))
+
+  // S14-13: inline pt-BR error for an unparseable, non-blank price filter —
+  // `toApiFilters` already drops it from the query instead of sending `NaN`,
+  // so this is what tells Gabriel that silently happened.
+  const minPriceError = useMemo(() => parseOptionalPriceInput(form.minPriceReais).error, [form.minPriceReais])
+  const maxPriceError = useMemo(() => parseOptionalPriceInput(form.maxPriceReais).error, [form.maxPriceReais])
+
+  // S14-08 parte 2 (rodada 2): the panel only knows a `product_key` — same
+  // "most-recently-matched match decides the rule" resolution as FeedPage,
+  // against this page's own filtered `matches` (already loaded, no second
+  // request).
+  const panelMatch = panel.productKey !== null ? latestMatchForProduct(matches, panel.productKey) : null
+  const panelRule = panelMatch ? rules.find((rule) => rule.id === panelMatch.rule_id) : undefined
+
   return (
     <main className="historico-page">
-      <h1>Histórico</h1>
-      <form className="historico-page__filters" onSubmit={(event) => event.preventDefault()}>
-        <label>
-          Regra
-          <select value={form.ruleId} onChange={(event) => updateField('ruleId')(event.target.value)}>
-            <option value="">Todas</option>
-            {rules.map((rule) => (
-              <option key={rule.id} value={rule.id}>
-                {rule.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Fonte
-          <select value={form.sourceId} onChange={(event) => updateField('sourceId')(event.target.value)}>
-            <option value="">Todas</option>
-            {sources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Destinatário
-          <select
-            value={form.recipientId}
-            onChange={(event) => updateField('recipientId')(event.target.value)}
+      <Toast toast={toast} onDismiss={dismiss} />
+      <div className="historico-page__header">
+        <div>
+          <h1>Histórico</h1>
+          <p className="historico-page__subtitle">
+            {matches.length} {matches.length === 1 ? 'resultado' : 'resultados'} · {sortLabel.toLowerCase()}
+          </p>
+        </div>
+        <div className="historico-page__header-actions">
+          <button
+            type="button"
+            className="plane-action plane-action--secondary"
+            onClick={exportCsv}
+            disabled={rows.length === 0}
           >
-            <option value="">Todos</option>
-            {recipients.map((recipient) => (
-              <option key={recipient.id} value={recipient.id}>
-                {recipient.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Entrega
-          <select
-            value={form.deliveryStatus}
-            onChange={(event) => updateField('deliveryStatus')(event.target.value)}
-          >
-            {DELIVERY_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Preço mínimo (R$)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.minPriceReais}
-            onChange={(event) => updateField('minPriceReais')(event.target.value)}
-          />
-        </label>
-        <label>
-          Preço máximo (R$)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.maxPriceReais}
-            onChange={(event) => updateField('maxPriceReais')(event.target.value)}
-          />
-        </label>
-        <button type="button" onClick={() => setForm(EMPTY_FILTERS)}>
-          Limpar filtros
-        </button>
-      </form>
+            Exportar CSV
+          </button>
+          <button type="button" className="plane-action fill-button" onClick={loadMatches}>
+            Atualizar
+          </button>
+        </div>
+      </div>
 
-      {loading && <p>Carregando…</p>}
-      {error && (
-        <p role="alert" className="historico-page__error">
-          {error}
-        </p>
+      <div className="product-panel-layout" data-panel-phase={panel.phase}>
+      <div className="product-panel-layout__content">
+      <div className="historico-page__grid">
+        {/* S10-07: mesmos campos de filtro de sempre (Regra/Fonte/
+            Destinatário/Entrega/Preço/Ordenar por), só restilizados pro
+            plano vidro — nenhum campo novo, nenhum removido. */}
+        <form className="plane-glass historico-rail" onSubmit={(event) => event.preventDefault()}>
+          <div className="historico-rail__head">
+            <span className="historico-rail__eyebrow">Filtros</span>
+            {/* S15-06: also clears what's saved — reopening the page (or
+                coming back from the Feed) must not resurrect the filters
+                Gabriel just cleared. */}
+            <button type="button" className="historico-rail__clear" onClick={() => resetForm()}>
+              Limpar filtros
+            </button>
+          </div>
+          <label>
+            Regra
+            {/* S14-07 revisão 2: an implicit label-wraps-select association
+                computes its accessible name (and what `getByLabel`/screen
+                readers match against) from the label's own text CONCATENATED
+                WITH EVERY <option>, not just the selected one — harmless with
+                a handful of rules, but with dozens (a real rule count) the
+                resulting name is a multi-hundred-character blob, and browsers
+                stop reliably telling "Regra"'s blob apart from "Fonte"'s or
+                "Destinatário"'s: `getByLabel('Regra')`/a screen reader can
+                genuinely match the wrong combobox. `aria-label` pins the
+                accessible name to the short, real label regardless of how
+                many options exist — same fix on the 3 selects below. */}
+            <select
+              aria-label="Regra"
+              value={form.ruleId}
+              onChange={(event) => updateField('ruleId')(event.target.value)}
+            >
+              <option value="">Todas</option>
+              {rules.map((rule) => (
+                <option key={rule.id} value={rule.id}>
+                  {rule.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Fonte
+            <select
+              aria-label="Fonte"
+              value={form.sourceId}
+              onChange={(event) => updateField('sourceId')(event.target.value)}
+            >
+              <option value="">Todas</option>
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Destinatário
+            <select
+              aria-label="Destinatário"
+              value={form.recipientId}
+              onChange={(event) => updateField('recipientId')(event.target.value)}
+            >
+              <option value="">Todos</option>
+              {recipients.map((recipient) => (
+                <option key={recipient.id} value={recipient.id}>
+                  {recipient.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Entrega
+            <select
+              aria-label="Entrega"
+              value={form.deliveryStatus}
+              onChange={(event) => updateField('deliveryStatus')(event.target.value)}
+            >
+              {DELIVERY_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="historico-rail__price-grid">
+            <label>
+              Preço mínimo (R$)
+              {/* `aria-label` pins the accessible name to the label's own
+                  text — same fix as the Regra/Fonte/Destinatário selects
+                  above (S14-07 revisão 2): without it, an implicit label
+                  association folds the error span's own text into this
+                  field's name the moment it shows up. */}
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label="Preço mínimo (R$)"
+                placeholder="5.749,00"
+                aria-invalid={minPriceError !== null}
+                aria-describedby={minPriceError !== null ? 'min-price-error' : undefined}
+                value={form.minPriceReais}
+                onChange={(event) => updateField('minPriceReais')(event.target.value)}
+              />
+              {minPriceError !== null && (
+                <span id="min-price-error" role="alert" className="historico-rail__price-error">
+                  {minPriceError}
+                </span>
+              )}
+            </label>
+            <label>
+              Preço máximo (R$)
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label="Preço máximo (R$)"
+                placeholder="5.749,00"
+                aria-invalid={maxPriceError !== null}
+                aria-describedby={maxPriceError !== null ? 'max-price-error' : undefined}
+                value={form.maxPriceReais}
+                onChange={(event) => updateField('maxPriceReais')(event.target.value)}
+              />
+              {maxPriceError !== null && (
+                <span id="max-price-error" role="alert" className="historico-rail__price-error">
+                  {maxPriceError}
+                </span>
+              )}
+            </label>
+          </div>
+          <div className="historico-rail__divider" />
+          <label>
+            Ordenar por
+            <select value={form.sort} onChange={(event) => updateField('sort')(event.target.value)}>
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </form>
+
+        <div className="historico-page__results">
+          {loading && <p>Carregando…</p>}
+          {error && (
+            <p role="alert" className="historico-page__error">
+              {error}
+            </p>
+          )}
+          {!loading && !error && (
+            <>
+              <div className="historico-stats">
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Matches no período</div>
+                  <div className="historico-stats__value">{stats.count}</div>
+                </div>
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Preço médio</div>
+                  <div className="historico-stats__value">
+                    {stats.avgPrice !== null ? formatCurrency(stats.avgPrice) : '—'}
+                  </div>
+                </div>
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Menor preço</div>
+                  <div className="historico-stats__value">
+                    {stats.lowestPrice !== null ? formatCurrency(stats.lowestPrice) : '—'}
+                  </div>
+                </div>
+                <div className="historico-stats__tile">
+                  <div className="historico-stats__label">Entregas feitas</div>
+                  <div className="historico-stats__value">{stats.deliveriesDone}</div>
+                </div>
+              </div>
+
+              {rows.length === 0 && <p>Nenhum match encontrado com esses filtros.</p>}
+              {rows.length > 0 && (
+                <div className="plane-pearl historico-table">
+                  <div className="historico-table__row historico-table__row--head">
+                    <span>Produto</span>
+                    <span>Regra · fonte</span>
+                    <span>Hora</span>
+                    <span className="historico-table__cell--right">Preço</span>
+                    <span className="historico-table__cell--right">Entrega</span>
+                    <span className="historico-table__cell--right">Promoção</span>
+                  </div>
+                  {rows.map((row) => {
+                    const category = categorize(row.match.message_text)
+                    const openProduct = (trigger: HTMLElement) => {
+                      if (row.productKey !== null) panel.open(row.productKey, trigger)
+                    }
+                    const titleNode =
+                      row.productKey !== null ? (
+                        <button
+                          type="button"
+                          className="historico-table__title historico-table__title--button"
+                          {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+                          onClick={(event) => openProduct(event.currentTarget)}
+                        >
+                          {row.title}
+                        </button>
+                      ) : (
+                        <span className="historico-table__title">{row.title}</span>
+                      )
+                    return (
+                      <div key={row.match.id} className="historico-table__row">
+                        <div className="historico-table__product">
+                          <span
+                            className="historico-table__icon"
+                            style={{ background: CATEGORY_BACKGROUND[category] }}
+                          >
+                            <CategoryIcon category={category} />
+                          </span>
+                          {row.hasFullText ? (
+                            <Tooltip label={row.linkCutText}>{titleNode}</Tooltip>
+                          ) : (
+                            titleNode
+                          )}
+                        </div>
+                        <span className="historico-table__meta">
+                          {row.ruleName} · {row.sourceName}
+                          {row.groupedSourceNames.length > 0 && (
+                            <span className="historico-table__grouped-sources">
+                              Visto em: {row.groupedSourceNames.join(', ')}
+                            </span>
+                          )}
+                        </span>
+                        <span className="historico-table__time">{row.time}</span>
+                        <div className="historico-table__cell--right">
+                          <div className="historico-table__price">{row.priceText}</div>
+                          {row.priceDetails.map((detail) => (
+                            <span
+                              key={detail}
+                              className={
+                                'historico-table__price-note' +
+                                (detail === 'Menor já visto' ? ' historico-table__price-note--lowest' : '')
+                              }
+                            >
+                              {detail}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="historico-table__cell--right">
+                          <span className="historico-table__delivery">{row.deliveryLabel}</span>
+                          {row.recipientNames.length > 0 && (
+                            <span className="historico-table__price-note">
+                              Para: {row.recipientNames.join(', ')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="historico-table__cell--right historico-table__promo">
+                          {row.productKey !== null && (
+                            <button
+                              type="button"
+                              className="product-open-trigger"
+                              {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+                              onClick={(event) => openProduct(event.currentTarget)}
+                            >
+                              Abrir produto <span aria-hidden="true">›</span>
+                            </button>
+                          )}
+                          {row.match.message_link !== null ? (
+                            <a
+                              className="plane-action plane-action--secondary plane-action--compact historico-table__open"
+                              href={row.match.message_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`Abrir promoção: ${row.title}`}
+                            >
+                              Abrir promoção
+                              <span aria-hidden="true">↗</span>
+                            </a>
+                          ) : (
+                            <span className="historico-table__no-link" title={NO_LINK_REASON}>
+                              Sem link
+                              <span className="historico-table__sr-only">: {NO_LINK_REASON}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      </div>
+      {panel.phase !== 'closed' && panel.productKey !== null && (
+        <ProductPanel
+          productKey={panel.productKey}
+          phase={panel.phase}
+          onClose={panel.close}
+          onSaveTarget={panelMatch ? (cents) => handleSetTarget(panelMatch.rule_id, cents) : undefined}
+          onCreateRule={() => handleCreateRule(panel.productKey as string)}
+          onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
+          onEdited={() => loadMatches()}
+          targetPriceCents={panelMatch?.target_price_cents ?? null}
+          targetRuleName={panelRule?.name}
+          snoozed={panelMatch?.snoozed ?? false}
+        />
       )}
-      {!loading && !error && matches.length === 0 && <p>Nenhum match encontrado com esses filtros.</p>}
-      <div className="historico-page__list">
-        {matches.map((match) => (
-          <MatchCard
-            key={match.id}
-            match={match}
-            rule={rules.find((rule) => rule.id === match.rule_id)}
-            source={sources.find((source) => source.id === match.source_id)}
-            recipients={recipients}
-          />
-        ))}
       </div>
     </main>
   )

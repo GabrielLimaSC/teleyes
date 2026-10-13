@@ -1,4 +1,3 @@
-from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
@@ -6,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.main import get_current_session, get_db
+from app.utc import UtcDatetime
 from packages.metrics.counters import MetricCounter, MetricReason
 
 router = APIRouter(
@@ -21,7 +21,7 @@ class MetricResponse(BaseModel):
     source_id: int | None
     reason: MetricReason
     count: int
-    updated_at: datetime
+    updated_at: UtcDatetime
 
 
 @router.get("", response_model=list[MetricResponse])

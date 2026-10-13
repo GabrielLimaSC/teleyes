@@ -20,11 +20,26 @@ class SessionStore:
     process on the home machine (see CLAUDE.md) — no need for a shared/
     persistent session backend yet. Sessions are lost on restart, which just
     means the admin logs in again; nothing else depends on session survival.
+
+    S13-08: `ttl_seconds` is a sliding *inactivity* window, not a fixed
+    lifetime from creation — `get_session` pushes `expires_at` forward by
+    `ttl_seconds` on every valid read, so a session only dies after that much
+    time with no request at all, not 1h after login regardless of use (the
+    bug that prompted this: the admin left the panel open, kept working past
+    the old fixed 1h, and every write started failing with a confusing
+    "invalid csrf token" instead of an expired-session message).
+
+    24h of inactivity is the default: this is a single-admin, home-network
+    panel behind Tailscale (never exposed publicly, see CLAUDE.md), so a
+    generous window trades a little bit of session lifetime for a lot less
+    of "why is my rule form suddenly broken" — the process still restarting
+    wipes every session immediately regardless of this value (accepted
+    trade-off, unchanged by this task).
     """
 
     def __init__(
         self,
-        ttl_seconds: float = 3600.0,
+        ttl_seconds: float = 86400.0,
         *,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -48,9 +63,13 @@ class SessionStore:
         record = self._sessions.get(session_id)
         if record is None:
             return None
-        if self._clock() >= record.expires_at:
+        now = self._clock()
+        if now >= record.expires_at:
             del self._sessions[session_id]
             return None
+        # Renew by activity: this read alone buys another full `ttl_seconds`
+        # of inactivity before the session is considered gone.
+        record.expires_at = now + self._ttl_seconds
         return record
 
     def delete_session(self, session_id: str) -> None:

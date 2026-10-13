@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { margin: 0; background: #e9ebef; }
+    a { color: #315ea8; text-decoration: none; }
+    a:hover { color: #244a82; }
+  </style>
+</helmet>
+<div style="padding:56px;display:flex;flex-direction:column;gap:56px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#171717">
+
+    <section id="2a" style="display:flex;flex-direction:column;gap:32px;padding:36px;border-radius:28px;background:#0b0d11;border:1px solid #1d222a;color:#e9edf4">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:999px;background:#f2f4f8;color:#14171c;font-size:12px;font-weight:700;letter-spacing:.04em">2a</span>
+      <span style="font-size:22px;font-weight:700;letter-spacing:-.02em">teleyes — dark mode, mesma linguagem</span>
+      <span style="font-size:13px;color:#a3acbb">1440px · conteúdo ilustrativo</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;max-width:1440px">
+      <div style="border-radius:18px;padding:20px;background:linear-gradient(165deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,.05) 42%,rgba(255,255,255,.09) 100%),rgba(26,29,36,.62);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -2px 3px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.45),0 16px 32px rgba(0,0,0,.42)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:8px">Plano 3 — vidro escuro</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Flutua sobre o conteúdo</div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:#a3acbb;text-wrap:pretty">Mesmos papéis do modo claro. No escuro o vidro perde tint e ganha luz na borda: 5–14% de branco sobre #1a1d24, blur 16px, sombra interna preta em vez de cinza.</p>
+      </div>
+      <div style="border-radius:16px;padding:20px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:8px">Plano 1 — grafite</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Flat, mas em harmonia</div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:#a3acbb;text-wrap:pretty">Cartões, tabelas e formulários em #1b1f27 com borda #2b313b. Texto principal #e9edf4, secundário #a3acbb — 4.5:1 ou mais. Preço e dados continuam legíveis sem depender do fundo.</p>
+      </div>
+      <div style="border-radius:16px;padding:20px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:12px">Plano 2 — ação</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+          <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#f2f4f8;color:#14171c;font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.5)">Primário</span>
+          <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#20242c;border:1px solid #2f3540;font-size:13px;font-weight:600">Secundário</span>
+          <span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Linha</span>
+          <span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:8px;background:#2a1d1d;border:1px solid #57332f;color:#ff9b91;font-size:12px;font-weight:600">Excluir</span>
+        </div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:#a3acbb;text-wrap:pretty">O primário inverte: fundo claro #f2f4f8, texto #14171c. Foco azul #7aa6f7 com anel de 3px. Status sempre ponto + palavra.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#a2b6d6">01</span><span style="font-size:15px;font-weight:700">Login — dois painéis, sem coluna solta no centro</span></div>
+      <div data-screen-label="01 Login" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #262b34;background:radial-gradient(900px 420px at 12% 0%,rgba(84,116,210,.3),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(150,104,205,.26),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(205,110,155,.18),transparent 60%),#0f1116">
+        <dc-import name="NavCapsuleDark" active="Login" hint-size="100%,96px"></dc-import>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:28px;padding:56px 160px 72px;align-items:stretch">
+          <div style="border-radius:18px;padding:36px;display:flex;flex-direction:column;gap:22px;background:linear-gradient(165deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,.05) 42%,rgba(255,255,255,.09) 100%),rgba(26,29,36,.62);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -2px 3px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.45),0 18px 44px rgba(0,0,0,.5)">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="width:64px;height:64px;border-radius:50%;background:repeating-linear-gradient(135deg,#2b313c 0 3px,#363d4a 3px 6px);border:1px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center"><span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;font-weight:600;color:#a3acbb">mascote</span></div>
+              <div>
+                <div style="font-size:30px;font-weight:700;letter-spacing:-.025em;line-height:1.1;color:#ffffff">teleyes</div>
+                <div style="font-size:14px;color:#a3acbb">Monitor pessoal de promoções do Telegram</div>
+              </div>
+            </div>
+            <div style="height:1px;background:rgba(255,255,255,.12)"></div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+              <div style="border-radius:12px;padding:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)">
+                <div style="font-size:12px;font-weight:600;color:#a2b6d6;margin-bottom:6px">Regras ativas</div>
+                <div style="font-size:24px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">2</div>
+              </div>
+              <div style="border-radius:12px;padding:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)">
+                <div style="font-size:12px;font-weight:600;color:#a2b6d6;margin-bottom:6px">Fontes ouvindo</div>
+                <div style="font-size:24px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">1</div>
+              </div>
+              <div style="border-radius:12px;padding:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)">
+                <div style="font-size:12px;font-weight:600;color:#a2b6d6;margin-bottom:6px">Matches hoje</div>
+                <div style="font-size:24px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">4</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span style="color:#a3acbb">Feed em tempo real (SSE)</span><span style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#f5c26b"><span style="width:7px;height:7px;border-radius:50%;background:#f5b544"></span>Conectando…</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span style="color:#a3acbb">Bot do Telegram</span><span style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#a2b6d6"><span style="width:7px;height:7px;border-radius:50%;background:#47566e"></span>Não configurado</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span style="color:#a3acbb">Ambiente</span><span style="font-weight:600;color:#e9edf4">development · v0.1.0</span></div>
+            </div>
+          </div>
+          <div style="border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 18px 44px rgba(0,0,0,.45)">
+            <div>
+              <div style="font-size:18px;font-weight:700;margin-bottom:6px">Entrar</div>
+              <p style="margin:0;font-size:14px;line-height:1.5;color:#a3acbb">Acesso de administrador. A sessão expira ao fechar o navegador.</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:13px;font-weight:600;color:#a3acbb">Senha</label>
+              <div style="height:42px;border-radius:10px;border:1px solid #7aa6f7;box-shadow:0 0 0 3px rgba(122,166,247,.28);background:#14171c;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#79808d">••••••••</div>
+              <span style="font-size:12px;color:#8f98a8">Definida em <span style="font-family:ui-monospace,Menlo,monospace">ADMIN_PASSWORD</span>.</span>
+            </div>
+            <div style="height:40px;border-radius:10px;background:#f2f4f8;color:#14171c;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.5)">Entrar</div>
+            <div style="height:1px;background:#2a3039"></div>
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#8f98a8;text-wrap:pretty">Sem senha configurada o app sobe em modo leitura: o feed aparece, mas regras e envios ficam bloqueados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#a2b6d6">02</span><span style="font-size:15px;font-weight:700">Feed — trilha de regras, grid de matches, resumo ao vivo</span></div>
+      <div data-screen-label="02 Feed" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #262b34;background:radial-gradient(900px 420px at 12% 0%,rgba(84,116,210,.3),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(150,104,205,.26),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(205,110,155,.18),transparent 60%),#0f1116">
+        <dc-import name="NavCapsuleDark" active="Feed" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 44px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#ffffff">Feed ao vivo</h1>
+              <p style="margin:0;font-size:14px;color:#a3acbb">Ofertas encontradas pelas suas regras, em tempo real.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;background:#3a2c12;color:#f5c26b;font-size:12px;font-weight:600;border:1px solid rgba(245,194,107,.22)"><span style="width:7px;height:7px;border-radius:50%;background:#f5b544"></span>SSE conectando…</span>
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#20242c;border:1px solid #2f3540;font-size:13px;font-weight:600">Atualizar</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:272px minmax(0,1fr) 312px;gap:20px;align-items:start">
+            <sc-if value="{{ railsVisible }}" hint-placeholder-val="{{ true }}">
+            <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(165deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,.05) 42%,rgba(255,255,255,.09) 100%),rgba(26,29,36,.62);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -2px 3px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.45),0 16px 32px rgba(0,0,0,.42)">
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:12px">Filtrar por regra</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;padding:10px 12px;background:#f2f4f8;color:#14171c">
+                    <span style="font-size:13px;font-weight:600">Todas as regras</span>
+                    <span style="font-size:12px;font-variant-numeric:tabular-nums;opacity:.86">4</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)">
+                    <span style="font-size:13px;font-weight:600;color:#e9edf4">RTX 5070 Ti</span>
+                    <span style="font-size:12px;color:#a2b6d6;font-variant-numeric:tabular-nums">2</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)">
+                    <span style="font-size:13px;font-weight:600;color:#e9edf4">Ryzen 7 9800X3D</span>
+                    <span style="font-size:12px;color:#a2b6d6;font-variant-numeric:tabular-nums">2</span>
+                  </div>
+                </div>
+              </div>
+              <div style="height:1px;background:rgba(255,255,255,.12)"></div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:12px">Fontes</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span style="font-size:13px;color:#e9edf4;font-weight:600">Grupo de ofertas</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#5ee08f"><span style="width:7px;height:7px;border-radius:50%;background:#22c55e"></span>ativa</span>
+                  </div>
+                  <div style="font-size:12px;color:#8f98a8">Último evento há 21s</div>
+                </div>
+              </div>
+              <div style="height:1px;background:rgba(255,255,255,.12)"></div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:12px">Destinatários</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <span style="font-size:13px;color:#e9edf4;font-weight:600">Gabriel</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#a2b6d6"><span style="width:7px;height:7px;border-radius:50%;background:#47566e"></span>envio pausado</span>
+                </div>
+              </div>
+            </div>
+            </sc-if>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+              <sc-if value="{{ auroraLowest }}" hint-placeholder-val="{{ true }}">
+              <div style="border-radius:18px;padding:1.5px;background:linear-gradient(120deg,#2e7f5c,#3d5a94,#5a4287,#8c4266)">
+                <div style="border-radius:16.5px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);min-height:150px">
+                  <div style="display:flex;gap:14px;align-items:flex-start">
+                    <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #b9a6e8;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                    <div style="min-width:0">
+                      <div style="font-size:16px;font-weight:700;line-height:1.35;color:#e9edf4;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D</div>
+                      <div style="font-size:12px;color:#a3acbb;margin-top:4px">Grupo de ofertas · Regra: Ryzen 7 9800X3D · Gabriel</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                    <div>
+                      <div style="font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums;line-height:1.1">R$ 2.249,00</div>
+                      <a href="#2a" style="font-size:12px;font-weight:600;color:#c6b3f2;text-decoration:underline;text-underline-offset:3px">Menor preço já visto</a>
+                    </div>
+                    <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                      <span style="font-size:12px;color:#8f98a8">Hoje, 18:39</span>
+                      <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+              <div style="border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34);min-height:150px">
+                <div style="display:flex;gap:14px;align-items:flex-start">
+                  <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #8fb2ef;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                  <div style="min-width:0">
+                    <div style="font-size:16px;font-weight:700;line-height:1.35;color:#e9edf4;text-wrap:pretty">Placa de Vídeo Palit RTX 5070 Ti GamingPro-S 16GB</div>
+                    <div style="font-size:12px;color:#a3acbb;margin-top:4px">Grupo de ofertas · Regra: RTX 5070 Ti · Gabriel</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                  <div>
+                    <div style="font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums;line-height:1.1">R$ 6.499,00</div>
+                    <span style="font-size:12px;color:#8f98a8">Teto da regra: R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <span style="font-size:12px;color:#8f98a8">Hoje, 18:39</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34);min-height:150px">
+                <div style="display:flex;gap:14px;align-items:flex-start">
+                  <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #8fb2ef;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                  <div style="min-width:0">
+                    <div style="font-size:16px;font-weight:700;line-height:1.35;color:#e9edf4;text-wrap:pretty">Placa de Vídeo Gigabyte RTX 5070 Ti Eagle OC 16GB</div>
+                    <div style="font-size:12px;color:#a3acbb;margin-top:4px">Grupo de ofertas · Regra: RTX 5070 Ti · Gabriel</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                  <div>
+                    <div style="font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums;line-height:1.1">R$ 6.899,00</div>
+                    <span style="font-size:12px;color:#8f98a8">Teto da regra: R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <span style="font-size:12px;color:#8f98a8">Hoje, 17:02</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34);min-height:150px">
+                <div style="display:flex;gap:14px;align-items:flex-start">
+                  <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #b9a6e8;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                  <div style="min-width:0">
+                    <div style="font-size:16px;font-weight:700;line-height:1.35;color:#e9edf4;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D (caixa aberta)</div>
+                    <div style="font-size:12px;color:#a3acbb;margin-top:4px">Grupo de ofertas · Regra: Ryzen 7 9800X3D · Gabriel</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                  <div>
+                    <div style="font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums;line-height:1.1">R$ 2.389,00</div>
+                    <span style="font-size:12px;color:#8f98a8">Sem teto definido</span>
+                  </div>
+                  <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <span style="font-size:12px;color:#8f98a8">Hoje, 16:48</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ railsVisible }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:16px;background:linear-gradient(165deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,.05) 42%,rgba(255,255,255,.09) 100%),rgba(26,29,36,.62);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -2px 3px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.45),0 16px 32px rgba(0,0,0,.42)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6">Resumo de hoje</div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)">
+                    <div style="font-size:12px;color:#a2b6d6;font-weight:600;margin-bottom:4px">Matches</div>
+                    <div style="font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">4</div>
+                  </div>
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)">
+                    <div style="font-size:12px;color:#a2b6d6;font-weight:600;margin-bottom:4px">Enviados</div>
+                    <div style="font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">0</div>
+                  </div>
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)">
+                    <div style="font-size:12px;color:#a2b6d6;font-weight:600;margin-bottom:4px">Menor preço</div>
+                    <div style="font-size:16px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">R$ 2.249,00</div>
+                  </div>
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)">
+                    <div style="font-size:12px;color:#a2b6d6;font-weight:600;margin-bottom:4px">Mensagens lidas</div>
+                    <div style="font-size:22px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">132</div>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:14px">Ritmo de mensagens · 12h</div>
+                <div style="display:flex;align-items:flex-end;gap:5px;height:88px">
+                  <div style="flex:1;height:22%;border-radius:4px;background:#262b34"></div>
+                  <div style="flex:1;height:38%;border-radius:4px;background:#262b34"></div>
+                  <div style="flex:1;height:30%;border-radius:4px;background:#262b34"></div>
+                  <div style="flex:1;height:54%;border-radius:4px;background:#39414f"></div>
+                  <div style="flex:1;height:44%;border-radius:4px;background:#39414f"></div>
+                  <div style="flex:1;height:70%;border-radius:4px;background:#39414f"></div>
+                  <div style="flex:1;height:36%;border-radius:4px;background:#262b34"></div>
+                  <div style="flex:1;height:58%;border-radius:4px;background:#39414f"></div>
+                  <div style="flex:1;height:82%;border-radius:4px;background:#6b7689"></div>
+                  <div style="flex:1;height:64%;border-radius:4px;background:#39414f"></div>
+                  <div style="flex:1;height:100%;border-radius:4px;background:#e8ecf3"></div>
+                  <div style="flex:1;height:46%;border-radius:4px;background:#262b34"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:#8f98a8"><span>07h</span><span>13h</span><span>18h</span></div>
+              </div>
+              <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:12px">Últimos eventos</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:#e9edf4">Match registrado</span><span style="color:#8f98a8;font-variant-numeric:tabular-nums">18:39</span></div>
+                  <div style="height:1px;background:#2a3039"></div>
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:#e9edf4">Regra testada</span><span style="color:#8f98a8;font-variant-numeric:tabular-nums">18:12</span></div>
+                  <div style="height:1px;background:#2a3039"></div>
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:#e9edf4">Fonte reconectada</span><span style="color:#8f98a8;font-variant-numeric:tabular-nums">17:55</span></div>
+                </div>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#a2b6d6">03</span><span style="font-size:15px;font-weight:700">Histórico — filtros na trilha, resultados em linhas largas</span></div>
+      <div data-screen-label="03 Histórico" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #262b34;background:radial-gradient(900px 420px at 12% 0%,rgba(84,116,210,.3),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(150,104,205,.26),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(205,110,155,.18),transparent 60%),#0f1116">
+        <dc-import name="NavCapsuleDark" active="Histórico" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 44px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#ffffff">Histórico</h1>
+              <p style="margin:0;font-size:14px;color:#a3acbb">4 resultados · mais recentes primeiro</p>
+            </div>
+            <div style="display:flex;gap:10px">
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#20242c;border:1px solid #2f3540;font-size:13px;font-weight:600">Exportar CSV</span>
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#f2f4f8;color:#14171c;font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.5)">Atualizar</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:316px minmax(0,1fr);gap:20px;align-items:start">
+            <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(165deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,.05) 42%,rgba(255,255,255,.09) 100%),rgba(26,29,36,.62);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -2px 3px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.45),0 16px 32px rgba(0,0,0,.42)">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6">Filtros</div>
+                <a href="#2a" style="font-size:12px;font-weight:600;color:#8ab4f8;text-decoration:underline;text-underline-offset:3px">Limpar</a>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#a2b6d6">Regra</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#e9edf4">Todas<span style="width:9px;height:9px;border-right:2px solid #9aa3b2;border-bottom:2px solid #9aa3b2;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#a2b6d6">Fonte</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#e9edf4">Grupo de ofertas<span style="width:9px;height:9px;border-right:2px solid #9aa3b2;border-bottom:2px solid #9aa3b2;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#a2b6d6">Preço mín.</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#79808d">R$ 0</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#a2b6d6">Preço máx.</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#e9edf4;font-variant-numeric:tabular-nums">R$ 7.000</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#a2b6d6">Entrega</label>
+                <div style="display:flex;gap:6px">
+                  <span style="flex:1;height:36px;border-radius:8px;background:#f2f4f8;color:#14171c;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Qualquer</span>
+                  <span style="flex:1;height:36px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#e9edf4;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Enviada</span>
+                  <span style="flex:1;height:36px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#e9edf4;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Falhou</span>
+                </div>
+              </div>
+              <div style="height:1px;background:rgba(255,255,255,.12)"></div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#a2b6d6">Ordenar por</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#e9edf4">Mais recentes primeiro<span style="width:9px;height:9px;border-right:2px solid #9aa3b2;border-bottom:2px solid #9aa3b2;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="height:40px;border-radius:10px;background:#f2f4f8;color:#14171c;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.5)">Aplicar filtros</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                  <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:6px">Matches no período</div>
+                  <div style="font-size:24px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">4</div>
+                </div>
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                  <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:6px">Preço médio</div>
+                  <div style="font-size:24px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">R$ 4.509,00</div>
+                </div>
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                  <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:6px">Menor preço</div>
+                  <div style="font-size:24px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">R$ 2.249,00</div>
+                </div>
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                  <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:6px">Entregas feitas</div>
+                  <div style="font-size:24px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">0</div>
+                </div>
+              </div>
+              <div style="border-radius:16px;overflow:hidden;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:14px 20px;background:#1e222a;border-bottom:1px solid #2a3039;font-size:12px;font-weight:600;color:#a3acbb">
+                  <span>Produto</span><span>Regra · fonte</span><span>Hora</span><span style="text-align:right">Preço</span><span style="text-align:right">Entrega</span>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid #272c35">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #b9a6e8;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#e9edf4;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D</span>
+                  </div>
+                  <span style="font-size:13px;color:#a3acbb">Ryzen 7 9800X3D · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#8f98a8;font-variant-numeric:tabular-nums">18:39</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">R$ 2.249,00</div>
+                    <a href="#2a" style="font-size:12px;font-weight:600;color:#c6b3f2;text-decoration:underline;text-underline-offset:3px">Menor já visto</a>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid #272c35;background:#1d2028">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #8fb2ef;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#e9edf4;text-wrap:pretty">Placa de Vídeo Palit RTX 5070 Ti GamingPro-S 16GB</span>
+                  </div>
+                  <span style="font-size:13px;color:#a3acbb">RTX 5070 Ti · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#8f98a8;font-variant-numeric:tabular-nums">18:39</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">R$ 6.499,00</div>
+                    <span style="font-size:12px;color:#8f98a8">Teto R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid #272c35">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #8fb2ef;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#e9edf4;text-wrap:pretty">Placa de Vídeo Gigabyte RTX 5070 Ti Eagle OC 16GB</span>
+                  </div>
+                  <span style="font-size:13px;color:#a3acbb">RTX 5070 Ti · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#8f98a8;font-variant-numeric:tabular-nums">17:02</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">R$ 6.899,00</div>
+                    <span style="font-size:12px;color:#8f98a8">Teto R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#242a34;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #b9a6e8;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#e9edf4;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D (caixa aberta)</span>
+                  </div>
+                  <span style="font-size:13px;color:#a3acbb">Ryzen 7 9800X3D · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#8f98a8;font-variant-numeric:tabular-nums">16:48</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#ffffff;font-variant-numeric:tabular-nums">R$ 2.389,00</div>
+                    <span style="font-size:12px;color:#8f98a8">Sem teto</span>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#a2b6d6">04</span><span style="font-size:15px;font-weight:700">Regras — tabela larga + trilha de criação e destinatários</span></div>
+      <div data-screen-label="04 Regras" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #262b34;background:radial-gradient(900px 420px at 12% 0%,rgba(84,116,210,.3),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(150,104,205,.26),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(205,110,155,.18),transparent 60%),#0f1116">
+        <dc-import name="NavCapsuleDark" active="Regras" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 44px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#ffffff">Regras</h1>
+              <p style="margin:0;font-size:14px;color:#a3acbb">2 regras · ações disponíveis em cada linha</p>
+            </div>
+            <div style="display:flex;gap:10px">
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#20242c;border:1px solid #2f3540;font-size:13px;font-weight:600">Testar todas</span>
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#f2f4f8;color:#14171c;font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.5)">Nova regra</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 352px;gap:20px;align-items:start">
+            <div style="display:flex;flex-direction:column;gap:20px">
+              <div style="border-radius:16px;overflow:hidden;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 110px 120px 130px 128px 200px;gap:14px;padding:14px 20px;background:#1e222a;border-bottom:1px solid #2a3039;font-size:12px;font-weight:600;color:#a3acbb">
+                  <span>Regra</span><span>Termos incluídos</span><span>Bloqueados</span><span style="text-align:right">Preço máximo</span><span style="text-align:right">Menor já visto</span><span>Status</span><span style="text-align:right">Ações</span>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 110px 120px 130px 128px 200px;gap:14px;padding:18px 20px;align-items:center;border-bottom:1px solid #272c35">
+                  <span style="font-size:14px;font-weight:700;color:#e9edf4">RTX 5070 Ti</span>
+                  <span style="font-size:13px;color:#a3acbb">rtx 5070 ti</span>
+                  <span style="font-size:13px;color:#8f98a8">—</span>
+                  <span style="font-size:14px;font-weight:600;color:#ffffff;text-align:right;font-variant-numeric:tabular-nums">R$ 7.000,00</span>
+                  <span style="font-size:14px;font-weight:600;color:#ffffff;text-align:right;font-variant-numeric:tabular-nums">R$ 6.499,00</span>
+                  <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:34px;height:20px;border-radius:999px;background:#22c55e;display:flex;align-items:center;justify-content:flex-end;padding:0 2px;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:50%;background:#fff"></span></span><span style="font-size:12px;font-weight:600;color:#5ee08f">ativa</span></span>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Editar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Duplicar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Testar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#2a1d1d;border:1px solid #57332f;color:#ff9b91;font-size:12px;font-weight:600">Excluir</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 110px 120px 130px 128px 200px;gap:14px;padding:18px 20px;align-items:center;background:#1d2028">
+                  <span style="font-size:14px;font-weight:700;color:#e9edf4">Ryzen 7 9800X3D</span>
+                  <span style="font-size:13px;color:#a3acbb">ryzen 7 9800x3d</span>
+                  <span style="font-size:13px;color:#8f98a8">—</span>
+                  <span style="font-size:13px;color:#8f98a8;text-align:right">Sem teto</span>
+                  <span style="font-size:14px;font-weight:600;color:#ffffff;text-align:right;font-variant-numeric:tabular-nums">R$ 2.249,00</span>
+                  <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:34px;height:20px;border-radius:999px;background:#22c55e;display:flex;align-items:center;justify-content:flex-end;padding:0 2px;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:50%;background:#fff"></span></span><span style="font-size:12px;font-weight:600;color:#5ee08f">ativa</span></span>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Editar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Duplicar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Testar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#2a1d1d;border:1px solid #57332f;color:#ff9b91;font-size:12px;font-weight:600">Excluir</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:12px">
+                  <div>
+                    <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Destinatários</h2>
+                    <p style="margin:0;font-size:13px;color:#a3acbb">Quem recebe os alertas</p>
+                  </div>
+                  <span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:10px;background:#20242c;border:1px solid #2f3540;font-size:13px;font-weight:600">Novo destinatário</span>
+                </div>
+                <div style="border-radius:16px;overflow:hidden;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                  <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 140px 160px 180px;gap:14px;padding:14px 20px;background:#1e222a;border-bottom:1px solid #2a3039;font-size:12px;font-weight:600;color:#a3acbb">
+                    <span>Destinatário</span><span>Chat ID</span><span>Autorizado</span><span>Status</span><span style="text-align:right">Ações</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 140px 160px 180px;gap:14px;padding:16px 20px;align-items:center">
+                    <span style="font-size:14px;font-weight:700;color:#e9edf4">Gabriel</span>
+                    <span style="font-size:14px;color:#e9edf4;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace">901</span>
+                    <span style="font-size:13px;color:#a3acbb">Sim</span>
+                    <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:34px;height:20px;border-radius:999px;background:#22c55e;display:flex;align-items:center;justify-content:flex-end;padding:0 2px;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:50%;background:#fff"></span></span><span style="font-size:12px;font-weight:600;color:#5ee08f">ativo</span></span>
+                    <div style="display:flex;gap:6px;justify-content:flex-end">
+                      <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#20242c;border:1px solid #2f3540;font-size:12px;font-weight:600">Editar</span>
+                      <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#2a1d1d;border:1px solid #57332f;color:#ff9b91;font-size:12px;font-weight:600">Excluir</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(165deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,.05) 42%,rgba(255,255,255,.09) 100%),rgba(26,29,36,.62);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -2px 3px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.45),0 16px 32px rgba(0,0,0,.42)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6">Nova regra</div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#a2b6d6">Nome</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#79808d">Ex.: Monitor 27" 165Hz</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#a2b6d6">Termos incluídos</label>
+                  <div style="min-height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:7px 10px">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600">monitor 27</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#242a34;color:#a2b6d6;font-size:12px;font-weight:600">165hz</span>
+                    <span style="font-size:13px;color:#79808d">adicionar…</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#a2b6d6">Termos bloqueados</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#79808d">usado, caixa aberta…</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <label style="font-size:13px;font-weight:600;color:#a2b6d6">Preço máximo</label>
+                    <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#79808d">R$ —</div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <label style="font-size:13px;font-weight:600;color:#a2b6d6">Destinatário</label>
+                    <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#e9edf4">Gabriel<span style="width:9px;height:9px;border-right:2px solid #9aa3b2;border-bottom:2px solid #9aa3b2;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px">
+                  <div style="flex:1;height:40px;border-radius:10px;background:#f2f4f8;color:#14171c;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.5)">Criar regra</div>
+                  <div style="height:40px;padding:0 16px;border-radius:10px;background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.16);color:#e9edf4;display:flex;align-items:center;font-size:13px;font-weight:600">Testar</div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#a2b6d6;margin-bottom:12px">Como uma regra casa</div>
+                <p style="margin:0 0 12px;font-size:13px;line-height:1.55;color:#a3acbb;text-wrap:pretty">Todos os termos incluídos precisam aparecer na mensagem; qualquer termo bloqueado descarta. Preço acima do teto é ignorado.</p>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#a3acbb">Mensagens lidas hoje</span><span style="font-weight:600;font-variant-numeric:tabular-nums">132</span></div>
+                  <div style="height:1px;background:#2a3039"></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#a3acbb">Casaram</span><span style="font-weight:600;font-variant-numeric:tabular-nums">4</span></div>
+                  <div style="height:1px;background:#2a3039"></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#a3acbb">Descartadas por teto</span><span style="font-weight:600;font-variant-numeric:tabular-nums">9</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#a2b6d6">05</span><span style="font-size:15px;font-weight:700">Saúde — painel de estados, atividade e teste lado a lado</span></div>
+      <div data-screen-label="05 Saúde" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #262b34;background:radial-gradient(900px 420px at 12% 0%,rgba(84,116,210,.3),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(150,104,205,.26),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(205,110,155,.18),transparent 60%),#0f1116">
+        <dc-import name="NavCapsuleDark" active="Saúde" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 148px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#ffffff">Saúde</h1>
+              <p style="margin:0;font-size:14px;color:#a3acbb">Estado dos serviços e teste de entrega. Atualizado há 3s.</p>
+            </div>
+            <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#20242c;border:1px solid #2f3540;font-size:13px;font-weight:600">Reverificar</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+              <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:10px">Telegram</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#47566e"></span><span style="font-size:16px;font-weight:700;color:#e9edf4">Não configurado</span></div>
+              <div style="font-size:12px;color:#8f98a8">Falta <span style="font-family:ui-monospace,Menlo,monospace">API_ID</span> / <span style="font-family:ui-monospace,Menlo,monospace">API_HASH</span></div>
+            </div>
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+              <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:10px">Bot</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#47566e"></span><span style="font-size:16px;font-weight:700;color:#e9edf4">Não configurado</span></div>
+              <div style="font-size:12px;color:#8f98a8">Sem <span style="font-family:ui-monospace,Menlo,monospace">BOT_TOKEN</span>, nada é enviado</div>
+            </div>
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+              <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:10px">Feed em tempo real (SSE)</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#f5b544"></span><span style="font-size:16px;font-weight:700;color:#e9edf4">Conectando…</span></div>
+              <div style="font-size:12px;color:#8f98a8">Tentativa 2 de 5</div>
+            </div>
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34)">
+              <div style="font-size:13px;font-weight:600;color:#a3acbb;margin-bottom:10px">Ambiente</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#22c55e"></span><span style="font-size:16px;font-weight:700;color:#e9edf4">development</span></div>
+              <div style="font-size:12px;color:#8f98a8">v0.1.0 · tempo ativo 3s</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start">
+            <div style="border-radius:16px;padding:22px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34);display:flex;flex-direction:column;gap:18px">
+              <div>
+                <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Atividade do coletor</h2>
+                <p style="margin:0;font-size:13px;color:#a3acbb">Mensagens lidas por hora, últimas 12 horas.</p>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:8px;height:130px">
+                <div style="flex:1;height:26%;border-radius:5px;background:#262b34"></div>
+                <div style="flex:1;height:40%;border-radius:5px;background:#262b34"></div>
+                <div style="flex:1;height:34%;border-radius:5px;background:#262b34"></div>
+                <div style="flex:1;height:58%;border-radius:5px;background:#39414f"></div>
+                <div style="flex:1;height:48%;border-radius:5px;background:#39414f"></div>
+                <div style="flex:1;height:72%;border-radius:5px;background:#39414f"></div>
+                <div style="flex:1;height:40%;border-radius:5px;background:#262b34"></div>
+                <div style="flex:1;height:62%;border-radius:5px;background:#39414f"></div>
+                <div style="flex:1;height:86%;border-radius:5px;background:#6b7689"></div>
+                <div style="flex:1;height:68%;border-radius:5px;background:#39414f"></div>
+                <div style="flex:1;height:100%;border-radius:5px;background:#e8ecf3"></div>
+                <div style="flex:1;height:50%;border-radius:5px;background:#262b34"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px">
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #272c35;font-size:13px"><span style="color:#a3acbb">Mensagens lidas</span><span style="font-weight:600;color:#e9edf4;font-variant-numeric:tabular-nums">132</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #272c35;font-size:13px"><span style="color:#a3acbb">Matches gerados</span><span style="font-weight:600;color:#e9edf4;font-variant-numeric:tabular-nums">4</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #272c35;font-size:13px"><span style="color:#a3acbb">Fontes ativas</span><span style="font-weight:600;color:#e9edf4;font-variant-numeric:tabular-nums">1</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #272c35;font-size:13px"><span style="color:#a3acbb">Erros na última hora</span><span style="font-weight:600;color:#e9edf4;font-variant-numeric:tabular-nums">0</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;font-size:13px"><span style="color:#a3acbb">Última reconexão</span><span style="font-weight:600;color:#e9edf4;font-variant-numeric:tabular-nums">17:55</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;font-size:13px"><span style="color:#a3acbb">Fila de envio</span><span style="font-weight:600;color:#e9edf4;font-variant-numeric:tabular-nums">0</span></div>
+              </div>
+            </div>
+            <div style="border-radius:16px;padding:22px;background:linear-gradient(165deg,#1b1f27 0%,#171a21 100%);border:1px solid #2b313b;box-shadow:0 8px 22px rgba(0,0,0,.34);display:flex;flex-direction:column;gap:16px">
+              <div>
+                <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Teste de notificação</h2>
+                <p style="margin:0;font-size:13px;line-height:1.5;color:#a3acbb;text-wrap:pretty">Aciona o envio real. Sem <span style="font-family:ui-monospace,Menlo,monospace">BOT_TOKEN</span> retorna <span style="font-family:ui-monospace,Menlo,monospace">not_configured</span>, sem fingir entrega.</p>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#a3acbb">Destinatário</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #333a46;background:#14171c;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#79808d">Selecione…<span style="width:9px;height:9px;border-right:2px solid #9aa3b2;border-bottom:2px solid #9aa3b2;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#a3acbb">Mensagem</label>
+                <div style="min-height:88px;border-radius:10px;border:1px solid #333a46;background:#14171c;padding:11px 12px;font-size:14px;color:#e9edf4;line-height:1.5">Teste de notificação do teleyes.</div>
+              </div>
+              <div style="height:40px;border-radius:10px;background:#252a33;color:#8f98a8;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Enviar teste</div>
+              <div style="display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:12px;background:#222731;border:1px solid #30363f">
+                <span style="width:8px;height:8px;border-radius:50%;background:#47566e;margin-top:5px;flex:none"></span>
+                <span style="font-size:12px;line-height:1.55;color:#a2b6d6">Botão desabilitado enquanto nenhum destinatário está selecionado e o bot segue sem token.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ showToast }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;right:32px;bottom:28px;width:344px;border-radius:16px;padding:16px 18px;display:flex;gap:12px;align-items:flex-start;background:linear-gradient(165deg,rgba(255,255,255,.18) 0%,rgba(255,255,255,.07) 42%,rgba(255,255,255,.12) 100%),rgba(30,34,42,.78);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -2px 3px rgba(0,0,0,.55),0 20px 36px rgba(0,0,0,.55)">
+          <span style="width:9px;height:9px;border-radius:50%;background:#f5b544;margin-top:6px;flex:none"></span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#e9edf4;margin-bottom:3px">Envio não realizado</div>
+            <div style="font-size:12px;line-height:1.5;color:#a2b6d6">Resposta <span style="font-family:ui-monospace,Menlo,monospace">not_configured</span> — overlay temporário, o único vidro sobre o conteúdo.</div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </section>
+
+  <section id="1a" style="display:flex;flex-direction:column;gap:32px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:999px;background:#171717;color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em">1a</span>
+      <span style="font-size:22px;font-weight:700;letter-spacing:-.02em">teleyes — linguagem unificada, telas largas</span>
+      <span style="font-size:13px;color:#525866">1440px · conteúdo ilustrativo</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;max-width:1440px">
+      <div style="border-radius:18px;padding:20px;background:linear-gradient(165deg,rgba(255,255,255,.78) 0%,rgba(237,239,243,.44) 42%,rgba(211,214,221,.56) 100%),rgba(232,234,239,.42);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.84);box-shadow:inset 0 2px 2px rgba(255,255,255,.92),inset 0 -2px 3px rgba(58,61,70,.14),0 0 0 1px rgba(70,74,83,.16),0 14px 28px rgba(23,23,23,.09)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:8px">Plano 3 — vidro</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Flutua sobre o conteúdo</div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:#525866;text-wrap:pretty">Navbar, trilhas laterais fixas (filtros e resumo), toast e popover. Blur 14px, tint prateado, borda iluminada — o mesmo material da cápsula, nunca sob outro vidro.</p>
+      </div>
+      <div style="border-radius:16px;padding:20px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:8px">Plano 1 — perolado</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Flat, mas em harmonia</div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:#525866;text-wrap:pretty">Cartões de match, tabelas, formulários e painéis de Saúde. Mesma paleta e raio do vidro; borda 1px #d9dfe9 e sombra quase nula. Preço e dados não mudam com o fundo.</p>
+      </div>
+      <div style="border-radius:16px;padding:20px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:12px">Plano 2 — ação</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+          <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#171717;color:#fff;font-size:13px;font-weight:600;box-shadow:0 3px 8px rgba(23,23,23,.13)">Primário</span>
+          <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#fff;border:1px solid #d9dfe9;font-size:13px;font-weight:600">Secundário</span>
+          <span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Linha</span>
+          <span style="display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:8px;background:#fff;border:1px solid #e3c4c1;color:#a32a24;font-size:12px;font-weight:600">Excluir</span>
+        </div>
+        <p style="margin:0;font-size:13px;line-height:1.55;color:#525866;text-wrap:pretty">Opacos, raio 10px (8px compacto), foco azul #315ea8 com anel de 3px. Status sempre ponto + palavra.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#47566e">01</span><span style="font-size:15px;font-weight:700">Login — dois painéis, sem coluna solta no centro</span></div>
+      <div data-screen-label="01 Login" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #dcdfe6;background:radial-gradient(900px 420px at 12% 0%,rgba(120,150,220,.16),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(186,150,220,.15),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(230,160,190,.12),transparent 60%),#f5f5f7">
+        <dc-import name="NavCapsule" active="Login" hint-size="100%,96px"></dc-import>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:28px;padding:56px 160px 72px;align-items:stretch">
+          <div style="border-radius:18px;padding:36px;display:flex;flex-direction:column;gap:22px;background:linear-gradient(165deg,rgba(255,255,255,.78) 0%,rgba(237,239,243,.44) 42%,rgba(211,214,221,.56) 100%),rgba(232,234,239,.42);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.84);box-shadow:inset 0 2px 2px rgba(255,255,255,.92),inset 0 -2px 3px rgba(58,61,70,.14),0 0 0 1px rgba(70,74,83,.16),0 16px 40px rgba(28,37,50,.09)">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="width:64px;height:64px;border-radius:50%;background:repeating-linear-gradient(135deg,#d8dce4 0 3px,#eef0f4 3px 6px);border:1px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center"><span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;font-weight:600;color:#525866">mascote</span></div>
+              <div>
+                <div style="font-size:30px;font-weight:700;letter-spacing:-.025em;line-height:1.1;color:#0a0a0a">teleyes</div>
+                <div style="font-size:14px;color:#525866">Monitor pessoal de promoções do Telegram</div>
+              </div>
+            </div>
+            <div style="height:1px;background:rgba(255,255,255,.7);box-shadow:0 1px 0 rgba(58,61,70,.08)"></div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+              <div style="border-radius:12px;padding:14px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86)">
+                <div style="font-size:12px;font-weight:600;color:#47566e;margin-bottom:6px">Regras ativas</div>
+                <div style="font-size:24px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">2</div>
+              </div>
+              <div style="border-radius:12px;padding:14px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86)">
+                <div style="font-size:12px;font-weight:600;color:#47566e;margin-bottom:6px">Fontes ouvindo</div>
+                <div style="font-size:24px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">1</div>
+              </div>
+              <div style="border-radius:12px;padding:14px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86)">
+                <div style="font-size:12px;font-weight:600;color:#47566e;margin-bottom:6px">Matches hoje</div>
+                <div style="font-size:24px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">4</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span style="color:#525866">Feed em tempo real (SSE)</span><span style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#8b5a08"><span style="width:7px;height:7px;border-radius:50%;background:#8b5a08"></span>Conectando…</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span style="color:#525866">Bot do Telegram</span><span style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#47566e"><span style="width:7px;height:7px;border-radius:50%;background:#47566e"></span>Não configurado</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span style="color:#525866">Ambiente</span><span style="font-weight:600;color:#171717">development · v0.1.0</span></div>
+            </div>
+          </div>
+          <div style="border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 16px 40px rgba(28,37,50,.07)">
+            <div>
+              <div style="font-size:18px;font-weight:700;margin-bottom:6px">Entrar</div>
+              <p style="margin:0;font-size:14px;line-height:1.5;color:#525866">Acesso de administrador. A sessão expira ao fechar o navegador.</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font-size:13px;font-weight:600;color:#525866">Senha</label>
+              <div style="height:42px;border-radius:10px;border:1px solid #315ea8;box-shadow:0 0 0 3px rgba(49,94,168,.16);background:#fff;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#6b7280">••••••••</div>
+              <span style="font-size:12px;color:#606875">Definida em <span style="font-family:ui-monospace,Menlo,monospace">ADMIN_PASSWORD</span>.</span>
+            </div>
+            <div style="height:40px;border-radius:10px;background:#171717;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;box-shadow:0 3px 8px rgba(23,23,23,.13)">Entrar</div>
+            <div style="height:1px;background:#e9ecf0"></div>
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#606875;text-wrap:pretty">Sem senha configurada o app sobe em modo leitura: o feed aparece, mas regras e envios ficam bloqueados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#47566e">02</span><span style="font-size:15px;font-weight:700">Feed — trilha de regras, grid de matches, resumo ao vivo</span></div>
+      <div data-screen-label="02 Feed" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #dcdfe6;background:radial-gradient(900px 420px at 12% 0%,rgba(120,150,220,.16),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(186,150,220,.15),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(230,160,190,.12),transparent 60%),#f5f5f7">
+        <dc-import name="NavCapsule" active="Feed" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 44px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#0a0a0a">Feed ao vivo</h1>
+              <p style="margin:0;font-size:14px;color:#525866">Ofertas encontradas pelas suas regras, em tempo real.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;background:#fff2dc;color:#8b5a08;font-size:12px;font-weight:600;border:1px solid rgba(139,90,8,.14)"><span style="width:7px;height:7px;border-radius:50%;background:#8b5a08"></span>SSE conectando…</span>
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#fff;border:1px solid #d9dfe9;font-size:13px;font-weight:600">Atualizar</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:272px minmax(0,1fr) 312px;gap:20px;align-items:start">
+            <sc-if value="{{ railsVisible }}" hint-placeholder-val="{{ true }}">
+            <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(165deg,rgba(255,255,255,.78) 0%,rgba(237,239,243,.44) 42%,rgba(211,214,221,.56) 100%),rgba(232,234,239,.42);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.84);box-shadow:inset 0 2px 2px rgba(255,255,255,.92),inset 0 -2px 3px rgba(58,61,70,.14),0 0 0 1px rgba(70,74,83,.16),0 14px 28px rgba(23,23,23,.09)">
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:12px">Filtrar por regra</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;padding:10px 12px;background:#171717;color:#fff">
+                    <span style="font-size:13px;font-weight:600">Todas as regras</span>
+                    <span style="font-size:12px;font-variant-numeric:tabular-nums;opacity:.86">4</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.86)">
+                    <span style="font-size:13px;font-weight:600;color:#171717">RTX 5070 Ti</span>
+                    <span style="font-size:12px;color:#47566e;font-variant-numeric:tabular-nums">2</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.86)">
+                    <span style="font-size:13px;font-weight:600;color:#171717">Ryzen 7 9800X3D</span>
+                    <span style="font-size:12px;color:#47566e;font-variant-numeric:tabular-nums">2</span>
+                  </div>
+                </div>
+              </div>
+              <div style="height:1px;background:rgba(255,255,255,.7);box-shadow:0 1px 0 rgba(58,61,70,.08)"></div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:12px">Fontes</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span style="font-size:13px;color:#171717;font-weight:600">Grupo de ofertas</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#176945"><span style="width:7px;height:7px;border-radius:50%;background:#176945"></span>ativa</span>
+                  </div>
+                  <div style="font-size:12px;color:#606875">Último evento há 21s</div>
+                </div>
+              </div>
+              <div style="height:1px;background:rgba(255,255,255,.7);box-shadow:0 1px 0 rgba(58,61,70,.08)"></div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:12px">Destinatários</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <span style="font-size:13px;color:#171717;font-weight:600">Gabriel</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#47566e"><span style="width:7px;height:7px;border-radius:50%;background:#47566e"></span>envio pausado</span>
+                </div>
+              </div>
+            </div>
+            </sc-if>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+              <sc-if value="{{ auroraLowest }}" hint-placeholder-val="{{ true }}">
+              <div style="border-radius:18px;padding:1.5px;background:linear-gradient(120deg,#a7e8c8,#bcd2f5,#d8bdf0,#f4c2d7)">
+                <div style="border-radius:16.5px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);min-height:150px">
+                  <div style="display:flex;gap:14px;align-items:flex-start">
+                    <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #655082;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                    <div style="min-width:0">
+                      <div style="font-size:16px;font-weight:700;line-height:1.35;color:#171717;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D</div>
+                      <div style="font-size:12px;color:#525866;margin-top:4px">Grupo de ofertas · Regra: Ryzen 7 9800X3D · Gabriel</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                    <div>
+                      <div style="font-size:22px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums;line-height:1.1">R$ 2.249,00</div>
+                      <a href="#1a" style="font-size:12px;font-weight:600;color:#5b4d88;text-decoration:underline;text-underline-offset:3px">Menor preço já visto</a>
+                    </div>
+                    <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                      <span style="font-size:12px;color:#606875">Hoje, 18:39</span>
+                      <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              </sc-if>
+              <div style="border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035);min-height:150px">
+                <div style="display:flex;gap:14px;align-items:flex-start">
+                  <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #415d89;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                  <div style="min-width:0">
+                    <div style="font-size:16px;font-weight:700;line-height:1.35;color:#171717;text-wrap:pretty">Placa de Vídeo Palit RTX 5070 Ti GamingPro-S 16GB</div>
+                    <div style="font-size:12px;color:#525866;margin-top:4px">Grupo de ofertas · Regra: RTX 5070 Ti · Gabriel</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                  <div>
+                    <div style="font-size:22px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums;line-height:1.1">R$ 6.499,00</div>
+                    <span style="font-size:12px;color:#606875">Teto da regra: R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <span style="font-size:12px;color:#606875">Hoje, 18:39</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035);min-height:150px">
+                <div style="display:flex;gap:14px;align-items:flex-start">
+                  <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #415d89;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                  <div style="min-width:0">
+                    <div style="font-size:16px;font-weight:700;line-height:1.35;color:#171717;text-wrap:pretty">Placa de Vídeo Gigabyte RTX 5070 Ti Eagle OC 16GB</div>
+                    <div style="font-size:12px;color:#525866;margin-top:4px">Grupo de ofertas · Regra: RTX 5070 Ti · Gabriel</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                  <div>
+                    <div style="font-size:22px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums;line-height:1.1">R$ 6.899,00</div>
+                    <span style="font-size:12px;color:#606875">Teto da regra: R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <span style="font-size:12px;color:#606875">Hoje, 17:02</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035);min-height:150px">
+                <div style="display:flex;gap:14px;align-items:flex-start">
+                  <div style="width:44px;height:44px;flex:none;border-radius:12px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;border:2px solid #655082;border-radius:3px;transform:rotate(45deg);display:block"></span></div>
+                  <div style="min-width:0">
+                    <div style="font-size:16px;font-weight:700;line-height:1.35;color:#171717;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D (caixa aberta)</div>
+                    <div style="font-size:12px;color:#525866;margin-top:4px">Grupo de ofertas · Regra: Ryzen 7 9800X3D · Gabriel</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:auto">
+                  <div>
+                    <div style="font-size:22px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums;line-height:1.1">R$ 2.389,00</div>
+                    <span style="font-size:12px;color:#606875">Sem teto definido</span>
+                  </div>
+                  <div style="text-align:right;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                    <span style="font-size:12px;color:#606875">Hoje, 16:48</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ railsVisible }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:16px;background:linear-gradient(165deg,rgba(255,255,255,.78) 0%,rgba(237,239,243,.44) 42%,rgba(211,214,221,.56) 100%),rgba(232,234,239,.42);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.84);box-shadow:inset 0 2px 2px rgba(255,255,255,.92),inset 0 -2px 3px rgba(58,61,70,.14),0 0 0 1px rgba(70,74,83,.16),0 14px 28px rgba(23,23,23,.09)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e">Resumo de hoje</div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86)">
+                    <div style="font-size:12px;color:#47566e;font-weight:600;margin-bottom:4px">Matches</div>
+                    <div style="font-size:22px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">4</div>
+                  </div>
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86)">
+                    <div style="font-size:12px;color:#47566e;font-weight:600;margin-bottom:4px">Enviados</div>
+                    <div style="font-size:22px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">0</div>
+                  </div>
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86)">
+                    <div style="font-size:12px;color:#47566e;font-weight:600;margin-bottom:4px">Menor preço</div>
+                    <div style="font-size:16px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">R$ 2.249,00</div>
+                  </div>
+                  <div style="border-radius:12px;padding:12px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86)">
+                    <div style="font-size:12px;color:#47566e;font-weight:600;margin-bottom:4px">Mensagens lidas</div>
+                    <div style="font-size:22px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">132</div>
+                  </div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:14px">Ritmo de mensagens · 12h</div>
+                <div style="display:flex;align-items:flex-end;gap:5px;height:88px">
+                  <div style="flex:1;height:22%;border-radius:4px;background:#dfe5ee"></div>
+                  <div style="flex:1;height:38%;border-radius:4px;background:#dfe5ee"></div>
+                  <div style="flex:1;height:30%;border-radius:4px;background:#dfe5ee"></div>
+                  <div style="flex:1;height:54%;border-radius:4px;background:#c9d4e6"></div>
+                  <div style="flex:1;height:44%;border-radius:4px;background:#c9d4e6"></div>
+                  <div style="flex:1;height:70%;border-radius:4px;background:#c9d4e6"></div>
+                  <div style="flex:1;height:36%;border-radius:4px;background:#dfe5ee"></div>
+                  <div style="flex:1;height:58%;border-radius:4px;background:#c9d4e6"></div>
+                  <div style="flex:1;height:82%;border-radius:4px;background:#8f9fba"></div>
+                  <div style="flex:1;height:64%;border-radius:4px;background:#c9d4e6"></div>
+                  <div style="flex:1;height:100%;border-radius:4px;background:#171717"></div>
+                  <div style="flex:1;height:46%;border-radius:4px;background:#dfe5ee"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:#606875"><span>07h</span><span>13h</span><span>18h</span></div>
+              </div>
+              <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:12px">Últimos eventos</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:#171717">Match registrado</span><span style="color:#606875;font-variant-numeric:tabular-nums">18:39</span></div>
+                  <div style="height:1px;background:#e9ecf0"></div>
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:#171717">Regra testada</span><span style="color:#606875;font-variant-numeric:tabular-nums">18:12</span></div>
+                  <div style="height:1px;background:#e9ecf0"></div>
+                  <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="color:#171717">Fonte reconectada</span><span style="color:#606875;font-variant-numeric:tabular-nums">17:55</span></div>
+                </div>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#47566e">03</span><span style="font-size:15px;font-weight:700">Histórico — filtros na trilha, resultados em linhas largas</span></div>
+      <div data-screen-label="03 Histórico" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #dcdfe6;background:radial-gradient(900px 420px at 12% 0%,rgba(120,150,220,.16),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(186,150,220,.15),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(230,160,190,.12),transparent 60%),#f5f5f7">
+        <dc-import name="NavCapsule" active="Histórico" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 44px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#0a0a0a">Histórico</h1>
+              <p style="margin:0;font-size:14px;color:#525866">4 resultados · mais recentes primeiro</p>
+            </div>
+            <div style="display:flex;gap:10px">
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#fff;border:1px solid #d9dfe9;font-size:13px;font-weight:600">Exportar CSV</span>
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#171717;color:#fff;font-size:13px;font-weight:600;box-shadow:0 3px 8px rgba(23,23,23,.13)">Atualizar</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:316px minmax(0,1fr);gap:20px;align-items:start">
+            <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(165deg,rgba(255,255,255,.78) 0%,rgba(237,239,243,.44) 42%,rgba(211,214,221,.56) 100%),rgba(232,234,239,.42);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.84);box-shadow:inset 0 2px 2px rgba(255,255,255,.92),inset 0 -2px 3px rgba(58,61,70,.14),0 0 0 1px rgba(70,74,83,.16),0 14px 28px rgba(23,23,23,.09)">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e">Filtros</div>
+                <a href="#1a" style="font-size:12px;font-weight:600;color:#315ea8;text-decoration:underline;text-underline-offset:3px">Limpar</a>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#47566e">Regra</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#171717">Todas<span style="width:9px;height:9px;border-right:2px solid #525866;border-bottom:2px solid #525866;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#47566e">Fonte</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#171717">Grupo de ofertas<span style="width:9px;height:9px;border-right:2px solid #525866;border-bottom:2px solid #525866;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#47566e">Preço mín.</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#6b7280">R$ 0</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#47566e">Preço máx.</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#171717;font-variant-numeric:tabular-nums">R$ 7.000</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#47566e">Entrega</label>
+                <div style="display:flex;gap:6px">
+                  <span style="flex:1;height:36px;border-radius:8px;background:#171717;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Qualquer</span>
+                  <span style="flex:1;height:36px;border-radius:8px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86);color:#171717;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Enviada</span>
+                  <span style="flex:1;height:36px;border-radius:8px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.86);color:#171717;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Falhou</span>
+                </div>
+              </div>
+              <div style="height:1px;background:rgba(255,255,255,.7);box-shadow:0 1px 0 rgba(58,61,70,.08)"></div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#47566e">Ordenar por</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#171717">Mais recentes primeiro<span style="width:9px;height:9px;border-right:2px solid #525866;border-bottom:2px solid #525866;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="height:40px;border-radius:10px;background:#171717;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;box-shadow:0 3px 8px rgba(23,23,23,.13)">Aplicar filtros</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                  <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:6px">Matches no período</div>
+                  <div style="font-size:24px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">4</div>
+                </div>
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                  <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:6px">Preço médio</div>
+                  <div style="font-size:24px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">R$ 4.509,00</div>
+                </div>
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                  <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:6px">Menor preço</div>
+                  <div style="font-size:24px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">R$ 2.249,00</div>
+                </div>
+                <div style="border-radius:16px;padding:16px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                  <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:6px">Entregas feitas</div>
+                  <div style="font-size:24px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">0</div>
+                </div>
+              </div>
+              <div style="border-radius:16px;overflow:hidden;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:14px 20px;background:#f7f8fa;border-bottom:1px solid #e9ecf0;font-size:12px;font-weight:600;color:#525866">
+                  <span>Produto</span><span>Regra · fonte</span><span>Hora</span><span style="text-align:right">Preço</span><span style="text-align:right">Entrega</span>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid #e9ecf0">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #655082;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#171717;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D</span>
+                  </div>
+                  <span style="font-size:13px;color:#525866">Ryzen 7 9800X3D · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#606875;font-variant-numeric:tabular-nums">18:39</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">R$ 2.249,00</div>
+                    <a href="#1a" style="font-size:12px;font-weight:600;color:#5b4d88;text-decoration:underline;text-underline-offset:3px">Menor já visto</a>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid #e9ecf0;background:#f5f7fa">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #415d89;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#171717;text-wrap:pretty">Placa de Vídeo Palit RTX 5070 Ti GamingPro-S 16GB</span>
+                  </div>
+                  <span style="font-size:13px;color:#525866">RTX 5070 Ti · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#606875;font-variant-numeric:tabular-nums">18:39</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">R$ 6.499,00</div>
+                    <span style="font-size:12px;color:#606875">Teto R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid #e9ecf0">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #415d89;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#171717;text-wrap:pretty">Placa de Vídeo Gigabyte RTX 5070 Ti Eagle OC 16GB</span>
+                  </div>
+                  <span style="font-size:13px;color:#525866">RTX 5070 Ti · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#606875;font-variant-numeric:tabular-nums">17:02</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">R$ 6.899,00</div>
+                    <span style="font-size:12px;color:#606875">Teto R$ 7.000,00</span>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.2fr) 110px 150px 190px;gap:16px;padding:16px 20px;align-items:center">
+                  <div style="display:flex;gap:12px;align-items:center;min-width:0">
+                    <span style="width:36px;height:36px;flex:none;border-radius:10px;background:#eef2f7;display:flex;align-items:center;justify-content:center"><span style="width:12px;height:12px;border:2px solid #655082;border-radius:3px;transform:rotate(45deg);display:block"></span></span>
+                    <span style="font-size:14px;font-weight:700;color:#171717;text-wrap:pretty">Processador AMD Ryzen 7 9800X3D (caixa aberta)</span>
+                  </div>
+                  <span style="font-size:13px;color:#525866">Ryzen 7 9800X3D · Grupo de ofertas</span>
+                  <span style="font-size:13px;color:#606875;font-variant-numeric:tabular-nums">16:48</span>
+                  <div style="text-align:right">
+                    <div style="font-size:15px;font-weight:700;color:#0a0a0a;font-variant-numeric:tabular-nums">R$ 2.389,00</div>
+                    <span style="font-size:12px;color:#606875">Sem teto</span>
+                  </div>
+                  <div style="text-align:right"><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:#47566e"></span>Notificação desativada</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#47566e">04</span><span style="font-size:15px;font-weight:700">Regras — tabela larga + trilha de criação e destinatários</span></div>
+      <div data-screen-label="04 Regras" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #dcdfe6;background:radial-gradient(900px 420px at 12% 0%,rgba(120,150,220,.16),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(186,150,220,.15),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(230,160,190,.12),transparent 60%),#f5f5f7">
+        <dc-import name="NavCapsule" active="Regras" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 44px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#0a0a0a">Regras</h1>
+              <p style="margin:0;font-size:14px;color:#525866">2 regras · ações disponíveis em cada linha</p>
+            </div>
+            <div style="display:flex;gap:10px">
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#fff;border:1px solid #d9dfe9;font-size:13px;font-weight:600">Testar todas</span>
+              <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#171717;color:#fff;font-size:13px;font-weight:600;box-shadow:0 3px 8px rgba(23,23,23,.13)">Nova regra</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 352px;gap:20px;align-items:start">
+            <div style="display:flex;flex-direction:column;gap:20px">
+              <div style="border-radius:16px;overflow:hidden;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 110px 120px 130px 128px 200px;gap:14px;padding:14px 20px;background:#f7f8fa;border-bottom:1px solid #e9ecf0;font-size:12px;font-weight:600;color:#525866">
+                  <span>Regra</span><span>Termos incluídos</span><span>Bloqueados</span><span style="text-align:right">Preço máximo</span><span style="text-align:right">Menor já visto</span><span>Status</span><span style="text-align:right">Ações</span>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 110px 120px 130px 128px 200px;gap:14px;padding:18px 20px;align-items:center;border-bottom:1px solid #e9ecf0">
+                  <span style="font-size:14px;font-weight:700;color:#171717">RTX 5070 Ti</span>
+                  <span style="font-size:13px;color:#525866">rtx 5070 ti</span>
+                  <span style="font-size:13px;color:#606875">—</span>
+                  <span style="font-size:14px;font-weight:600;color:#0a0a0a;text-align:right;font-variant-numeric:tabular-nums">R$ 7.000,00</span>
+                  <span style="font-size:14px;font-weight:600;color:#0a0a0a;text-align:right;font-variant-numeric:tabular-nums">R$ 6.499,00</span>
+                  <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:34px;height:20px;border-radius:999px;background:#176945;display:flex;align-items:center;justify-content:flex-end;padding:0 2px;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:50%;background:#fff"></span></span><span style="font-size:12px;font-weight:600;color:#176945">ativa</span></span>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Editar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Duplicar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Testar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #e3c4c1;color:#a32a24;font-size:12px;font-weight:600">Excluir</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 110px 120px 130px 128px 200px;gap:14px;padding:18px 20px;align-items:center;background:#f5f7fa">
+                  <span style="font-size:14px;font-weight:700;color:#171717">Ryzen 7 9800X3D</span>
+                  <span style="font-size:13px;color:#525866">ryzen 7 9800x3d</span>
+                  <span style="font-size:13px;color:#606875">—</span>
+                  <span style="font-size:13px;color:#606875;text-align:right">Sem teto</span>
+                  <span style="font-size:14px;font-weight:600;color:#0a0a0a;text-align:right;font-variant-numeric:tabular-nums">R$ 2.249,00</span>
+                  <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:34px;height:20px;border-radius:999px;background:#176945;display:flex;align-items:center;justify-content:flex-end;padding:0 2px;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:50%;background:#fff"></span></span><span style="font-size:12px;font-weight:600;color:#176945">ativa</span></span>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Editar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Duplicar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Testar</span>
+                    <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #e3c4c1;color:#a32a24;font-size:12px;font-weight:600">Excluir</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:12px">
+                  <div>
+                    <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Destinatários</h2>
+                    <p style="margin:0;font-size:13px;color:#525866">Quem recebe os alertas</p>
+                  </div>
+                  <span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:10px;background:#fff;border:1px solid #d9dfe9;font-size:13px;font-weight:600">Novo destinatário</span>
+                </div>
+                <div style="border-radius:16px;overflow:hidden;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                  <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 140px 160px 180px;gap:14px;padding:14px 20px;background:#f7f8fa;border-bottom:1px solid #e9ecf0;font-size:12px;font-weight:600;color:#525866">
+                    <span>Destinatário</span><span>Chat ID</span><span>Autorizado</span><span>Status</span><span style="text-align:right">Ações</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 140px 160px 180px;gap:14px;padding:16px 20px;align-items:center">
+                    <span style="font-size:14px;font-weight:700;color:#171717">Gabriel</span>
+                    <span style="font-size:14px;color:#171717;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace">901</span>
+                    <span style="font-size:13px;color:#525866">Sim</span>
+                    <span style="display:inline-flex;align-items:center;gap:8px"><span style="width:34px;height:20px;border-radius:999px;background:#176945;display:flex;align-items:center;justify-content:flex-end;padding:0 2px;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:50%;background:#fff"></span></span><span style="font-size:12px;font-weight:600;color:#176945">ativo</span></span>
+                    <div style="display:flex;gap:6px;justify-content:flex-end">
+                      <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #d9dfe9;font-size:12px;font-weight:600">Editar</span>
+                      <span style="display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;background:#fff;border:1px solid #e3c4c1;color:#a32a24;font-size:12px;font-weight:600">Excluir</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(165deg,rgba(255,255,255,.78) 0%,rgba(237,239,243,.44) 42%,rgba(211,214,221,.56) 100%),rgba(232,234,239,.42);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid rgba(255,255,255,.84);box-shadow:inset 0 2px 2px rgba(255,255,255,.92),inset 0 -2px 3px rgba(58,61,70,.14),0 0 0 1px rgba(70,74,83,.16),0 14px 28px rgba(23,23,23,.09)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e">Nova regra</div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#47566e">Nome</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#6b7280">Ex.: Monitor 27" 165Hz</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#47566e">Termos incluídos</label>
+                  <div style="min-height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:7px 10px">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600">monitor 27</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:#eef2f7;color:#47566e;font-size:12px;font-weight:600">165hz</span>
+                    <span style="font-size:13px;color:#6b7280">adicionar…</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="font-size:13px;font-weight:600;color:#47566e">Termos bloqueados</label>
+                  <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#6b7280">usado, caixa aberta…</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <label style="font-size:13px;font-weight:600;color:#47566e">Preço máximo</label>
+                    <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;padding:0 12px;font-size:14px;color:#6b7280">R$ —</div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <label style="font-size:13px;font-weight:600;color:#47566e">Destinatário</label>
+                    <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#171717">Gabriel<span style="width:9px;height:9px;border-right:2px solid #525866;border-bottom:2px solid #525866;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px">
+                  <div style="flex:1;height:40px;border-radius:10px;background:#171717;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;box-shadow:0 3px 8px rgba(23,23,23,.13)">Criar regra</div>
+                  <div style="height:40px;padding:0 16px;border-radius:10px;background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.88);color:#171717;display:flex;align-items:center;font-size:13px;font-weight:600">Testar</div>
+                </div>
+              </div>
+              <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#47566e;margin-bottom:12px">Como uma regra casa</div>
+                <p style="margin:0 0 12px;font-size:13px;line-height:1.55;color:#525866;text-wrap:pretty">Todos os termos incluídos precisam aparecer na mensagem; qualquer termo bloqueado descarta. Preço acima do teto é ignorado.</p>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#525866">Mensagens lidas hoje</span><span style="font-weight:600;font-variant-numeric:tabular-nums">132</span></div>
+                  <div style="height:1px;background:#e9ecf0"></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#525866">Casaram</span><span style="font-weight:600;font-variant-numeric:tabular-nums">4</span></div>
+                  <div style="height:1px;background:#e9ecf0"></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#525866">Descartadas por teto</span><span style="font-weight:600;font-variant-numeric:tabular-nums">9</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:#47566e">05</span><span style="font-size:15px;font-weight:700">Saúde — painel de estados, atividade e teste lado a lado</span></div>
+      <div data-screen-label="05 Saúde" style="position:relative;width:1440px;border-radius:24px;overflow:hidden;border:1px solid #dcdfe6;background:radial-gradient(900px 420px at 12% 0%,rgba(120,150,220,.16),transparent 60%),radial-gradient(780px 420px at 88% 4%,rgba(186,150,220,.15),transparent 62%),radial-gradient(700px 500px at 60% 100%,rgba(230,160,190,.12),transparent 60%),#f5f5f7">
+        <dc-import name="NavCapsule" active="Saúde" hint-size="100%,96px"></dc-import>
+        <div style="padding:36px 40px 148px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0 0 6px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.14;color:#0a0a0a">Saúde</h1>
+              <p style="margin:0;font-size:14px;color:#525866">Estado dos serviços e teste de entrega. Atualizado há 3s.</p>
+            </div>
+            <span style="display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:10px;background:#fff;border:1px solid #d9dfe9;font-size:13px;font-weight:600">Reverificar</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+              <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:10px">Telegram</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#47566e"></span><span style="font-size:16px;font-weight:700;color:#171717">Não configurado</span></div>
+              <div style="font-size:12px;color:#606875">Falta <span style="font-family:ui-monospace,Menlo,monospace">API_ID</span> / <span style="font-family:ui-monospace,Menlo,monospace">API_HASH</span></div>
+            </div>
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+              <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:10px">Bot</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#47566e"></span><span style="font-size:16px;font-weight:700;color:#171717">Não configurado</span></div>
+              <div style="font-size:12px;color:#606875">Sem <span style="font-family:ui-monospace,Menlo,monospace">BOT_TOKEN</span>, nada é enviado</div>
+            </div>
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+              <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:10px">Feed em tempo real (SSE)</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#8b5a08"></span><span style="font-size:16px;font-weight:700;color:#171717">Conectando…</span></div>
+              <div style="font-size:12px;color:#606875">Tentativa 2 de 5</div>
+            </div>
+            <div style="border-radius:16px;padding:18px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035)">
+              <div style="font-size:13px;font-weight:600;color:#525866;margin-bottom:10px">Ambiente</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:9px;height:9px;border-radius:50%;background:#176945"></span><span style="font-size:16px;font-weight:700;color:#171717">development</span></div>
+              <div style="font-size:12px;color:#606875">v0.1.0 · tempo ativo 3s</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start">
+            <div style="border-radius:16px;padding:22px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035);display:flex;flex-direction:column;gap:18px">
+              <div>
+                <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Atividade do coletor</h2>
+                <p style="margin:0;font-size:13px;color:#525866">Mensagens lidas por hora, últimas 12 horas.</p>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:8px;height:130px">
+                <div style="flex:1;height:26%;border-radius:5px;background:#dfe5ee"></div>
+                <div style="flex:1;height:40%;border-radius:5px;background:#dfe5ee"></div>
+                <div style="flex:1;height:34%;border-radius:5px;background:#dfe5ee"></div>
+                <div style="flex:1;height:58%;border-radius:5px;background:#c9d4e6"></div>
+                <div style="flex:1;height:48%;border-radius:5px;background:#c9d4e6"></div>
+                <div style="flex:1;height:72%;border-radius:5px;background:#c9d4e6"></div>
+                <div style="flex:1;height:40%;border-radius:5px;background:#dfe5ee"></div>
+                <div style="flex:1;height:62%;border-radius:5px;background:#c9d4e6"></div>
+                <div style="flex:1;height:86%;border-radius:5px;background:#8f9fba"></div>
+                <div style="flex:1;height:68%;border-radius:5px;background:#c9d4e6"></div>
+                <div style="flex:1;height:100%;border-radius:5px;background:#171717"></div>
+                <div style="flex:1;height:50%;border-radius:5px;background:#dfe5ee"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px">
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #e9ecf0;font-size:13px"><span style="color:#525866">Mensagens lidas</span><span style="font-weight:600;color:#171717;font-variant-numeric:tabular-nums">132</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #e9ecf0;font-size:13px"><span style="color:#525866">Matches gerados</span><span style="font-weight:600;color:#171717;font-variant-numeric:tabular-nums">4</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #e9ecf0;font-size:13px"><span style="color:#525866">Fontes ativas</span><span style="font-weight:600;color:#171717;font-variant-numeric:tabular-nums">1</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #e9ecf0;font-size:13px"><span style="color:#525866">Erros na última hora</span><span style="font-weight:600;color:#171717;font-variant-numeric:tabular-nums">0</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;font-size:13px"><span style="color:#525866">Última reconexão</span><span style="font-weight:600;color:#171717;font-variant-numeric:tabular-nums">17:55</span></div>
+                <div style="display:flex;justify-content:space-between;padding:11px 0;font-size:13px"><span style="color:#525866">Fila de envio</span><span style="font-weight:600;color:#171717;font-variant-numeric:tabular-nums">0</span></div>
+              </div>
+            </div>
+            <div style="border-radius:16px;padding:22px;background:linear-gradient(165deg,#ffffff 0%,#fcfdff 100%);border:1px solid #d9dfe9;box-shadow:0 5px 18px rgba(23,23,23,.035);display:flex;flex-direction:column;gap:16px">
+              <div>
+                <h2 style="margin:0 0 4px;font-size:18px;font-weight:700">Teste de notificação</h2>
+                <p style="margin:0;font-size:13px;line-height:1.5;color:#525866;text-wrap:pretty">Aciona o envio real. Sem <span style="font-family:ui-monospace,Menlo,monospace">BOT_TOKEN</span> retorna <span style="font-family:ui-monospace,Menlo,monospace">not_configured</span>, sem fingir entrega.</p>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#525866">Destinatário</label>
+                <div style="height:42px;border-radius:10px;border:1px solid #ccd2db;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;color:#6b7280">Selecione…<span style="width:9px;height:9px;border-right:2px solid #525866;border-bottom:2px solid #525866;transform:rotate(45deg) translateY(-2px);display:block"></span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label style="font-size:13px;font-weight:600;color:#525866">Mensagem</label>
+                <div style="min-height:88px;border-radius:10px;border:1px solid #ccd2db;background:#fff;padding:11px 12px;font-size:14px;color:#171717;line-height:1.5">Teste de notificação do teleyes.</div>
+              </div>
+              <div style="height:40px;border-radius:10px;background:#e9ecf0;color:#606875;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Enviar teste</div>
+              <div style="display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:12px;background:#eef2f7;border:1px solid #dde3ec">
+                <span style="width:8px;height:8px;border-radius:50%;background:#47566e;margin-top:5px;flex:none"></span>
+                <span style="font-size:12px;line-height:1.55;color:#47566e">Botão desabilitado enquanto nenhum destinatário está selecionado e o bot segue sem token.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ showToast }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;right:32px;bottom:28px;width:344px;border-radius:16px;padding:16px 18px;display:flex;gap:12px;align-items:flex-start;background:linear-gradient(165deg,rgba(255,255,255,.88) 0%,rgba(237,239,243,.62) 42%,rgba(211,214,221,.66) 100%),rgba(232,234,239,.62);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);border:1px solid rgba(255,255,255,.88);box-shadow:inset 0 2px 2px rgba(255,255,255,.92),inset 0 -2px 3px rgba(58,61,70,.16),0 18px 32px rgba(23,23,23,.16)">
+          <span style="width:9px;height:9px;border-radius:50%;background:#8b5a08;margin-top:6px;flex:none"></span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#171717;margin-bottom:3px">Envio não realizado</div>
+            <div style="font-size:12px;line-height:1.5;color:#47566e">Resposta <span style="font-family:ui-monospace,Menlo,monospace">not_configured</span> — overlay temporário, o único vidro sobre o conteúdo.</div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;railsVisible&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout largo&quot;},&quot;auroraLowest&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Material&quot;},&quot;showToast&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Material&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      railsVisible: this.props.railsVisible ?? true,
+      auroraLowest: this.props.auroraLowest ?? true,
+      showToast: this.props.showToast ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>

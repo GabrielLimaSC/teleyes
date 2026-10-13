@@ -1,51 +1,392 @@
 .historico-page {
-  max-width: 760px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 8px 16px 48px;
+  padding: 8px 24px 48px;
+}
+
+.historico-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .historico-page h1 {
-  font-size: 32px;
-  margin: 16px 0 20px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 16px 0 6px;
+  color: var(--plane-text-heading);
 }
 
-.historico-page__filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  margin-bottom: 24px;
-}
-
-.historico-page__filters label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: #4b4b52;
-}
-
-.historico-page__filters select,
-.historico-page__filters input {
+.historico-page__subtitle {
+  margin: 0 0 20px;
   font-size: 14px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #fff;
+  color: var(--plane-text-secondary);
 }
 
-.historico-page__filters button {
+.historico-page__header-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.historico-page__header-actions .plane-action {
+  height: 40px;
+  padding: 0 16px;
   font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: none;
-  background: #ececef;
-  color: #4b4b52;
-  cursor: pointer;
-  height: fit-content;
 }
 
 .historico-page__error {
-  color: #b3261e;
+  color: var(--plane-status-danger);
+}
+
+/* S11-04: trilha de filtros | (stats + tabela) — mesma largura de trilha do
+   concept aprovado (316px), empilha abaixo de 1000px. */
+.historico-page__grid {
+  display: grid;
+  grid-template-columns: 316px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .historico-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.historico-rail {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.historico-rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.historico-rail__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+}
+
+.historico-rail__clear {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-focus-color);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.historico-rail label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+.historico-rail select,
+.historico-rail input {
+  height: 42px;
+  font-size: 14px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+  font-weight: 400;
+}
+
+.historico-rail select:focus-visible,
+.historico-rail input:focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.historico-rail__price-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.historico-rail__price-error {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--plane-status-danger);
+}
+
+.historico-rail__divider {
+  height: 1px;
+  background: var(--glass-divider-bg);
+  box-shadow: var(--glass-divider-shadow);
+}
+
+.historico-page__results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.historico-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .historico-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.historico-stats__tile {
+  border-radius: var(--plane-pearl-radius);
+  background: var(--plane-pearl-bg);
+  border: var(--plane-pearl-border);
+  box-shadow: var(--plane-pearl-shadow);
+  padding: 16px;
+}
+
+.historico-stats__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+  margin-bottom: 6px;
+}
+
+.historico-stats__value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+/* S12-04: no `overflow: hidden` here: it clipped the tooltip of the first row
+   (the top lines of the full message were cut off by the table's edge). The
+   header row takes the table's top corners itself instead. */
+.historico-table {
+  overflow: visible;
+}
+
+.historico-table__row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) 110px 150px 170px 160px;
+  gap: 16px;
+  padding: 16px 20px;
+  align-items: center;
+  border-bottom: 1px solid var(--plane-divider-color);
+}
+
+.historico-table__row:last-child {
+  border-bottom: none;
+}
+
+.historico-table__row--head {
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  padding: 14px 20px;
+  background: var(--plane-surface-sunken);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.historico-table__cell--right {
+  text-align: right;
+}
+
+.historico-table__product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.historico-table__icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--plane-text-secondary);
+}
+
+/* S7-02 removed the single-line CSS ellipsis on purpose: it cut a title
+   mid-phrase with no way to read the rest. Two wrapped lines cover every
+   title the S9-06 cut produces; the clamp is only the same safety net
+   MatchCard's title has, and the Tooltip (any title the S9-06 cut shortened)
+   carries the full text. */
+.historico-table__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.historico-table__product > .tooltip {
+  min-width: 0;
+}
+
+/* S14-08 (07b): the title becomes a button only for a row with a
+   `product_key` — same look as the plain `<span>` above, just clickable. */
+.historico-table__title--button {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+}
+
+.historico-table__title--button:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.historico-table__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* S7-11: same "Visto em" note MatchCard shows for a grouped duplicate —
+   rare enough that letting the meta cell wrap for it is fine. */
+.historico-table__grouped-sources {
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.historico-table__time {
+  font-size: 13px;
+  color: var(--plane-text-helper);
+  font-variant-numeric: tabular-nums;
+}
+
+.historico-table__price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.historico-table__price-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.historico-table__price-note--lowest {
+  color: var(--text-violet-quiet);
+  font-weight: 600;
+  /* S12-05: same underlined treatment as the card's "Menor preço já visto". */
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.historico-table__delivery {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+/* S13-03: "Abrir promoção" on every row — the same secondary button the
+   page header uses (tokens, focus ring in both themes), 40px tall so it is a
+   comfortable touch target. Sized here because `.plane-action` leaves sizing
+   to the caller. */
+.historico-table__open {
+  height: 40px;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* S14-08 (07b): stacks "Abrir produto" above "Abrir promoção" in the same
+   right-aligned cell when the row has both. */
+.historico-table__promo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* No link: an honest text state (never a dead button). The dashed underline
+   marks it as explained by the tooltip; the word itself carries the state. */
+.historico-table__no-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-helper);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+  position: relative;
+}
+
+.historico-table__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .historico-table__row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+  }
+
+  .historico-table__row--head {
+    display: none;
+  }
+
+  .historico-table__cell--right {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .historico-rail__price-grid {
+    grid-template-columns: 1fr;
+  }
 }

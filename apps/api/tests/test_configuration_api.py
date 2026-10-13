@@ -53,9 +53,11 @@ def login(client: TestClient) -> str:
 ANONYMOUS_ROUTES = [
     ("GET", "/rules", None),
     ("POST", "/rules", {"name": "Promo", "include_terms": "promo"}),
+    ("POST", "/rules/test", {"include_terms": "promo"}),
     ("PATCH", "/rules/1", {"name": "Atualizada"}),
     ("POST", "/rules/1/pause", None),
     ("DELETE", "/rules/1", None),
+    ("DELETE", "/rules/1/matches", None),
     ("GET", "/sources", None),
     ("POST", "/sources", {"name": "Grupo", "telegram_chat_id": "-1001"}),
     ("PATCH", "/sources/1", {"name": "Atualizado"}),
@@ -66,6 +68,14 @@ ANONYMOUS_ROUTES = [
     ("PATCH", "/recipients/1", {"name": "Atualizado"}),
     ("POST", "/recipients/1/pause", None),
     ("DELETE", "/recipients/1", None),
+    ("GET", "/listener/status", None),
+    ("POST", "/listener/reload", None),
+    ("GET", "/digest", None),
+    (
+        "PUT",
+        "/digest",
+        {"enabled": True, "send_at_local": "09:00", "top_n": 5, "mute_individual": True},
+    ),
 ]
 
 
@@ -109,24 +119,27 @@ def test_rule_crud_over_http(client: TestClient) -> None:
             "include_terms": "notebook,laptop",
             "exclude_terms": "usado",
             "max_price_cents": 350_000,
+            "target_price_cents": 300_000,
         },
         headers=headers,
     )
     assert created.status_code == 201
     rule_id = created.json()["id"]
     assert created.json()["active"] is True
+    assert created.json()["target_price_cents"] == 300_000
 
     listed = client.get("/rules")
     assert [rule["id"] for rule in listed.json()] == [rule_id]
 
     updated = client.patch(
         f"/rules/{rule_id}",
-        json={"name": "Notebook gamer", "max_price_cents": 400_000},
+        json={"name": "Notebook gamer", "max_price_cents": 400_000, "target_price_cents": 320_000},
         headers=headers,
     )
     assert updated.status_code == 200
     assert updated.json()["name"] == "Notebook gamer"
     assert updated.json()["max_price_cents"] == 400_000
+    assert updated.json()["target_price_cents"] == 320_000
 
     paused = client.post(f"/rules/{rule_id}/pause", headers=headers)
     assert paused.status_code == 200
@@ -152,6 +165,35 @@ def test_rule_validation_error_becomes_422(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert client.get("/rules?include_inactive=true").json() == []
+
+
+def test_rule_target_price_must_be_positive(client: TestClient) -> None:
+    csrf = login(client)
+    headers = {"x-csrf-token": csrf}
+
+    created = client.post(
+        "/rules",
+        json={"name": "Alvo inválido", "include_terms": "promo", "target_price_cents": 0},
+        headers=headers,
+    )
+    assert created.status_code == 422
+    assert client.get("/rules?include_inactive=true").json() == []
+
+    valid = client.post(
+        "/rules",
+        json={"name": "Alvo válido", "include_terms": "promo", "target_price_cents": 100},
+        headers=headers,
+    )
+    assert valid.status_code == 201
+    rule_id = valid.json()["id"]
+
+    invalid_update = client.patch(
+        f"/rules/{rule_id}",
+        json={"target_price_cents": -50},
+        headers=headers,
+    )
+    assert invalid_update.status_code == 422
+    assert client.get("/rules?include_inactive=true").json()[0]["target_price_cents"] == 100
 
 
 def test_source_crud_over_http(client: TestClient) -> None:

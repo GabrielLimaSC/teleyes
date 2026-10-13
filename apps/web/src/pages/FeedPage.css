@@ -1,28 +1,1170 @@
 .feed-page {
-  max-width: 760px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 8px 16px 48px;
+  padding: 8px 24px 48px;
+}
+
+.feed-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .feed-page h1 {
-  font-size: 32px;
-  margin: 16px 0 4px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 16px 0 6px;
+  color: var(--plane-text-heading);
 }
 
 .feed-page__subtitle {
   margin: 0 0 20px;
-  color: #4b4b52;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+/* S16-01: one glass capsule, three segments divided by hairlines — SSE /
+   Agrupar / Atualizar used to be three separate dark buttons with gaps
+   between them. 48px tall always (the measure the design calls fixed for
+   the collapsed bar); only its position changes between resting (here,
+   end of the title row) and docked (FeedPage.css's `@media (min-width:
+   1101px)` block below, FLIP-animated by chrome/scrollChrome.ts). */
+.feed-page__header-actions {
+  display: flex;
+  align-items: stretch;
+  height: 48px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.feed-page__toolbar-segment {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--glass-divider-bg);
+  background: transparent;
+  color: var(--plane-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.feed-page__toolbar-segment:first-child {
+  border-left: 0;
+}
+
+.feed-page__toolbar-status {
+  font-size: 12px;
+}
+
+.feed-page__toolbar-switch,
+.feed-page__toolbar-refresh {
+  cursor: pointer;
+}
+
+.feed-page__toolbar-switch:hover,
+.feed-page__toolbar-refresh:hover {
+  background: var(--glass-tile-bg);
+}
+
+.feed-page__toolbar-switch:focus-visible,
+.feed-page__toolbar-refresh:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.feed-page__connection-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* Below the width the three segments stop fitting on one line (390px,
+   S16-01's own check), the capsule stacks instead of overflowing — still
+   one piece, just tall instead of wide. Only reachable here: the compact,
+   fixed-width band (`@media (min-width: 1101px)` below) never gets this
+   narrow. */
+@media (max-width: 560px) {
+  .feed-page__header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+  }
+
+  .feed-page__toolbar-segment {
+    justify-content: space-between;
+    height: 44px;
+    border-left: 0;
+    border-top: 1px solid var(--glass-divider-bg);
+  }
+
+  .feed-page__toolbar-segment:first-child {
+    border-top: 0;
+  }
+}
+
+/* S16-01: "Feed ao vivo · N matches" — appears only once the bar is
+   compact (below, gated to wide screens); hidden and non-interactive at
+   rest, where the real title already says it in full. */
+.feed-page__context-capsule {
+  display: none;
 }
 
 .feed-page__error {
-  color: #b3261e;
+  color: var(--plane-status-danger);
 }
 
-.feed-page__connection-warning {
-  color: #8a6d00;
-  font-size: 14px;
+/* S11-03: trilha de regras/fontes | grid de matches | resumo — mesmas
+   larguras de trilha do concept aprovado (272px/312px), empilha abaixo de
+   1100px pra caber em telas estreitas sem overflow horizontal. */
+.feed-page__grid {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr) 312px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* S14-07: the same collapse, keyed off the actual available width
+   (`.product-panel-layout__content`, a query container) instead of the
+   viewport — narrows well below 1100px once the product panel takes its own
+   520px, which a viewport-only `@media` breakpoint can't see. Both stay
+   declared: the `@media` version below still covers panel-closed pages and
+   any browser without container query support. */
+@container (max-width: 1100px) {
+  .feed-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feed-page__list {
+    order: 1;
+  }
+
+  .feed-rail {
+    order: 2;
+  }
+
+  .feed-page__side-rail {
+    order: 3;
+  }
+}
+
+@media (max-width: 1100px) {
+  .feed-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feed-page__list {
+    order: 1;
+  }
+
+  .feed-rail {
+    order: 2;
+  }
+
+  .feed-page__side-rail {
+    order: 3;
+  }
 }
 
 .feed-page__list {
-  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-content: start;
+}
+
+/* Gives MatchCard.css's `@container` fallback something to measure — the
+   card's own cell width, not the viewport (see the comment there for why
+   that distinction matters at this grid's typical column widths). */
+.feed-page__card {
+  container-type: inline-size;
+}
+
+/* S15-03: while the compact chrome springs the feed column's width
+   (`data-chrome-animating`, one spring long), cards off screen skip layout
+   and paint — re-laying out every card of a long feed on every frame showed
+   up as dropped frames. At rest cards are plain again (exact geometry for
+   anything that measures them). `auto 300px` keeps each card's real height.
+   Content-visibility clips paint at the padding box: the 32px padding
+   (cancelled by the negative margin, so grid and container width don't
+   change) is room for the card's shadow — no `overflow-clip-margin`, which
+   Safari lacks. The padding overlaps the neighbours, hence clicks only on
+   the card itself. */
+@media (min-width: 1101px) {
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-page__card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 300px;
+    margin: -32px;
+    padding: 32px;
+    pointer-events: none;
+  }
+
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-page__card > * {
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .feed-page__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.feed-rail,
+.feed-summary {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.feed-rail__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+  margin-bottom: 12px;
+}
+
+.feed-rail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feed-rail__rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--glass-chip-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  color: var(--plane-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.feed-rail__rule span:last-child {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-eyebrow);
+}
+
+.feed-rail__rule--active {
+  background: var(--plane-action-primary-bg);
+  color: var(--plane-action-primary-color);
+  border-color: transparent;
+}
+
+.feed-rail__rule--active span:last-child {
+  color: inherit;
+  opacity: 0.86;
+}
+
+.feed-rail__rule:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.feed-rail__divider {
+  height: 1px;
+  background: var(--glass-divider-bg);
+  box-shadow: var(--glass-divider-shadow);
+}
+
+.feed-rail__sources {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feed-rail__source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--plane-text-primary);
+  font-weight: 600;
+}
+
+.feed-rail__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.feed-rail__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.feed-rail__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+/* ---- "Silenciados" compact header (S16-02) ---- */
+.feed-rail__row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feed-rail__eyebrow--row {
+  margin-bottom: 0;
+}
+
+.feed-rail__row-head-value {
+  font-size: 13px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+/* ---- "Filtrar por regra" — "Ver todas · N" (S16-02) ---- */
+.feed-rail__more {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.feed-rail__more:hover {
+  text-decoration: underline;
+}
+
+.feed-rail__more:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: 4px;
+}
+
+.feed-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.feed-summary__tile {
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+}
+
+.feed-summary__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+  margin-bottom: 4px;
+}
+
+.feed-summary__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-summary__value--price {
+  font-size: 16px;
+}
+
+.feed-summary__caption {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+/* S14-07 (06): the grid's third track — "Resumo" (existing, S11-03) stacked
+   with the new "Digest diário" and "Resumo de hoje" boxes below it. */
+.feed-page__side-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- "Alvos de preço" (06) ---- */
+.feed-target {
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feed-target__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.feed-target__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.feed-target__status {
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+.feed-target__status--hit {
+  font-weight: 600;
+  color: var(--plane-status-good);
+}
+
+.feed-target__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--plane-tint-bg);
+  overflow: hidden;
+}
+
+.feed-target__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--plane-status-neutral);
+}
+
+.feed-target__bar-fill--hit {
+  background: var(--pill-good-dot);
+}
+
+.feed-target__foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+.feed-target__foot span:last-child {
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-primary);
+  font-weight: 600;
+}
+
+/* ---- "Silenciados" (06) ---- */
+.feed-snooze {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feed-snooze__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.feed-snooze__meta {
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+  margin-top: 2px;
+}
+
+.feed-snooze__reactivate {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  flex: none;
+}
+
+/* ---- "Digest diário" (06) ---- */
+.feed-digest {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.feed-digest__description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.feed-digest__row {
+  display: flex;
+  gap: 10px;
+}
+
+.feed-digest__field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.feed-digest__field input,
+.feed-digest__field select {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* S16-02: the two toggles grouped into one bordered block (design) instead
+   of two separate tiles — a single glass surface, a divider between rows. */
+.feed-digest__toggles {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: var(--glass-tile-bg);
+  border: 1px solid var(--glass-inner-border-color);
+  overflow: hidden;
+}
+
+.feed-digest__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  background: none;
+  border: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.feed-digest__toggle + .feed-digest__toggle {
+  border-top: 1px solid var(--glass-divider-bg);
+}
+
+.feed-digest__toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.feed-toggle-switch {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--plane-disabled-bg);
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  box-sizing: border-box;
+  flex: none;
+  transition: background-color 150ms ease;
+}
+
+.feed-toggle-switch--on {
+  background: var(--pill-good-dot);
+  justify-content: flex-end;
+}
+
+.feed-toggle-switch__knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--toggle-knob-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.feed-digest__next {
+  font-size: 12px;
+  color: var(--plane-text-helper-on-glass);
+}
+
+/* ==== S15-03: compact chrome while the Feed is scrolled ====================
+   `html[data-chrome]` (chrome/scrollChrome.ts): `rest` at the top, `compact`
+   once scrolled past the header; only on wide screens. Everything below is
+   the same element moving between two states on one spring
+   (`--chrome-spring`, styles/chrome.css) — reversible by construction, since
+   each property simply transitions back. */
+
+/* Outside the managed layout (narrow screens, stacked grid, chrome off) the
+   strip simply doesn't exist, and each box shows only its full face. */
+.feed-morph__strip {
+  display: none;
+}
+
+.feed-morph__full {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.feed-side__more-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Every rule of the compact chrome is also gated on the width itself, not
+   only on the attributes: on a resize the attributes follow a frame later
+   (media listener, ResizeObserver), and for that frame the wide rules must
+   already be gone. */
+@media (min-width: 1101px) {
+  /* The title fades in place: the header keeps its height (the docked controls
+     leave the flow, the title block alone sets it), so nothing below it moves. */
+  .feed-page__title {
+    transform-origin: left bottom;
+    transition:
+      opacity 240ms ease-out,
+      translate var(--chrome-spring-duration) var(--chrome-spring),
+      scale var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .feed-page__title {
+    opacity: 0;
+    translate: 0 -10px;
+    scale: 0.97;
+    pointer-events: none;
+  }
+
+  /* S16-01: docks into the top band with its right edge on the cards
+     column's own right edge (`--feed-toolbar-right`, measured in
+     FeedPage.tsx off the grid's real columns — never a guessed px). Still
+     the one 48px-tall capsule, centred on the band's line the mascot and
+     theme button share. The travel between the two places is a FLIP
+     (scrollChrome.ts `registerChromeFlip`). */
+  :root[data-chrome='compact'] .feed-page__header-actions {
+    position: fixed;
+    z-index: 50;
+    top: calc(var(--chrome-band-center) - 24px);
+    right: var(--feed-toolbar-right, 80px);
+    margin: 0;
+  }
+
+  /* S16-01: "sem faixa preta" — this repaints the page's own background
+     (same `--color-paper` + `--body-wash` as index.css's `body`/
+     `body::before`, fixed the same way so the gradient's own % positions
+     line up pixel-for-pixel) behind a 56→112px mask, nothing else. A card
+     scrolling under the band dissolves into the real page instead of
+     disappearing under a visible dark/blurred strip. No blur here — the
+     band itself carries no material; only the capsules floating in it do. */
+  .feed-chrome-scrim {
+    position: fixed;
+    z-index: 45;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background-color: var(--color-paper);
+    background-image: var(--body-wash);
+    -webkit-mask-image: linear-gradient(to bottom, var(--color-text) 56px, transparent 112px);
+    mask-image: linear-gradient(to bottom, var(--color-text) 56px, transparent 112px);
+    transition: opacity 260ms ease-out;
+  }
+
+  :root[data-chrome='compact'] .feed-chrome-scrim {
+    opacity: 1;
+  }
+
+  /* S16-01: "Feed ao vivo · N matches" next to the mascot disc, fading in
+     on the same spring once compact. Centred on the band's shared line;
+     its left edge starts right past the 56px mascot disc
+     (`--feed-rail-left-center` is the disc's own centre). */
+  :root[data-chrome] .feed-page__context-capsule {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    z-index: 48;
+    top: calc(var(--chrome-band-center) - 20px);
+    left: calc(var(--feed-rail-left-center, 52px) + 28px + 12px);
+    height: 40px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--plane-text-primary);
+    white-space: nowrap;
+    opacity: 0;
+    scale: 0.94;
+    pointer-events: none;
+    transition:
+      opacity 200ms ease-out,
+      scale var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  :root[data-chrome='compact'] .feed-page__context-capsule {
+    opacity: 1;
+    scale: 1;
+  }
+
+  /* Never over the navbar once it grows open (hover, keyboard focus inside
+     it, or the mascot click) — `.nav-shell` and `.feed-page` are siblings
+     under the app shell, so `:has()` reaches across from one to the other
+     the same way NavCapsule.css's own hover rule is written. */
+  :root[data-chrome='compact'] .nav-shell:has(.nav-capsule:is(:hover, :has(:focus-visible), .nav-capsule--chrome-open))
+    ~ .feed-page
+    .feed-page__context-capsule {
+    opacity: 0;
+    scale: 0.94;
+    transition: opacity 120ms ease-out;
+  }
+
+  /* The product panel is sticky too: below the band, not under it. */
+  :root[data-chrome] .product-panel {
+    top: calc(var(--chrome-band-height) + 4px);
+    max-height: calc(100vh - var(--chrome-band-height) - 24px);
+  }
+
+  /* ---- Rails: one box that folds (S15-03 → S15-07) ----
+     `data-rails` is only set while the grid really has its 3 columns. The
+     columns spring between their full widths and a 64px strip, and the feed
+     column takes (or gives back) the difference — a rail opened while compact
+     pushes the cards aside, it never opens on top of them. */
+  .feed-page__grid[data-rails] {
+    --rail-left-width: 272px;
+    --rail-right-width: 312px;
+    grid-template-columns: var(--rail-left-width) minmax(0, 1fr) var(--rail-right-width);
+    transition: grid-template-columns var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] {
+    --rail-left-width: 64px;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] {
+    --rail-right-width: 64px;
+  }
+
+  /* S15-07: each rail is ONE glass box (`.feed-morph`: the left rail itself,
+     and "Resumo" on the right) with two faces laid on the same corner. Only
+     the box's geometry moves — width here (CSS), height by FLIP in
+     FeedPage.tsx (`springHeight`), same spring — and the inactive face is
+     taken out of the flow, so it never stretches the box. Faces never slide
+     or scale: the open content keeps its width and is clipped by the moving
+     edge while it fades; the strip's icons arrive at the end. (Before: two
+     stacked grid rows trading 0fr/1fr, which pushed the content down and
+     filled the column with an empty box mid-way — "dois campos trocando".) */
+  .feed-page__grid[data-rails] .feed-morph {
+    position: relative;
+    display: block;
+    box-sizing: border-box;
+    padding: 0;
+    gap: 0;
+    transition: width var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  .feed-page__grid[data-rails] .feed-rail {
+    justify-self: start;
+    width: 272px;
+  }
+
+  /* Anchored to its outer (right) edge: the content stays put and the box's
+     inner edge is what moves (flex-end lets the fixed-width face overflow
+     to the left, where it is clipped). */
+  .feed-page__grid[data-rails] .feed-summary.feed-morph {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .feed-page__grid[data-rails] .feed-page__side-rail {
+    justify-self: end;
+    box-sizing: border-box;
+    width: 312px;
+    gap: 0;
+    transition: width var(--chrome-spring-duration) var(--chrome-spring);
+  }
+
+  .feed-page__grid[data-rails] .feed-morph__full {
+    flex: none;
+    box-sizing: border-box;
+    padding: 20px;
+    /* S15-05: at rest, the width the box (minus a scrollbar gutter) really
+       has; fixed only while springing, below. */
+    width: 100%;
+    opacity: 1;
+    /* Fades in as soon as the edge starts moving out (it is clipped by
+       that edge, so it is revealed, never floating): the two faces overlap
+       in time — the box is never an empty frame mid-way. */
+    transition: opacity 240ms ease-out 60ms;
+  }
+
+  .feed-page__grid[data-rails] .feed-morph__strip {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 64px;
+    box-sizing: border-box;
+    padding: 8px 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 110ms ease-in;
+  }
+
+  .feed-page__grid[data-rails] .feed-summary > .feed-morph__strip {
+    left: auto;
+    right: 0;
+  }
+
+  /* While springing (and while folded) the box clips what doesn't fit, and
+     the open content keeps its full width so its text never re-wraps. */
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-morph {
+    overflow: hidden;
+  }
+
+  /* The box's width minus its 1px glass border on each side: exactly the
+     width the face has at rest, so nothing re-wraps when the spring ends. */
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-rail > .feed-morph__full {
+    width: calc(272px - 2px);
+  }
+
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-summary > .feed-morph__full {
+    width: calc(312px - 2px);
+  }
+
+  /* ---- Folded ---- */
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail {
+    width: 64px;
+    overflow: hidden;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail {
+    width: 64px;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary.feed-morph {
+    overflow: hidden;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-morph__strip,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary > .feed-morph__strip {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 140ms ease-out 110ms;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-morph__full,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary > .feed-morph__full {
+    position: absolute;
+    top: 0;
+    opacity: 0;
+    pointer-events: none;
+    /* Out early, while the edge is still far: no half-clipped text lingers. */
+    transition: opacity 140ms ease-in;
+  }
+
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail > .feed-morph__full {
+    left: 0;
+    width: calc(272px - 2px);
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-summary > .feed-morph__full {
+    right: 0;
+    width: calc(312px - 2px);
+  }
+
+  /* Digest and "Resumo de hoje" fold up into "Resumo" before it folds
+     (and unfold from it): a 1fr → 0fr row, so their height springs too. */
+  .feed-page__grid[data-rails] .feed-side__more {
+    display: grid;
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transition:
+      grid-template-rows var(--chrome-spring-duration) var(--chrome-spring),
+      opacity 240ms ease-out 140ms;
+  }
+
+  .feed-page__grid[data-rails] .feed-side__more-inner {
+    min-height: 0;
+    overflow: hidden;
+    /* Pinned to the rail's outer (right) edge like "Resumo": a panel wider
+       than the column mid-spring overflows to the left, where it is clipped,
+       instead of sliding in from the right (margin-left:auto can't do that). */
+    align-items: flex-end;
+    /* The gap above them and room for their shadows, inside the clip box
+       (negative margin = padding, so the layout doesn't change). */
+    margin: 0 -24px -24px;
+    padding: 16px 24px 24px;
+  }
+
+  /* border-box (S15-08): the panels carry their own padding and border —
+     as content-box, 312px made them 354px wide (and shorter) only while the
+     flag was on, so Digest/"Resumo de hoje" re-wrapped and jumped back the
+     moment each spring ended (also on simply scrolling into compact). */
+  /* With flex-end they no longer stretch: full width at rest, the same
+     312px (border-box) while springing — identical, so nothing re-wraps. */
+  .feed-page__grid[data-rails] .feed-side__more-inner > * {
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  :root[data-chrome-animating] .feed-page__grid[data-rails] .feed-side__more-inner > * {
+    width: 312px;
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-side__more {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--chrome-spring-duration) var(--chrome-spring),
+      opacity 140ms ease-in;
+  }
+
+  /* Folded because it was scrolled away: swap faces at once (see
+     `railsSnap` in FeedPage.tsx); the box eases in where it lands and the
+     strip's icons still stagger in. */
+  .feed-page__grid[data-left-snap] .feed-rail,
+  .feed-page__grid[data-left-snap] .feed-rail > .feed-morph__full,
+  .feed-page__grid[data-left-snap] .feed-rail > .feed-morph__strip,
+  .feed-page__grid[data-right-snap] .feed-page__side-rail,
+  .feed-page__grid[data-right-snap] .feed-summary.feed-morph,
+  .feed-page__grid[data-right-snap] .feed-summary > .feed-morph__full,
+  .feed-page__grid[data-right-snap] .feed-summary > .feed-morph__strip,
+  .feed-page__grid[data-right-snap] .feed-side__more {
+    transition: none;
+  }
+
+  .feed-page__grid[data-left-snap][data-left-rail='collapsed'] .feed-rail,
+  .feed-page__grid[data-right-snap][data-right-rail='collapsed'] .feed-summary.feed-morph {
+    animation: feed-rail-fold-in 380ms var(--chrome-spring) both;
+  }
+
+  /* Follow the scroll once folded (or opened again from the strip): sticky
+     right below the band, and never taller than what's left of the viewport
+     (the rail scrolls inside). An `open` rail stays in the flow. */
+  .feed-page__grid[data-left-rail='collapsed'] .feed-rail,
+  .feed-page__grid[data-left-rail='pinned'] .feed-rail,
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail,
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    position: sticky;
+    top: calc(var(--chrome-band-height) + 4px);
+    max-height: calc(100vh - var(--chrome-band-height) - 20px);
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .feed-page__grid[data-left-rail='pinned'] .feed-rail,
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    overflow-y: auto;
+    /* S15-05: reserve the classic scrollbar's width whether or not one is
+       drawn right now, so the content sized at 100% never depends on the
+       instant a scrollbar appears. */
+    scrollbar-gutter: stable;
+  }
+
+  /* The right rail has no glass of its own: room for its boxes' shadows (and
+     the same visual top as the left rail, hence the -12px on `top`). */
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail,
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    top: calc(var(--chrome-band-height) + 4px - 12px);
+    max-height: calc(100vh - var(--chrome-band-height) - 20px + 24px);
+    margin: -12px;
+    padding: 12px;
+  }
+
+  /* Its 12px of shadow room on each side is part of its border box. */
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    width: calc(312px + 24px);
+  }
+
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail {
+    width: calc(64px + 24px);
+  }
+
+  .feed-rail__collapse {
+    position: absolute;
+    z-index: 1;
+    /* On the eyebrow's line, inside the face's own padding (never clipped). */
+    top: 14px;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--plane-divider-color);
+    border-radius: 50%;
+    background: var(--glass-tile-bg);
+    color: var(--plane-text-secondary);
+    cursor: pointer;
+  }
+
+  .feed-rail__collapse:hover {
+    color: var(--plane-text-primary);
+  }
+
+  .feed-rail__collapse:focus-visible,
+  .rail-strip__button:focus-visible {
+    outline: none;
+    box-shadow: var(--plane-focus-ring);
+  }
+
+  /* ---- The strip itself (components/RailStrip.tsx) ---- */
+  .rail-strip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  .rail-strip__button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    /* S16-02: raio 20 nos botões recolhidos (design's own measurement). */
+    border-radius: 20px;
+    background: transparent;
+    color: var(--plane-text-secondary);
+    cursor: pointer;
+    transition:
+      background-color 160ms ease-out,
+      color 160ms ease-out,
+      /* S15-07: they arrive as the box lands on its strip width. */
+      opacity 200ms ease-out calc(130ms + var(--rail-stagger, 0) * 35ms),
+      translate var(--chrome-spring-duration) var(--chrome-spring) calc(110ms + var(--rail-stagger, 0) * 35ms);
+  }
+
+  .rail-strip__button:hover {
+    background: var(--glass-tile-bg);
+    color: var(--plane-text-primary);
+  }
+
+  .rail-strip__button--toggle {
+    color: var(--plane-text-primary);
+    border: 1px solid var(--plane-divider-color);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 4px;
+  }
+
+  /* Icons arrive one after the other once the strip is showing (Scene.mp4). */
+  .feed-page__grid:not([data-left-rail='collapsed']) .feed-rail .rail-strip__button,
+  .feed-page__grid:not([data-right-rail='collapsed']) .feed-page__side-rail .rail-strip__button {
+    opacity: 0;
+    translate: 0 -6px;
+    transition-delay: 0s;
+  }
+
+  .rail-strip__icon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .rail-strip__flag {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--plane-status-good-dot);
+  }
+
+  /* S16-02: numeric badge — only ever rendered when the count is > 0
+     (RailStrip.tsx), e.g. "2 alvos ativos", "244 matches". */
+  .rail-strip__badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--plane-action-primary-bg);
+    color: var(--plane-action-primary-color);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* S16-02: the collapsed rail's tooltip — `position: fixed` at a JS-measured
+   coordinate, portalled to `document.body` (RailStrip.tsx), so the rail's
+   own `overflow: hidden` while collapsed/springing (above) never clips it.
+   Outside the `@media` block above on purpose: it is still only ever
+   mounted while the strip itself is (gated the same way), but the portal
+   renders outside `.feed-page__grid`'s DOM subtree entirely. */
+.rail-strip__tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: 240px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--plane-text-primary);
+  pointer-events: none;
+}
+
+@keyframes feed-rail-fold-in {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-page__grid[data-left-snap][data-left-rail='collapsed'] .feed-rail {
+    animation: none;
+  }
+
+  .feed-page__title,
+  .feed-chrome-scrim,
+  .feed-page__context-capsule,
+  .feed-page__grid[data-rails],
+  .feed-page__grid[data-rails] .feed-rail,
+  .feed-page__grid[data-rails] .feed-page__side-rail,
+  .feed-page__grid[data-rails] .feed-morph,
+  .feed-page__grid[data-rails] .feed-morph__strip,
+  .feed-page__grid[data-rails] .feed-morph__full,
+  .feed-page__grid[data-rails] .feed-side__more,
+  .rail-strip__button {
+    transition: none;
+  }
 }

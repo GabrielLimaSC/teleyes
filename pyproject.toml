@@ -15,6 +15,12 @@ dependencies = [
     "alembic>=1.13",
     "telethon>=1.36",
     "argon2-cffi>=23.1",
+    # Runtime dependency (packages/notifications/http_client.py's HttpBotClient,
+    # imported unconditionally by app/main.py), not just a test-client extra —
+    # was misfiled under [dev] and never noticed because dev installs always
+    # pull dev extras too. A production install without [dev] (docker/api.Dockerfile,
+    # S5-01) crashes on import without this here.
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
@@ -23,7 +29,6 @@ dev = [
     "mypy>=1.13",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
-    "httpx>=0.27",
 ]
 
 [tool.hatch.build.targets.wheel]

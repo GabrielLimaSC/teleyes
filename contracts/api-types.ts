@@ -72,6 +72,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Digest */
+        get: operations["get_digest_digest_get"];
+        /** Put Digest */
+        put: operations["put_digest_digest_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -106,6 +124,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/listener/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reload Listener
+         * @description Ask the listener to reload its configuration.
+         *
+         *     Only writes a request into the database; the listener process picks it up
+         *     by polling and applies it in process (no Docker socket, no restart). A
+         *     request made while another is `pending`/`applying` is ignored — the answer
+         *     is the same 202 with the current state, so a double click is harmless.
+         */
+        post: operations["reload_listener_listener_reload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/listener/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listener Status */
+        get: operations["get_listener_status_listener_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/matches": {
         parameters: {
             query?: never;
@@ -117,6 +177,50 @@ export interface paths {
         get: operations["list_matches_matches_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/matches/{match_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Match */
+        patch: operations["update_match_matches__match_id__patch"];
+        trace?: never;
+    };
+    "/matches/{match_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Match
+         * @description "Reverter ao detectado" (F7): restores `price_cents` from
+         *     `original_price_cents` (left untouched — it keeps meaning "the first
+         *     ever detected price" regardless of how many reverts follow) and clears
+         *     every other manual edit field. Never re-sends anything: a target alert
+         *     is only ever triggered by `PATCH /matches/{id}` actually lowering the
+         *     price (see `_send_manual_target_alert_if_hit`), and an already-sent
+         *     `manual_target` `Delivery` row is untouched here either way — it stays
+         *     the truthful record that Gabriel really was notified once.
+         */
+        post: operations["revert_match_matches__match_id__revert_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -151,6 +255,40 @@ export interface paths {
         put?: never;
         /** Test Notification */
         post: operations["test_notification_notifications_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Product */
+        get: operations["get_product_products__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{key}/rule-suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rule Suggestion */
+        get: operations["get_rule_suggestion_products__key__rule_suggestion_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -217,11 +355,61 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Rules */
+        /**
+         * List Rules
+         * @description S7-06: `lowest_price_cents` (the true historical minimum among the
+         *     rule's own priced matches, `None` with no priced match yet) is computed
+         *     fresh here in one extra query — never persisted on `Rule`, same reasoning
+         *     as `Match.is_lowest_price_ever` in `app.routers.matches`. S14-03:
+         *     `snoozed_until` is the same kind of read-time computation, from `snooze`.
+         */
         get: operations["list_rules_rules_get"];
         put?: never;
         /** Create Rule */
         post: operations["create_rule_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Rule
+         * @description S13-07: dry-run of a not-yet-saved rule form (create OR edit) against
+         *     real history — Gabriel types terms/exclusions/ceiling, clicks "Testar"
+         *     and sees which real recent messages would have matched, before ever
+         *     saving. Reuses `app.pipeline.evaluate_rule`, the exact match -> price ->
+         *     ceiling core the live and historical paths run, so a preview here behaves
+         *     identically to what saving the rule for real would have caught. Reads
+         *     only: never creates a `Match`/`Delivery`, never advances a
+         *     `ProcessingCursor`, never calls `BotNotifier` — calling this ten times in
+         *     a row has the same zero effect as calling it once.
+         *
+         *     Data source and its limitation: this project retains message content
+         *     only for messages that already matched SOME existing rule (`CLAUDE.md`/
+         *     `PRODUCT.md` — rejected traffic keeps aggregate counters, never text), so
+         *     there is no raw "every message seen" table to scan and this can't
+         *     re-query Telegram live either (that's the real listener's job, not a form
+         *     preview). The dry-run instead scans the pool of already-matched messages
+         *     from the last `HISTORICAL_WINDOW` days — the same window
+         *     `run_historical_scan` uses — deduplicated by real Telegram identity so a
+         *     message that matched several existing rules is only evaluated once here.
+         *     A message that never matched any existing rule was discarded upstream
+         *     and its text was never persisted anywhere, so a rule aimed at genuinely
+         *     new territory no existing rule already covers can legitimately preview
+         *     as empty even though matching messages really arrived — this is the best
+         *     real data available without inventing a live Telegram scrape here.
+         */
+        post: operations["test_rule_rules_test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -246,6 +434,30 @@ export interface paths {
         patch: operations["update_rule_rules__rule_id__patch"];
         trace?: never;
     };
+    "/rules/{rule_id}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear Rule Matches
+         * @description S10-04: apaga todo o histórico de matches (e deliveries) de uma
+         *     regra — pedido do Gabriel pra limpar regras antigas mal configuradas
+         *     sem mexer em código. A regra em si nunca é apagada nem pausada, só o
+         *     histórico. Auditoria mínima: registra no log quantos matches saíram e
+         *     de qual regra.
+         */
+        delete: operations["clear_rule_matches_rules__rule_id__matches_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rules/{rule_id}/pause": {
         parameters: {
             query?: never;
@@ -258,6 +470,59 @@ export interface paths {
         /** Pause Rule */
         post: operations["pause_rule_rules__rule_id__pause_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Feed Settings */
+        get: operations["get_feed_settings_settings_feed_get"];
+        /** Update Feed Settings */
+        put: operations["update_feed_settings_settings_feed_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/snoozes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Snoozes */
+        get: operations["list_snoozes_snoozes_get"];
+        put?: never;
+        /** Create Snooze */
+        post: operations["create_snooze_snoozes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/snoozes/{snooze_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Snooze */
+        delete: operations["delete_snooze_snoozes__snooze_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -335,6 +600,11 @@ export interface components {
              */
             state: "configured" | "not_configured";
         };
+        /** ClearMatchesResponse */
+        ClearMatchesResponse: {
+            /** Deleted */
+            deleted: number;
+        };
         /** DeliveryResponse */
         DeliveryResponse: {
             /**
@@ -350,6 +620,65 @@ export interface components {
             recipient_id: number;
             /** Status */
             status: string;
+        };
+        /** DigestQueueItemResponse */
+        DigestQueueItemResponse: {
+            /** Match Id */
+            match_id: number;
+            /**
+             * Matched At
+             * Format: date-time
+             */
+            matched_at: string;
+            /** Message Link */
+            message_link: string | null;
+            /** Price Cents */
+            price_cents: number | null;
+            /** Title */
+            title: string;
+        };
+        /** DigestSettingsResponse */
+        DigestSettingsResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Mute Individual */
+            mute_individual: boolean;
+            /** Next Run At Local */
+            next_run_at_local: string;
+            /**
+             * Next Run At Utc
+             * Format: date-time
+             */
+            next_run_at_utc: string;
+            /** Queue */
+            queue: components["schemas"]["DigestQueueItemResponse"][];
+            /** Queue Count */
+            queue_count: number;
+            /** Send At Local */
+            send_at_local: string;
+            /** Top N */
+            top_n: number;
+        };
+        /** DigestSettingsUpdate */
+        DigestSettingsUpdate: {
+            /** Enabled */
+            enabled: boolean;
+            /** Mute Individual */
+            mute_individual: boolean;
+            /** Send At Local */
+            send_at_local: string;
+            /** Top N */
+            top_n: number;
+        };
+        /** FeedSettingsResponse */
+        FeedSettingsResponse: {
+            /** Group Duplicates */
+            group_duplicates: boolean;
+        };
+        /** FeedSettingsUpdate */
+        FeedSettingsUpdate: {
+            /** Group Duplicates */
+            group_duplicates: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -372,10 +701,61 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * ListenerStatusResponse
+         * @description What the panel shows about "Aplicar regras" (S13-06).
+         *
+         *     `error` is the class name of the last failure, never a message: nothing that
+         *     could quote a Telegram message leaves the listener.
+         */
+        ListenerStatusResponse: {
+            /** Error */
+            error: string | null;
+            /** Has Unapplied Changes */
+            has_unapplied_changes: boolean;
+            /** Listener Online */
+            listener_online: boolean;
+            /** Listener Seen At */
+            listener_seen_at: string | null;
+            /** New Matches */
+            new_matches: number | null;
+            /** Recipients Loaded */
+            recipients_loaded: number | null;
+            /** Reload Applied At */
+            reload_applied_at: string | null;
+            /** Reload Requested At */
+            reload_requested_at: string | null;
+            /** Rules Loaded */
+            rules_loaded: number | null;
+            /** Scan Failures */
+            scan_failures: number | null;
+            /** Sources Loaded */
+            sources_loaded: number | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "idle" | "pending" | "applying" | "failed";
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Password */
             password: string;
+        };
+        /**
+         * MatchCorrectionResponse
+         * @description S14-06 (F7): who last edited/reverted a match, and when — tela 08's
+         *     "última correção" line. `changes` itself is audit-only and never leaves
+         *     this endpoint's own history (not exposed here).
+         */
+        MatchCorrectionResponse: {
+            /** Admin Id */
+            admin_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** MatchResponse */
         MatchResponse: {
@@ -386,8 +766,22 @@ export interface components {
             created_at: string;
             /** Deliveries */
             deliveries: components["schemas"]["DeliveryResponse"][];
+            /** Display Name */
+            display_name?: string | null;
+            /** Group Key */
+            group_key?: string | null;
+            /**
+             * Grouped Match Ids
+             * @default []
+             */
+            grouped_match_ids: number[];
+            /** Grouped Source Ids */
+            grouped_source_ids?: number[] | null;
             /** Id */
             id: number;
+            /** Is Lowest Price Ever */
+            is_lowest_price_ever: boolean;
+            last_correction?: components["schemas"]["MatchCorrectionResponse"] | null;
             /**
              * Matched At
              * Format: date-time
@@ -397,12 +791,87 @@ export interface components {
             message_link: string | null;
             /** Message Text */
             message_text: string;
+            /** Model Variant */
+            model_variant?: string | null;
+            /** Original Price Cents */
+            original_price_cents?: number | null;
+            /** Price Card Cents */
+            price_card_cents: number | null;
+            /** Price Cash Cents */
+            price_cash_cents: number | null;
             /** Price Cents */
             price_cents: number | null;
+            /** Price Source */
+            price_source?: ("parsed" | "manual") | null;
+            /** Product Key */
+            product_key?: string | null;
             /** Rule Id */
             rule_id: number;
+            /**
+             * Seen Count
+             * @default 1
+             */
+            seen_count: number;
+            /**
+             * Snoozed
+             * @default false
+             */
+            snoozed: boolean;
             /** Source Id */
             source_id: number;
+            /**
+             * Sources
+             * @default []
+             */
+            sources: components["schemas"]["MatchSourceResponse"][];
+            /**
+             * Sparkline
+             * @default []
+             */
+            sparkline: components["schemas"]["PricePointResponse"][];
+            /** Target Gap Pct */
+            target_gap_pct?: number | null;
+            /**
+             * Target Hit
+             * @default false
+             */
+            target_hit: boolean;
+            /** Target Price Cents */
+            target_price_cents?: number | null;
+        };
+        /**
+         * MatchSourceResponse
+         * @description S14-05 (F5): one distinct source of a duplicate group, in the order it
+         *     first posted.
+         */
+        MatchSourceResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /**
+         * MatchUpdate
+         * @description `PATCH /matches/{id}` (F7). Every field is optional — only the ones
+         *     actually sent are validated and applied, same "if provided" shape as
+         *     `RuleUpdate` (`app.routers.rules`). `price` is free text
+         *     (`packages.rules.manual_price.parse_manual_price_cents` parses it);
+         *     there is no way to clear `display_name`/`model_variant` back to `None`
+         *     through this endpoint on purpose — that is exactly what `POST
+         *     /matches/{id}/revert` ("Reverter ao detectado") does.
+         */
+        MatchUpdate: {
+            /**
+             * Apply Name To Product
+             * @default false
+             */
+            apply_name_to_product: boolean;
+            /** Display Name */
+            display_name?: string | null;
+            /** Model Variant */
+            model_variant?: string | null;
+            /** Price */
+            price?: string | null;
         };
         /**
          * MetricReason
@@ -426,6 +895,79 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * PricePointResponse
+         * @description Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).
+         */
+        PricePointResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Price Cents */
+            price_cents: number;
+        };
+        /** ProductPostingResponse */
+        ProductPostingResponse: {
+            /** Id */
+            id: number;
+            /**
+             * Matched At
+             * Format: date-time
+             */
+            matched_at: string;
+            /** Message Link */
+            message_link: string | null;
+            /** Price Cents */
+            price_cents: number | null;
+            /** Source Id */
+            source_id: number;
+            /** Source Name */
+            source_name: string;
+        };
+        /** ProductResponse */
+        ProductResponse: {
+            /** Average 30D Cents */
+            average_30d_cents: number | null;
+            /** Current Price At */
+            current_price_at: string | null;
+            /** Current Price Cents */
+            current_price_cents: number | null;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /** Highest 90D Cents */
+            highest_90d_cents: number | null;
+            /** Lowest 90D Cents */
+            lowest_90d_cents: number | null;
+            /** Postings */
+            postings: components["schemas"]["ProductPostingResponse"][];
+            /** Product Key */
+            product_key: string;
+            /**
+             * Range
+             * @enum {string}
+             */
+            range: "90d" | "30d" | "7d";
+            /** Series */
+            series: components["schemas"]["PricePointResponse"][];
+            /** Sources */
+            sources: components["schemas"]["ProductSourceResponse"][];
+            /** Title */
+            title: string;
+            /** Total Count */
+            total_count: number;
+        };
+        /** ProductSourceResponse */
+        ProductSourceResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** RecipientCreate */
         RecipientCreate: {
@@ -476,6 +1018,18 @@ export interface components {
             max_price_cents?: number | null;
             /** Name */
             name: string;
+            /** Target Price Cents */
+            target_price_cents?: number | null;
+        };
+        /** RuleHistoryPointResponse */
+        RuleHistoryPointResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Price Cents */
+            price_cents: number;
         };
         /** RuleResponse */
         RuleResponse: {
@@ -488,14 +1042,91 @@ export interface components {
             created_at: string;
             /** Exclude Terms */
             exclude_terms: string | null;
+            /**
+             * History 30D
+             * @default []
+             */
+            history_30d: components["schemas"]["RuleHistoryPointResponse"][];
             /** Id */
             id: number;
             /** Include Terms */
             include_terms: string;
+            /** Lowest Price Cents */
+            lowest_price_cents?: number | null;
             /** Max Price Cents */
             max_price_cents: number | null;
             /** Name */
             name: string;
+            /** Snoozed Until */
+            snoozed_until?: string | null;
+            /** Target Price Cents */
+            target_price_cents: number | null;
+        };
+        /** RuleSuggestionResponse */
+        RuleSuggestionResponse: {
+            /** Average 30D Cents */
+            average_30d_cents: number | null;
+            /** Include Terms */
+            include_terms: string;
+            /** Lowest 90D Cents */
+            lowest_90d_cents: number | null;
+            /** Max Price Cents */
+            max_price_cents: number | null;
+            /** Name */
+            name: string;
+            /** Product Key */
+            product_key: string;
+            /** Target Price Cents */
+            target_price_cents: number | null;
+        };
+        /** RuleTestMatch */
+        RuleTestMatch: {
+            /**
+             * Matched At
+             * Format: date-time
+             */
+            matched_at: string;
+            /** Matched Term */
+            matched_term: string;
+            /** Message Link */
+            message_link: string | null;
+            /** Message Text */
+            message_text: string;
+            /** Price Card Cents */
+            price_card_cents: number | null;
+            /** Price Cash Cents */
+            price_cash_cents: number | null;
+            /** Price Cents */
+            price_cents: number | null;
+            /** Source Id */
+            source_id: number;
+            /** Source Name */
+            source_name: string;
+        };
+        /**
+         * RuleTestRequest
+         * @description S13-07: same shape as `RuleCreate` minus `name` — a dry-run only ever
+         *     needs the fields that actually affect matching. The schema has no
+         *     source-scoping field on `Rule` at all (`app.pipeline.ListenerSource`'s
+         *     own docstring: every active rule is evaluated against every active
+         *     source's messages), so there is nothing to filter by here either.
+         */
+        RuleTestRequest: {
+            /** Exclude Terms */
+            exclude_terms?: string | null;
+            /** Include Terms */
+            include_terms: string;
+            /** Max Price Cents */
+            max_price_cents?: number | null;
+        };
+        /** RuleTestResponse */
+        RuleTestResponse: {
+            /** Messages */
+            messages: components["schemas"]["RuleTestMatch"][];
+            /** Total Matched */
+            total_matched: number;
+            /** Window Days */
+            window_days: number;
         };
         /** RuleUpdate */
         RuleUpdate: {
@@ -507,6 +1138,8 @@ export interface components {
             max_price_cents?: number | null;
             /** Name */
             name?: string | null;
+            /** Target Price Cents */
+            target_price_cents?: number | null;
         };
         /**
          * SimulateMessageRequest
@@ -536,6 +1169,43 @@ export interface components {
             match_id: number | null;
             /** Reason */
             reason: string | null;
+        };
+        /** SnoozeCreate */
+        SnoozeCreate: {
+            /** Days */
+            days?: number | null;
+            /** Product Key */
+            product_key?: string | null;
+            /** Rule Id */
+            rule_id?: number | null;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "rule" | "product";
+            /** Until */
+            until?: string | null;
+        };
+        /** SnoozeResponse */
+        SnoozeResponse: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Product Key */
+            product_key: string | null;
+            /** Rule Id */
+            rule_id: number | null;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "rule" | "product";
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
         };
         /** SourceCreate */
         SourceCreate: {
@@ -752,6 +1422,72 @@ export interface operations {
             };
         };
     };
+    get_digest_digest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_digest_digest_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DigestSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stream_events_events_get: {
         parameters: {
             query?: never;
@@ -805,6 +1541,68 @@ export interface operations {
             };
         };
     };
+    reload_listener_listener_reload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenerStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listener_status_listener_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenerStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_matches_matches_get: {
         parameters: {
             query?: {
@@ -815,6 +1613,7 @@ export interface operations {
                 min_price_cents?: number | null;
                 max_price_cents?: number | null;
                 delivery_status?: string | null;
+                sort?: ("price_asc" | "price_desc") | null;
             };
             header?: never;
             path?: never;
@@ -831,6 +1630,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MatchResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_match_matches__match_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_match_matches__match_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -897,6 +1766,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestNotificationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_product_products__key__get: {
+        parameters: {
+            query?: {
+                range?: "90d" | "30d" | "7d";
+            };
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rule_suggestion_products__key__rule_suggestion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleSuggestionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1147,6 +2084,41 @@ export interface operations {
             };
         };
     };
+    test_rule_rules_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleTestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_rule_rules__rule_id__delete: {
         parameters: {
             query?: never;
@@ -1215,6 +2187,39 @@ export interface operations {
             };
         };
     };
+    clear_rule_matches_rules__rule_id__matches_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearMatchesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     pause_rule_rules__rule_id__pause_post: {
         parameters: {
             query?: never;
@@ -1236,6 +2241,169 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_feed_settings_settings_feed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_feed_settings_settings_feed_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_snoozes_snoozes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnoozeResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_snooze_snoozes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnoozeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnoozeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_snooze_snoozes__snooze_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snooze_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -32,3 +32,6 @@ playwright/.cache
 *.njsproj
 *.sln
 *.sw?
+
+# S12-01: visual baselines are generated locally at a reference commit (see e2e/visual.spec.ts), never versioned
+e2e/visual-baseline

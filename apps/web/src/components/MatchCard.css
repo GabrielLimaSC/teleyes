@@ -1,88 +1,589 @@
+/* S15-01: compact, horizontal composition (Claude Design comp): a header
+   with the icon beside the heading (badges, title, meta), then price and
+   actions spanning the full card width. The card itself is one flex column
+   so the price row's `margin-top: auto` (06b) still anchors price + actions
+   to the base of every card in a grid row. */
 .match-card {
+  /* The overlap fix: `height: 100%` plus padding under the default
+     content-box sizing made every card 32-34px taller than its grid cell,
+     so it painted over the card below it. */
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  margin-bottom: 12px;
-}
-
-.match-card__icon {
-  flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #4b4b52;
-}
-
-.match-card__body {
-  flex: 1 1 auto;
+  flex-direction: column;
+  padding: 16px 18px;
+  /* 06b: the parent grid (FeedPage.css's `.feed-page__list`, default
+     `align-items: stretch`) already stretches every card in a row to the
+     tallest one's height — this only has to actually fill it. */
+  height: 100%;
   min-width: 0;
 }
 
-.match-card__product {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  color: #08060d;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.match-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
 }
 
-.match-card__meta {
-  margin: 4px 0 0;
-  font-size: 13px;
-  font-weight: 400;
-  color: #4b4b52;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.match-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
 }
 
-.match-card__price {
-  flex: 0 0 auto;
-  margin: 0 8px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #08060d;
-  white-space: nowrap;
+.match-card__body {
+  /* 0, not auto: long titles/meta must wrap inside the cell instead of
+     forcing the card wider than its grid column. */
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.match-card__status {
-  flex: 0 0 auto;
+/* 06b: "Selos ficam acima do título, dentro do cabeçalho. Só eles variam de
+   altura — o resto é idêntico." The delivery-status pill (pre-existing,
+   S7-*) rides the same row, pinned to the right. */
+.match-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  min-height: 22px;
+}
+
+.match-card__badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  height: 22px;
+  padding: 0 9px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.match-card__badge--good {
+  background: var(--pill-good-bg);
+  color: var(--pill-good-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.match-card__badge--neutral {
+  background: var(--plane-tint-bg);
+  color: var(--plane-status-neutral);
+}
+
+.match-card__badge--warn {
+  background: var(--plane-status-warn-bg);
+  color: var(--plane-status-warn);
+}
+
+/* S14-06 (F7): dot + text, no pill background — the comp's own "editado
+   manualmente" note style, distinct from the filled pills above. */
+.match-card__badge--manual {
+  color: var(--plane-status-neutral);
+  height: auto;
+  padding: 0;
+}
+
+.match-card__badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.match-card__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .match-card__status-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
+.match-card__product {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--text-strong);
+  overflow-wrap: break-word;
+  /* S8-02 safety net, not the main strategy (that's cutting before the first
+     link in JS): the rare case of a long product description with no link
+     at all still gets capped, wrapping normally otherwise (no S7-02
+     mid-word single-line ellipsis). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  /* S15-01: 2 lines, as in the comp; the full text stays in the native
+     `title` / Tooltip and in the product panel. */
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* S14-08 (07b): the title becomes a button only when the match has a
+   product (`onOpenProduct` passed by the page + `product_key` set) — a
+   plain reset so it still reads exactly like `.match-card__product`. */
+.match-card__product--button {
+  /* -webkit-box, not block: keeps `.match-card__product`'s line clamp. */
+  display: -webkit-box;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+
+.match-card__product--button:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: var(--plane-focus-ring);
+}
+
+/* S16-03 (04): "Fonte · Regra · Destinatário", one line, ellipsis instead of
+   wrapping — the labels are gone, so the line reads fine even cut short; the
+   full text is still in the `title` attribute (MatchCard.tsx). */
+.match-card__meta {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-card__grouped-sources {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-faint);
+  overflow-wrap: break-word;
+}
+
+/* 06b: "No corpo do card (display:flex; flex-direction:column), o bloco de
+   preço leva margin-top:auto — empurra preço + ações para a base." */
+.match-card__price-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.match-card__price-block {
+  min-width: 0;
+}
+
+.match-card__price {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.match-card__price-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--plane-text-secondary);
+}
+
+/* S16-03 (06): "−6%/+3% vs. média 30d" — green only below the average
+   (cheaper than usual); above it stays the plain secondary color, a neutral
+   fact rather than a warning. */
+.match-card__price-sub--good {
+  color: var(--color-success);
+}
+
+/* S16-03 (02): replaces the 22px `.match-card__price` entirely when
+   `price_cents` is null — a quieter, explicitly "fix me" amber voice instead
+   of a price-shaped placeholder. */
+.match-card__price-missing {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.match-card__price-missing-label {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--plane-status-warn);
+}
+
+.match-card__price-missing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.match-card__price-missing-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--plane-text-secondary);
+}
+
 .match-card__aurora-label {
-  flex: 0 0 auto;
+  display: inline-block;
+  margin-top: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: #6a3fbf;
+  color: var(--text-violet);
   white-space: nowrap;
+  /* S12-05: underlined, as in the concept (it is a label, not a link). */
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.match-card__spark {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match-card__spark-chart {
+  display: block;
+}
+
+.match-card__spark-line {
+  fill: none;
+  stroke: var(--product-panel-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.match-card__spark-target-line {
+  stroke: var(--product-panel-chart-grid);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.match-card__spark-dot {
+  fill: var(--product-panel-accent);
+}
+
+.match-card__spark-dot--hit {
+  fill: var(--pill-good-dot);
+}
+
+.match-card__spark-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--plane-text-helper);
+}
+
+/* 06b: "Barra de ações com border-top e padding-top próprios, então a linha
+   divisória também alinha entre os cards." */
+.match-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.match-card__action {
+  height: 30px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+/* S16-03 (02): "Corrigir"/"Corrigir preço" — same shape as the other
+   secondary actions, amber border/text instead of the usual outline (the
+   same `--plane-status-warn` the badge and the price-missing line use).
+   Chained with `.match-card__action` (not just the modifier alone): equal
+   specificity against materials.css's own `.plane-action` would otherwise
+   tie-break on import order, and MatchCard.css loads before materials.css
+   (MatchCard.tsx's own import list). */
+.match-card__action.match-card__action--warn {
+  background: var(--plane-action-secondary-bg);
+  border: 1px solid var(--plane-status-warn);
+  color: var(--plane-status-warn);
+  box-shadow: none;
+}
+
+.match-card__action.match-card__action--warn:focus-visible {
+  border-color: var(--plane-status-warn);
+}
+
+/* S15-01: rides the badges row, pinned to its right edge. */
+.match-card__timestamp {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.match-card__links {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* S16-03 (01): "Abrir promoção ↗" — text + icon on a wide card. The icon
+   span is a plain character, not a separate `.product-open-trigger`-style
+   button, so it keeps sitting inline with the underline like before. */
+.match-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-body);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.match-card__link:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: var(--plane-focus-ring);
+}
+
+/* S16-03 (01): narrow card — same link, same accessible name ("Abrir
+   promoção", set via `aria-label` regardless of width in MatchCard.tsx),
+   just the icon on its own inside a 30px square so it lines up with the
+   other actions ("altura da barra de ações = altura de um botão"). */
+.match-card__link--icon {
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  text-decoration: none;
+}
+
+.match-card__link--icon:hover {
+  background: var(--plane-tint-bg);
+}
+
+/* S16-03 (01/05): the "⋯" menu — "Criar regra disso" always, plus
+   "Silenciar 7 dias"/"Reativar" once the card is narrow (MatchCard.tsx
+   decides which items are actually rendered inside). */
+.match-card__menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.match-card__menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 9px;
+  border: 1px solid var(--plane-action-secondary-border);
+  background: var(--plane-action-secondary-bg);
+  color: var(--plane-text-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.match-card__menu-trigger:hover {
+  background: var(--plane-tint-bg);
+}
+
+.match-card__menu-trigger:focus-visible,
+.match-card__menu-item:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+/* `.glass-card` (GlassCard.css, already imported by MatchCard.tsx) supplies
+   the actual glass recipe — same one the card itself and the Tooltip bubble
+   use — this only adds the popup's own position/layout. */
+.match-card__menu-popup {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 6px;
+}
+
+.match-card__menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.match-card__menu-item:hover {
+  background: var(--plane-tint-bg);
+}
+
+.match-card__target-form {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.match-card__target-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+.match-card__target-label input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+  font-size: 13px;
+  width: 120px;
+}
+
+.match-card__target-label input[aria-invalid='true'] {
+  border-color: var(--plane-status-danger);
+}
+
+/* Its own basis: 100% forces it to the form's next flex line, under the
+   input/buttons, instead of squeezing into whatever width is left on their
+   line. */
+.match-card__target-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-status-danger);
 }
 
 @media (max-width: 720px) {
   .match-card {
-    flex-wrap: wrap;
+    padding: 14px;
   }
 
-  .match-card__price {
-    margin-left: 72px;
+  /* AuroraGlow.css's more specific rule would keep its desktop padding and
+     misalign the base of the cards in the same row by 2px (06b; one class
+     more because AuroraGlow.css is imported after this file): the
+     normal card's 1px border, as padding, here too. */
+  .glass-card.match-card.match-card--aurora {
+    padding: 15px;
+  }
+
+  .match-card__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .match-card__spark {
+    display: none;
+  }
+
+  /* S12-04: "Agrupado — mesma promoção já alertada" is longer than a narrow
+     card. It was `nowrap`, so the pill ran out of the card (and, at 390px,
+     out of the screen: horizontal page scroll). Here it wraps, and gives up
+     the `margin-left: auto` push so it never has less than the full row to
+     wrap into. */
+  .match-card__status {
+    max-width: 100%;
+    height: auto;
+    min-height: 22px;
+    white-space: normal;
+  }
+}
+
+/* S11-03: the Feed's 2-column grid (FeedPage.css's `.feed-page__card`, a
+   `container-type: inline-size` wrapper around each card) can make a card
+   narrower than any real viewport-width breakpoint would predict — same
+   rules as the 720px viewport breakpoint, triggered by the card's own width
+   instead. Inert everywhere MatchCard renders without a `container-type`
+   ancestor. */
+@container (max-width: 420px) {
+  .match-card {
+    padding: 14px;
+  }
+
+  /* AuroraGlow.css's more specific rule would keep its desktop padding and
+     misalign the base of the cards in the same row by 2px (06b; one class
+     more because AuroraGlow.css is imported after this file): the
+     normal card's 1px border, as padding, here too. */
+  .glass-card.match-card.match-card--aurora {
+    padding: 15px;
+  }
+
+  .match-card__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .match-card__spark {
+    display: none;
+  }
+
+  /* S12-04, see the 720px viewport breakpoint above for why. */
+  .match-card__status {
+    max-width: 100%;
+    height: auto;
+    min-height: 22px;
+    white-space: normal;
   }
 }

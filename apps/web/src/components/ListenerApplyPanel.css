@@ -1,0 +1,80 @@
+/**
+ * S13-06: "Aplicar regras" strip above the Regras grid. Pearl plane (dense
+ * content, no blur), same dot + word vocabulary as the Saúde tiles; every
+ * color is a token.
+ */
+.listener-apply {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.listener-apply__text {
+  min-width: 0;
+}
+
+.listener-apply__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.listener-apply__dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.listener-apply__detail {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+  text-wrap: pretty;
+}
+
+.listener-apply__error,
+.listener-apply__unknown {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--plane-status-danger);
+}
+
+.listener-apply__unknown {
+  margin: 0 0 20px;
+}
+
+.listener-apply__button {
+  flex: none;
+  height: 40px;
+  padding: 0 18px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.listener-apply__button:disabled {
+  background: var(--plane-disabled-bg);
+  color: var(--plane-text-helper);
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .listener-apply {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .listener-apply__button {
+    width: 100%;
+  }
+}

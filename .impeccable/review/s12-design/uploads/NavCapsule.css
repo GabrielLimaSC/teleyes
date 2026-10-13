@@ -1,0 +1,371 @@
+.nav-shell {
+  display: flex;
+  min-height: 98px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 18px 12px 8px;
+}
+
+.nav-glass-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.nav-capsule {
+  position: relative;
+  width: min(720px, calc(100vw - 24px));
+  /* S9-05: named so `.nav-mascot` can size itself off the capsule's own
+     height instead of a magic number that drifts out of sync with it. */
+  --nav-capsule-height: 68px;
+  height: var(--nav-capsule-height);
+  isolation: isolate;
+}
+
+.nav-capsule__glass {
+  position: absolute;
+  inset: 2px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  box-shadow:
+    0 18px 32px rgba(23, 23, 23, 0.13),
+    0 4px 10px rgba(23, 23, 23, 0.09);
+  pointer-events: none;
+}
+
+.nav-glass__refraction,
+.nav-mascot__refraction,
+.nav-glass__tint,
+.nav-mascot__tint,
+.nav-glass__shine,
+.nav-mascot__shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* S9-05: the mascot badge is the same glass "piece" as the capsule, not a
+   second material with its own blur/tint recipe (that's what made it read
+   as a sticker floating on top instead of connected to the capsule) — same
+   refraction filter, background and backdrop-filter values as
+   `.nav-glass__*`, only the shape (circle vs. pill) differs. */
+.nav-glass__refraction,
+.nav-mascot__refraction {
+  background: rgba(255, 255, 255, 0.12);
+  /* Plain blur remains when SVG backdrop displacement is unavailable. */
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(2px) url('#nav-glass-refraction') saturate(150%);
+  backdrop-filter: blur(2px) url('#nav-glass-refraction') saturate(150%);
+}
+
+.nav-glass__refraction {
+  /* Fades the refraction at the pill's rounded ends — a small circle has no
+     equivalent "end" to fade, so this stays glass-only. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    transparent 27%,
+    transparent 73%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    transparent 27%,
+    transparent 73%,
+    #000 100%
+  );
+}
+
+.nav-glass__tint,
+.nav-mascot__tint {
+  background:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.76) 0%,
+      rgba(237, 239, 243, 0.42) 42%,
+      rgba(211, 214, 221, 0.55) 100%
+    ),
+    rgba(232, 234, 239, 0.42);
+}
+
+.nav-glass__shine,
+.nav-mascot__shine {
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: inherit;
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.92),
+    inset 0 -2px 3px rgba(58, 61, 70, 0.18),
+    0 0 0 1px rgba(70, 74, 83, 0.19);
+}
+
+.nav-capsule__brand,
+.nav-capsule__current {
+  display: none;
+}
+
+.nav-capsule__menu {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr);
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 18px;
+}
+
+.nav-capsule__wing {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav-capsule__wing--left {
+  grid-column: 1;
+  justify-content: space-between;
+}
+
+.nav-capsule__wing--right {
+  grid-column: 3;
+  justify-content: space-between;
+}
+
+.nav-tab {
+  position: relative;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #4b4b52;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1;
+  padding: 9px 13px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color 200ms ease-out,
+    background-color 200ms ease-out,
+    box-shadow 200ms ease-out,
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-tab:hover {
+  color: #171717;
+  background: rgba(255, 255, 255, 0.62);
+  transform: translateY(-1px);
+}
+
+.nav-tab--active,
+.nav-tab--active:hover {
+  color: #ffffff;
+  background: #171717;
+  box-shadow:
+    0 4px 10px rgba(23, 23, 23, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  transform: none;
+}
+
+.nav-tab:focus-visible,
+.nav-mascot:focus-visible {
+  outline: 3px solid #3f3fb0;
+  outline-offset: 3px;
+}
+
+.nav-mascot {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  /* S9-05: sized off the capsule's own height (not a magic number) so it
+     fits inside the pill instead of poking out past its top/bottom edge —
+     8px total margin, the same breathing room `.nav-capsule__glass`'s own
+     2px inset already leaves relative to the capsule on each side. */
+  width: calc(var(--nav-capsule-height) - 8px);
+  height: calc(var(--nav-capsule-height) - 8px);
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  box-shadow:
+    0 12px 28px rgba(8, 6, 13, 0.28),
+    0 0 22px rgba(255, 255, 255, 0.32);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms ease-out;
+}
+
+.nav-mascot:hover {
+  transform: translate(-50%, -50%) scale(1.035);
+  box-shadow:
+    0 14px 32px rgba(8, 6, 13, 0.3),
+    0 0 28px rgba(255, 255, 255, 0.44);
+}
+
+.nav-mascot__refraction,
+.nav-mascot__tint,
+.nav-mascot__shine {
+  border-radius: 50%;
+}
+
+.nav-mascot img {
+  position: relative;
+  z-index: 2;
+  display: block;
+  /* S9-05: percentage, not fixed px — scales with the calc()'d badge size
+     above instead of needing its own per-breakpoint magic number. Ratios
+     match what the old fixed 66px/7px looked like on the old 76px badge. */
+  width: 87%;
+  height: 87%;
+  margin: 6% auto 0;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.26));
+  transform: scale(1.05);
+}
+
+@media (min-width: 761px) {
+  .nav-mascot:disabled {
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .nav-shell {
+    min-height: 86px;
+    padding-inline: 8px;
+  }
+
+  .nav-shell--open {
+    min-height: 266px;
+  }
+
+  .nav-capsule {
+    width: min(480px, calc(100vw - 16px));
+    --nav-capsule-height: 64px;
+    height: var(--nav-capsule-height);
+  }
+
+  .nav-capsule__glass {
+    inset-block: 1px;
+  }
+
+  .nav-capsule__brand,
+  .nav-capsule__current {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    display: block;
+    max-width: calc(50% - 45px);
+    overflow: hidden;
+    color: #171717;
+    font-size: 13px;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transform: translateY(-50%);
+  }
+
+  .nav-capsule__brand {
+    left: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-capsule__current {
+    right: 22px;
+    color: #4b4b52;
+    font-weight: 600;
+  }
+
+  .nav-capsule__menu {
+    position: absolute;
+    top: 74px;
+    display: grid;
+    height: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 20px;
+    padding: 13px;
+    background: rgba(237, 238, 242, 0.77);
+    box-shadow:
+      0 18px 34px rgba(23, 23, 23, 0.14),
+      inset 0 1px 1px rgba(255, 255, 255, 0.96),
+      inset 0 -1px 1px rgba(79, 82, 91, 0.12);
+    -webkit-backdrop-filter: blur(4px) url('#nav-glass-refraction') saturate(145%);
+    backdrop-filter: blur(4px) url('#nav-glass-refraction') saturate(145%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-9px) scale(0.98);
+    transform-origin: top center;
+    transition:
+      opacity 180ms ease-out,
+      transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 300ms;
+    visibility: hidden;
+  }
+
+  .nav-capsule--pinned .nav-capsule__menu {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    visibility: visible;
+  }
+
+  .nav-capsule__wing {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+  }
+
+  .nav-capsule__wing--left {
+    grid-column: 1;
+  }
+
+  .nav-capsule__wing--right {
+    grid-column: 2;
+  }
+
+  .nav-tab {
+    min-height: 44px;
+    padding: 10px 13px;
+    font-size: 13px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-capsule__brand {
+    left: 18px;
+  }
+
+  .nav-capsule__current {
+    right: 18px;
+  }
+
+  /* S9-05: no mascot-size override needed here anymore — `--nav-capsule-
+     height` stays 64px from the 760px breakpoint above (only the capsule's
+     *width* keeps shrinking at this width), so `.nav-mascot`'s calc()
+     already resolves to the right size without a third magic number. */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-shell,
+  .nav-capsule__menu,
+  .nav-tab,
+  .nav-mascot {
+    transition: none;
+  }
+}

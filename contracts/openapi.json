@@ -34,6 +34,19 @@
         "title": "BotHealth",
         "type": "object"
       },
+      "ClearMatchesResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "ClearMatchesResponse",
+        "type": "object"
+      },
       "DeliveryResponse": {
         "properties": {
           "created_at": {
@@ -74,6 +87,160 @@
           "created_at"
         ],
         "title": "DeliveryResponse",
+        "type": "object"
+      },
+      "DigestQueueItemResponse": {
+        "properties": {
+          "match_id": {
+            "title": "Match Id",
+            "type": "integer"
+          },
+          "matched_at": {
+            "format": "date-time",
+            "title": "Matched At",
+            "type": "string"
+          },
+          "message_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Link"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "match_id",
+          "price_cents",
+          "title",
+          "message_link",
+          "matched_at"
+        ],
+        "title": "DigestQueueItemResponse",
+        "type": "object"
+      },
+      "DigestSettingsResponse": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "mute_individual": {
+            "title": "Mute Individual",
+            "type": "boolean"
+          },
+          "next_run_at_local": {
+            "title": "Next Run At Local",
+            "type": "string"
+          },
+          "next_run_at_utc": {
+            "format": "date-time",
+            "title": "Next Run At Utc",
+            "type": "string"
+          },
+          "queue": {
+            "items": {
+              "$ref": "#/components/schemas/DigestQueueItemResponse"
+            },
+            "title": "Queue",
+            "type": "array"
+          },
+          "queue_count": {
+            "title": "Queue Count",
+            "type": "integer"
+          },
+          "send_at_local": {
+            "title": "Send At Local",
+            "type": "string"
+          },
+          "top_n": {
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "send_at_local",
+          "top_n",
+          "mute_individual",
+          "next_run_at_utc",
+          "next_run_at_local",
+          "queue_count",
+          "queue"
+        ],
+        "title": "DigestSettingsResponse",
+        "type": "object"
+      },
+      "DigestSettingsUpdate": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "mute_individual": {
+            "title": "Mute Individual",
+            "type": "boolean"
+          },
+          "send_at_local": {
+            "title": "Send At Local",
+            "type": "string"
+          },
+          "top_n": {
+            "title": "Top N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "send_at_local",
+          "top_n",
+          "mute_individual"
+        ],
+        "title": "DigestSettingsUpdate",
+        "type": "object"
+      },
+      "FeedSettingsResponse": {
+        "properties": {
+          "group_duplicates": {
+            "title": "Group Duplicates",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "group_duplicates"
+        ],
+        "title": "FeedSettingsResponse",
+        "type": "object"
+      },
+      "FeedSettingsUpdate": {
+        "properties": {
+          "group_duplicates": {
+            "title": "Group Duplicates",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "group_duplicates"
+        ],
+        "title": "FeedSettingsUpdate",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -126,6 +293,147 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "ListenerStatusResponse": {
+        "description": "What the panel shows about \"Aplicar regras\" (S13-06).\n\n`error` is the class name of the last failure, never a message: nothing that\ncould quote a Telegram message leaves the listener.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "has_unapplied_changes": {
+            "title": "Has Unapplied Changes",
+            "type": "boolean"
+          },
+          "listener_online": {
+            "title": "Listener Online",
+            "type": "boolean"
+          },
+          "listener_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listener Seen At"
+          },
+          "new_matches": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Matches"
+          },
+          "recipients_loaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipients Loaded"
+          },
+          "reload_applied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reload Applied At"
+          },
+          "reload_requested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reload Requested At"
+          },
+          "rules_loaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Loaded"
+          },
+          "scan_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Failures"
+          },
+          "sources_loaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources Loaded"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "pending",
+              "applying",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "reload_requested_at",
+          "reload_applied_at",
+          "sources_loaded",
+          "rules_loaded",
+          "recipients_loaded",
+          "new_matches",
+          "scan_failures",
+          "error",
+          "has_unapplied_changes",
+          "listener_online",
+          "listener_seen_at"
+        ],
+        "title": "ListenerStatusResponse",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "password": {
@@ -137,6 +445,26 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "MatchCorrectionResponse": {
+        "description": "S14-06 (F7): who last edited/reverted a match, and when \u2014 tela 08's\n\"\u00faltima corre\u00e7\u00e3o\" line. `changes` itself is audit-only and never leaves\nthis endpoint's own history (not exposed here).",
+        "properties": {
+          "admin_id": {
+            "title": "Admin Id",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "admin_id",
+          "created_at"
+        ],
+        "title": "MatchCorrectionResponse",
         "type": "object"
       },
       "MatchResponse": {
@@ -153,9 +481,67 @@
             "title": "Deliveries",
             "type": "array"
           },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "group_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Key"
+          },
+          "grouped_match_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Grouped Match Ids",
+            "type": "array"
+          },
+          "grouped_source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grouped Source Ids"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "is_lowest_price_ever": {
+            "title": "Is Lowest Price Ever",
+            "type": "boolean"
+          },
+          "last_correction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchCorrectionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "matched_at": {
             "format": "date-time",
@@ -177,6 +563,50 @@
             "title": "Message Text",
             "type": "string"
           },
+          "model_variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Variant"
+          },
+          "original_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Price Cents"
+          },
+          "price_card_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Card Cents"
+          },
+          "price_cash_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cash Cents"
+          },
           "price_cents": {
             "anyOf": [
               {
@@ -188,13 +618,92 @@
             ],
             "title": "Price Cents"
           },
+          "price_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "parsed",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Source"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
           "rule_id": {
             "title": "Rule Id",
             "type": "integer"
           },
+          "seen_count": {
+            "default": 1,
+            "title": "Seen Count",
+            "type": "integer"
+          },
+          "snoozed": {
+            "default": false,
+            "title": "Snoozed",
+            "type": "boolean"
+          },
           "source_id": {
             "title": "Source Id",
             "type": "integer"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MatchSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "sparkline": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PricePointResponse"
+            },
+            "title": "Sparkline",
+            "type": "array"
+          },
+          "target_gap_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Gap Pct"
+          },
+          "target_hit": {
+            "default": false,
+            "title": "Target Hit",
+            "type": "boolean"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "required": [
@@ -203,12 +712,79 @@
           "rule_id",
           "message_text",
           "price_cents",
+          "price_cash_cents",
+          "price_card_cents",
           "message_link",
           "matched_at",
           "created_at",
-          "deliveries"
+          "deliveries",
+          "is_lowest_price_ever"
         ],
         "title": "MatchResponse",
+        "type": "object"
+      },
+      "MatchSourceResponse": {
+        "description": "S14-05 (F5): one distinct source of a duplicate group, in the order it\nfirst posted.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "MatchSourceResponse",
+        "type": "object"
+      },
+      "MatchUpdate": {
+        "description": "`PATCH /matches/{id}` (F7). Every field is optional \u2014 only the ones\nactually sent are validated and applied, same \"if provided\" shape as\n`RuleUpdate` (`app.routers.rules`). `price` is free text\n(`packages.rules.manual_price.parse_manual_price_cents` parses it);\nthere is no way to clear `display_name`/`model_variant` back to `None`\nthrough this endpoint on purpose \u2014 that is exactly what `POST\n/matches/{id}/revert` (\"Reverter ao detectado\") does.",
+        "properties": {
+          "apply_name_to_product": {
+            "default": false,
+            "title": "Apply Name To Product",
+            "type": "boolean"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "model_variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Variant"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          }
+        },
+        "title": "MatchUpdate",
         "type": "object"
       },
       "MetricReason": {
@@ -256,6 +832,221 @@
           "updated_at"
         ],
         "title": "MetricResponse",
+        "type": "object"
+      },
+      "PricePointResponse": {
+        "description": "Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "price_cents"
+        ],
+        "title": "PricePointResponse",
+        "type": "object"
+      },
+      "ProductPostingResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "matched_at": {
+            "format": "date-time",
+            "title": "Matched At",
+            "type": "string"
+          },
+          "message_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Link"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "integer"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "source_name",
+          "price_cents",
+          "matched_at",
+          "message_link"
+        ],
+        "title": "ProductPostingResponse",
+        "type": "object"
+      },
+      "ProductResponse": {
+        "properties": {
+          "average_30d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average 30D Cents"
+          },
+          "current_price_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Price At"
+          },
+          "current_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Price Cents"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "highest_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highest 90D Cents"
+          },
+          "lowest_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest 90D Cents"
+          },
+          "postings": {
+            "items": {
+              "$ref": "#/components/schemas/ProductPostingResponse"
+            },
+            "title": "Postings",
+            "type": "array"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "range": {
+            "enum": [
+              "90d",
+              "30d",
+              "7d"
+            ],
+            "title": "Range",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/PricePointResponse"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ProductSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_key",
+          "title",
+          "total_count",
+          "sources",
+          "first_seen_at",
+          "current_price_cents",
+          "current_price_at",
+          "lowest_90d_cents",
+          "average_30d_cents",
+          "highest_90d_cents",
+          "range",
+          "series",
+          "postings"
+        ],
+        "title": "ProductResponse",
+        "type": "object"
+      },
+      "ProductSourceResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ProductSourceResponse",
         "type": "object"
       },
       "RecipientCreate": {
@@ -390,6 +1181,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "required": [
@@ -397,6 +1199,25 @@
           "include_terms"
         ],
         "title": "RuleCreate",
+        "type": "object"
+      },
+      "RuleHistoryPointResponse": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "price_cents"
+        ],
+        "title": "RuleHistoryPointResponse",
         "type": "object"
       },
       "RuleResponse": {
@@ -421,6 +1242,14 @@
             ],
             "title": "Exclude Terms"
           },
+          "history_30d": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RuleHistoryPointResponse"
+            },
+            "title": "History 30D",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -428,6 +1257,17 @@
           "include_terms": {
             "title": "Include Terms",
             "type": "string"
+          },
+          "lowest_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest Price Cents"
           },
           "max_price_cents": {
             "anyOf": [
@@ -443,6 +1283,29 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "snoozed_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed Until"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "required": [
@@ -451,10 +1314,226 @@
           "include_terms",
           "exclude_terms",
           "max_price_cents",
+          "target_price_cents",
           "active",
           "created_at"
         ],
         "title": "RuleResponse",
+        "type": "object"
+      },
+      "RuleSuggestionResponse": {
+        "properties": {
+          "average_30d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average 30D Cents"
+          },
+          "include_terms": {
+            "title": "Include Terms",
+            "type": "string"
+          },
+          "lowest_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest 90D Cents"
+          },
+          "max_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Price Cents"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
+          }
+        },
+        "required": [
+          "product_key",
+          "name",
+          "include_terms",
+          "max_price_cents",
+          "target_price_cents",
+          "average_30d_cents",
+          "lowest_90d_cents"
+        ],
+        "title": "RuleSuggestionResponse",
+        "type": "object"
+      },
+      "RuleTestMatch": {
+        "properties": {
+          "matched_at": {
+            "format": "date-time",
+            "title": "Matched At",
+            "type": "string"
+          },
+          "matched_term": {
+            "title": "Matched Term",
+            "type": "string"
+          },
+          "message_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Link"
+          },
+          "message_text": {
+            "title": "Message Text",
+            "type": "string"
+          },
+          "price_card_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Card Cents"
+          },
+          "price_cash_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cash Cents"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "integer"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_name",
+          "message_text",
+          "price_cents",
+          "price_cash_cents",
+          "price_card_cents",
+          "message_link",
+          "matched_at",
+          "matched_term"
+        ],
+        "title": "RuleTestMatch",
+        "type": "object"
+      },
+      "RuleTestRequest": {
+        "description": "S13-07: same shape as `RuleCreate` minus `name` \u2014 a dry-run only ever\nneeds the fields that actually affect matching. The schema has no\nsource-scoping field on `Rule` at all (`app.pipeline.ListenerSource`'s\nown docstring: every active rule is evaluated against every active\nsource's messages), so there is nothing to filter by here either.",
+        "properties": {
+          "exclude_terms": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Terms"
+          },
+          "include_terms": {
+            "title": "Include Terms",
+            "type": "string"
+          },
+          "max_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Price Cents"
+          }
+        },
+        "required": [
+          "include_terms"
+        ],
+        "title": "RuleTestRequest",
+        "type": "object"
+      },
+      "RuleTestResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/RuleTestMatch"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "total_matched": {
+            "title": "Total Matched",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_matched",
+          "window_days",
+          "messages"
+        ],
+        "title": "RuleTestResponse",
         "type": "object"
       },
       "RuleUpdate": {
@@ -502,6 +1581,17 @@
               }
             ],
             "title": "Name"
+          },
+          "target_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price Cents"
           }
         },
         "title": "RuleUpdate",
@@ -587,6 +1677,125 @@
           "deliveries_sent"
         ],
         "title": "SimulateMessageResponse",
+        "type": "object"
+      },
+      "SnoozeCreate": {
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "scope": {
+            "enum": [
+              "rule",
+              "product"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "title": "SnoozeCreate",
+        "type": "object"
+      },
+      "SnoozeResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "scope": {
+            "enum": [
+              "rule",
+              "product"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "until": {
+            "format": "date-time",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "rule_id",
+          "product_key",
+          "until",
+          "label"
+        ],
+        "title": "SnoozeResponse",
         "type": "object"
       },
       "SourceCreate": {
@@ -985,6 +2194,112 @@
         ]
       }
     },
+    "/digest": {
+      "get": {
+        "operationId": "get_digest_digest_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Digest",
+        "tags": [
+          "digest"
+        ]
+      },
+      "put": {
+        "operationId": "put_digest_digest_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DigestSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Digest",
+        "tags": [
+          "digest"
+        ]
+      }
+    },
     "/events": {
       "get": {
         "operationId": "stream_events_events_get",
@@ -1066,6 +2381,105 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/listener/reload": {
+      "post": {
+        "description": "Ask the listener to reload its configuration.\n\nOnly writes a request into the database; the listener process picks it up\nby polling and applies it in process (no Docker socket, no restart). A\nrequest made while another is `pending`/`applying` is ignored \u2014 the answer\nis the same 202 with the current state, so a double click is harmless.",
+        "operationId": "reload_listener_listener_reload_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListenerStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reload Listener",
+        "tags": [
+          "listener"
+        ]
+      }
+    },
+    "/listener/status": {
+      "get": {
+        "operationId": "get_listener_status_listener_status_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListenerStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Listener Status",
+        "tags": [
+          "listener"
         ]
       }
     },
@@ -1194,6 +2608,26 @@
             }
           },
           {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "price_asc",
+                    "price_desc"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort"
+            }
+          },
+          {
             "in": "cookie",
             "name": "teleyes_session",
             "required": false,
@@ -1237,6 +2671,133 @@
           }
         },
         "summary": "List Matches",
+        "tags": [
+          "matches"
+        ]
+      }
+    },
+    "/matches/{match_id}": {
+      "patch": {
+        "operationId": "update_match_matches__match_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Match",
+        "tags": [
+          "matches"
+        ]
+      }
+    },
+    "/matches/{match_id}/revert": {
+      "post": {
+        "description": "\"Reverter ao detectado\" (F7): restores `price_cents` from\n`original_price_cents` (left untouched \u2014 it keeps meaning \"the first\never detected price\" regardless of how many reverts follow) and clears\nevery other manual edit field. Never re-sends anything: a target alert\nis only ever triggered by `PATCH /matches/{id}` actually lowering the\nprice (see `_send_manual_target_alert_if_hit`), and an already-sent\n`manual_target` `Delivery` row is untouched here either way \u2014 it stays\nthe truthful record that Gabriel really was notified once.",
+        "operationId": "revert_match_matches__match_id__revert_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revert Match",
         "tags": [
           "matches"
         ]
@@ -1351,6 +2912,141 @@
         "summary": "Test Notification",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/products/{key}": {
+      "get": {
+        "operationId": "get_product_products__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "schema": {
+              "default": "90d",
+              "enum": [
+                "90d",
+                "30d",
+                "7d"
+              ],
+              "title": "Range",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{key}/rule-suggestion": {
+      "get": {
+        "operationId": "get_rule_suggestion_products__key__rule_suggestion_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSuggestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Rule Suggestion",
+        "tags": [
+          "products"
         ]
       }
     },
@@ -1651,6 +3347,7 @@
     },
     "/rules": {
       "get": {
+        "description": "S7-06: `lowest_price_cents` (the true historical minimum among the\nrule's own priced matches, `None` with no priced match yet) is computed\nfresh here in one extra query \u2014 never persisted on `Rule`, same reasoning\nas `Match.is_lowest_price_ever` in `app.routers.matches`. S14-03:\n`snoozed_until` is the same kind of read-time computation, from `snooze`.",
         "operationId": "list_rules_rules_get",
         "parameters": [
           {
@@ -1764,6 +3461,66 @@
           }
         },
         "summary": "Create Rule",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
+    "/rules/test": {
+      "post": {
+        "description": "S13-07: dry-run of a not-yet-saved rule form (create OR edit) against\nreal history \u2014 Gabriel types terms/exclusions/ceiling, clicks \"Testar\"\nand sees which real recent messages would have matched, before ever\nsaving. Reuses `app.pipeline.evaluate_rule`, the exact match -> price ->\nceiling core the live and historical paths run, so a preview here behaves\nidentically to what saving the rule for real would have caught. Reads\nonly: never creates a `Match`/`Delivery`, never advances a\n`ProcessingCursor`, never calls `BotNotifier` \u2014 calling this ten times in\na row has the same zero effect as calling it once.\n\nData source and its limitation: this project retains message content\nonly for messages that already matched SOME existing rule (`CLAUDE.md`/\n`PRODUCT.md` \u2014 rejected traffic keeps aggregate counters, never text), so\nthere is no raw \"every message seen\" table to scan and this can't\nre-query Telegram live either (that's the real listener's job, not a form\npreview). The dry-run instead scans the pool of already-matched messages\nfrom the last `HISTORICAL_WINDOW` days \u2014 the same window\n`run_historical_scan` uses \u2014 deduplicated by real Telegram identity so a\nmessage that matched several existing rules is only evaluated once here.\nA message that never matched any existing rule was discarded upstream\nand its text was never persisted anywhere, so a rule aimed at genuinely\nnew territory no existing rule already covers can legitimately preview\nas empty even though matching messages really arrived \u2014 this is the best\nreal data available without inventing a live Telegram scrape here.",
+        "operationId": "test_rule_rules_test_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Rule",
         "tags": [
           "rules"
         ]
@@ -1886,6 +3643,65 @@
         ]
       }
     },
+    "/rules/{rule_id}/matches": {
+      "delete": {
+        "description": "S10-04: apaga todo o hist\u00f3rico de matches (e deliveries) de uma\nregra \u2014 pedido do Gabriel pra limpar regras antigas mal configuradas\nsem mexer em c\u00f3digo. A regra em si nunca \u00e9 apagada nem pausada, s\u00f3 o\nhist\u00f3rico. Auditoria m\u00ednima: registra no log quantos matches sa\u00edram e\nde qual regra.",
+        "operationId": "clear_rule_matches_rules__rule_id__matches_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearMatchesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Rule Matches",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
     "/rules/{rule_id}/pause": {
       "post": {
         "operationId": "pause_rule_rules__rule_id__pause_post",
@@ -1941,6 +3757,273 @@
         "summary": "Pause Rule",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/settings/feed": {
+      "get": {
+        "operationId": "get_feed_settings_settings_feed_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Feed Settings",
+        "tags": [
+          "settings"
+        ]
+      },
+      "put": {
+        "operationId": "update_feed_settings_settings_feed_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Feed Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/snoozes": {
+      "get": {
+        "operationId": "list_snoozes_snoozes_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnoozeResponse"
+                  },
+                  "title": "Response List Snoozes Snoozes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Snoozes",
+        "tags": [
+          "snoozes"
+        ]
+      },
+      "post": {
+        "operationId": "create_snooze_snoozes_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnoozeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnoozeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Snooze",
+        "tags": [
+          "snoozes"
+        ]
+      }
+    },
+    "/snoozes/{snooze_id}": {
+      "delete": {
+        "operationId": "delete_snooze_snoozes__snooze_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snooze_id",
+            "required": true,
+            "schema": {
+              "title": "Snooze Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Snooze",
+        "tags": [
+          "snoozes"
         ]
       }
     },

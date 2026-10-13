@@ -25,9 +25,10 @@ def compute_signature(
     *,
     price_cents: int | None = None,
     link: str | None = None,
+    rule_id: int | None = None,
     dedupe_across_sources: bool = False,
 ) -> str:
-    """Deterministic dedupe signature over source/text/price/link.
+    """Deterministic dedupe signature over rule/source/text/price/link.
 
     Reprocessing the same message (or the same promo with cosmetic differences
     like casing, accents or punctuation) always yields this exact signature.
@@ -41,7 +42,10 @@ def compute_signature(
     price_component = "" if price_cents is None else str(price_cents)
     link_component = "" if link is None else normalize_link(link)
     source_component = "" if dedupe_across_sources else str(source_id)
-    payload = f"{source_component}|{normalized_text}|{price_component}|{link_component}"
+    rule_component = "" if rule_id is None else str(rule_id)
+    payload = (
+        f"{rule_component}|{source_component}|{normalized_text}|{price_component}|{link_component}"
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

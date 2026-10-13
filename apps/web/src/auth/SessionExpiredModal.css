@@ -1,0 +1,83 @@
+/* S13-08: sits above whatever page is open (never unmounts it, so a
+   half-filled form keeps its React state underneath) while the admin
+   re-enters their password. z-index above Toast (200) so a stale toast from
+   the failed write never floats on top of it. */
+.session-expired__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--session-expired-backdrop-bg);
+}
+
+.session-expired {
+  width: 100%;
+  max-width: 360px;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.session-expired h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-body-xl);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.session-expired__body {
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  color: var(--color-helper);
+}
+
+.session-expired__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.session-expired__field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.session-expired__field label {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-helper);
+}
+
+.session-expired__field input {
+  height: 42px;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--login-input-border-color);
+  background: var(--plane-input-bg);
+  color: var(--color-text);
+  padding: 0 12px;
+  font-size: var(--font-size-body);
+}
+
+.session-expired__field input:focus-visible {
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.session-expired__error {
+  color: var(--color-danger);
+  font-size: var(--font-size-body);
+  margin: 0;
+}
+
+.session-expired__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

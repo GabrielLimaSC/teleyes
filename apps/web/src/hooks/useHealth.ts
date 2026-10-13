@@ -21,7 +21,15 @@ interface UseHealthResult {
  * it's published (packages/events/broker.py), so a Telegram state change
  * doesn't have to wait for the next poll tick.
  */
-export function useHealth(pollIntervalMs = POLL_INTERVAL_MS): UseHealthResult {
+/**
+ * `enabled` (S11-02): /events requires a session (`Depends(get_current_session)`
+ * in app/routers/events.py), so a caller mounted before login — the LoginPage's
+ * anonymous view — must not open it: that's a doomed, auth-gated request, not
+ * an honest "disconnected" reading. Passing `enabled: false` skips both the
+ * poll and the EventSource entirely, holding `loading: true`/`health: null`
+ * rather than reporting a state that was never actually checked.
+ */
+export function useHealth(pollIntervalMs = POLL_INTERVAL_MS, enabled = true): UseHealthResult {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +39,7 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS): UseHealthResult {
   const [sseState, setSseState] = useState<SseState>('connecting')
 
   useEffect(() => {
+    if (!enabled) return
     let cancelled = false
 
     const poll = () => {
@@ -73,7 +82,7 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS): UseHealthResult {
       clearInterval(interval)
       source.close()
     }
-  }, [pollIntervalMs])
+  }, [pollIntervalMs, enabled])
 
   return { health, loading, error, sseState }
 }

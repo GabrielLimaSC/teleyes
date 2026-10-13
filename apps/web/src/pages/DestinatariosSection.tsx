@@ -13,9 +13,9 @@ import { ApiError } from '../api/auth'
 import type { Recipient } from '../api/types'
 import { StatusToggle } from '../components/StatusToggle'
 import { useFillOrigin } from '../utils/useFillOrigin'
-import '../components/GlassCard.css'
 import '../components/CrudTable.css'
 import '../components/FillButton.css'
+import './RegrasPage.css'
 
 interface RecipientForm {
   name: string
@@ -45,7 +45,7 @@ type FormTarget = { kind: 'create' } | { kind: 'edit'; recipient: Recipient }
  * Recipient management lives here, on the Regras page, since that's where
  * alert routing is actually configured.
  */
-export function DestinatariosSection() {
+export function DestinatariosSection({ onChanged }: { onChanged?: () => void }) {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -71,6 +71,13 @@ export function DestinatariosSection() {
   }
 
   useEffect(reload, [])
+
+  // S13-06: tells the page that the active recipients may differ from what the
+  // listener loaded ("há mudanças não aplicadas").
+  const changed = () => {
+    reload()
+    onChanged?.()
+  }
 
   const openCreate = () => {
     setFormTarget({ kind: 'create' })
@@ -107,7 +114,7 @@ export function DestinatariosSection() {
     request
       .then(() => {
         closeForm()
-        reload()
+        changed()
       })
       .catch((error: unknown) => {
         setFormError(
@@ -124,7 +131,7 @@ export function DestinatariosSection() {
     }
     setPausingId(recipient.id)
     pauseRecipient(csrfToken, recipient.id)
-      .then(reload)
+      .then(changed)
       .catch(() => setListError('Não foi possível pausar o destinatário.'))
       .finally(() => setPausingId(null))
   }
@@ -136,7 +143,7 @@ export function DestinatariosSection() {
     }
     setDeletingId(recipient.id)
     deleteRecipient(csrfToken, recipient.id)
-      .then(reload)
+      .then(changed)
       .catch((error: unknown) => {
         setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir o destinatário.')
       })
@@ -144,12 +151,17 @@ export function DestinatariosSection() {
   }
 
   return (
-    <section className="crud-page__section">
-      <div className="crud-page__header">
-        <h2>Destinatários</h2>
+    <section className="regras-section">
+      {/* S11-05: heading + subtitle on the left, the secondary "novo" button
+          on the right (concept's "04 Regras" Destinatários row). */}
+      <div className="regras-section-row">
+        <div>
+          <h2>Destinatários</h2>
+          <p>Quem recebe os alertas</p>
+        </div>
         <button
           type="button"
-          className="crud-page__new-button fill-button"
+          className="plane-action plane-action--secondary fill-button regras-section-row__button"
           onClick={openCreate}
           onPointerDown={fillOrigin}
         >
@@ -158,10 +170,10 @@ export function DestinatariosSection() {
       </div>
 
       {formTarget && (
-        <form className="glass-card crud-form" onSubmit={submitForm}>
+        <form className="plane-pearl regras-panel" onSubmit={submitForm}>
           <h2>{formTarget.kind === 'create' ? 'Novo destinatário' : 'Editar destinatário'}</h2>
-          <div className="crud-form__grid">
-            <label>
+          <div className="regras-panel__grid">
+            <label className="regras-panel__field">
               Nome
               <input
                 value={form.name}
@@ -169,7 +181,7 @@ export function DestinatariosSection() {
                 required
               />
             </label>
-            <label>
+            <label className="regras-panel__field">
               Chat ID do Telegram
               <input
                 value={form.telegramChatId}
@@ -177,7 +189,7 @@ export function DestinatariosSection() {
                 required
               />
             </label>
-            <label>
+            <label className="regras-panel__check">
               <input
                 type="checkbox"
                 checked={form.allowlisted}
@@ -186,21 +198,25 @@ export function DestinatariosSection() {
               Autorizado a receber alertas
             </label>
           </div>
-          <div className="crud-form__actions">
+          <div className="regras-panel__actions">
             <button
               type="submit"
-              className="crud-form__submit fill-button"
+              className="plane-action fill-button regras-panel__button"
               disabled={submitting}
               onPointerDown={fillOrigin}
             >
               {submitting ? 'Salvando…' : 'Salvar'}
             </button>
-            <button type="button" className="crud-form__cancel" onClick={closeForm}>
+            <button
+              type="button"
+              className="plane-action plane-action--secondary regras-panel__button"
+              onClick={closeForm}
+            >
               Cancelar
             </button>
           </div>
           {formError && (
-            <p role="alert" className="crud-form__error">
+            <p role="alert" className="regras-panel__error">
               {formError}
             </p>
           )}
@@ -215,20 +231,27 @@ export function DestinatariosSection() {
       )}
 
       {!loading && !listError && (
-        <div className="glass-card crud-table-wrap">
-          <table className="crud-table">
+        <div className="plane-pearl crud-table-wrap wide-table-wrap">
+          <table className="crud-table wide-table">
             <thead>
               <tr>
                 <th>Destinatário</th>
                 <th>Chat ID</th>
                 <th>Autorizado</th>
                 <th>Status</th>
-                <th>Ações</th>
+                <th className="wide-table__num">Ações</th>
               </tr>
             </thead>
             <tbody>
               {recipients.map((recipient) => (
-                <tr key={recipient.id}>
+                <tr
+                  key={recipient.id}
+                  className={
+                    formTarget?.kind === 'edit' && formTarget.recipient.id === recipient.id
+                      ? 'wide-table__row--editing'
+                      : undefined
+                  }
+                >
                   <td className="crud-table__name" data-label="Destinatário">
                     {recipient.name}
                   </td>
@@ -241,18 +264,26 @@ export function DestinatariosSection() {
                       onPause={() => handlePause(recipient)}
                     />
                   </td>
-                  <td className="crud-table__actions" data-label="Ações">
-                    <button type="button" onClick={() => openEdit(recipient)}>
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="crud-table__actions--danger"
-                      onClick={() => handleDelete(recipient)}
-                      disabled={deletingId === recipient.id}
-                    >
-                      Excluir
-                    </button>
+                  <td className="wide-table__actions" data-label="Ações">
+                    <div className="wide-table__actions-inner">
+                      <div className="wide-table__actions-row">
+                        <button
+                          type="button"
+                          className="plane-action plane-action--secondary plane-action--compact"
+                          onClick={() => openEdit(recipient)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="plane-action plane-action--danger plane-action--compact"
+                          onClick={() => handleDelete(recipient)}
+                          disabled={deletingId === recipient.id}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ))}

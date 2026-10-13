@@ -13,7 +13,14 @@ const API_PREFIXES = [
   '/metrics',
   '/notifications',
   '/events',
+  '/listener',
   '/demo',
+  '/settings',
+  // S14-08: GET /products/{key} (S14-01) — the product panel's history API.
+  '/products',
+  // S14-08: was missing since S14-03 — POST/GET /snoozes, DELETE /snoozes/{id}.
+  '/snoozes',
+  '/digest',
   '/openapi.json',
 ]
 

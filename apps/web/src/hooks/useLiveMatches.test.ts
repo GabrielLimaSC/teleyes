@@ -11,10 +11,20 @@ function buildMatch(id: number): Match {
     rule_id: 1,
     message_text: `match ${id}`,
     price_cents: null,
+    price_cash_cents: null,
+    price_card_cents: null,
     message_link: null,
     matched_at: '2026-01-01T00:00:00Z',
     created_at: '2026-01-01T00:00:00Z',
     deliveries: [],
+    is_lowest_price_ever: false,
+    grouped_source_ids: null,
+    product_key: null,
+    sparkline: [],
+    snoozed: false,
+    target_price_cents: null,
+    target_hit: false,
+    target_gap_pct: null,
   }
 }
 
@@ -97,6 +107,20 @@ describe('useLiveMatches', () => {
     unmount()
 
     expect(FakeEventSource.instances[0].closed).toBe(true)
+  })
+
+  it('refresh() reloads the list on demand, same as an SSE event (S7-02)', async () => {
+    const spy = vi.spyOn(matchesApi, 'fetchMatches')
+    spy.mockResolvedValueOnce([]).mockResolvedValueOnce([buildMatch(1)])
+
+    const { result } = renderHook(() => useLiveMatches())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    result.current.refresh()
+
+    await waitFor(() => expect(result.current.matches).toHaveLength(1))
+    expect(spy).toHaveBeenCalledTimes(2)
   })
 
   it('surfaces an error state when the initial load fails', async () => {
