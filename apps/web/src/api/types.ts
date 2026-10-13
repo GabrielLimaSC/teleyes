@@ -45,8 +45,9 @@ export interface Match {
    * null without one), whether this match's own price reached it, and how
    * far off it still is in percent — computed fresh on every read, never
    * persisted. `target_gap_pct` is `null` without a target or a price, `0`
-   * once the target is hit. Items with `target_hit` sort first in `GET
-   * /matches`' response. */
+   * once the target is hit. Only items with `target_hit` that
+   * were matched in the last 24 h sort first in `GET /matches`' response;
+   * older hits keep `target_hit` true but are not pinned. */
   target_price_cents: number | null
   target_hit: boolean
   target_gap_pct: number | null

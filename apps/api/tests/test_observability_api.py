@@ -481,7 +481,7 @@ def _seed_target_matches(api: ApiContext) -> dict[str, int]:
             rule_id=rule_with_target.id,
             message_text="RTX 5070 por R$ 2.050",
             price_cents=205_000,
-            matched_at=now - timedelta(days=1),
+            matched_at=now - timedelta(hours=2),
         )
         above = Match(
             source_id=source.id,
@@ -559,6 +559,62 @@ def test_matches_feed_sorts_target_hits_first(api: ApiContext) -> None:
     # Stable sort: relative order within the hit group is untouched (`below`
     # is more recent than `at_target`, same as the default recency order).
     assert ordered_ids.index(ids["below"]) < ordered_ids.index(ids["at_target"])
+
+
+def _seed_pinning_matches(api: ApiContext) -> dict[str, int]:
+    """S17-02: a recent target hit (2 h ago, R$ 20), an old target hit
+    (3 days ago, R$ 10, so it is the cheapest) and a recent non-hit
+    (1 h ago, R$ 30), all under one rule with a R$ 25 target.
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo Fixar", telegram_chat_id="-1098")
+        rule = Rule(name="Fixar", include_terms="fixar", target_price_cents=2_500)
+        session.add_all([source, rule])
+        session.flush()
+        rows = {
+            "recent_hit": (2_000, now - timedelta(hours=2)),
+            "old_hit": (1_000, now - timedelta(days=3)),
+            "recent_miss": (3_000, now - timedelta(hours=1)),
+        }
+        matches = {
+            key: Match(
+                source_id=source.id,
+                rule_id=rule.id,
+                message_text=f"Fixar {key}",
+                price_cents=price,
+                matched_at=matched_at,
+            )
+            for key, (price, matched_at) in rows.items()
+        }
+        session.add_all(matches.values())
+        session.commit()
+        return {key: match.id for key, match in matches.items()}
+
+
+def test_matches_feed_pins_only_recent_target_hits(api: ApiContext) -> None:
+    """S17-02: a target hit from 2 h ago goes first; one from 3 days ago
+    keeps `target_hit` true but sits at its normal position, with and
+    without `sort=price_asc`.
+    """
+    ids = _seed_pinning_matches(api)
+    _login(api)
+
+    default = api.client.get("/matches").json()
+    assert [item["id"] for item in default] == [
+        ids["recent_hit"],
+        ids["recent_miss"],
+        ids["old_hit"],
+    ]
+    assert {item["id"]: item["target_hit"] for item in default}[ids["old_hit"]] is True
+
+    by_price = api.client.get("/matches", params={"sort": "price_asc"}).json()
+    # Without pinning: old_hit, recent_hit, recent_miss.
+    assert [item["id"] for item in by_price] == [
+        ids["recent_hit"],
+        ids["old_hit"],
+        ids["recent_miss"],
+    ]
 
 
 def test_matches_lowest_price_stays_correct_for_a_match_inserted_out_of_chronological_order(
