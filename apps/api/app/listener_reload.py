@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.db_retry import retry_when_locked_async
 from app.listener_control import (
     claim_reload,
     config_fingerprint,
@@ -51,14 +52,20 @@ class ReloadWorker:
 
     async def poll_once(self) -> bool:
         """One tick. Returns whether a reload request was applied or failed."""
+        # S13-04: a lock that outlasts busy_timeout is retried here instead of
+        # failing the tick; the writes are single idempotent statements.
+        claimed = await retry_when_locked_async(self._tick_writes)
+        if not claimed:
+            return False
+        await self._apply()
+        return True
+
+    async def _tick_writes(self) -> bool:
         with self._session_factory() as session:
             touch_listener_seen(session, now=self._now())
             if not (self._lifecycle.started and self._is_connected()):
                 return False
-            if not claim_reload(session, now=self._now()):
-                return False
-        await self._apply()
-        return True
+            return bool(claim_reload(session, now=self._now()))
 
     async def _apply(self) -> None:
         try:
