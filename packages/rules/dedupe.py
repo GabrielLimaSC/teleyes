@@ -80,3 +80,11 @@ class DedupeCache:
 
         self._seen[signature] = now
         return True
+
+    def forget(self, signature: str) -> None:
+        """Un-mark a signature whose processing failed before anything was persisted.
+
+        Without it, retrying a message after a transient write failure would be
+        dropped as a duplicate of the attempt that never completed.
+        """
+        self._seen.pop(signature, None)
