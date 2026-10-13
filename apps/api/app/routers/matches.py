@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -20,11 +20,14 @@ from app.pipeline import (
 from app.product_history import get_display_timezone, posting_identity, sparklines_for_keys
 from app.routers.notifications import BotNotifierFactory, get_bot_notifier_factory
 from app.routers.products import PricePointResponse
-from app.utc import UtcDatetime, utc_now
+from app.utc import UtcDatetime, ensure_utc, utc_now
 from auth.session import SessionRecord
 from models import Delivery, Match, MatchCorrection, Recipient, Rule, Snooze, Source
 from packages.rules.manual_price import PriceParseError, parse_manual_price_cents
 from packages.rules.target import target_gap_pct, target_hit
+
+# S17-02: only a target hit this recent is pinned to the top of the feed.
+PINNED_TARGET_HIT_WINDOW = timedelta(hours=24)
 
 router = APIRouter(
     prefix="/matches",
@@ -102,8 +105,10 @@ class MatchResponse(BaseModel):
     # target_price_cents` (null without one); `target_hit` and
     # `target_gap_pct` are computed fresh on every read from those two plus
     # `price_cents` (`packages.rules.target`), never persisted — same
-    # reasoning as `is_lowest_price_ever` above. Items with `target_hit` sort
-    # first in this endpoint's response (see `list_matches`).
+    # reasoning as `is_lowest_price_ever` above. Only items with `target_hit`
+    # AND a `matched_at` within `PINNED_TARGET_HIT_WINDOW` sort first in this
+    # endpoint's response (see `list_matches`); older hits keep `target_hit`
+    # true but are not pinned.
     target_price_cents: int | None = None
     target_hit: bool = False
     target_gap_pct: int | None = None
@@ -604,11 +609,17 @@ def list_matches(
 
     visible = _apply_display_grouping(matches)
     visible = _apply_duplicate_grouping(db, visible)
-    # S14-02: a target hit is prioritized in the live feed's own ordering,
-    # on top of whatever `sort`/grouping already produced — a stable sort
-    # only moves target hits to the front, it never reorders within either
-    # group.
-    visible.sort(key=lambda response: not response.target_hit)
+    # S14-02 / S17-02: a RECENT target hit (matched within
+    # `PINNED_TARGET_HIT_WINDOW`) is prioritized in the live feed's own
+    # ordering, on top of whatever `sort`/grouping already produced — a
+    # stable sort only moves those to the front, it never reorders within
+    # either group. Older hits stay in their normal position.
+    pin_cutoff = ensure_utc(now) - PINNED_TARGET_HIT_WINDOW
+    visible.sort(
+        key=lambda response: not (
+            response.target_hit and ensure_utc(response.matched_at) >= pin_cutoff
+        )
+    )
     _attach_sparklines(db, visible, now=now, tz=tz)
     return visible
 
