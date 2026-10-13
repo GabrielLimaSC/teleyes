@@ -235,7 +235,7 @@ async def main() -> int:
     else:
         print(
             "Sem fonte, regra ou destinatário (ativo e allowlisted) cadastrado — nada pra "
-            "escutar por enquanto. Cadastre pelo painel e use \"Aplicar regras\"; este processo "
+            'escutar por enquanto. Cadastre pelo painel e use "Aplicar regras"; este processo '
             "continua vivo e passa a escutar sem reiniciar."
         )
 
@@ -343,13 +343,17 @@ async def main() -> int:
     # the panel's "listener online" beat alive while Telegram is unreachable.
     reload_task = asyncio.create_task(reload_worker.run(stop_event))
     digest_task = asyncio.create_task(digest_scheduler.run(stop_event))
+    # S13-04: periodic safety-net catch-up (idempotent; never alerts twice).
+    catch_up_task = asyncio.create_task(
+        lifecycle.run_periodic_catch_up(stop_event, client.is_connected)
+    )
     try:
         outcome = await supervisor.run()
     finally:
         stop_event.set()
         background = [
             task
-            for task in (watchdog, heartbeat, reload_task, digest_task)
+            for task in (watchdog, heartbeat, reload_task, digest_task, catch_up_task)
             if task is not None
         ]
         for task in background:
