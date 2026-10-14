@@ -69,6 +69,22 @@ _COUPON_FOLLOWING_RE = re.compile(r"\b(?:off|desconto)\b", re.IGNORECASE)
 _COUPON_GAP_RE = re.compile(r"^[\s,:-]*(?:de\s+)?[\s,:-]*$", re.IGNORECASE)
 
 
+# Telegram markdown emphasis markers (`**bold**`, `__italic__`, `~~strike~~`,
+# `` `code` ``) reach this module verbatim in real messages, e.g. Grape Tec's
+# "🎟Cupom: **__R$ 10 OFF__**". Left in place they break coupon detection
+# twice: the markers are not a connector between "Cupom:" and the value (see
+# `_COUPON_GAP_RE`), and "_" is a word character, so "OFF__" has no word
+# boundary for `_COUPON_FOLLOWING_RE`. The R$ 10 coupon then survived as the
+# lowest "price" of a R$ 736 motherboard. Markers are blanked one-for-one, so
+# every span stays aligned with the original text; no price is ever written
+# with these characters.
+_MARKDOWN_MARKER_RE = re.compile(r"[*_~`]")
+
+
+def _strip_markdown_markers(text: str) -> str:
+    return _MARKDOWN_MARKER_RE.sub(" ", text)
+
+
 def _is_connector_gap(text: str, start: int, end: int) -> bool:
     return _COUPON_GAP_RE.match(text[start:end]) is not None
 
@@ -235,8 +251,10 @@ def extract_price(text: str) -> PriceExtraction:
     remaining candidate. When multiple total (non-installment) prices are
     found, the lowest one is returned and the result is marked ambiguous —
     unless they can be told apart as a cash vs. card price (S7-05, see
-    `_detect_cash_and_card`).
+    `_detect_cash_and_card`). Telegram markdown markers are ignored (see
+    `_strip_markdown_markers`).
     """
+    text = _strip_markdown_markers(text)
     candidates: list[_Candidate] = []
     for match in _MONEY_RE.finditer(text):
         value = match.group("value")
