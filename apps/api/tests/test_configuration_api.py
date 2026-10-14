@@ -319,3 +319,27 @@ def test_update_of_missing_resource_becomes_404(
     )
 
     assert response.status_code == 404
+
+
+def test_rule_with_dangling_plus_becomes_422_on_create_and_update(client: TestClient) -> None:
+    csrf = login(client)
+    headers = {"x-csrf-token": csrf}
+
+    created = client.post(
+        "/rules", json={"name": "Solta", "include_terms": "memoria ram +"}, headers=headers
+    )
+    assert created.status_code == 422
+    assert "parte vazia" in created.json()["detail"]
+
+    valid = client.post(
+        "/rules",
+        json={"name": "AND", "include_terms": "memoria ram + 16gb", "exclude_terms": "ssd + 512"},
+        headers=headers,
+    )
+    assert valid.status_code == 201
+    rule_id = valid.json()["id"]
+
+    for body in ({"include_terms": "+ 16gb"}, {"exclude_terms": "notebook +"}):
+        bad = client.patch(f"/rules/{rule_id}", json=body, headers=headers)
+        assert bad.status_code == 422
+    assert client.get("/rules").json()[0]["include_terms"] == "memoria ram + 16gb"

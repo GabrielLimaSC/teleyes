@@ -4,12 +4,19 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from models import Delivery, Match, MatchCorrection, Rule
+from packages.rules.match import terms_error
 from repositories.errors import NotFoundError, ValidationError
 
 
 def _validate_target_price_cents(target_price_cents: int | None) -> None:
     if target_price_cents is not None and target_price_cents <= 0:
         raise ValidationError("target_price_cents must be greater than zero")
+
+
+def _validate_terms(include_terms: str | None, exclude_terms: str | None) -> None:
+    """S17-06: reject a dangling/empty `+` part in either term list (pt-BR)."""
+    if error := terms_error(include_terms) or terms_error(exclude_terms):
+        raise ValidationError(error)
 
 
 def create_rule(
@@ -23,6 +30,7 @@ def create_rule(
 ) -> Rule:
     if not include_terms.strip():
         raise ValidationError("rule requires at least one include term")
+    _validate_terms(include_terms, exclude_terms)
     _validate_target_price_cents(target_price_cents)
 
     rule = Rule(
@@ -62,6 +70,7 @@ def update_rule(
     target_price_cents: int | None = None,
 ) -> Rule:
     rule = _get_rule(session, rule_id)
+    _validate_terms(include_terms, exclude_terms)
 
     if include_terms is not None:
         if not include_terms.strip():

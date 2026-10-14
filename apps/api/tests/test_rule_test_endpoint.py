@@ -313,3 +313,15 @@ def test_empty_history_returns_an_empty_preview(client: TestClient) -> None:
     body = _test_rule(client, csrf, include_terms="iphone")
 
     assert body == {"total_matched": 0, "window_days": HISTORICAL_WINDOW.days, "messages": []}
+
+
+def test_rejects_dangling_plus_in_include_or_exclude_terms(client: TestClient) -> None:
+    csrf = login(client)
+
+    for payload in (
+        {"include_terms": "memoria ram +"},
+        {"include_terms": "ssd", "exclude_terms": "+ 512"},
+    ):
+        response = client.post("/rules/test", json=payload, headers={"x-csrf-token": csrf})
+        assert response.status_code == 422
+        assert "parte vazia" in response.json()["detail"]

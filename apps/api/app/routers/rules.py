@@ -13,7 +13,7 @@ from app.pipeline import HISTORICAL_WINDOW, evaluate_rule, parse_terms
 from app.product_history import daily_lowest, get_display_timezone
 from app.utc import UtcDatetime, ensure_utc, utc_now
 from models import Match, Rule, Snooze, Source
-from packages.rules.normalize import normalize_text
+from packages.rules.match import MatchRule, terms_error
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
 
@@ -109,11 +109,7 @@ def _first_matching_term(include_terms: str, text: str) -> str:
     called only after `evaluate_rule` already confirmed a hit, so some term
     is always found; the fallback exists only to keep this total.
     """
-    normalized_message = normalize_text(text)
-    for term in parse_terms(include_terms):
-        if normalize_text(term) in normalized_message:
-            return term
-    return ""
+    return MatchRule(include_terms=parse_terms(include_terms)).first_include_hit(text) or ""
 
 
 def _not_found(error: NotFoundError) -> HTTPException:
@@ -234,6 +230,8 @@ def test_rule(payload: RuleTestRequest, db: Session = Depends(get_db)) -> RuleTe
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="rule requires at least one include term",
         )
+    if error := terms_error(payload.include_terms) or terms_error(payload.exclude_terms):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=error)
 
     candidate_rule = Rule(
         include_terms=payload.include_terms,
