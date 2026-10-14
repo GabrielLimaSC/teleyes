@@ -719,3 +719,36 @@ def test_rule_sparkline_dedupes_postings_per_rule_and_respects_manual_price(
 
     assert series[mine] == [900_00, 5_000_00]
     assert series[theirs] == [5_000_00]
+
+
+def _rule(api: ApiContext, name: str) -> int:
+    with api.session_factory() as session:
+        rule = Rule(name=name, include_terms="x")
+        session.add(rule)
+        session.commit()
+        return rule.id
+
+
+def test_rule_sparkline_drops_bait_prices_only_with_enough_postings(api: ApiContext) -> None:
+    big = api.ids["rule"]
+    small = _rule(api, "Pequena")
+    single = _rule(api, "Unica")
+    for day in range(10):
+        _add_rule_match(
+            api, big, f"Placa {day}", ago=timedelta(days=day + 2), price_cents=(600 + day * 10) * 100
+        )
+    bait = _add_rule_match(api, big, "Isca", ago=timedelta(days=1), price_cents=2_00)
+    for day in range(5):  # fewer than the minimum: no reliable median
+        _add_rule_match(api, small, f"Item {day}", ago=timedelta(days=day + 2), price_cents=600_00)
+    low_small = _add_rule_match(api, small, "Barato", ago=timedelta(days=1), price_cents=2_00)
+    # Single-product rule: legitimate low price (>= 25% of the median) stays.
+    for day in range(9):
+        _add_rule_match(api, single, "Mesmo item", ago=timedelta(days=day + 2), price_cents=400_00)
+    legit = _add_rule_match(api, single, "Mesmo item", ago=timedelta(days=1), price_cents=120_00)
+
+    series = _feed_sparklines(api)
+
+    assert 2_00 not in series[bait]
+    assert min(series[bait]) == 600_00
+    assert 2_00 in series[low_small]  # the big rule's median does not cross rules
+    assert series[legit][-1] == 120_00

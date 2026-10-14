@@ -31,6 +31,13 @@ STATS_LONG_WINDOW = timedelta(days=90)
 STATS_SHORT_WINDOW = timedelta(days=30)
 SPARKLINE_WINDOW = timedelta(days=90)
 SPARKLINE_MAX_POINTS = 30
+# Rule-wide charts mix many products, so one bait price (e.g. "R$ 2,00 no PIX
+# com cupom") would draw a fake drop. Postings priced below this fraction of
+# the rule's median are left out of the CHART only (alerts, cards and the
+# per-product history are untouched). Needs enough postings for a reliable
+# median. Deterministic and explainable: no fuzzy matching.
+SPARKLINE_OUTLIER_FLOOR_RATIO = 0.25
+SPARKLINE_OUTLIER_MIN_POINTS = 8
 # Above this many distinct keys an `IN (...)` list stops being worth it (and
 # SQLite caps bound parameters): read the whole 90-day window instead, still
 # one query.
@@ -261,6 +268,21 @@ def sparklines_for_rules(
     for row in selected.values():
         priced.setdefault(row.rule_id, []).append((row.matched_at, row.price_cents))
     return {
-        rule_id: downsample(daily_lowest(rows, tz), SPARKLINE_MAX_POINTS)
+        rule_id: downsample(daily_lowest(_drop_price_outliers(rows), tz), SPARKLINE_MAX_POINTS)
         for rule_id, rows in priced.items()
     }
+
+
+def _drop_price_outliers(rows: list[tuple[datetime, int]]) -> list[tuple[datetime, int]]:
+    """Drop postings under `SPARKLINE_OUTLIER_FLOOR_RATIO` of the rule's median price.
+
+    Applied after the per-rule posting dedupe, and only with at least
+    `SPARKLINE_OUTLIER_MIN_POINTS` priced postings.
+    """
+    if len(rows) < SPARKLINE_OUTLIER_MIN_POINTS:
+        return rows
+    prices = sorted(price for _, price in rows)
+    mid = len(prices) // 2
+    median = prices[mid] if len(prices) % 2 else (prices[mid - 1] + prices[mid]) / 2
+    floor = median * SPARKLINE_OUTLIER_FLOOR_RATIO
+    return [(at, price) for at, price in rows if price >= floor]
