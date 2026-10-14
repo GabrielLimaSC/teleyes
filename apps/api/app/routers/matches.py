@@ -17,7 +17,7 @@ from app.pipeline import (
     build_target_alert_text,
     compute_group_key,
 )
-from app.product_history import get_display_timezone, posting_identity, sparklines_for_keys
+from app.product_history import get_display_timezone, posting_identity, sparklines_for_rules
 from app.routers.notifications import BotNotifierFactory, get_bot_notifier_factory
 from app.routers.products import PricePointResponse
 from app.utc import UtcDatetime, ensure_utc, utc_now
@@ -655,14 +655,11 @@ def list_matches(
 def _attach_sparklines(
     db: Session, responses: list[MatchResponse], *, now: datetime, tz: ZoneInfo
 ) -> None:
-    keys = {response.product_key for response in responses if response.product_key is not None}
-    sparklines = sparklines_for_keys(db, keys, now, tz)
+    # S17-09: the card chart is the RULE's lowest-price series, not the product's.
+    sparklines = sparklines_for_rules(db, {response.rule_id for response in responses}, now, tz)
     for response in responses:
-        if response.product_key is None:
-            continue
         response.sparkline = [
-            PricePointResponse.from_point(point)
-            for point in sparklines.get(response.product_key, [])
+            PricePointResponse.from_point(point) for point in sparklines.get(response.rule_id, [])
         ]
 
 

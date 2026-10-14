@@ -826,6 +826,8 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
       />,
     )
     expect(screen.getByRole('img', { name: /Histórico de preço/ })).toBeInTheDocument()
+    expect(screen.getByText('Regra · 90 dias')).toBeInTheDocument()
+    expect(screen.getByTitle('Menor preço da regra por dia, últimos 90 dias')).toBeInTheDocument()
     expect(screen.queryByText('linha = alvo')).not.toBeInTheDocument()
 
     rerender(

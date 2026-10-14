@@ -553,9 +553,10 @@ def test_feed_items_carry_product_key_and_a_short_sparkline(api: ApiContext) -> 
 
     gigabyte = items[unpriced]
     assert gigabyte["product_key"] == "gigabyte-rtx-5070-ti-windforce"
-    assert gigabyte["sparkline"] == []
+    # S17-09: the chart is the rule's, so even a price-less match of another product has it.
     palit_items = [item for item in items.values() if item["product_key"] == PALIT_KEY]
     sparkline = palit_items[0]["sparkline"]
+    assert gigabyte["sparkline"] == sparkline
     assert 1 < len(sparkline) <= 30
     assert [point["date"] for point in sparkline] == sorted(point["date"] for point in sparkline)
     assert min(point["price_cents"] for point in sparkline) == 5_000_00
@@ -619,3 +620,134 @@ def test_a_message_matched_by_two_rules_is_one_posting(api: ApiContext) -> None:
     assert body["average_30d_cents"] == 5_500_00
     (item,) = [i for i in api.client.get("/matches").json() if i["price_cents"] == 6_000_00]
     assert [point["price_cents"] for point in item["sparkline"]] == [6_000_00, 5_000_00]
+
+
+def _add_rule_match(
+    api: ApiContext,
+    rule_id: int,
+    text: str,
+    *,
+    ago: timedelta,
+    price_cents: int,
+    telegram_message_id: int | None = None,
+    price_source: str | None = None,
+    with_key: bool = True,
+) -> int:
+    with api.session_factory() as session:
+        match = Match(
+            source_id=api.ids["a"],
+            rule_id=rule_id,
+            telegram_message_id=telegram_message_id,
+            message_text=text,
+            price_cents=price_cents,
+            matched_at=NOW - ago,
+            product_key=product_key(text) if with_key else None,
+        )
+        if price_source is not None:
+            match.price_source = price_source
+        session.add(match)
+        session.commit()
+        return match.id
+
+
+def _feed_sparklines(api: ApiContext) -> dict[int, list[int]]:
+    return {
+        item["id"]: [point["price_cents"] for point in item["sparkline"]]
+        for item in api.client.get("/matches").json()
+    }
+
+
+def test_card_sparkline_is_the_rules_series_across_products(api: ApiContext) -> None:
+    first = _add(api, PALIT, ago=timedelta(days=3), price_cents=5_500_00)
+    second = _add(api, GIGABYTE, ago=timedelta(days=1), price_cents=5_300_00)
+    keyless = _add_rule_match(
+        api,
+        api.ids["rule"],
+        "oferta sem chave",
+        ago=timedelta(days=2),
+        price_cents=5_000_00,
+        with_key=False,
+    )
+    with api.session_factory() as session:
+        other_rule = Rule(name="Outra", include_terms="x")
+        session.add(other_rule)
+        session.commit()
+        other_rule_id = other_rule.id
+    other = _add_rule_match(
+        api, other_rule_id, "Teclado X", ago=timedelta(days=1), price_cents=100_00
+    )
+
+    series = _feed_sparklines(api)
+
+    assert series[first] == series[second] == series[keyless] == [5_500_00, 5_000_00, 5_300_00]
+    assert series[other] == [100_00]
+
+
+def test_rule_sparkline_dedupes_postings_per_rule_and_respects_manual_price(
+    api: ApiContext,
+) -> None:
+    text = f"{PALIT}\n\nR$ 5.000,00 no pix"
+    with api.session_factory() as session:
+        other_rule = Rule(name="Outra", include_terms="palit")
+        session.add(other_rule)
+        session.commit()
+        other_rule_id = other_rule.id
+    # The same Telegram post caught by both rules: one point in EACH rule.
+    mine = _add_rule_match(
+        api,
+        api.ids["rule"],
+        text,
+        ago=timedelta(days=1),
+        price_cents=5_000_00,
+        telegram_message_id=7,
+    )
+    theirs = _add_rule_match(
+        api, other_rule_id, text, ago=timedelta(days=1), price_cents=5_000_00, telegram_message_id=7
+    )
+    # A manual price on another post of the first rule wins over the parsed one.
+    _add_rule_match(
+        api,
+        api.ids["rule"],
+        "Mouse Y",
+        ago=timedelta(days=5),
+        price_cents=900_00,
+        telegram_message_id=8,
+        price_source="manual",
+    )
+
+    series = _feed_sparklines(api)
+
+    assert series[mine] == [900_00, 5_000_00]
+    assert series[theirs] == [5_000_00]
+
+
+def _rule(api: ApiContext, name: str) -> int:
+    with api.session_factory() as session:
+        rule = Rule(name=name, include_terms="x")
+        session.add(rule)
+        session.commit()
+        return rule.id
+
+
+def test_rule_sparkline_drops_bait_prices_only_with_enough_postings(api: ApiContext) -> None:
+    big = api.ids["rule"]
+    small = _rule(api, "Pequena")
+    single = _rule(api, "Unica")
+    for day in range(10):
+        price = (600 + day * 10) * 100
+        _add_rule_match(api, big, f"Placa {day}", ago=timedelta(days=day + 2), price_cents=price)
+    bait = _add_rule_match(api, big, "Isca", ago=timedelta(days=1), price_cents=2_00)
+    for day in range(5):  # fewer than the minimum: no reliable median
+        _add_rule_match(api, small, f"Item {day}", ago=timedelta(days=day + 2), price_cents=600_00)
+    low_small = _add_rule_match(api, small, "Barato", ago=timedelta(days=1), price_cents=2_00)
+    # Single-product rule: legitimate low price (>= 25% of the median) stays.
+    for day in range(9):
+        _add_rule_match(api, single, "Mesmo item", ago=timedelta(days=day + 2), price_cents=400_00)
+    legit = _add_rule_match(api, single, "Mesmo item", ago=timedelta(days=1), price_cents=120_00)
+
+    series = _feed_sparklines(api)
+
+    assert 2_00 not in series[bait]
+    assert min(series[bait]) == 600_00
+    assert 2_00 in series[low_small]  # the big rule's median does not cross rules
+    assert series[legit][-1] == 120_00
