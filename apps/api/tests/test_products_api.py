@@ -734,9 +734,8 @@ def test_rule_sparkline_drops_bait_prices_only_with_enough_postings(api: ApiCont
     small = _rule(api, "Pequena")
     single = _rule(api, "Unica")
     for day in range(10):
-        _add_rule_match(
-            api, big, f"Placa {day}", ago=timedelta(days=day + 2), price_cents=(600 + day * 10) * 100
-        )
+        price = (600 + day * 10) * 100
+        _add_rule_match(api, big, f"Placa {day}", ago=timedelta(days=day + 2), price_cents=price)
     bait = _add_rule_match(api, big, "Isca", ago=timedelta(days=1), price_cents=2_00)
     for day in range(5):  # fewer than the minimum: no reliable median
         _add_rule_match(api, small, f"Item {day}", ago=timedelta(days=day + 2), price_cents=600_00)
