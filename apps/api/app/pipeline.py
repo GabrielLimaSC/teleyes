@@ -24,7 +24,6 @@ from packages.notifications.bot import BotNotifier, DeliveryResult
 from packages.notifications.formatting import format_price_cents
 from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
-from packages.rules.normalize import normalize_text
 from packages.rules.price import extract_price
 from packages.rules.product import product_key
 from packages.rules.target import target_hit
@@ -166,8 +165,7 @@ def _build_match_rule(rule: Rule) -> MatchRule:
 
 
 def _discard_reason(match_rule: MatchRule, text: str) -> MetricReason:
-    normalized = normalize_text(text)
-    if any(normalize_text(term) in normalized for term in match_rule.exclude_terms):
+    if match_rule.blocked_by(text):
         return MetricReason.BLOCKED
     return MetricReason.NO_TERM
 

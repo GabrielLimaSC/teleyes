@@ -36,7 +36,7 @@ O sistema é single-tenant. Multiusuário completo, convites e permissões granu
 Uma regra contém:
 
 - `name` e `enabled`;
-- `include_terms`: todos ou qualquer termo, com alternativas;
+- `include_terms`: todos ou qualquer termo, com alternativas; um termo com ` + ` (ex.: `memoria ram + 16gb`) exige todas as partes, em qualquer ordem (vale também para bloqueados);
 - `exclude_terms`;
 - `max_price_cents` opcional;
 - comportamento quando preço não for encontrado;

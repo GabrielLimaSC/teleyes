@@ -18,7 +18,7 @@ import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
 import { ApiError } from '../api/auth'
 import type { DigestSettings, PricePoint, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
-import { previewRuleMatch } from '../utils/ruleMatchPreview'
+import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
 import { formatDayMonth, formatMatchedAt } from '../utils/dates'
@@ -402,6 +402,11 @@ export function RegrasPage() {
     }
     if (parseTermList(form.includeTerms).length === 0) {
       setFormError(NO_TERMS_MESSAGE)
+      return
+    }
+    const termsProblem = termsError(form.includeTerms) ?? termsError(form.excludeTerms)
+    if (termsProblem !== null) {
+      setFormError(termsProblem)
       return
     }
     // S14-13: validate both price fields with the one parser before ever
@@ -1072,7 +1077,7 @@ export function RegrasPage() {
               label="Termos incluídos"
               value={form.includeTerms}
               onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
-              helper="Enter ou vírgula pra adicionar."
+              helper="Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb."
             />
             <label className="regras-form__field">
               Termos bloqueados
@@ -1080,8 +1085,12 @@ export function RegrasPage() {
                 value={form.excludeTerms}
                 onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
                 placeholder="usado, caixa aberta…"
+                aria-describedby="rule-exclude-terms-hint"
               />
             </label>
+            <p id="rule-exclude-terms-hint" className="regras-form__helper">
+              Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
+            </p>
             <div className="regras-form__price-grid">
               <label className="regras-form__field">
                 Teto (R$)
