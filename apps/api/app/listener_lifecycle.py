@@ -35,6 +35,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.delivery_retry import resend_failed_deliveries
 from app.pipeline import (
     HISTORICAL_WINDOW,
     IncomingMessage,
@@ -100,6 +101,8 @@ def _chat_index(sources: Sequence[ListenerSource]) -> dict[int, ListenerSource]:
 
 # S13-04: how often the safety-net catch-up runs while connected.
 CATCH_UP_INTERVAL_SECONDS = 120.0
+# S17-01: how often recent failed alerts are retried while connected.
+RESEND_INTERVAL_SECONDS = 180.0
 
 
 @dataclass(frozen=True)
@@ -292,6 +295,32 @@ class ListenerLifecycle:
                 await self.catch_up()
             except Exception as error:
                 logger.error("event=periodic_catch_up_failed %s", describe_error(error))
+
+    async def run_periodic_resend(
+        self,
+        stop_event: asyncio.Event,
+        is_connected: Callable[[], bool],
+        *,
+        interval_seconds: float = RESEND_INTERVAL_SECONDS,
+    ) -> None:
+        """S17-01: resend recent `failed` alerts, only while connected.
+
+        Same shape as `run_periodic_catch_up`. The pass is idempotent: a row
+        that became `sent` is never a candidate again (see `app.delivery_retry`).
+        """
+        while not stop_event.is_set():
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
+            except TimeoutError:
+                pass
+            if stop_event.is_set():
+                return
+            if not (self.started and is_connected()):
+                continue
+            try:
+                await resend_failed_deliveries(self._session_factory, self._notifier)
+            except Exception as error:
+                logger.error("event=periodic_resend_failed %s", describe_error(error))
 
     async def apply_config(
         self, new_sources: Sequence[ListenerSource], *, allowlisted_chat_ids: set[str]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -18,7 +20,7 @@ from app.utc import ensure_utc, format_utc
 from models import Delivery, Match, Recipient, Rule, Source
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
-from packages.notifications.bot import BotNotifier
+from packages.notifications.bot import BotNotifier, DeliveryResult
 from packages.notifications.formatting import format_price_cents
 from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
@@ -39,6 +41,14 @@ from packages.telegram.historical import (
     latest_message_id,
 )
 from packages.telegram.links import build_message_link
+
+logger = logging.getLogger(__name__)
+
+# S17-01: a failed Bot API send is retried a couple of times in place (short,
+# async backoff: 1s then 2s) before the delivery is recorded as `failed`; the
+# listener's periodic resend (`app.delivery_retry`) takes it from there.
+NOTIFY_ATTEMPTS = 3
+NOTIFY_BASE_DELAY = 1.0
 
 
 class ListenerFetcherProtocol(MessageFetcherProtocol, RecentMessageFetcherProtocol, Protocol):
@@ -380,6 +390,40 @@ def build_target_alert_text(text: str, rule: Rule, price_cents: int) -> str:
     )
 
 
+async def notify_with_retry(
+    notifier: BotNotifier,
+    *,
+    match_id: int,
+    recipient_id: int,
+    chat_id: str,
+    text: str,
+) -> DeliveryResult:
+    """`notifier.notify` with a short async retry (S17-01).
+
+    Safe because `BotNotifier` only remembers a pair after a successful send, so
+    a retry after an exception can never be blocked by its own dedupe. The last
+    exception propagates once the attempts run out. Logs class and attempt only.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            return await notifier.notify(
+                match_id=match_id, recipient_id=recipient_id, chat_id=chat_id, text=text
+            )
+        except Exception as error:
+            if attempt >= NOTIFY_ATTEMPTS:
+                raise
+            logger.warning(
+                "event=notify_retry match_id=%d attempt=%d of=%d error_class=%s",
+                match_id,
+                attempt,
+                NOTIFY_ATTEMPTS,
+                type(error).__name__,
+            )
+            await asyncio.sleep(NOTIFY_BASE_DELAY * 2 ** (attempt - 1))
+
+
 async def process_message(
     session: Session,
     message: IncomingMessage,
@@ -615,13 +659,22 @@ async def process_message(
     deliveries_sent = 0
     for recipient in recipients:
         try:
-            result = await notifier.notify(
+            result = await notify_with_retry(
+                notifier,
                 match_id=db_match.id,
                 recipient_id=recipient.id,
                 chat_id=recipient.telegram_chat_id,
                 text=notify_text,
             )
-        except Exception:  # one recipient's delivery failure must not sink the whole batch
+        except Exception as error:  # one recipient's delivery failure must not sink the whole batch
+            # S17-01: class and ids only, never the message text.
+            logger.error(
+                "event=notify_failed match_id=%d recipient_id=%d kind=%s error_class=%s",
+                db_match.id,
+                recipient.id,
+                kind,
+                type(error).__name__,
+            )
             outcomes.append((recipient, "failed", None, True))
             continue
 
