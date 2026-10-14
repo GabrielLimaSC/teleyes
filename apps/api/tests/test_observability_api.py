@@ -266,6 +266,83 @@ def test_every_match_filter_and_price_range(api: ApiContext) -> None:
         assert _response_ids(response.json()) == expected_ids
 
 
+def _add_search_matches(api: ApiContext, ids: dict[str, int]) -> dict[str, int]:
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        board = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Placa-mãe ASUS B850M-AYW Prime R$ 1.200,00",
+            price_cents=120_000,
+            product_key="placa mae asus b850m ayw",
+            matched_at=now,
+        )
+        fridge = Match(
+            source_id=ids["source_b"],
+            rule_id=ids["rule_b"],
+            message_text="GELADEIRA Frost Free",
+            price_cents=300_000,
+            matched_at=now,
+        )
+        session.add_all([board, fridge])
+        session.commit()
+        return {"board": board.id, "fridge": fridge.id}
+
+
+def test_matches_search_ignores_accent_case_and_punctuation(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    extra = _add_search_matches(api, ids)
+    _login(api)
+
+    for term in ("b850m", "B850M-AYW", "PLACA MAE", "placa-mãe", "geladeira"):
+        response = api.client.get("/matches", params={"q": term})
+        assert response.status_code == 200
+        expected = {extra["fridge"]} if "gela" in term.lower() else {extra["board"]}
+        assert _response_ids(response.json()) == expected, term
+
+    # Also hits `product_key` when the message text itself doesn't contain it.
+    assert _response_ids(api.client.get("/matches", params={"q": "notebook"}).json()) == {
+        ids["match_a"],
+        ids["match_b"],
+    }
+
+
+def test_matches_search_combines_with_other_filters_and_sort(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    extra = _add_search_matches(api, ids)
+    _login(api)
+
+    both = api.client.get("/matches", params={"q": "notebook", "sort": "price_desc"}).json()
+    assert [item["id"] for item in both] == [ids["match_b"], ids["match_a"]]
+
+    by_rule = api.client.get("/matches", params={"q": "b850m", "rule_id": ids["rule_a"]})
+    assert _response_ids(by_rule.json()) == {extra["board"]}
+    wrong_rule = api.client.get("/matches", params={"q": "b850m", "rule_id": ids["rule_b"]})
+    assert wrong_rule.json() == []
+
+    in_range = api.client.get(
+        "/matches", params={"q": "notebook", "min_price_cents": 20_000, "max_price_cents": 30_000}
+    )
+    assert _response_ids(in_range.json()) == {ids["match_b"]}
+    out_of_range = api.client.get("/matches", params={"q": "b850m", "max_price_cents": 50_000})
+    assert out_of_range.json() == []
+
+    with_delivery = api.client.get("/matches", params={"q": "notebook", "delivery_status": "sent"})
+    assert _response_ids(with_delivery.json()) == {ids["match_a"]}
+
+
+def test_matches_search_no_result_and_blank_query_keeps_feed_behavior(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    _add_search_matches(api, ids)
+    _login(api)
+
+    assert api.client.get("/matches", params={"q": "zzz inexistente"}).json() == []
+    everything = api.client.get("/matches").json()
+    for blank in ("", "   ", "---"):
+        response = api.client.get("/matches", params={"q": blank})
+        assert _response_ids(response.json()) == _response_ids(everything)
+
+
 def test_invalid_match_price_range_becomes_422(api: ApiContext) -> None:
     _login(api)
 

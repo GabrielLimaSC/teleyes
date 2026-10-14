@@ -1614,6 +1614,7 @@ export interface operations {
                 max_price_cents?: number | null;
                 delivery_status?: string | null;
                 sort?: ("price_asc" | "price_desc") | null;
+                q?: string | null;
             };
             header?: never;
             path?: never;
