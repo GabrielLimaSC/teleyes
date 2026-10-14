@@ -37,6 +37,7 @@ function renderHistoricoPage() {
 }
 
 const EMPTY: FilterForm = {
+  search: '',
   ruleId: '',
   sourceId: '',
   recipientId: '',
@@ -918,8 +919,93 @@ describe('HistoricoPage', () => {
   })
 })
 
+describe('product search (S17-05)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    window.sessionStorage.clear()
+  })
+
+  function stubFetch(matchesBody: unknown[] = []) {
+    const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(jsonResponse(matchesBody)))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  const matchCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
+    fetchMock.mock.calls.map(([input]) => String(input)).filter((url) => url.startsWith('/matches'))
+
+  it('maps the search term to q and ignores blank terms', () => {
+    expect(toApiFilters({ ...EMPTY, search: '  b850m ' })).toEqual({ search: 'b850m' })
+    expect(toApiFilters({ ...EMPTY, search: '   ' })).toEqual({})
+  })
+
+  it('debounces typing into a single request with q', async () => {
+    const fetchMock = stubFetch()
+    const user = userEvent.setup()
+    renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    const before = matchCalls(fetchMock).length
+
+    await user.type(screen.getByLabelText('Buscar produto'), 'b850m')
+    expect(screen.getByLabelText('Buscar produto')).toHaveValue('b850m')
+    // Typing is fast: no request has gone out per keystroke.
+    expect(matchCalls(fetchMock).length).toBe(before)
+
+    await waitFor(() => expect(matchCalls(fetchMock).at(-1)).toBe('/matches?q=b850m'))
+    expect(matchCalls(fetchMock).length).toBe(before + 1)
+  })
+
+  it('shows a clear empty state naming the term', async () => {
+    stubFetch()
+    const user = userEvent.setup()
+    renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+    await user.type(screen.getByLabelText('Buscar produto'), 'xyz')
+    expect(await screen.findByText(/Nenhum resultado para “xyz”/)).toBeInTheDocument()
+  })
+
+  it('persists the term, restores it on remount, and "Limpar filtros" clears it', async () => {
+    const fetchMock = stubFetch()
+    const user = userEvent.setup()
+    const first = renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await user.type(screen.getByLabelText('Buscar produto'), 'geladeira')
+    await waitFor(() => expect(matchCalls(fetchMock).at(-1)).toBe('/matches?q=geladeira'))
+
+    first.unmount()
+    const secondFetch = stubFetch()
+    renderHistoricoPage()
+    expect(await screen.findByLabelText('Buscar produto')).toHaveValue('geladeira')
+    await waitFor(() => expect(matchCalls(secondFetch).at(-1)).toBe('/matches?q=geladeira'))
+
+    await user.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    expect(screen.getByLabelText('Buscar produto')).toHaveValue('')
+    await waitFor(() => expect(matchCalls(secondFetch).at(-1)).toBe('/matches'))
+    expect(window.sessionStorage.getItem(HISTORICO_FILTERS_STORAGE_KEY)).toBeNull()
+  })
+
+  it('renders and types with storage blocked', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    stubFetch()
+    const user = userEvent.setup()
+    renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await user.type(screen.getByLabelText('Buscar produto'), 'abc')
+    expect(screen.getByLabelText('Buscar produto')).toHaveValue('abc')
+    getItemSpy.mockRestore()
+    setItemSpy.mockRestore()
+  })
+})
+
 describe('parseStoredHistoricoFilters (S15-06)', () => {
   const EMPTY: FilterForm = {
+    search: '',
     ruleId: '',
     sourceId: '',
     recipientId: '',

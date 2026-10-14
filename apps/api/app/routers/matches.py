@@ -24,6 +24,7 @@ from app.utc import UtcDatetime, ensure_utc, utc_now
 from auth.session import SessionRecord
 from models import Delivery, Match, MatchCorrection, Recipient, Rule, Snooze, Source
 from packages.rules.manual_price import PriceParseError, parse_manual_price_cents
+from packages.rules.normalize import normalize_text
 from packages.rules.target import target_gap_pct, target_hit
 
 # S17-02: only a target hit this recent is pinned to the top of the feed.
@@ -291,6 +292,25 @@ def _match_filters(
 MatchSort = Literal["price_asc", "price_desc"]
 
 
+def _matches_search(db_match: Match, normalized_query: str) -> bool:
+    """S17-05: product search, accent/case/punctuation-insensitive.
+
+    SQLite cannot normalize text (no unaccent, ILIKE is ASCII-only), so the
+    search runs in Python over rows the SQL filters already narrowed down, with
+    the same `normalize_text` the rule matcher uses. It checks the message,
+    the product key and the manual display name. No SQL string building and no
+    migration. Cost: O(rows returned by the SQL filters) normalizations per
+    request; `GET /matches` already loads and groups that whole set in Python,
+    so the search adds no new unbounded step.
+    """
+    haystack = " ".join(
+        normalize_text(part)
+        for part in (db_match.message_text, db_match.product_key, db_match.display_name)
+        if part
+    )
+    return normalized_query in haystack
+
+
 def _order_by(sort: MatchSort | None) -> list[Any]:
     """S7-07: ranks matches by price within (typically) a single filtered
     rule. `Match.matched_at.desc()` (S10-03: real chronological order, not
@@ -549,6 +569,7 @@ def list_matches(
     max_price_cents: int | None = Query(default=None, ge=0),
     delivery_status: str | None = Query(default=None, min_length=1, max_length=32),
     sort: Literal["price_asc", "price_desc"] | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=200),
     db: Session = Depends(get_db),
     now: datetime = Depends(utc_now),
     tz: ZoneInfo = Depends(get_display_timezone),
@@ -583,6 +604,8 @@ def list_matches(
         delivery_status=delivery_status,
     ).order_by(*_order_by(sort))
 
+    normalized_query = normalize_text(q) if q else ""
+    rejected_ids: set[int] = set()
     matches: dict[int, MatchResponse] = {}
     for (
         db_match,
@@ -593,8 +616,13 @@ def list_matches(
         correction_admin_id,
         correction_created_at,
     ) in db.execute(statement):
+        if db_match.id in rejected_ids:
+            continue
         response = matches.get(db_match.id)
         if response is None:
+            if normalized_query and not _matches_search(db_match, normalized_query):
+                rejected_ids.add(db_match.id)
+                continue
             response = _build_match_response(
                 db_match,
                 lowest_price_cents=lowest_price_cents,

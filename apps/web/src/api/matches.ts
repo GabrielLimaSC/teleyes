@@ -12,6 +12,7 @@ export interface MatchFilters {
   maxPriceCents?: number
   deliveryStatus?: string
   sort?: MatchSort
+  search?: string
 }
 
 export interface MatchCorrection {
@@ -43,6 +44,7 @@ export function buildMatchQuery(filters: MatchFilters): string {
   if (filters.maxPriceCents !== undefined) params.set('max_price_cents', String(filters.maxPriceCents))
   if (filters.deliveryStatus !== undefined) params.set('delivery_status', filters.deliveryStatus)
   if (filters.sort !== undefined) params.set('sort', filters.sort)
+  if (filters.search !== undefined && filters.search.trim() !== '') params.set('q', filters.search.trim())
   return params.toString()
 }
 

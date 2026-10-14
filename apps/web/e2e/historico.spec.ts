@@ -325,3 +325,55 @@ test('the Regra/Fonte/Destinatário filters stay independently selectable with m
   await expect(page.getByText(`${tag}item0 achado por R$ 321`)).toBeVisible()
   await page.getByLabel('Destinatário', { exact: true }).selectOption({ label: `Alvo ${tag}` })
 })
+
+test('Histórico search by product shows only matching results and the CSV follows (S17-05)', async ({ page }) => {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+
+  const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
+    name: 'Grupo E2E Busca',
+    telegram_chat_id: '-100905',
+  })
+  const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
+    name: 'Regra E2E Busca',
+    include_terms: 'placa, geladeira',
+  })
+  const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
+    name: 'Gabriel E2E Busca',
+    telegram_chat_id: '905',
+    allowlisted: true,
+  })
+  for (const text of ['Placa-mãe ASUS B850M-AYW por R$ 1200', 'Geladeira Brastemp por R$ 3000']) {
+    await apiPost(page, '/demo/messages', csrfToken, {
+      source_id: source.id,
+      rule_id: rule.id,
+      recipient_ids: [recipient.id],
+      text,
+    })
+  }
+
+  await page.goto('/historico')
+  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Busca' })
+  await expect(page.getByText('Geladeira Brastemp por R$ 3000')).toBeVisible()
+  await expect(page.getByText('Placa-mãe ASUS B850M-AYW por R$ 1200')).toBeVisible()
+
+  await page.getByLabel('Buscar produto').fill('b850m')
+  await expect(page.getByText('Geladeira Brastemp por R$ 3000')).toHaveCount(0)
+  await expect(page.getByText('Placa-mãe ASUS B850M-AYW por R$ 1200')).toBeVisible()
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Exportar CSV' }).click(),
+  ])
+  const stream = await download.createReadStream()
+  let csv = ''
+  for await (const chunk of stream) csv += chunk.toString()
+  expect(csv).toContain('B850M')
+  expect(csv).not.toContain('Geladeira')
+
+  await page.getByLabel('Buscar produto').fill('zzzinexistente')
+  await expect(page.getByText(/Nenhum resultado para “zzzinexistente”/)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Limpar filtros' }).click()
+  await expect(page.getByLabel('Buscar produto')).toHaveValue('')
+})

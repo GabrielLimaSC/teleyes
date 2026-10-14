@@ -40,6 +40,8 @@ const DELIVERY_STATUS_OPTIONS = [
 // S7-07: ranking por preço — mais útil com uma regra específica filtrada
 // (comparar o mesmo produto/promoção), mas funciona com qualquer combinação
 // de filtros, inclusive nenhum.
+export const SEARCH_DEBOUNCE_MS = 300
+
 const SORT_OPTIONS: Array<{ value: '' | MatchSort; label: string }> = [
   { value: '', label: 'Mais recentes primeiro' },
   { value: 'price_asc', label: 'Menor preço primeiro' },
@@ -47,6 +49,7 @@ const SORT_OPTIONS: Array<{ value: '' | MatchSort; label: string }> = [
 ]
 
 export interface FilterForm {
+  search: string
   ruleId: string
   sourceId: string
   recipientId: string
@@ -57,6 +60,7 @@ export interface FilterForm {
 }
 
 const EMPTY_FILTERS: FilterForm = {
+  search: '',
   ruleId: '',
   sourceId: '',
   recipientId: '',
@@ -73,6 +77,7 @@ const EMPTY_FILTERS: FilterForm = {
 export const HISTORICO_FILTERS_STORAGE_KEY = 'teleyes:historico-filters'
 
 const FILTER_FORM_KEYS = [
+  'search',
   'ruleId',
   'sourceId',
   'recipientId',
@@ -118,6 +123,8 @@ export function parseStoredHistoricoFilters(raw: string): FilterForm | null {
 
 export function toApiFilters(form: FilterForm): MatchFilters {
   const filters: MatchFilters = {}
+  // S17-05: blank/whitespace-only search is not a filter.
+  if (form.search.trim() !== '') filters.search = form.search.trim()
   if (form.ruleId !== '') filters.ruleId = Number(form.ruleId)
   if (form.sourceId !== '') filters.sourceId = Number(form.sourceId)
   if (form.recipientId !== '') filters.recipientId = Number(form.recipientId)
@@ -245,6 +252,18 @@ export function HistoricoPage() {
     emptyValue: EMPTY_FILTERS,
     parse: parseStoredHistoricoFilters,
   })
+  // S17-05: `form.search` follows every keystroke (and is what gets persisted);
+  // `appliedSearch` trails it by SEARCH_DEBOUNCE_MS and is what actually
+  // reaches the API, so typing doesn't fire one request per letter.
+  const [appliedSearch, setAppliedSearch] = useState(form.search)
+  useEffect(() => {
+    if (form.search === '') {
+      setAppliedSearch('')
+      return
+    }
+    const timer = window.setTimeout(() => setAppliedSearch(form.search), SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [form.search])
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -325,7 +344,7 @@ export function HistoricoPage() {
   // below reacting to a filter change.
   const loadMatches = useCallback(() => {
     setLoading(true)
-    fetchMatches(toApiFilters(form))
+    fetchMatches(toApiFilters({ ...form, search: appliedSearch }))
       .then((data) => {
         setMatches(data)
         setError(null)
@@ -336,6 +355,7 @@ export function HistoricoPage() {
     // individually would just repeat this same dependency list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    appliedSearch,
     form.ruleId,
     form.sourceId,
     form.recipientId,
@@ -480,6 +500,18 @@ export function HistoricoPage() {
               Limpar filtros
             </button>
           </div>
+          <label>
+            Buscar produto
+            <input
+              type="search"
+              aria-label="Buscar produto"
+              placeholder="Ex.: b850m, geladeira"
+              maxLength={200}
+              autoComplete="off"
+              value={form.search}
+              onChange={(event) => updateField('search')(event.target.value)}
+            />
+          </label>
           <label>
             Regra
             {/* S14-07 revisão 2: an implicit label-wraps-select association
@@ -638,7 +670,13 @@ export function HistoricoPage() {
                 </div>
               </div>
 
-              {rows.length === 0 && <p>Nenhum match encontrado com esses filtros.</p>}
+              {rows.length === 0 && (
+                <p>
+                  {appliedSearch.trim() !== ''
+                    ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou limpe os filtros.`
+                    : 'Nenhum match encontrado com esses filtros.'}
+                </p>
+              )}
               {rows.length > 0 && (
                 <div className="plane-pearl historico-table">
                   <div className="historico-table__row historico-table__row--head">
