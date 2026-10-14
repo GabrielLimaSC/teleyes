@@ -1,7 +1,8 @@
 import asyncio
 import itertools
 import time
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
@@ -23,7 +24,18 @@ from packages.telegram.adapter import AdapterState, TelegramAdapter
 
 SESSION_COOKIE_NAME = "teleyes_session"
 
-app = FastAPI(title="teleyes", version="0.1.0")
+
+@asynccontextmanager
+async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
+    # S17-03: the listener runs in another process, so the api watches the
+    # shared SQLite file and publishes new matches to its in-memory broker.
+    from app.match_watcher import watch_matches
+
+    async with watch_matches(application.state.session_factory, application.state.event_broker):
+        yield
+
+
+app = FastAPI(title="teleyes", version="0.1.0", lifespan=_lifespan)
 app.state.session_store = SessionStore()
 app.state.rate_limiter = LoginRateLimiter()
 app.state.session_factory = get_sessionmaker(get_engine())
