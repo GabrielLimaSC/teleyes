@@ -225,7 +225,8 @@ def test_matches_list_includes_deliveries_without_n_plus_one(api: ApiContext) ->
         event.remove(api.engine, "before_cursor_execute", capture_statement)
 
     assert response.status_code == 200
-    assert len(statements) == 1
+    # list + one rule-wide sparkline query (S17-09), never one per match.
+    assert len(statements) == 2
     assert len(response.json()) == 3
     assert _response_ids(response.json()) == {
         ids["match_a"],

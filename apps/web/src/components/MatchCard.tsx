@@ -118,14 +118,14 @@ function MatchSparkline({ match }: { match: Match }) {
   if (geometry === null) return null
 
   return (
-    <div className="match-card__spark">
+    <div className="match-card__spark" title="Menor preço da regra por dia, últimos 90 dias">
       <svg
         viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
         width={SPARK_WIDTH}
         height={SPARK_HEIGHT}
         preserveAspectRatio="none"
         role="img"
-        aria-label="Histórico de preço, 90 dias"
+        aria-label="Histórico de preço da regra, 90 dias"
         className="match-card__spark-chart"
       >
         {geometry.targetY !== null && (
@@ -146,7 +146,7 @@ function MatchSparkline({ match }: { match: Match }) {
         />
       </svg>
       <div className="match-card__spark-axis">
-        <span>90 dias</span>
+        <span>Regra · 90 dias</span>
         {geometry.targetY !== null && <span>linha = alvo</span>}
       </div>
     </div>

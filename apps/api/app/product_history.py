@@ -219,42 +219,48 @@ def load_postings(session: Session, key: str) -> list[Posting]:
     return postings
 
 
-def sparklines_for_keys(
-    session: Session, keys: set[str], now: datetime, tz: ZoneInfo
-) -> dict[str, list[PricePoint]]:
-    """90-day daily-lowest series (≤ `SPARKLINE_MAX_POINTS`) for many keys in one query."""
-    if not keys:
+def sparklines_for_rules(
+    session: Session, rule_ids: set[int], now: datetime, tz: ZoneInfo
+) -> dict[int, list[PricePoint]]:
+    """S17-09: 90-day daily-lowest series of each RULE (≤ `SPARKLINE_MAX_POINTS`), one query.
+
+    Per-key series were replaced by this (the product panel keeps its own
+    history via `load_postings`); 90-day window, posting dedupe and downsample,
+    grouped by `rule_id`, so every card of a rule shows the same chart
+    (including matches without a `product_key`). A post caught by two rules
+    is one posting *per rule*: dedupe never crosses rules.
+    """
+    if not rule_ids:
         return {}
     statement = select(
         Match.id,
+        Match.rule_id,
         Match.source_id,
         Match.telegram_message_id,
-        Match.product_key,
         Match.matched_at,
         Match.price_cents,
         Match.price_source,
         _latest_correction_id().label("latest_correction_id"),
     ).where(
-        Match.product_key.is_not(None),
         Match.price_cents.is_not(None),
         Match.matched_at >= now - SPARKLINE_WINDOW,
     )
-    if len(keys) <= _SPARKLINE_IN_LIMIT:
-        statement = statement.where(Match.product_key.in_(keys))
+    if len(rule_ids) <= _SPARKLINE_IN_LIMIT:
+        statement = statement.where(Match.rule_id.in_(rule_ids))
 
-    selected: dict[PostingIdentity, Any] = {}
+    selected: dict[tuple[int, PostingIdentity], Any] = {}
     for row in session.execute(statement.order_by(Match.id)):
-        identity = posting_identity(row.id, row.source_id, row.telegram_message_id)
+        if row.rule_id not in rule_ids:
+            continue
+        identity = (row.rule_id, posting_identity(row.id, row.source_id, row.telegram_message_id))
         current = selected.get(identity)
         if current is None or _posting_row_priority(row) > _posting_row_priority(current):
             selected[identity] = row
 
-    priced: dict[str, list[tuple[datetime, int]]] = {}
+    priced: dict[int, list[tuple[datetime, int]]] = {}
     for row in selected.values():
-        if row.product_key not in keys or row.price_cents is None:
-            continue
-        priced.setdefault(row.product_key, []).append((row.matched_at, row.price_cents))
+        priced.setdefault(row.rule_id, []).append((row.matched_at, row.price_cents))
     return {
-        key: downsample(daily_lowest(rows, tz), SPARKLINE_MAX_POINTS)
-        for key, rows in priced.items()
+        rule_id: downsample(daily_lowest(rows, tz), SPARKLINE_MAX_POINTS)
+        for rule_id, rows in priced.items()
     }
