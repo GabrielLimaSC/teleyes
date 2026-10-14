@@ -155,3 +155,93 @@ async def test_loop_survives_a_failing_tick(db_path: Path, session: Session) -> 
         await asyncio.sleep(0.3)
 
     assert [e.data["match_id"] for e in broker.subscribe(0).backlog] == [1]
+
+
+def _add_delivery(factory: sessionmaker[Session], ids: tuple[int, int, int], match_id: int) -> int:
+    with factory() as listener_session:
+        delivery = Delivery(match_id=match_id, recipient_id=ids[2], status="sent")
+        listener_session.add(delivery)
+        listener_session.commit()
+        return delivery.id
+
+
+async def test_match_without_delivery_is_held_until_the_delivery_appears(
+    db_path: Path, session: Session
+) -> None:
+    ids = _seed_base(session)
+    listener = _listener_factory(db_path)
+    broker = EventBroker()
+    watcher = MatchWatcher(_listener_factory(db_path), broker, grace_seconds=1000)
+    await watcher.poll_once()
+
+    match_id = _insert_match(listener, ids, 1, None)  # committed before the bot ran
+    assert await watcher.poll_once() == 0
+    assert await watcher.poll_once() == 0
+
+    _add_delivery(listener, ids, match_id)
+    assert await watcher.poll_once() == 1
+    assert await watcher.poll_once() == 0
+    assert broker.subscribe(0).backlog[0].data["deliveries_sent"] == 1
+
+
+async def test_match_with_no_recipient_is_published_after_the_grace_period(
+    db_path: Path, session: Session
+) -> None:
+    ids = _seed_base(session)
+    listener = _listener_factory(db_path)
+    broker = EventBroker()
+    now = [100.0]
+    watcher = MatchWatcher(
+        _listener_factory(db_path), broker, grace_seconds=8, clock=lambda: now[0]
+    )
+    await watcher.poll_once()
+
+    _insert_match(listener, ids, 1, None)
+    assert await watcher.poll_once() == 0
+    now[0] += 7
+    assert await watcher.poll_once() == 0
+    now[0] += 2
+    assert await watcher.poll_once() == 1
+    now[0] += 60
+    assert await watcher.poll_once() == 0
+
+
+async def test_in_place_delivery_status_update_republishes_once(
+    db_path: Path, session: Session
+) -> None:
+    ids = _seed_base(session)
+    listener = _listener_factory(db_path)
+    broker = EventBroker()
+    watcher = MatchWatcher(_listener_factory(db_path), broker)
+    await watcher.poll_once()
+
+    match_id = _insert_match(listener, ids, 1, "failed")
+    assert await watcher.poll_once() == 1
+
+    with listener() as listener_session:
+        delivery = listener_session.query(Delivery).filter_by(match_id=match_id).one()
+        delivery.status = "sent"
+        delivery.delivered_at = NOW
+        listener_session.commit()
+
+    assert await watcher.poll_once() == 1
+    assert await watcher.poll_once() == 0
+    events = broker.subscribe(0).backlog
+    assert [e.data["deliveries_sent"] for e in events] == [0, 1]
+
+
+async def test_historical_only_match_held_then_dropped_never_published(
+    db_path: Path, session: Session
+) -> None:
+    ids = _seed_base(session)
+    listener = _listener_factory(db_path)
+    broker = EventBroker()
+    now = [0.0]
+    watcher = MatchWatcher(
+        _listener_factory(db_path), broker, grace_seconds=8, clock=lambda: now[0]
+    )
+    await watcher.poll_once()
+    _insert_match(listener, ids, 1, "historical")
+    now[0] += 100
+    assert await watcher.poll_once() == 0
+    assert await watcher.poll_once() == 0
