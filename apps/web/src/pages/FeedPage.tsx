@@ -46,6 +46,10 @@ const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: str
 
 const TOP_N_OPTIONS = [3, 5, 10, 20]
 
+// Width of a collapsed Feed rail (FeedPage.css track contract); the compact
+// bar pieces are always anchored as if both rails were collapsed (S17-04).
+const COLLAPSED_RAIL_WIDTH = 64
+
 function formatCurrency(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -482,9 +486,11 @@ export function FeedPage() {
 
   // S16-01: the compact bar's own pieces that live outside this component
   // (NavCapsule's mascot, ThemeToggle — both rendered by App, siblings of
-  // this page) read these three x-positions off `<html>`. The two rail
-  // widths come from FeedPage.css's own track contract (64px collapsed,
-  // its open default otherwise) — NEVER sampled off the grid's resolved
+  // this page) read these three x-positions off `<html>`.
+  // S17-04: they always use the COLLAPSED rail width (64px, FeedPage.css's
+  // track contract), whatever the rails' real state — once the bar is
+  // compact the pieces sit in the corners and never jump when the rails
+  // collapse afterwards. NEVER sampled off the grid's resolved
   // `grid-template-columns` while it's mid-spring: that chased the rail's
   // own 680ms width transition, and since the pieces reading the variable
   // (NavCapsule.css, ThemeToggle) transition `left` too, the two springs
@@ -498,8 +504,8 @@ export function FeedPage() {
   useEffect(() => {
     if (gridElement === null) return
     const root = document.documentElement
-    const leftWidth = leftState === 'collapsed' ? 64 : 272
-    const rightWidth = rightState === 'collapsed' ? 64 : 312
+    const leftWidth = COLLAPSED_RAIL_WIDTH
+    const rightWidth = COLLAPSED_RAIL_WIDTH
     const update = () => {
       const rect = gridElement.getBoundingClientRect()
       const gap = Number.parseFloat(window.getComputedStyle(gridElement).columnGap) || 0
@@ -518,7 +524,7 @@ export function FeedPage() {
       observer.disconnect()
       window.removeEventListener('resize', update)
     }
-  }, [gridElement, leftState, rightState])
+  }, [gridElement])
 
   // Never leaves a stale Feed geometry behind for another page.
   useEffect(
