@@ -1,3 +1,5 @@
+import pytest
+
 from packages.rules.price import extract_price
 
 
@@ -362,3 +364,36 @@ def test_comma_decimal_with_unit_suffix_is_not_read_as_thousands() -> None:
     result = extract_price("Peso líquido de 12,5kg por unidade")
 
     assert result.price_cents is None
+
+
+# S17-08: Markdown-wrapped coupon lines (`**__R$ 10 OFF__**`) must still be
+# recognised as a coupon. Synthetic fixtures only.
+_MD_COUPON_VARIANTS = [
+    "🎟Cupom: **__R$ 10 OFF__**",
+    "🎟Cupom: **__R$ 10,00 OFF__**",
+    "🎟Cupom: R$ 10 OFF",
+    "🎟Cupom: R$ 10,00 OFF",
+    "🎟Cupom: __R$ 10 OFF__",
+    "🎟Cupom: **R$ 10 OFF**",
+    "🎟Cupom: ~~R$ 10 OFF~~",
+]
+
+
+@pytest.mark.parametrize("coupon_line", _MD_COUPON_VARIANTS)
+def test_markdown_coupon_line_after_price_is_not_the_price(coupon_line: str) -> None:
+    text = f"Placa de vídeo Exemplo X\n💰 R$736,00 no pix\n{coupon_line}\nhttps://exemplo.test/p"
+
+    assert extract_price(text).price_cents == 73600
+
+
+@pytest.mark.parametrize("coupon_line", _MD_COUPON_VARIANTS)
+def test_markdown_coupon_line_before_price_is_not_the_price(coupon_line: str) -> None:
+    text = f"Produto Fictício Y\n{coupon_line}\n💰 R$ 749,80 à vista\nhttps://exemplo.test/p"
+
+    assert extract_price(text).price_cents == 74980
+
+
+def test_coupon_code_glued_to_digits_is_still_not_an_anchor() -> None:
+    result = extract_price("R$ 500,00 com cupom: MAE10OFF")
+
+    assert result.price_cents == 50000

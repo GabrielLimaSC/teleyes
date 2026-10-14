@@ -53,8 +53,14 @@ _CARD_ANCHOR_RE = re.compile(r"\b(?:cart[aã]o|parcelado)\b", re.IGNORECASE)
 # characters away on the *other* side (e.g. "R$ 500, cupom de R$ 50 off")
 # can never be picked by raw nearest-distance instead of the actual coupon
 # value.
-_COUPON_PRECEDING_RE = re.compile(r"\bcupom\b", re.IGNORECASE)
-_COUPON_FOLLOWING_RE = re.compile(r"\b(?:off|desconto)\b", re.IGNORECASE)
+#
+# S17-08: the word edges are "not next to a letter/digit", NOT `\b`. Telegram
+# Markdown wraps the coupon line as `**__R$ 10 OFF__**`, and `_` is a word
+# character for `\b`, so `OFF__` had no boundary after it: the anchor never
+# matched, the coupon value survived as a candidate and became the price.
+# Codes glued to digits/letters ("MAE10OFF") still do not match.
+_COUPON_PRECEDING_RE = re.compile(r"(?<![^\W_])cupom(?![^\W_])", re.IGNORECASE)
+_COUPON_FOLLOWING_RE = re.compile(r"(?<![^\W_])(?:off|desconto)(?![^\W_])", re.IGNORECASE)
 
 # S10-01: the text strictly between an anchor and the candidate it would
 # exclude must be nothing but a short connector — whitespace, punctuation, or
@@ -66,7 +72,8 @@ _COUPON_FOLLOWING_RE = re.compile(r"\b(?:off|desconto)\b", re.IGNORECASE)
 # a plain number that never became its own candidate ("100 OFF", "100" has no
 # R$/comma), or a whole unrelated sentence/paragraph — none of those are a
 # real coupon value next to the anchor, so the candidate must survive.
-_COUPON_GAP_RE = re.compile(r"^[\s,:-]*(?:de\s+)?[\s,:-]*$", re.IGNORECASE)
+# S17-08: Markdown emphasis characters (`*`, `_`, `~`) are connector noise too.
+_COUPON_GAP_RE = re.compile(r"^[\s,:*_~-]*(?:de\s+)?[\s,:*_~-]*$", re.IGNORECASE)
 
 
 def _is_connector_gap(text: str, start: int, end: int) -> bool:
