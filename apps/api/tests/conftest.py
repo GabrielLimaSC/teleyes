@@ -42,3 +42,11 @@ def session(db_path: Path) -> Iterator[Session]:
     engine = get_engine(url)
     with get_sessionmaker(engine)() as session:
         yield session
+
+
+@pytest.fixture(autouse=True)
+def instant_notify_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S17-01: the in-place send retry must not make the suite sleep."""
+    from app import pipeline
+
+    monkeypatch.setattr(pipeline, "NOTIFY_BASE_DELAY", 0.0)

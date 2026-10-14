@@ -347,13 +347,17 @@ async def main() -> int:
     catch_up_task = asyncio.create_task(
         lifecycle.run_periodic_catch_up(stop_event, client.is_connected)
     )
+    # S17-01: resend recent failed alerts (only while connected).
+    resend_task = asyncio.create_task(
+        lifecycle.run_periodic_resend(stop_event, client.is_connected)
+    )
     try:
         outcome = await supervisor.run()
     finally:
         stop_event.set()
         background = [
             task
-            for task in (watchdog, heartbeat, reload_task, digest_task, catch_up_task)
+            for task in (watchdog, heartbeat, reload_task, digest_task, catch_up_task, resend_task)
             if task is not None
         ]
         for task in background:
