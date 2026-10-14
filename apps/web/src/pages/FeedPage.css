@@ -467,6 +467,8 @@
 .feed-target__foot {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
+  white-space: nowrap;
   font-size: 12px;
   color: var(--plane-text-helper-on-glass);
 }
@@ -475,6 +477,11 @@
   font-variant-numeric: tabular-nums;
   color: var(--plane-text-primary);
   font-weight: 600;
+}
+
+.feed-target__foot span.feed-target__foot-muted {
+  font-weight: 400;
+  color: var(--plane-text-helper-on-glass);
 }
 
 /* ---- "Silenciados" (06) ---- */

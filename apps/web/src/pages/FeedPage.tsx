@@ -755,10 +755,17 @@ export function FeedPage() {
               {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum alvo definido ainda.</p>}
               <div className="feed-rail__list">
                 {targetRows.map(({ rule, latestPriceCents, hit, gapPct, progressPct }) => (
-                  <div key={rule.id} className="feed-target">
+                  <div
+                    key={rule.id}
+                    className="feed-target"
+                    aria-label={gapPct === null && !hit ? `${rule.name}: sem oferta nas últimas 24 h` : undefined}
+                  >
                     <div className="feed-target__head">
                       <span className="feed-target__name">{rule.name}</span>
-                      <span className={hit ? 'feed-target__status feed-target__status--hit' : 'feed-target__status'}>
+                      <span
+                        className={hit ? 'feed-target__status feed-target__status--hit' : 'feed-target__status'}
+                        title={gapPct === null && !hit ? 'sem oferta nas últimas 24 h' : undefined}
+                      >
                         {hit ? 'atingido' : gapPct === null ? 'sem oferta' : `falta ${gapPct}%`}
                       </span>
                     </div>
@@ -770,7 +777,13 @@ export function FeedPage() {
                     </div>
                     <div className="feed-target__foot">
                       <span>alvo {formatCurrency(rule.target_price_cents as number)}</span>
-                      <span>{latestPriceCents !== null ? formatCurrency(latestPriceCents) : '—'}</span>
+                      {latestPriceCents !== null ? (
+                        <span>{formatCurrency(latestPriceCents)}</span>
+                      ) : (
+                        <span className="feed-target__foot-muted" title="sem oferta nas últimas 24 h">
+                          últimas 24 h
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -155,12 +155,15 @@ function RuleTargetCell({ rule }: { rule: Rule }) {
         {formatLowestPrice(rule.target_price_cents ?? null)}
       </span>
       {targetState.kind !== 'none' && (
-        <span className="rule-target__detail">
+        <span
+          className="rule-target__detail"
+          title={targetState.kind === 'no-offer' ? 'sem oferta nas últimas 24 h' : undefined}
+        >
           {targetState.kind === 'hit'
             ? 'atingido'
             : targetState.kind === 'gap'
               ? `falta ${targetState.gapPct}%`
-              : 'sem oferta nas últimas 24 h'}
+              : 'sem oferta 24 h'}
         </span>
       )}
     </div>

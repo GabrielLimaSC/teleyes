@@ -215,7 +215,7 @@ describe('RegrasPage', () => {
 
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
     const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
-    expect(alvoCell).toHaveTextContent('sem oferta nas últimas 24 h')
+    expect(alvoCell).toHaveTextContent('sem oferta 24 h')
     expect(alvoCell).not.toHaveTextContent('atingido')
     expect(alvoCell.querySelector('.rule-target--hit')).toBeNull()
   })

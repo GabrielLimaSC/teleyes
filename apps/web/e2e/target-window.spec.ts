@@ -69,18 +69,28 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(rows.none.locator('.feed-target__status--hit')).toHaveCount(0)
       await expect(rows.none).not.toContainText('atingido')
 
-      // One line: the status box is no taller than ~1.4 lines, and the long
-      // name wraps instead (taller than the status).
-      for (const row of Object.values(rows)) {
-        const metrics = await row.evaluate((element) => {
-          const status = element.querySelector('.feed-target__status') as HTMLElement
-          const name = element.querySelector('.feed-target__name') as HTMLElement
-          const lineHeight = parseFloat(getComputedStyle(status).lineHeight) || parseFloat(getComputedStyle(status).fontSize) * 1.4
-          return { statusHeight: status.getBoundingClientRect().height, nameHeight: name.getBoundingClientRect().height, lineHeight }
-        })
-        expect(metrics.statusHeight).toBeLessThan(metrics.lineHeight * 1.5)
-        void metrics.nameHeight
+      await expect(rows.none.locator('.feed-target__foot')).toContainText('últimas 24 h')
+      // One line: status and every footer span are no taller than ~1.5
+      // lines, in all three states; the long name wraps instead.
+      const assertOneLine = async () => {
+        for (const row of Object.values(rows)) {
+          const heights = await row.evaluate((element) => {
+            const lines = (selector: string) =>
+              [...element.querySelectorAll<HTMLElement>(selector)].map((node) => {
+                const style = getComputedStyle(node)
+                const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4
+                return node.getBoundingClientRect().height / lineHeight
+              })
+            return { status: lines('.feed-target__status'), foot: lines('.feed-target__foot span') }
+          })
+          for (const ratio of [...heights.status, ...heights.foot]) expect(ratio).toBeLessThan(1.5)
+        }
       }
+      await assertOneLine()
+      // A narrow rail (the grid squeezes it near the 3-column breakpoint).
+      await page.locator('#feed-rail-left').evaluate((node) => ((node as HTMLElement).style.width = '230px'))
+      await assertOneLine()
+      await page.locator('#feed-rail-left').evaluate((node) => ((node as HTMLElement).style.width = ''))
       const longName = await rows.hit.locator('.feed-target__name').boundingBox()
       const hitStatus = await rows.hit.locator('.feed-target__status').boundingBox()
       expect(longName!.height).toBeGreaterThan(hitStatus!.height * 1.5) // the name wrapped, the status did not
@@ -96,7 +106,7 @@ for (const scheme of ['light', 'dark'] as const) {
         page.locator('tr', { has: page.getByText(name, { exact: true }) }).locator('[data-label="Alvo"]')
       await expect(cell(hitName)).toContainText('atingido')
       await expect(cell(gapName)).toContainText('falta 16%')
-      await expect(cell(noneName)).toContainText('sem oferta nas últimas 24 h')
+      await expect(cell(noneName)).toContainText('sem oferta 24 h')
       await expect(cell(noneName)).not.toContainText('atingido')
       if (SHOTS) {
         await page.locator('.wide-table-wrap').first().screenshot({ path: path.join(SHOTS, `regras-${scheme}.png`) })
