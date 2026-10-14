@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.main import get_current_session, get_db, require_csrf
 from app.pipeline import HISTORICAL_WINDOW, evaluate_rule, parse_terms
 from app.product_history import daily_lowest, get_display_timezone
+from app.target_window import target_window_start
 from app.utc import UtcDatetime, ensure_utc, utc_now
 from models import Match, Rule, Snooze, Source
 from packages.rules.match import MatchRule, terms_error
@@ -60,6 +61,10 @@ class RuleResponse(BaseModel):
     active: bool
     created_at: UtcDatetime
     lowest_price_cents: int | None = None
+    # S17-10: the rule's lowest priced match within the last
+    # `TARGET_HIT_WINDOW` (24 h), `None` with no live offer. The only price
+    # the UI may compare with `target_price_cents` ("atingido"/"falta N%").
+    lowest_price_24h_cents: int | None = None
     # S14-03: `until` of the rule's active snooze (`until > now`), `None`
     # when it is not silenced. Computed fresh on every read, never stored.
     snoozed_until: UtcDatetime | None = None
@@ -139,6 +144,15 @@ def list_rules(
         .tuples()
         .all()
     )
+    lowest_24h_by_rule: dict[int, int | None] = dict(
+        db.execute(
+            select(Match.rule_id, func.min(Match.price_cents))
+            .where(Match.price_cents.is_not(None), Match.matched_at >= target_window_start(now))
+            .group_by(Match.rule_id)
+        )
+        .tuples()
+        .all()
+    )
     # `model_copy(update=...)` below never re-validates (Pydantic v2), so the
     # `UtcDatetime` field's own aware-UTC conversion (`ensure_utc`) is never
     # applied to it — done here by hand instead, same fix as `app.utc`'s own
@@ -169,6 +183,7 @@ def list_rules(
         RuleResponse.model_validate(rule).model_copy(
             update={
                 "lowest_price_cents": lowest_by_rule.get(rule.id),
+                "lowest_price_24h_cents": lowest_24h_by_rule.get(rule.id),
                 "snoozed_until": snoozed_until_by_rule.get(rule.id),
                 "history_30d": history_by_rule.get(rule.id, []),
             }

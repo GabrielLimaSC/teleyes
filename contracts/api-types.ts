@@ -1051,6 +1051,8 @@ export interface components {
             id: number;
             /** Include Terms */
             include_terms: string;
+            /** Lowest Price 24H Cents */
+            lowest_price_24h_cents?: number | null;
             /** Lowest Price Cents */
             lowest_price_cents?: number | null;
             /** Max Price Cents */

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -20,15 +20,13 @@ from app.pipeline import (
 from app.product_history import get_display_timezone, posting_identity, sparklines_for_rules
 from app.routers.notifications import BotNotifierFactory, get_bot_notifier_factory
 from app.routers.products import PricePointResponse
-from app.utc import UtcDatetime, ensure_utc, utc_now
+from app.target_window import within_target_window
+from app.utc import UtcDatetime, utc_now
 from auth.session import SessionRecord
 from models import Delivery, Match, MatchCorrection, Recipient, Rule, Snooze, Source
 from packages.rules.manual_price import PriceParseError, parse_manual_price_cents
 from packages.rules.normalize import normalize_text
 from packages.rules.target import target_gap_pct, target_hit
-
-# S17-02: only a target hit this recent is pinned to the top of the feed.
-PINNED_TARGET_HIT_WINDOW = timedelta(hours=24)
 
 router = APIRouter(
     prefix="/matches",
@@ -106,10 +104,10 @@ class MatchResponse(BaseModel):
     # target_price_cents` (null without one); `target_hit` and
     # `target_gap_pct` are computed fresh on every read from those two plus
     # `price_cents` (`packages.rules.target`), never persisted — same
-    # reasoning as `is_lowest_price_ever` above. Only items with `target_hit`
-    # AND a `matched_at` within `PINNED_TARGET_HIT_WINDOW` sort first in this
-    # endpoint's response (see `list_matches`); older hits keep `target_hit`
-    # true but are not pinned.
+    # reasoning as `is_lowest_price_ever` above. S17-10: both only apply to a
+    # match inside `TARGET_HIT_WINDOW` (24 h); an older match reads
+    # `target_hit=False`, `target_gap_pct=None` (an expired offer). Items with
+    # `target_hit` sort first in this endpoint's response (see `list_matches`).
     target_price_cents: int | None = None
     target_hit: bool = False
     target_gap_pct: int | None = None
@@ -510,6 +508,7 @@ def _build_match_response(
     target_price_cents: int | None,
     correction_admin_id: int | None,
     correction_created_at: datetime | None,
+    now: datetime,
 ) -> MatchResponse:
     """One `Match` row's aggregates (already fetched by the caller's own
     query — `list_matches` or `_fetch_match_response`) turned into a
@@ -525,6 +524,10 @@ def _build_match_response(
         MatchCorrectionResponse(admin_id=correction_admin_id, created_at=correction_created_at)
         if correction_admin_id is not None and correction_created_at is not None
         else None
+    )
+    # S17-10: a target only means something for a still-live offer.
+    live_target_price = (
+        target_price_cents if within_target_window(db_match.matched_at, now) else None
     )
     return MatchResponse(
         id=db_match.id,
@@ -544,8 +547,8 @@ def _build_match_response(
         product_key=db_match.product_key,
         snoozed=bool(snoozed_now),
         target_price_cents=target_price_cents,
-        target_hit=target_hit(db_match.price_cents, target_price_cents),
-        target_gap_pct=target_gap_pct(db_match.price_cents, target_price_cents),
+        target_hit=target_hit(db_match.price_cents, live_target_price),
+        target_gap_pct=target_gap_pct(db_match.price_cents, live_target_price),
         grouped_match_ids=[db_match.id],
         group_key=compute_group_key(
             db_match.product_key, db_match.price_cents, db_match.matched_at
@@ -630,6 +633,7 @@ def list_matches(
                 target_price_cents=target_price_cents,
                 correction_admin_id=correction_admin_id,
                 correction_created_at=correction_created_at,
+                now=now,
             )
             matches[db_match.id] = response
         if delivery is not None:
@@ -637,17 +641,12 @@ def list_matches(
 
     visible = _apply_display_grouping(matches)
     visible = _apply_duplicate_grouping(db, visible)
-    # S14-02 / S17-02: a RECENT target hit (matched within
-    # `PINNED_TARGET_HIT_WINDOW`) is prioritized in the live feed's own
+    # S14-02 / S17-02: a target hit is prioritized in the live feed's own
     # ordering, on top of whatever `sort`/grouping already produced — a
     # stable sort only moves those to the front, it never reorders within
-    # either group. Older hits stay in their normal position.
-    pin_cutoff = ensure_utc(now) - PINNED_TARGET_HIT_WINDOW
-    visible.sort(
-        key=lambda response: not (
-            response.target_hit and ensure_utc(response.matched_at) >= pin_cutoff
-        )
-    )
+    # either group. S17-10: `target_hit` already only holds inside
+    # `TARGET_HIT_WINDOW`, so an expired hit is not pinned.
+    visible.sort(key=lambda response: not response.target_hit)
     _attach_sparklines(db, visible, now=now, tz=tz)
     return visible
 
@@ -705,6 +704,7 @@ def _fetch_match_response(
                 target_price_cents=target_price_cents,
                 correction_admin_id=correction_admin_id,
                 correction_created_at=correction_created_at,
+                now=now,
             )
         if delivery is not None:
             response.deliveries.append(DeliveryResponse.model_validate(delivery))
