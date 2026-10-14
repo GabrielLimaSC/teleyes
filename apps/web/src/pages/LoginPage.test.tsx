@@ -29,6 +29,7 @@ const rule = (overrides: Partial<Record<string, unknown>> = {}) => ({
   active: true,
   created_at: '2026-01-01T00:00:00Z',
   lowest_price_cents: null,
+  lowest_price_24h_cents: null,
   ...overrides,
 })
 

@@ -427,12 +427,17 @@
 }
 
 .feed-target__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 13px;
   font-weight: 600;
   color: var(--plane-text-primary);
 }
 
 .feed-target__status {
+  /* S17-10: the status never wraps or shrinks; a long rule name wraps instead. */
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 12px;
   color: var(--plane-text-helper-on-glass);
 }

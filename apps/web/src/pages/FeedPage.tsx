@@ -25,7 +25,7 @@ import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
 import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { fetchFeedSettings, updateFeedSettings } from '../api/feedSettings'
 import { updateRule } from '../api/rules'
-import { targetGapPct, targetHit } from '../utils/target'
+import { ruleTargetState } from '../utils/target'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { localDateStamp, parseApiDate } from '../utils/dates'
 import { robustLowestPriceCents } from '../utils/robustLowestPrice'
@@ -80,10 +80,10 @@ function formatDigestNextRun(nextRunAtLocal: string, now: Date): string {
 
 interface TargetRuleRow {
   rule: Rule
-  /** Most recent day's price from `rule.history_30d` (its last point, the
-   * array is oldest first) — `null` with no priced match in the last 30
-   * days. Never `rule.lowest_price_cents` (S7-06's all-time minimum), which
-   * would keep showing "atingido" long after the price went back up. */
+  /** S17-10: `rule.lowest_price_24h_cents` — the lowest offer of the last
+   * 24 h, `null` with none (neutral "sem oferta"). Never the all-time
+   * minimum (`lowest_price_cents`) nor an older day of `history_30d`: an
+   * expired offer is not "atingido". */
   latestPriceCents: number | null
   hit: boolean
   gapPct: number | null
@@ -345,23 +345,20 @@ export function FeedPage() {
     }
   }, [visibleMatches])
 
-  // S14-07 (barra lateral) — revisão 1, bloqueio (2): "Alvos de preço" —
-  // every rule with a target, hit/gap computed from the rule's most RECENT
-  // price (`Rule.history_30d`'s last point, #102/S14-09), never its all-time
-  // minimum (`Rule.lowest_price_cents`, S7-06) — a rule stays "atingido"
-  // forever once it ever dipped below the target if the historical minimum
-  // is used instead of the current price. Same source `utils/target.ts`
-  // (mirrors `packages.rules.target` server-side) already uses for a single
-  // match's own `target_hit`/`target_gap_pct`, so this never disagrees with
-  // a card's own badge.
+  // S14-07 (barra lateral): "Alvos de preço" — every rule with a target.
+  // S17-10: hit/gap are judged on the rule's lowest offer of the LAST 24 H
+  // (`Rule.lowest_price_24h_cents`), the same window the backend applies to
+  // a card's own `target_hit`/`target_gap_pct`, so the rail never disagrees
+  // with a badge and an expired offer is never "atingido".
   const targetRows: TargetRuleRow[] = useMemo(
     () =>
       rules
         .filter((rule): rule is Rule & { target_price_cents: number } => rule.target_price_cents !== null)
         .map((rule) => {
-          const latestPriceCents = rule.history_30d?.at(-1)?.price_cents ?? null
-          const hit = targetHit(latestPriceCents, rule.target_price_cents)
-          const gapPct = targetGapPct(latestPriceCents, rule.target_price_cents)
+          const latestPriceCents = rule.lowest_price_24h_cents ?? null
+          const state = ruleTargetState(rule)
+          const hit = state.kind === 'hit'
+          const gapPct = state.kind === 'gap' ? state.gapPct : null
           const progressPct =
             latestPriceCents !== null && latestPriceCents > 0
               ? Math.max(0, Math.min(100, Math.round((rule.target_price_cents / latestPriceCents) * 100)))
@@ -589,7 +586,7 @@ export function FeedPage() {
     targetRows.length === 0
       ? 'Alvos de preço · nenhum'
       : `Alvos de preço · ${targetRows.length} ${targetRows.length === 1 ? 'ativo' : 'ativos'}` +
-        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : ', alvo atingido')
+        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : targetRows.some((row) => row.hit) ? ', alvo atingido' : ', sem oferta nas últimas 24 h')
 
   const leftStripItems: RailStripItem[] = [
     {
@@ -762,7 +759,7 @@ export function FeedPage() {
                     <div className="feed-target__head">
                       <span className="feed-target__name">{rule.name}</span>
                       <span className={hit ? 'feed-target__status feed-target__status--hit' : 'feed-target__status'}>
-                        {hit ? 'atingido' : `falta ${gapPct ?? 0}%`}
+                        {hit ? 'atingido' : gapPct === null ? 'sem oferta' : `falta ${gapPct}%`}
                       </span>
                     </div>
                     <div className="feed-target__bar">
@@ -773,7 +770,7 @@ export function FeedPage() {
                     </div>
                     <div className="feed-target__foot">
                       <span>alvo {formatCurrency(rule.target_price_cents as number)}</span>
-                      <span>{latestPriceCents !== null ? formatCurrency(latestPriceCents) : 'sem preço recente'}</span>
+                      <span>{latestPriceCents !== null ? formatCurrency(latestPriceCents) : '—'}</span>
                     </div>
                   </div>
                 ))}

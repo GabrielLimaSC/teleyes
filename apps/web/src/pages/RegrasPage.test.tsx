@@ -25,6 +25,7 @@ const baseRule = {
   active: true,
   created_at: '2026-01-01T00:00:00Z',
   lowest_price_cents: null,
+  lowest_price_24h_cents: null,
   snoozed_until: null,
   history_30d: [],
 }
@@ -161,7 +162,7 @@ describe('RegrasPage', () => {
       vi.fn(
         withEmptyRecipients(() =>
           Promise.resolve(
-            jsonResponse([{ ...baseRule, target_price_cents: 200_00, lowest_price_cents: 199_00 }]),
+            jsonResponse([{ ...baseRule, target_price_cents: 200_00, lowest_price_cents: 199_00, lowest_price_24h_cents: 199_00 }]),
           ),
         ),
       ),
@@ -181,7 +182,7 @@ describe('RegrasPage', () => {
       vi.fn(
         withEmptyRecipients(() =>
           Promise.resolve(
-            jsonResponse([{ ...baseRule, target_price_cents: 200_00, lowest_price_cents: 250_00 }]),
+            jsonResponse([{ ...baseRule, target_price_cents: 200_00, lowest_price_cents: 250_00, lowest_price_24h_cents: 250_00 }]),
           ),
         ),
       ),
@@ -192,8 +193,31 @@ describe('RegrasPage', () => {
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
     const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
     expect(alvoCell).toHaveTextContent('R$ 200,00')
-    // 20% above the target: (250 - 200) / 250 = 20%.
-    expect(alvoCell).toHaveTextContent('falta 20%')
+    // 25% above the target: floor((250 - 200) * 100 / 200).
+    expect(alvoCell).toHaveTextContent('falta 25%')
+  })
+
+  it('never says "atingido" when the below-target offer is older than 24 h (S17-10)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        withEmptyRecipients(() =>
+          Promise.resolve(
+            jsonResponse([
+              { ...baseRule, target_price_cents: 200_00, lowest_price_cents: 150_00, lowest_price_24h_cents: null },
+            ]),
+          ),
+        ),
+      ),
+    )
+
+    render(<RegrasPage />)
+
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
+    expect(alvoCell).toHaveTextContent('sem oferta nas últimas 24 h')
+    expect(alvoCell).not.toHaveTextContent('atingido')
+    expect(alvoCell.querySelector('.rule-target--hit')).toBeNull()
   })
 
   it('creates a rule and shows the API validation error on failure', async () => {

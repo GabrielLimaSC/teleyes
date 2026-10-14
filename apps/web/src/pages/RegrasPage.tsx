@@ -29,6 +29,7 @@ import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
 import { useListenerStatus } from '../hooks/useListenerStatus'
 import { useToast } from '../hooks/useToast'
+import { ruleTargetState } from '../utils/target'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { DestinatariosSection } from './DestinatariosSection'
 import '../components/CrudTable.css'
@@ -143,6 +144,28 @@ function RuleSparkline({ points }: { points: PricePoint[] }) {
 }
 
 type FormTarget = { kind: 'create' } | { kind: 'edit'; rule: Rule }
+
+/** S17-10: the "Alvo" cell — target value plus where the rule stands, judged
+ * only on offers from the last 24 h (an expired offer is never "atingido"). */
+function RuleTargetCell({ rule }: { rule: Rule }) {
+  const targetState = ruleTargetState(rule)
+  return (
+    <div>
+      <span className={targetState.kind === 'hit' ? 'rule-target rule-target--hit' : 'rule-target'}>
+        {formatLowestPrice(rule.target_price_cents ?? null)}
+      </span>
+      {targetState.kind !== 'none' && (
+        <span className="rule-target__detail">
+          {targetState.kind === 'hit'
+            ? 'atingido'
+            : targetState.kind === 'gap'
+              ? `falta ${targetState.gapPct}%`
+              : 'sem oferta nas últimas 24 h'}
+        </span>
+      )}
+    </div>
+  )
+}
 
 export function RegrasPage() {
   const { csrfToken } = useAuth()
@@ -724,18 +747,7 @@ export function RegrasPage() {
                       <td className="wide-table__num" data-label="Alvo">
                         {/* S15-02: one box, so the stacked phone card keeps value and
                             gap together on the right instead of spreading them. */}
-                        <div>
-                          <span className={rule.target_price_cents !== null && rule.lowest_price_cents !== null && rule.lowest_price_cents <= rule.target_price_cents ? 'rule-target rule-target--hit' : 'rule-target'}>
-                            {formatLowestPrice(rule.target_price_cents ?? null)}
-                          </span>
-                          {rule.target_price_cents !== null && rule.lowest_price_cents !== null && (
-                            <span className="rule-target__detail">
-                              {rule.lowest_price_cents <= rule.target_price_cents
-                                ? 'atingido'
-                                : `falta ${Math.max(1, Math.round(((rule.lowest_price_cents - rule.target_price_cents) / rule.lowest_price_cents) * 100))}%`}
-                            </span>
-                          )}
-                        </div>
+                        <RuleTargetCell rule={rule} />
                       </td>
                       <td data-label="Histórico 30d">
                         <RuleSparkline points={rule.history_30d ?? []} />
