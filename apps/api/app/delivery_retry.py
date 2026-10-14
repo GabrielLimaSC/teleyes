@@ -124,6 +124,10 @@ def _mark_sent(session_factory: sessionmaker[Session], delivery_id: int) -> None
         session.commit()
 
 
+async def _mark_sent_retrying(session_factory: sessionmaker[Session], delivery_id: int) -> None:
+    await retry_when_locked(lambda: _mark_sent(session_factory, delivery_id))
+
+
 async def resend_failed_deliveries(
     session_factory: sessionmaker[Session],
     notifier: BotNotifier,
@@ -156,8 +160,7 @@ async def resend_failed_deliveries(
         # is stale rather than unsent: record it as sent without a second message.
         if not (result.delivered or result.reason == "duplicate"):
             continue
-        delivery_id = candidate.delivery_id
-        await retry_when_locked(lambda: _mark_sent(session_factory, delivery_id))
+        await _mark_sent_retrying(session_factory, candidate.delivery_id)
         if result.delivered:
             resent += 1
             logger.info(
