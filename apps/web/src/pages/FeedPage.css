@@ -657,8 +657,9 @@
   }
 
   /* S16-01: docks into the top band with its right edge on the cards
-     column's own right edge (`--feed-toolbar-right`, measured in
-     FeedPage.tsx off the grid's real columns — never a guessed px). Still
+     column's right edge AS IF both rails were collapsed
+     (`--feed-toolbar-right`, FeedPage.tsx — S17-04: same spot whether the
+     rails are still open or not; never a guessed px). Still
      the one 48px-tall capsule, centred on the band's line the mascot and
      theme button share. The travel between the two places is a FLIP
      (scrollChrome.ts `registerChromeFlip`). */
