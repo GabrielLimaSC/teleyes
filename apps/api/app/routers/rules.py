@@ -335,6 +335,20 @@ def pause_rule(rule_id: int, db: Session = Depends(get_db)) -> Rule:
     return rule
 
 
+@router.post(
+    "/{rule_id}/resume",
+    response_model=RuleResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def resume_rule(rule_id: int, db: Session = Depends(get_db)) -> Rule:
+    try:
+        rule = rule_repo.resume_rule(db, rule_id)
+    except NotFoundError as error:
+        raise _not_found(error) from error
+    db.commit()
+    return rule
+
+
 @router.delete(
     "/{rule_id}",
     status_code=status.HTTP_204_NO_CONTENT,

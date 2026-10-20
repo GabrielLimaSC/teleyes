@@ -48,6 +48,9 @@ export const testRule = (csrfToken: string, input: RuleTestInput): Promise<RuleT
 export const pauseRule = (csrfToken: string, id: number): Promise<Rule> =>
   apiRequest<Rule>(`/rules/${id}/pause`, { method: 'POST', headers: jsonHeaders(csrfToken) })
 
+export const resumeRule = (csrfToken: string, id: number): Promise<Rule> =>
+  apiRequest<Rule>(`/rules/${id}/resume`, { method: 'POST', headers: jsonHeaders(csrfToken) })
+
 export const deleteRule = (csrfToken: string, id: number): Promise<void> =>
   apiRequest<void>(`/rules/${id}`, { method: 'DELETE', headers: jsonHeaders(csrfToken) })
 

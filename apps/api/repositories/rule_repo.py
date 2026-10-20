@@ -97,6 +97,14 @@ def pause_rule(session: Session, rule_id: int) -> Rule:
     return rule
 
 
+def resume_rule(session: Session, rule_id: int) -> Rule:
+    """Counterpart of `pause_rule`; idempotent (resuming an active rule is a no-op)."""
+    rule = _get_rule(session, rule_id)
+    rule.active = True
+    session.flush()
+    return rule
+
+
 def delete_rule(session: Session, rule_id: int) -> None:
     rule = _get_rule(session, rule_id)
     session.delete(rule)

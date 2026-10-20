@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { apiLogin, apiPost } from './helpers'
+import { apiLogin, apiPost, clickRowMenuItem } from './helpers'
 
 /**
  * S12-01 / S12-04: visual baseline of both themes. Opt-in (`VISUAL=1`) so the
@@ -347,7 +347,7 @@ test('seeded data across every screen', async ({ page }) => {
   await page.getByLabel('Mensagem de exemplo').fill('iphone 15 por 3000')
   await shoot(page, 'regras-tester', '1440')
 
-  await page.locator('tr', { hasText: 'iPhone até' }).first().getByRole('button', { name: 'Limpar histórico' }).click()
+  await clickRowMenuItem(page, page.locator('tr', { hasText: 'iPhone até' }).first(), 'Limpar histórico')
   await expect(page.getByRole('heading', { name: /Limpar histórico:/ })).toBeVisible()
   await shoot(page, 'regras-clear-confirm', '1440')
   await page.getByRole('button', { name: 'Cancelar' }).click()

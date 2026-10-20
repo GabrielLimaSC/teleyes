@@ -7,6 +7,7 @@ import {
   deleteRule,
   listRules,
   pauseRule,
+  resumeRule,
   testRule,
   updateRule,
 } from '../api/rules'
@@ -24,6 +25,7 @@ import { parseTermList } from '../utils/termList'
 import { formatDayMonth, formatMatchedAt } from '../utils/dates'
 import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
 import { settledToast } from '../components/listenerState'
+import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
 import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
@@ -241,7 +243,9 @@ export function RegrasPage() {
   const [ceilingDiscards, setCeilingDiscards] = useState<number | null>(null)
 
   const reload = () => {
-    setLoading(true)
+    // S18-01: `loading` starts true and only the first load shows the
+    // placeholder; a refetch after pause/resume keeps the table on screen
+    // (blanking it moved the page and dropped any open row menu).
     listRules(true)
       .then((data) => {
         setRules(data)
@@ -484,6 +488,21 @@ export function RegrasPage() {
       .finally(() => setPausingId(null))
   }
 
+  const handleResume = (rule: Rule) => {
+    if (csrfToken === null) {
+      setListError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    setPausingId(rule.id)
+    resumeRule(csrfToken, rule.id)
+      .then(() => {
+        configChanged()
+        showToast('Regra reativada.')
+      })
+      .catch(() => setListError('Não foi possível reativar a regra.'))
+      .finally(() => setPausingId(null))
+  }
+
   const handleDelete = (rule: Rule) => {
     if (csrfToken === null) {
       setListError(CSRF_MISSING_MESSAGE)
@@ -723,6 +742,7 @@ export function RegrasPage() {
                 <thead>
                   <tr>
                     <th>Regra</th>
+                    <th className="wide-table__status">Status</th>
                     <th className="wide-table__num">Teto</th>
                     <th className="wide-table__num">Alvo</th>
                     <th>Histórico 30d</th>
@@ -735,14 +755,27 @@ export function RegrasPage() {
                     <tr
                       key={rule.id}
                       className={
-                        formTarget.kind === 'edit' && formTarget.rule.id === rule.id
-                          ? 'wide-table__row--editing'
-                          : undefined
+                        [
+                          formTarget.kind === 'edit' && formTarget.rule.id === rule.id
+                            ? 'wide-table__row--editing'
+                            : '',
+                          rule.active ? '' : 'wide-table__row--paused',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined
                       }
                     >
                       <td className="crud-table__name" data-label="Regra">
                         <span>{rule.name}</span>
                         <span className="wide-table__terms">{rule.include_terms}</span>
+                      </td>
+                      <td className="wide-table__status" data-label="Status">
+                        <StatusToggle
+                          active={rule.active}
+                          pausing={pausingId === rule.id}
+                          onPause={() => handlePause(rule)}
+                          onResume={() => handleResume(rule)}
+                        />
                       </td>
                       <td className="wide-table__num" data-label="Teto">
                         {formatPriceLimit(rule.max_price_cents)}
@@ -767,75 +800,62 @@ export function RegrasPage() {
                         )}
                       </td>
                       <td className="wide-table__actions" data-label="Ações">
-                        {/* S15-02: two fixed rows instead of a free wrap that
-                            stacked the seven controls in four — everyday
-                            actions first, the rarer/destructive ones below. */}
-                        <div className="wide-table__actions-inner">
-                          <div className="wide-table__actions-row">
-                            <StatusToggle
-                              active={rule.active}
-                              pausing={pausingId === rule.id}
-                              onPause={() => handlePause(rule)}
-                            />
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => openEdit(rule)}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => toggleRowTester(rule)}
-                            >
-                              Testar
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => handleSnooze(rule)}
-                              disabled={snoozeBusyId === rule.id}
-                            >
-                              {snoozeBusyId === rule.id
-                                ? 'Salvando…'
-                                : rule.snoozed_until
-                                  ? 'Reativar'
-                                  : 'Silenciar'}
-                            </button>
-                          </div>
-                          <div className="wide-table__actions-row">
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => openDuplicate(rule)}
-                            >
-                              Duplicar
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--danger plane-action--compact"
-                              onClick={() => openClearConfirm(rule)}
-                              disabled={checkingClearId === rule.id}
-                            >
-                              {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--danger plane-action--compact"
-                              onClick={() => handleDelete(rule)}
-                              disabled={deletingId === rule.id}
-                            >
-                              Excluir
-                            </button>
-                          </div>
+                        {/* S18-01: one row — the everyday actions in view, the
+                            rest behind "⋯". Nothing changed in what each does. */}
+                        <div className="rule-actions">
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => openEdit(rule)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => toggleRowTester(rule)}
+                          >
+                            Testar
+                          </button>
+                          <RowActionsMenu
+                            label={`Mais ações da regra ${rule.name}`}
+                            items={[
+                              { key: 'duplicate', label: 'Duplicar', onSelect: () => openDuplicate(rule) },
+                              {
+                                key: 'snooze',
+                                label:
+                                  snoozeBusyId === rule.id
+                                    ? 'Salvando…'
+                                    : rule.snoozed_until
+                                      ? 'Reativar'
+                                      : 'Silenciar',
+                                onSelect: () => handleSnooze(rule),
+                                disabled: snoozeBusyId === rule.id,
+                              },
+                              {
+                                key: 'clear',
+                                label: checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico',
+                                onSelect: () => openClearConfirm(rule),
+                                disabled: checkingClearId === rule.id,
+                                danger: true,
+                                separatorBefore: true,
+                              },
+                              {
+                                key: 'delete',
+                                label: 'Excluir',
+                                onSelect: () => handleDelete(rule),
+                                disabled: deletingId === rule.id,
+                                danger: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>
                   ))}
                   {rules.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="regras-page__empty">
+                      <td colSpan={7} className="regras-page__empty">
                         Nenhuma regra cadastrada. Use “Nova regra” para começar com termos específicos.
                       </td>
                     </tr>

@@ -22,6 +22,25 @@
   cursor: default;
 }
 
+/* S18-01: a fixed label width, so the switch has the same size in both
+   states ("ativa" / "pausada") and never shifts its neighbours. */
+.status-toggle__label {
+  display: inline-block;
+  width: 7ch;
+  text-align: left;
+}
+
+.status-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: var(--radius-pill);
+}
+
+.status-toggle[aria-busy='true'] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .status-toggle__knob {
   width: 36px;
   height: 20px;

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { apiLogin, apiPost } from './helpers'
+import { apiLogin, apiPost, clickRowMenuItem } from './helpers'
 
 /**
  * S14-09: a rule's `.crud-table__name` cell now nests the name in its own
@@ -38,7 +38,7 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   // (screen 09 — name and terms stacked in one column), not their own cell.
   await expect(createdRow.locator('.wide-table__terms')).toHaveText('rtx 5070, rtx 5070 super')
   await expect(createdRow.getByRole('cell', { name: 'R$ 5.500,00' })).toBeVisible()
-  await expect(createdRow.getByRole('button', { name: 'ativa' })).toBeVisible()
+  await expect(createdRow.getByRole('switch', { name: 'ativa' })).toBeVisible()
 
   // edit: the terms come back as chips; drop one and save
   await createdRow.getByRole('button', { name: 'Editar' }).click()
@@ -52,15 +52,17 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   await expect(editedRow.locator('.wide-table__terms')).toHaveText('rtx 5070')
 
   // duplicate
-  await editedRow.getByRole('button', { name: 'Duplicar' }).click()
+  await clickRowMenuItem(page, editedRow, 'Duplicar')
   await expect(page.getByRole('heading', { name: 'Nova regra' })).toBeVisible()
   await expect(page.getByLabel(/Nome/)).toHaveValue('RTX 5070 Ti E2E (cópia)')
   await page.getByRole('button', { name: 'Criar regra' }).click()
   await expect(rowByExactName(page, 'RTX 5070 Ti E2E (cópia)')).toBeVisible()
 
-  // pause the original — one-directional per the API (no reactivate endpoint)
-  await editedRow.getByRole('button', { name: 'ativa' }).click()
-  await expect(editedRow.getByRole('button', { name: 'pausada' })).toBeVisible()
+  // pause the original, then resume it (S18-01)
+  await editedRow.getByRole('switch', { name: 'ativa' }).click()
+  await expect(editedRow.getByRole('switch', { name: 'pausada' })).toBeVisible()
+  await editedRow.getByRole('switch', { name: 'pausada' }).click()
+  await expect(editedRow.getByRole('switch', { name: 'ativa' })).toBeVisible()
 })
 
 test('a term still typed when "Criar regra" is clicked is not lost (S11-05)', async ({ page }) => {
@@ -179,8 +181,8 @@ test('creates and pauses a recipient from the Regras page', async ({ page }) => 
 
   const row = rowByExactName(page, 'Namorada E2E')
   await expect(row).toBeVisible()
-  await row.getByRole('button', { name: 'ativa' }).click()
-  await expect(row.getByRole('button', { name: 'pausada' })).toBeVisible()
+  await row.getByRole('switch', { name: 'ativa' }).click()
+  await expect(row.getByRole('switch', { name: 'pausada' })).toBeVisible()
 })
 
 test('clears a rule\'s match history against the real API, with a confirmation showing the real count (S10-04)', async ({
@@ -214,7 +216,7 @@ test('clears a rule\'s match history against the real API, with a confirmation s
 
   await page.goto('/regras')
   const row = rowByExactName(page, 'RTX 5070 Limpeza E2E')
-  await row.getByRole('button', { name: 'Limpar histórico' }).click()
+  await clickRowMenuItem(page, row, 'Limpar histórico')
 
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
@@ -234,7 +236,7 @@ test('clears a rule\'s match history against the real API, with a confirmation s
   await page.goto('/feed')
   await expect(page.getByText('gadgetlimpezae2e por R$ 199')).not.toBeVisible()
   await page.goto('/regras')
-  await expect(rowByExactName(page, 'RTX 5070 Limpeza E2E').getByRole('button', { name: 'ativa' })).toBeVisible()
+  await expect(rowByExactName(page, 'RTX 5070 Limpeza E2E').getByRole('switch', { name: 'ativa' })).toBeVisible()
 })
 
 test('clearing a rule with no matches shows a toast directly, no confirmation dialog (S10-04)', async ({
@@ -250,7 +252,7 @@ test('clearing a rule with no matches shows a toast directly, no confirmation di
 
   await page.goto('/regras')
   const row = rowByExactName(page, 'Regra Sem Match E2E')
-  await row.getByRole('button', { name: 'Limpar histórico' }).click()
+  await clickRowMenuItem(page, row, 'Limpar histórico')
 
   await expect(page.getByRole('status')).toContainText('Nenhum match encontrado')
   await expect(
@@ -293,7 +295,7 @@ for (const width of [1280, 1440]) {
         wrap.getByRole('columnheader', { name: 'Ações' }),
         ...(await wrap
           .getByRole('button', {
-            name: /^(Editar|Duplicar|Testar|Silenciar|Reativar|ativa|pausada|Limpar histórico|Excluir)$/,
+            name: /^(Editar|Testar|Mais ações da regra.*|Duplicar|Silenciar|Reativar|Limpar histórico|Excluir)$/,
           })
           .all()),
       ]
@@ -447,14 +449,17 @@ test('silencing a rule for 7 days moves it into "Silenciados agora", and Reativa
   await page.goto('/regras')
 
   const row = rowByExactName(page, 'Regra Silêncio E2E')
-  await row.getByRole('button', { name: 'Silenciar' }).click()
-  await expect(row.getByRole('button', { name: 'Reativar' })).toBeVisible()
+  await clickRowMenuItem(page, row, 'Silenciar')
+  await row.getByRole('button', { name: /^Mais ações da regra/ }).click()
+  await expect(page.getByRole('menuitem', { name: 'Reativar' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(row).toContainText('até ')
 
   const rail = page.locator('.snoozed-panel')
   await expect(rail).toContainText('Regra Silêncio E2E')
   await expect(rail).toContainText('regra ·')
 
-  await row.getByRole('button', { name: 'Reativar' }).click()
-  await expect(row.getByRole('button', { name: 'Silenciar' })).toBeVisible()
+  await clickRowMenuItem(page, row, 'Reativar')
+  await expect(row).toContainText('ativo')
   await expect(rail).not.toContainText('Regra Silêncio E2E')
 })

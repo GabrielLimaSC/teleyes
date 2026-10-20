@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 export const E2E_PASSWORD = 'e2e-test-password'
 
@@ -91,4 +91,12 @@ export async function clickRuleFilter(page: Page, name: string | RegExp): Promis
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.waitForTimeout(900)
   }
+}
+
+/** S18-01: opens the "⋯" menu of a Regras row and picks one of its items
+ * (Duplicar, Silenciar/Reativar, Limpar histórico, Excluir). The menu lives in
+ * a portal on <body>, so the item is looked up on the page, not on the row. */
+export async function clickRowMenuItem(page: Page, row: Locator, name: string): Promise<void> {
+  await row.getByRole('button', { name: /^Mais ações da regra/ }).click()
+  await page.getByRole('menuitem', { name, exact: true }).click()
 }

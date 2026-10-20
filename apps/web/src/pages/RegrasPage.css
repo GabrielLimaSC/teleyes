@@ -252,6 +252,30 @@ td.wide-table__num {
   gap: 6px;
 }
 
+/* S18-01 (Regras): Editar / Testar / "⋯" always in one row. */
+.rule-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* S18-01: the switch has its own column with a fixed width, so toggling
+   ativa/pausada never moves its neighbours. */
+.crud-table.wide-table th.wide-table__status,
+.crud-table.wide-table td.wide-table__status {
+  width: 120px;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+/* A paused rule reads as inactive; the switch and the actions stay at full
+   strength (they are the way back). */
+.crud-table.wide-table tr.wide-table__row--paused td:not(.wide-table__status):not(.wide-table__actions) {
+  opacity: 0.55;
+}
+
 /* S15-02: `.plane-action` leaves sizing to each caller (materials.css); these
    compact buttons had none of their own, so some rendered squashed (the
    delivery panel's "Salvar entrega", for one). */
@@ -818,6 +842,16 @@ td.wide-table__num {
 
   .wide-table__actions-row {
     display: contents;
+  }
+
+  /* Status on top, Editar / Testar / "⋯" in a single row below. */
+  .crud-table.wide-table td.wide-table__status {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .rule-actions {
+    justify-content: flex-start;
   }
 
   .regras-page__header {
