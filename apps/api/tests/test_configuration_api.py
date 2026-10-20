@@ -56,6 +56,7 @@ ANONYMOUS_ROUTES = [
     ("POST", "/rules/test", {"include_terms": "promo"}),
     ("PATCH", "/rules/1", {"name": "Atualizada"}),
     ("POST", "/rules/1/pause", None),
+    ("POST", "/rules/1/resume", None),
     ("DELETE", "/rules/1", None),
     ("DELETE", "/rules/1/matches", None),
     ("GET", "/sources", None),
@@ -149,9 +150,37 @@ def test_rule_crud_over_http(client: TestClient) -> None:
         rule_id
     ]
 
+    resumed = client.post(f"/rules/{rule_id}/resume", headers=headers)
+    assert resumed.status_code == 200
+    assert resumed.json()["active"] is True
+    assert [rule["id"] for rule in client.get("/rules").json()] == [rule_id]
+
     deleted = client.delete(f"/rules/{rule_id}", headers=headers)
     assert deleted.status_code == 204
     assert client.get("/rules?include_inactive=true").json() == []
+
+
+def test_rule_resume_edge_cases(client: TestClient) -> None:
+    csrf = login(client)
+    headers = {"x-csrf-token": csrf}
+    rule_id = client.post(
+        "/rules", json={"name": "Notebook", "include_terms": "notebook"}, headers=headers
+    ).json()["id"]
+
+    # Idempotent: resuming an already active rule is fine.
+    again = client.post(f"/rules/{rule_id}/resume", headers=headers)
+    assert again.status_code == 200
+    assert again.json()["active"] is True
+
+    # Pause -> resume round trip leaves the rule untouched otherwise.
+    client.post(f"/rules/{rule_id}/pause", headers=headers)
+    back = client.post(f"/rules/{rule_id}/resume", headers=headers)
+    assert back.json()["name"] == "Notebook"
+    assert back.json()["active"] is True
+
+    # CSRF required, 404 for an unknown rule.
+    assert client.post(f"/rules/{rule_id}/resume").status_code == 403
+    assert client.post("/rules/9999/resume", headers=headers).status_code == 404
 
 
 def test_rule_validation_error_becomes_422(client: TestClient) -> None:

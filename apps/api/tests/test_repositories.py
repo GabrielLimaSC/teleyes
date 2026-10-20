@@ -1,6 +1,8 @@
 import pytest
 from sqlalchemy.orm import Session
 
+from app.listener_control import load_active_config
+from app.pipeline import evaluate_rule
 from repositories import recipient_repo, rule_repo, source_repo
 from repositories.errors import NotFoundError, ValidationError
 
@@ -25,6 +27,35 @@ def test_rule_crud_happy_path(session: Session) -> None:
 
     rule_repo.delete_rule(session, rule.id)
     assert rule_repo.list_rules(session, include_inactive=True) == []
+
+
+def test_paused_rule_never_matches_and_resumed_one_does(session: Session) -> None:
+    """The listener runs on `load_active_config`: a paused rule is outside it,
+    a resumed one is back and `evaluate_rule` matches its text again."""
+    rule = rule_repo.create_rule(session, name="iPhone", include_terms="iphone")
+    text = "iPhone 15 por R$ 3.000,00"
+
+    def listener_rules() -> list[int]:
+        return [r.id for r in load_active_config(session)[1]]
+
+    assert listener_rules() == [rule.id]
+    assert evaluate_rule(rule, text).discard_reason is None
+
+    rule_repo.pause_rule(session, rule.id)
+    assert listener_rules() == []
+
+    resumed = rule_repo.resume_rule(session, rule.id)
+    assert resumed.active is True
+    assert listener_rules() == [rule.id]
+    assert evaluate_rule(resumed, text).discard_reason is None
+
+
+def test_resume_rule_is_idempotent_and_not_found_raises(session: Session) -> None:
+    rule = rule_repo.create_rule(session, name="iPhone", include_terms="iphone")
+
+    assert rule_repo.resume_rule(session, rule.id).active is True
+    with pytest.raises(NotFoundError):
+        rule_repo.resume_rule(session, 999)
 
 
 def test_rule_without_include_terms_is_rejected(session: Session) -> None:

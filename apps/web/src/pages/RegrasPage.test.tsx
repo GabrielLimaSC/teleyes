@@ -30,6 +30,18 @@ const baseRule = {
   history_30d: [],
 }
 
+/** S18-01: Duplicar / Silenciar / Limpar histórico / Excluir live in the row's
+ * "⋯" menu — open it (first row unless `row` is given), then click the item. */
+async function clickMenuItem(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+  row?: HTMLElement,
+): Promise<void> {
+  const scope = row ? within(row) : screen
+  await user.click(await scope.findByRole('button', { name: /^Mais ações da regra/ }))
+  await user.click(await screen.findByRole('menuitem', { name }))
+}
+
 /** S14-09: default `GET /digest` body — a real digest is always enabled
  * with real settings, never absent, so every test that doesn't care about
  * delivery still gets a shape `RegrasPage` can render without crashing. */
@@ -268,7 +280,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Duplicar' }))
+    await clickMenuItem(user, 'Duplicar')
 
     expect(screen.getByRole('heading', { name: 'Nova regra' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Nome/)).toHaveValue('iPhone (cópia)')
@@ -615,6 +627,107 @@ describe('RegrasPage', () => {
     expect(screen.queryByText('Resultado depois de fechar')).not.toBeInTheDocument()
   })
 
+  it('resuming a paused rule calls the resume endpoint (S18-01)', async () => {
+    const paused = { ...baseRule, active: false }
+    let resumed = false
+    const calls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        withEmptyRecipients((input, init) => {
+          const url = String(input)
+          const method = init?.method ?? 'GET'
+          if (method === 'POST') calls.push(url)
+          if (url.endsWith('/resume')) {
+            resumed = true
+            return Promise.resolve(jsonResponse(baseRule))
+          }
+          if (method === 'GET') return Promise.resolve(jsonResponse(resumed ? [baseRule] : [paused]))
+          throw new Error(`unexpected ${method} ${url}`)
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    const toggle = await screen.findByRole('switch', { name: 'pausada' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(toggle).toBeEnabled()
+    expect((toggle.closest('tr') as HTMLElement).className).toContain('wide-table__row--paused')
+    await user.click(toggle)
+
+    expect(await screen.findByRole('switch', { name: 'ativa' })).toHaveAttribute('aria-checked', 'true')
+    expect(calls).toEqual(['/rules/1/resume'])
+    expect(await screen.findByRole('status')).toHaveTextContent('Regra reativada.')
+  })
+
+  it('shows a pt-BR error when pausing or resuming fails (S18-01)', async () => {
+    const paused = { ...baseRule, active: false }
+    let rules = [baseRule]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        withEmptyRecipients((_input, init) => {
+          const method = init?.method ?? 'GET'
+          if (method === 'POST') return Promise.resolve(jsonResponse({ detail: 'boom' }, 500))
+          return Promise.resolve(jsonResponse(rules))
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    const { unmount } = render(<RegrasPage />)
+    await user.click(await screen.findByRole('switch', { name: 'ativa' }))
+    expect(await screen.findByText('Não foi possível pausar a regra.')).toBeInTheDocument()
+    unmount()
+
+    rules = [paused]
+    render(<RegrasPage />)
+    await user.click(await screen.findByRole('switch', { name: 'pausada' }))
+    expect(await screen.findByText('Não foi possível reativar a regra.')).toBeInTheDocument()
+  })
+
+  it('the row menu holds the secondary actions, with the destructive ones as danger after a divider (S18-01)', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))))
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    // Visible in the row: Editar and Testar only.
+    expect(within(row).getByRole('button', { name: 'Editar' })).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Testar' })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'Duplicar' })).not.toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
+
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent)
+    expect(items).toEqual(['Duplicar', 'Silenciar', 'Limpar histórico', 'Excluir'])
+    expect(screen.getByRole('menuitem', { name: 'Limpar histórico' }).className).toContain('row-actions__item--danger')
+    expect(screen.getByRole('menuitem', { name: 'Excluir' }).className).toContain('row-actions__item--danger')
+    expect(screen.getByRole('menu').querySelectorAll('[role="separator"]')).toHaveLength(1)
+  })
+
+  it('the menu shows "Reativar" instead of "Silenciar" for a silenced rule (S18-01)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        withEmptyRecipients(() =>
+          Promise.resolve(jsonResponse([{ ...baseRule, snoozed_until: '2026-09-28T12:00:00Z' }])),
+        ),
+      ),
+    )
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    expect(within(row).getByText('até 28/09')).toBeInTheDocument()
+    await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
+
+    expect(screen.getByRole('menuitem', { name: 'Reativar' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Silenciar' })).not.toBeInTheDocument()
+  })
+
   it('pausing a rule calls the pause endpoint and reloads the list', async () => {
     const paused = { ...baseRule, active: false }
     let pauseCalled = false
@@ -635,9 +748,9 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'ativa' }))
+    await user.click(await screen.findByRole('switch', { name: 'ativa' }))
 
-    expect(await screen.findByRole('button', { name: 'pausada' })).toBeInTheDocument()
+    expect(await screen.findByRole('switch', { name: 'pausada' })).toBeInTheDocument()
     // S9-02: pausing had no success feedback at all before this — the S7-11
     // status toggle change itself is evidence enough of success on its own,
     // but the toast confirms the gap the task set out to fill is covered.
@@ -708,7 +821,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+    await clickMenuItem(user, 'Excluir')
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra excluída.')
   })
@@ -730,7 +843,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+    await clickMenuItem(user, 'Limpar histórico')
 
     expect(await screen.findByRole('heading', { name: 'Limpar histórico: iPhone' })).toBeInTheDocument()
     expect(screen.getByText(/apaga 3 matches desta/)).toBeInTheDocument()
@@ -758,7 +871,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+    await clickMenuItem(user, 'Limpar histórico')
     await user.click(await screen.findByRole('button', { name: 'Apagar histórico' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('3 matches apagados.')
@@ -780,7 +893,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+    await clickMenuItem(user, 'Limpar histórico')
 
     expect(await screen.findByRole('status')).toHaveTextContent('Nenhum match encontrado')
     expect(screen.queryByRole('heading', { name: 'Limpar histórico: iPhone' })).not.toBeInTheDocument()
@@ -801,7 +914,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Limpar histórico' }))
+    await clickMenuItem(user, 'Limpar histórico')
     await screen.findByRole('heading', { name: 'Limpar histórico: iPhone' })
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
 
@@ -989,6 +1102,7 @@ describe('RegrasPage', () => {
   })
 
   it('keeps "Limpar histórico" on every row and does not offer "Testar todas" (S11-05)', async () => {
+    const user = userEvent.setup()
     vi.stubGlobal(
       'fetch',
       vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule, { ...baseRule, id: 2, name: 'RTX' }])))),
@@ -996,7 +1110,13 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    expect(await screen.findAllByRole('button', { name: 'Limpar histórico' })).toHaveLength(2)
+    const triggers = await screen.findAllByRole('button', { name: /^Mais ações da regra/ })
+    expect(triggers).toHaveLength(2)
+    for (const trigger of triggers) {
+      await user.click(trigger)
+      expect(screen.getByRole('menuitem', { name: 'Limpar histórico' })).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+    }
     expect(screen.queryByRole('button', { name: /Testar todas/ })).not.toBeInTheDocument()
   })
 
@@ -1107,7 +1227,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
     expect(within(row).getByText('ativo')).toBeInTheDocument()
 
-    await user.click(within(row).getByRole('button', { name: 'Silenciar' }))
+    await clickMenuItem(user, 'Silenciar', row)
 
     await waitFor(() => expect(postedBody).toEqual({ scope: 'rule', rule_id: 1, days: 7 }))
     expect(await screen.findByRole('status')).toHaveTextContent('Regra silenciada por 7 dias.')
@@ -1172,7 +1292,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     expect(within(railPanel).getByText('Corsair 32GB DDR5')).toBeInTheDocument()
     expect(within(railPanel).getByText(/produto · até 30\/09/)).toBeInTheDocument()
 
-    await user.click(within(row).getByRole('button', { name: 'Reativar' }))
+    await clickMenuItem(user, 'Reativar', row)
 
     await waitFor(() => expect(deleteCalls).toEqual(['/snoozes/55']))
     expect(await screen.findByRole('status')).toHaveTextContent('Regra reativada.')
