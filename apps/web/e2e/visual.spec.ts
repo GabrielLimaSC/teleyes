@@ -243,12 +243,12 @@ test('seeded data across every screen', async ({ page }) => {
     idle: await apiPost<{ id: number }>(page, '/rules', csrf, { name: 'Regra sem matches', include_terms: 'nadaaqui' }),
   }
   const gabriel = await apiPost<{ id: number }>(page, '/recipients', csrf, { name: 'Gabriel', telegram_chat_id: '901', allowlisted: true })
-  const namorada = await apiPost<{ id: number }>(page, '/recipients', csrf, { name: 'Namorada', telegram_chat_id: '902', allowlisted: true })
+  const secondary = await apiPost<{ id: number }>(page, '/recipients', csrf, { name: 'Destinatário', telegram_chat_id: '902', allowlisted: true })
   await apiPost(page, '/recipients', csrf, { name: 'Sem autorização', telegram_chat_id: '903', allowlisted: false })
 
   // `link` is the message's Telegram address: the ones that have it show "Abrir
   // promoção" in Feed and Histórico, the ones without it show "Sem link" (S13-03).
-  const send = (source: { id: number }, rule: { id: number }, text: string, recipients = [gabriel.id, namorada.id], link?: string) =>
+  const send = (source: { id: number }, rule: { id: number }, text: string, recipients = [gabriel.id, secondary.id], link?: string) =>
     apiPost(page, '/demo/messages', csrf, { source_id: source.id, rule_id: rule.id, recipient_ids: recipients, text, link })
 
   // Category tiles: phone, laptop, headphones, gaming, generic.

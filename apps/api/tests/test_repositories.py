@@ -141,6 +141,6 @@ def test_recipient_with_duplicate_telegram_chat_id_is_rejected(session: Session)
     recipient_repo.create_recipient(session, name="Gabriel", telegram_chat_id="999")
 
     with pytest.raises(ValidationError):
-        recipient_repo.create_recipient(session, name="Namorada", telegram_chat_id="999")
+        recipient_repo.create_recipient(session, name="Destinatário", telegram_chat_id="999")
 
     assert len(recipient_repo.list_recipients(session, include_inactive=True)) == 1

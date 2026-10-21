@@ -61,7 +61,7 @@ Telegram (MTProto) → normalization → rules → deduplication → SQLite → 
 ## Notable technical decisions
 
 - **Single process + SQLite, on purpose.** No Redis, Postgres, Kafka or microservices — the whole system
-  is one admin's personal deployment on a home desktop. WAL mode gives it enough concurrency for one
+  is one admin's personal deployment on a home machine. WAL mode gives it enough concurrency for one
   reader process and one API process to share the database safely, and a `VACUUM INTO` backup job runs
   without blocking either.
 - **SSE instead of polling.** The dashboard needs a live feed, not a request loop; a single long-lived
@@ -137,3 +137,7 @@ npm run test:e2e      # Playwright — spins up an isolated test backend + Vite 
 - [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) — full technical specification.
 - [`DESIGN.md`](DESIGN.md) — the implemented UI, design tokens and theming.
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — operations runbook (in Portuguese).
+
+## License
+
+Released under the [MIT License](LICENSE). Security reports: see [SECURITY.md](SECURITY.md). Contributing: see [CONTRIBUTING.md](CONTRIBUTING.md).

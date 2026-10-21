@@ -175,11 +175,11 @@ test('creates and pauses a recipient from the Regras page', async ({ page }) => 
   // Scoped: the rule creation rail (S11-05) has its own "Nome" field.
   const recipients = page.locator('section.regras-section')
   await page.getByRole('button', { name: '+ Novo destinatário' }).click()
-  await recipients.getByLabel('Nome').fill('Namorada E2E')
+  await recipients.getByLabel('Nome').fill('Destinatário E2E')
   await recipients.getByLabel('Chat ID do Telegram').fill('555444')
   await recipients.getByRole('button', { name: 'Salvar' }).click()
 
-  const row = rowByExactName(page, 'Namorada E2E')
+  const row = rowByExactName(page, 'Destinatário E2E')
   await expect(row).toBeVisible()
   await row.getByRole('switch', { name: 'ativa' }).click()
   await expect(row.getByRole('switch', { name: 'pausada' })).toBeVisible()

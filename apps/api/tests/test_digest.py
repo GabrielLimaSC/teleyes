@@ -233,7 +233,7 @@ async def test_top_n_sends_the_cheapest_and_marks_the_overflow_skipped(session: 
 
 async def test_each_recipient_gets_only_their_pending_queue(session: Session) -> None:
     source, rule, recipient_a = _seed(session)
-    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    recipient_b = Recipient(name="Destinatário", telegram_chat_id="888", allowlisted=True)
     session.add(recipient_b)
     session.flush()
     shared = _match(
@@ -291,7 +291,7 @@ async def test_partial_recipient_failure_is_never_retried_for_any_recipient(
     session: Session,
 ) -> None:
     source, rule, recipient_a = _seed(session)
-    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    recipient_b = Recipient(name="Destinatário", telegram_chat_id="888", allowlisted=True)
     session.add(recipient_b)
     session.flush()
     match = _match(session, source, rule, message_id=1, price_cents=100_000)
@@ -321,7 +321,7 @@ async def test_partial_recipient_failure_is_never_retried_for_any_recipient(
 
 async def test_top_n_and_overflow_are_computed_per_recipient(session: Session) -> None:
     source, rule, recipient_a = _seed(session)
-    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    recipient_b = Recipient(name="Destinatário", telegram_chat_id="888", allowlisted=True)
     session.add(recipient_b)
     session.flush()
     cheap = _match(session, source, rule, message_id=1, price_cents=100_000, text="Barato A")
@@ -441,7 +441,7 @@ async def test_a_crash_after_sending_but_before_the_final_commit_is_never_resent
     must not resend it on the same day or after the local date rolls over.
     """
     source, rule, recipient_a = _seed(session)
-    recipient_b = Recipient(name="Namorada", telegram_chat_id="888", allowlisted=True)
+    recipient_b = Recipient(name="Destinatário", telegram_chat_id="888", allowlisted=True)
     session.add(recipient_b)
     session.flush()
     match = _match(session, source, rule, message_id=1, price_cents=100_000)
