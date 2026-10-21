@@ -13,8 +13,8 @@ Telethon and SQLite. The choice favors a small deployable system and direct Tele
 
 ## Users
 
-The administrator is the primary user. They connect the Telegram reader, chooses monitored groups,
-creates rules, inspects results and configures notification recipients.
+The administrator is the primary user. They connect the Telegram reader, choose monitored groups,
+create rules, inspect results and configure notification recipients.
 
 A secondary recipient is initially a notification recipient, not a dashboard account. The administrator can create
 rules for that recipient and choose whether an alert goes to the administrator, to the recipient or to both. A second dashboard account is a
