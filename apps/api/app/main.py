@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import itertools
 import time
 from collections.abc import AsyncIterator, Iterator
@@ -10,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.demo_mode import DemoNotifier, DemoReadOnlyMiddleware, check_database_mode
 from auth.csrf import verify_csrf_token
 from auth.hashing import verify_password
 from auth.rate_limit import LoginRateLimiter
@@ -29,9 +31,23 @@ SESSION_COOKIE_NAME = "teleyes_session"
 async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     # S17-03: the listener runs in another process, so the api watches the
     # shared SQLite file and publishes new matches to its in-memory broker.
+    from app.demo_runtime import demo_background
     from app.match_watcher import watch_matches
 
-    async with watch_matches(application.state.session_factory, application.state.event_broker):
+    settings = get_settings()
+    # S19-03: the demo password may only ever sit next to fictional data, and
+    # a demo database must never be served as a real one (and vice versa).
+    with application.state.session_factory() as session:
+        check_database_mode(session, demo=settings.teleyes_demo)
+
+    async with contextlib.AsyncExitStack() as stack:
+        if settings.teleyes_demo:
+            await stack.enter_async_context(
+                demo_background(application.state.session_factory, live=settings.teleyes_demo_live)
+            )
+        await stack.enter_async_context(
+            watch_matches(application.state.session_factory, application.state.event_broker)
+        )
         yield
 
 
@@ -61,6 +77,9 @@ app.state.demo_dedupe_cache = DedupeCache()
 
 
 def _build_bot_notifier(allowlisted_chat_ids: set[str]) -> BotNotifier:
+    if get_settings().teleyes_demo:
+        # S19-03: no bot in the demo; this notifier cannot open a connection.
+        return DemoNotifier()
     bot_token = get_settings().bot_token
     client = HttpBotClient(bot_token) if bot_token else None
     return BotNotifier(
@@ -71,6 +90,14 @@ def _build_bot_notifier(allowlisted_chat_ids: set[str]) -> BotNotifier:
 
 
 app.state.bot_notifier_factory = _build_bot_notifier
+
+
+def _demo_readonly_active() -> bool:
+    settings = get_settings()
+    return settings.teleyes_demo and settings.teleyes_demo_readonly
+
+
+app.add_middleware(DemoReadOnlyMiddleware, is_active=_demo_readonly_active)
 
 
 def get_db(request: Request) -> Iterator[Session]:
@@ -133,7 +160,10 @@ def login(
         SESSION_COOKIE_NAME,
         record.session_id,
         httponly=True,
-        secure=True,
+        # S19-03: the public demo is reached over plain http://localhost by
+        # strangers, and Safari drops Secure cookies there. Real deployments
+        # (demo off) keep Secure.
+        secure=not get_settings().teleyes_demo,
         samesite="strict",
     )
     return {"csrf_token": record.csrf_token}

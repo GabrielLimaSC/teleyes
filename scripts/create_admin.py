@@ -22,6 +22,7 @@ import sys
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.demo_mode import DEMO_PASSWORD
 from auth.hashing import hash_password
 from models import Admin
 from models.db import get_engine, get_sessionmaker
@@ -48,6 +49,9 @@ def main() -> None:
     password = getpass.getpass("Senha do painel: ")
     if len(password) < MIN_PASSWORD_LENGTH:
         print(f"Senha precisa ter pelo menos {MIN_PASSWORD_LENGTH} caracteres.")
+        sys.exit(1)
+    if password == DEMO_PASSWORD:
+        print("Essa é a senha pública da demonstração; escolha outra para um painel real.")
         sys.exit(1)
     confirm = getpass.getpass("Confirme a senha: ")
     if password != confirm:

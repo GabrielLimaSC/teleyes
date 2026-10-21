@@ -16,6 +16,19 @@ class Settings(BaseSettings):
     # dia") follow the timezone the dates are presented in; persistence
     # stays UTC. IANA name, validated on startup.
     display_timezone: str = "America/Sao_Paulo"
+    # S19-03: demo mode (see app/demo_mode.py). Off by default and never set in
+    # a real deployment. READONLY rejects every mutating request; LIVE makes the
+    # api insert one fictional match every few seconds.
+    teleyes_demo: bool = False
+    teleyes_demo_readonly: bool = False
+    teleyes_demo_live: bool = False
+
+    @field_validator("teleyes_demo", "teleyes_demo_readonly", "teleyes_demo_live", mode="before")
+    @classmethod
+    def _blank_flag_means_off(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip() == "":
+            return False
+        return value
 
     @field_validator("tg_api_id", mode="before")
     @classmethod
