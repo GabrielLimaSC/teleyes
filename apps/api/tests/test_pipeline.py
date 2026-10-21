@@ -119,7 +119,7 @@ async def test_delivery_failure_is_recorded_without_failing_the_whole_batch(
 ) -> None:
     source, rule, _ = _seed(session)
     ok_recipient = Recipient(name="Gabriel", telegram_chat_id="222", allowlisted=True)
-    failing_recipient = Recipient(name="Namorada", telegram_chat_id="111", allowlisted=True)
+    failing_recipient = Recipient(name="Destinatário", telegram_chat_id="111", allowlisted=True)
     session.add_all([ok_recipient, failing_recipient])
     session.flush()
 

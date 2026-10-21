@@ -1,7 +1,7 @@
 # Operação — teleyes
 
 > Runbook operacional: como instalar, rodar, atualizar, diagnosticar e desligar o sistema em produção
-> (desktop doméstico, Docker Compose). Para a visão de produto, arquitetura e como rodar os testes locais,
+> (máquina doméstica, Docker Compose). Para a visão de produto, arquitetura e como rodar os testes locais,
 > veja o [`README.md`](../README.md) na raiz do repositório.
 
 ## Índice
@@ -285,7 +285,7 @@ docker compose -f docker-compose.prod.yml run --rm --entrypoint python backup sc
 
 ## Boot automático, energia e recuperação (Windows)
 
-Pensado pro desktop doméstico rodando o teleyes 24/7 recuperar sozinho depois de um reboot ou queda de
+Pensado para uma máquina doméstica rodando o teleyes 24/7 recuperar sozinho depois de um reboot ou queda de
 energia, sem ninguém precisar digitar comando nenhum. Scripts em `ops/windows/`.
 
 **Nada disto foi testado num Windows real ainda** — escrito e revisado numa worktree Mac, sem acesso a um

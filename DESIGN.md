@@ -1,6 +1,6 @@
 ---
 name: teleyes
-description: Console Operate com navegação Liquid Glass e conteúdo de leitura estável. Proposta S10-05 sujeita à escolha de Gabriel.
+description: Console Operate com navegação Liquid Glass e conteúdo de leitura estável. Proposta S10-05, aprovada pelo mantenedor.
 colors:
   canvas: "#f5f5f7"
   surface: "#ffffff"
@@ -95,7 +95,7 @@ shadows:
 
 # Sistema visual proposto — S10-05
 
-**Status: conceito para escolha do Gabriel; este documento especifica o estado-alvo, não descreve o CSS já entregue.**
+**Status: conceito aprovado; este documento especifica o estado-alvo, não descreve necessariamente todo o CSS já entregue.**
 (Atualização S12-04: o tema escuro e o mecanismo de tema já estão implementados; ver a seção "Tema escuro e
 mecanismo de tema (Sprint 12)" no fim deste arquivo. A tabela `colors` acima descreve o tema claro.)
 Nenhum estilo desta proposta deve ser aplicado a todas as páginas antes dessa escolha. Os comps usam
@@ -190,27 +190,17 @@ do Dev, mantendo o mesmo markup e comportamento. Não criar um segundo sistema d
   reduzida ou falta de `backdrop-filter`, navbar/overlays viram prateado opaco `#eef0f4` com texto
   `#171717`; conteúdo já é opaco. A camada funcional não pode esconder texto ao rolar.
 
-## Comps reproduzíveis
+## Comps
 
-Fonte estática: `.impeccable/review/s10-05-concept.html`. PNGs em desktop:
-[Login](.impeccable/review/s10-05-login.png),
-[Feed](.impeccable/review/s10-05-feed.png),
-[Regras](.impeccable/review/s10-05-regras.png),
-[Saúde](.impeccable/review/s10-05-saude.png); em 400px:
-[Feed](.impeccable/review/s10-05-feed-mobile.png) e
-[Regras](.impeccable/review/s10-05-regras-mobile.png).
-O HTML é um artefato de decisão, não uma nova rota nem implementação da UI. A navbar da imagem aproxima
-a existente para contextualizar; o componente real permanece na S9-03/S9-05. Alguns rótulos da
-composição ajudam a mostrar hierarquia e devem ser conferidos pelo Dev contra a cópia atual antes do
-rollout. Após a escolha do Gabriel, criar uma task do Dev para migrar os CSS e componentes, com teste
-visual nas seis páginas e estados. Até lá, a diferença entre CSS atual e esta especificação é esperada.
+Os comps e mockups usados para decidir este sistema visual eram arquivos de trabalho locais e não fazem parte
+do repositório. Este documento e o CSS entregue são a fonte de verdade. Alguns rótulos dos comps ajudavam a
+mostrar hierarquia e não são cópia de interface.
 
 ## Tema escuro e mecanismo de tema (Sprint 12)
 
 **Estado: implementado** (S12-01 tokens, S12-02 mecanismo, S12-03 paleta escura, S12-05 menor preço, S12-04 QA).
-Fonte da verdade do escuro: o concept do Gabriel gerado no Claude Design (seção `2a` de
-`Teleyes Unificado.dc.html`), medido em `docs/SPRINT12_DARK_FROM_DESIGN.md` (worktree do Tech Lead). Onde o
-documento e o arquivo divergem, vale o arquivo. O escuro **não** é uma inversão do claro: é o mesmo sistema de
+Fonte da verdade do escuro: o concept aprovado pelo mantenedor, gerado no Claude Design e medido token a token.
+Onde este documento e o CSS divergem, vale o CSS. O escuro **não** é uma inversão do claro: é o mesmo sistema de
 três planos (vidro, grafite, ação) com valores próprios.
 
 ### Como o tema funciona
@@ -267,7 +257,7 @@ genérico `#242a34`/`#a3acbb`.
 ### Menor preço já visto (S12-05, vale para os dois temas)
 
 O sinal é **só um anel de 1,5px na borda do cartão**: sem blur, sem halo, sem `box-shadow`, sem animação, nada
-pintado fora da caixa do cartão (o Gabriel pediu que o arco-íris não vaze). O cartão com anel perde a borda e a
+pintado fora da caixa do cartão (o mantenedor pediu que o arco-íris não vaze). O cartão com anel perde a borda e a
 sombra normais (o anel é a borda), mantém o raio externo de 18px e o conteúdo não se move. O anel é um
 pseudo-elemento fixado às bordas (`inset: 0`) com máscara que deixa só a faixa de 1,5px: uma `border` CSS
 arredondaria para 1px em zoom 100% no Chromium. Gradiente `120deg`: escuro `#2e7f5c → #3d5a94 → #5a4287 →
@@ -278,21 +268,20 @@ arredondaria para 1px em zoom 100% no Chromium. Gradiente `120deg`: escuro `#2e7
 
 - `--plane-text-eyebrow-on-glass` é `#b4c5e0`, um pouco mais claro que o `#a2b6d6` do concept: sobre um tile
   dentro de uma trilha de vidro sobre o wash, o valor do concept mede 4.23:1 e reprovaria.
-- **Mascote:** o concept põe o gato num disco de vidro escuro, mas o gato é PRETO. Decisão delegada pelo
-  Gabriel ao Tech Lead: o disco de vidro do concept fica como está e o `<img>` ganha, só no escuro, um contorno
+- **Mascote:** o concept põe o gato num disco de vidro escuro, mas o gato é PRETO. Decisão de design: o disco de vidro do concept fica como está e o `<img>` ganha, só no escuro, um contorno
   claro (`drop-shadow(0 0 1px rgba(255,255,255,.55)) drop-shadow(0 0 6px rgba(255,255,255,.18))`). O PNG não é
   editado nem recolorido.
 
-### Contraste e dívida de acessibilidade conhecida (registrada, decisão do Gabriel)
+### Contraste e dívida de acessibilidade conhecida (registrada, decisão do mantenedor)
 
 `src/styles/contrast.test.ts` mede, a cada execução, os tokens declarados dos dois temas (pares de texto a
 4.5:1, ícones e anel de foco a 3:1; fundos translúcidos compostos sobre o pior wash; gradientes em todos os
-stops). O que NÃO cumpre, por decisão do Gabriel de manter fidelidade ao concept aprovado:
+stops). O que NÃO cumpre, por decisão do mantenedor de manter fidelidade ao concept aprovado:
 
 1. **Bordas de campo e de cartão não chegam a 3:1 (WCAG 1.4.11, contraste não textual):** claro 1.52:1 (campo
    `#ccd2db` sobre branco; cartão e botão secundário `#d9dfe9` 1.34:1) e escuro 1.44:1 (campo `#333a46` sobre o
    cartão). Mitigação que o próprio concept tem: no escuro o campo é MAIS ESCURO que o cartão (`#14171c` sobre
-   `#1b1f27`) e o foco tem anel de 3px. Corrigir muda o visual aprovado nos dois temas; só com pedido do Gabriel.
+   `#1b1f27`) e o foco tem anel de 3px. Corrigir muda o visual aprovado nos dois temas; só por decisão do mantenedor.
 2. **Quatro pares de texto do tema CLARO ficam abaixo de 4.5:1** (`LIGHT_DEBT` em `contrast.test.ts`, com a
    medida de cada um): `state-good-text` `#1c8a4b` 4.31:1 (palavra de estado de Saúde/Login),
    `state-neutral-text` `#8a8a92` 3.37:1 ("Não configurado"), `text-faint` `#8a8a92` 3.37:1 (metadado de cartão)
@@ -304,8 +293,6 @@ stops). O que NÃO cumpre, por decisão do Gabriel de manter fidelidade ao conce
 
 - **Foco por teclado:** `e2e/focus-visible.spec.ts` percorre com Tab todas as telas, em 1440 e 390, nos dois
   temas, e falha se algum controle não muda de aparência ao receber foco.
-- **Fidelidade ao concept (escuro):** `e2e/dark-fidelity.spec.ts`, opt-in, compara estilos computados do app
-  com os do `.dc.html` renderizado.
 - **Estabilidade visual por estilo computado, sem PNG no Git:** `VISUAL=1 VISUAL_THEME=light|dark
   VISUAL_STYLES_OUT=<pasta> npx playwright test e2e/visual.spec.ts` grava, por tela e por viewport (1440 e 390),
   o estilo computado de cada elemento; `node scripts/compare-computed-styles.mjs <antes> <depois>` compara e sai
@@ -313,5 +300,5 @@ stops). O que NÃO cumpre, por decisão do Gabriel de manter fidelidade ao conce
   navegador): servem de apoio por pixel, a prova exata é o estilo computado. O spec fixa fuso UTC e relógio da
   página e congela o texto que muda com o relógio, então a comparação não depende da hora em que roda.
 - **Movimento:** `e2e/motion-evidence.spec.ts` (drawer, transição de página, preenchimento do botão); roda nos
-  dois temas (`MOTION_THEME=dark` para o escuro; as capturas ficam em `.impeccable/review/`, ignorada pelo Git).
+  dois temas (`MOTION_THEME=dark` para o escuro; as capturas ficam em `apps/web/.impeccable/review/`, ignorada pelo Git).
   Com `prefers-reduced-motion` as transições são removidas (coberto em `states.spec.ts`).

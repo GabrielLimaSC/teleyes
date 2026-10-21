@@ -94,7 +94,7 @@ volumes:
   # Named volume, not a host bind mount: it lives inside Docker Desktop's own
   # Linux VM regardless of host OS, so the permission tightening in
   # docker/api-entrypoint.sh is actually enforced — a bind mount from a
-  # Windows path would have NTFS silently ignore it (this desktop's host OS
-  # is Windows 11 with Docker Desktop/WSL2, confirmed by Gabriel 2026-09-12).
+  # Windows path would have NTFS silently ignore it (the reference host OS
+  # is Windows 11 with Docker Desktop/WSL2).
   teleyes-data:
   teleyes-backups:

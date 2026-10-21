@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerate the typed API contract for the frontend: exports the FastAPI
 # OpenAPI schema and runs it through openapi-typescript to produce plain
-# TypeScript types (no frontend app consumes this yet — that's Sprint 4).
+# TypeScript types (the generated file lives in contracts/).
 #
 # Usage:
 #   ./scripts/generate_ts_client.sh

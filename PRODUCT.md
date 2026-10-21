@@ -13,17 +13,17 @@ Telethon and SQLite. The choice favors a small deployable system and direct Tele
 
 ## Users
 
-Gabriel is the primary user and administrator. He connects the Telegram reader, chooses monitored groups,
-creates rules, inspects results and configures notification recipients.
+The administrator is the primary user. They connect the Telegram reader, choose monitored groups,
+create rules, inspect results and configure notification recipients.
 
-Gabriel's girlfriend is initially a notification recipient, not a dashboard account. Gabriel can create
-rules for her and choose whether an alert goes to him, to her or to both. A second dashboard account is a
+A secondary recipient is initially a notification recipient, not a dashboard account. The administrator can create
+rules for that recipient and choose whether an alert goes to the administrator, to the recipient or to both. A second dashboard account is a
 future option, not a v1 requirement.
 
 ## Product Purpose
 
-Teleyes lets Gabriel mute high-volume promotion groups without losing time-sensitive offers. It watches
-messages his Telegram account can already access, keeps only relevant matches and sends a prompt private
+Teleyes lets the administrator mute high-volume promotion groups without losing time-sensitive offers. It watches
+messages the configured Telegram account can already access, keeps only relevant matches and sends a prompt private
 Telegram notification. Success means a useful offer is identified, deduplicated, recorded and delivered
 within seconds while irrelevant traffic remains silent.
 
@@ -35,7 +35,7 @@ groups rather than only channels accessible to a third-party public bot.
 
 ## Operating Context
 
-The service runs continuously on Gabriel's home desktop. Gabriel primarily receives alerts on his phone
+The service runs continuously on a home machine. The administrator primarily receives alerts on a phone
 and opens the dashboard from phone or desktop through a private Tailscale connection. Promotion groups
 remain muted; the Teleyes alert-bot conversation remains enabled for notifications.
 
@@ -86,13 +86,13 @@ visible on every control in both themes; reduced motion removes the transitions.
 every run of the test suite (`contrast.test.ts`, WCAG AA 4.5:1 for text and 3:1 for the focus ring and icons)
 against the tokens each theme really declares. Design details are in `DESIGN.md`.
 
-Two accessibility gaps are known, registered and accepted by Gabriel for now (he chose fidelity to the approved
+Two accessibility gaps are known, registered and accepted by the maintainer for now (the maintainer chose fidelity to the approved
 concept over changing its look). They are not defects to fix silently:
 
 - **Field and card borders do not reach the 3:1 non-text contrast** of WCAG 1.4.11: 1.52:1 in the light theme
   and 1.44:1 in the dark one. In the dark theme the field is darker than the card and the focus ring is 3px,
   which is what makes controls findable. Raising the borders changes the approved look in both themes and
-  needs Gabriel's decision.
+  needs the maintainer's decision.
 - **Four text pairs of the light theme are under 4.5:1**, pinned with their measured ratio in
   `contrast.test.ts` (`LIGHT_DEBT`): the "connected/OK" state word 4.31:1, the "not configured" state word
   3.37:1, the faint card metadata 3.37:1 and the helper text in the Feed rail 4.23:1. A new failing pair

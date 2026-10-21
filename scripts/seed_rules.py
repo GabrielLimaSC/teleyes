@@ -1,4 +1,4 @@
-"""Semeia as regras padrão da wishlist de hardware do Gabriel (S9-07).
+"""Semeia as regras padrão da wishlist de hardware de exemplo (S9-07).
 
 Uso:
     python scripts/seed_rules.py
@@ -9,10 +9,10 @@ perdeu e refez mais de uma vez (ver S6-03) — em vez de recriar as regras na
 mão pelo painel toda vez que o banco é zerado, este script faz de uma vez
 só.
 
-A wishlist (Gabriel, `Features and Fix.pdf`, item 7) lista 5 componentes,
+A wishlist de exemplo lista 5 componentes,
 mas a placa de vídeo vira 2 regras — RTX 5070 12GB e RTX 5070 Ti são opções
-alternativas pro Gabriel, não a mesma peça — totalizando 6 regras. Nenhuma
-tem `max_price_cents`: Gabriel não deu teto de preço, só o modelo desejado.
+alternativas, não a mesma peça — totalizando 6 regras. Nenhuma
+tem `max_price_cents`: não há teto de preço, só o modelo desejado.
 """
 
 from sqlalchemy import select
@@ -47,7 +47,7 @@ DEFAULT_RULES: list[tuple[str, str, str | None]] = [
     ),
     (
         "Placa-mãe AM5/B850",
-        # Gabriel: B850 ou qualquer AM5 que suporte o 9800X3D + RAM DDR5 —
+        # Pedido: B850 ou qualquer AM5 que suporte o 9800X3D + RAM DDR5 —
         # o soquete AM5 só existe com DDR5 (ao contrário do AM4, que é
         # DDR4), então listar os chipsets AM5 já cobre o pedido sem
         # precisar checar RAM separadamente.
@@ -56,14 +56,14 @@ DEFAULT_RULES: list[tuple[str, str, str | None]] = [
     ),
     (
         "Fonte Cooler Master MWE Gold 750 V3",
-        # "Fonte" sozinho é genérico demais (o próprio Gabriel citou como
-        # exemplo do que evitar) — precisa do termo do modelo.
+        # "Fonte" sozinho é genérico demais (exemplo do que
+        # evitar) — precisa do termo do modelo.
         "cooler master mwe gold 750,mwe gold 750",
         None,
     ),
     (
         "RAM DDR5 16GB",
-        # Gabriel aceita as duas formas (kit único de 16GB ou par de 8GB) —
+        # Aceita as duas formas (kit único de 16GB ou par de 8GB) —
         # cobre as ordens de fraseado mais comuns em anúncio real.
         "ddr5 16gb,16gb ddr5,2x8gb ddr5,8gb ddr5",
         None,
