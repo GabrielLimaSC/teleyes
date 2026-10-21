@@ -1,0 +1,57 @@
+# Demo stack (S19-03): the real dashboard over 100% fictional data. One command,
+# no Telegram account, no bot, no secrets, no .env:
+#
+#   docker compose -f docker-compose.demo.yml up --build
+#
+# then open http://localhost:18080 (password: demo-teleyes). Only `api` and `web`
+# run: there is no listener, no backup and no outgoing connection to Telegram.
+#
+# It has its own project name and publishes only 127.0.0.1:18080, so it never
+# collides with the dev stack (8000) or the production stack (8080). Override the
+# port with TELEYES_DEMO_PORT. The database lives on a tmpfs: every start builds a
+# fresh history that ends "now", and nothing survives `docker compose down`.
+#
+# Heads-up: nginx in `web` resolves `api` once at start. If you recreate or restart
+# only `api`, restart `web` too (or just `down` and `up` the whole stack).
+name: teleyes-demo
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    entrypoint: ["/demo-entrypoint.sh"]
+    restart: unless-stopped
+    environment:
+      TELEYES_DEMO: "1"
+      # Every write is refused with a pt-BR message. Set to 0 to play with it.
+      TELEYES_DEMO_READONLY: "${TELEYES_DEMO_READONLY:-1}"
+      # One fictional match every ~20-40 s so the live feed moves.
+      TELEYES_DEMO_LIVE: "${TELEYES_DEMO_LIVE:-1}"
+      DATABASE_URL: sqlite:////app/data/teleyes.db
+    tmpfs:
+      - /app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${TELEYES_DEMO_PORT:-18080}:80"
+    healthcheck:
+      # 127.0.0.1, not localhost: nginx only listens on IPv4 (see docker-compose.prod.yml).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

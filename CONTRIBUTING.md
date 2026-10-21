@@ -37,9 +37,10 @@ npm run test          # Vitest
 npx tsc -b            # type check
 npm run lint          # Oxlint; do not add new warnings
 npm run test:e2e      # Playwright, starts an isolated test backend and a Vite dev server
+npm run test:e2e:demo # Playwright against a backend seeded with the demo data (ports 8198 and 5184)
 ```
 
-The Playwright run uses fixed local ports (8199 for the test backend and 5183 for Vite), so make sure they are
+The Playwright runs use fixed local ports (8199 for the test backend and 5183 for Vite; 8198 and 5184 for the demo run), so make sure they are
 free first. It needs the backend virtualenv at `.venv` in the repository root.
 
 Never run `ruff format` over the whole repository: it would rewrite unrelated files. Keep diffs focused.
