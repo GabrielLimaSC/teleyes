@@ -606,7 +606,7 @@ export interface components {
          * AdapterState
          * @enum {string}
          */
-        AdapterState: "not_configured" | "connecting" | "connected" | "reconnecting" | "blocked";
+        AdapterState: "not_configured" | "connecting" | "connected" | "reconnecting" | "blocked" | "demo";
         /** BotHealth */
         BotHealth: {
             /** Configured */
@@ -615,7 +615,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "configured" | "not_configured";
+            state: "configured" | "not_configured" | "demo";
         };
         /** ClearMatchesResponse */
         ClearMatchesResponse: {
@@ -705,6 +705,11 @@ export interface components {
         /** HealthResponse */
         HealthResponse: {
             bot: components["schemas"]["BotHealth"];
+            /**
+             * Demo
+             * @default false
+             */
+            demo: boolean;
             /** Env */
             env: string;
             /**

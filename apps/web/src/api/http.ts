@@ -1,5 +1,6 @@
 import { ApiError } from './auth'
 import { requestReauth } from '../auth/sessionRecovery'
+import { isDemoReadOnly, notifyDemoReadOnly } from './demo'
 
 async function extractDetail(response: Response, fallback: string): Promise<string> {
   try {
@@ -61,6 +62,8 @@ export async function apiRequest<T>(
       const freshToken = await requestReauth()
       return apiRequest<T>(path, withFreshCsrfToken(init, freshToken), true)
     }
+    // S19-03: a read-only demo refuses every write; the DemoBanner shows the toast.
+    if (isDemoReadOnly(response.status, detail)) notifyDemoReadOnly()
     throw new ApiError(detail, response.status)
   }
   if (response.status === 204) {

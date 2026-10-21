@@ -1,0 +1,26 @@
+/* S19-03: slim strip pinned to the bottom edge (the top belongs to the fixed
+   chrome band). It never takes clicks, and the page gets matching room below. */
+.demo-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 150;
+  padding: 5px 16px;
+  background: var(--demo-banner-bg);
+  color: var(--demo-banner-text);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+:root[data-demo] body {
+  padding-bottom: 28px;
+}
+
+/* The toast sits above the strip, not on it. */
+:root[data-demo] .toast-viewport {
+  bottom: calc(var(--space-6) + 28px);
+}

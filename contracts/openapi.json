@@ -7,7 +7,8 @@
           "connecting",
           "connected",
           "reconnecting",
-          "blocked"
+          "blocked",
+          "demo"
         ],
         "title": "AdapterState",
         "type": "string"
@@ -21,7 +22,8 @@
           "state": {
             "enum": [
               "configured",
-              "not_configured"
+              "not_configured",
+              "demo"
             ],
             "title": "State",
             "type": "string"
@@ -260,6 +262,11 @@
         "properties": {
           "bot": {
             "$ref": "#/components/schemas/BotHealth"
+          },
+          "demo": {
+            "default": false,
+            "title": "Demo",
+            "type": "boolean"
           },
           "env": {
             "title": "Env",

@@ -20,12 +20,14 @@ const TELEGRAM_STATE_LABELS: Record<AdapterState, StateLabel> = {
   connected: { label: 'Conectado', ...GOOD },
   reconnecting: { label: 'Reconectando…', ...WARN },
   blocked: { label: 'Bloqueado', ...DANGER },
+  demo: { label: 'Demonstração', ...NEUTRAL },
 }
 
 export function telegramStateLabel(state: AdapterState): StateLabel {
   return TELEGRAM_STATE_LABELS[state]
 }
 
-export function botStateLabel(state: 'configured' | 'not_configured'): StateLabel {
+export function botStateLabel(state: 'configured' | 'not_configured' | 'demo'): StateLabel {
+  if (state === 'demo') return { label: 'Demonstração', ...NEUTRAL }
   return state === 'configured' ? { label: 'Configurado', ...GOOD } : { label: 'Não configurado', ...NEUTRAL }
 }

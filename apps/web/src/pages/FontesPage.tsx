@@ -5,6 +5,7 @@ import { createSource, deleteSource, listSources, pauseSource, updateSource } fr
 import type { SourceInput } from '../api/sources'
 import { fetchMatches } from '../api/matches'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
 import type { Source } from '../api/types'
 import { StatusToggle } from '../components/StatusToggle'
 import { formatDateTime, isLater } from '../utils/dates'
@@ -124,7 +125,7 @@ export function FontesPage() {
     setPausingId(source.id)
     pauseSource(csrfToken, source.id)
       .then(reload)
-      .catch(() => setListError('Não foi possível pausar a fonte.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar a fonte.', setListError))
       .finally(() => setPausingId(null))
   }
 
@@ -137,7 +138,7 @@ export function FontesPage() {
     deleteSource(csrfToken, source.id)
       .then(reload)
       .catch((error: unknown) => {
-        setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir a fonte.')
+        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir a fonte.', setListError)
       })
       .finally(() => setDeletingId(null))
   }

@@ -18,6 +18,7 @@ import { fetchRuleSuggestion } from '../api/products'
 import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
 import type { DigestSettings, PricePoint, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
 import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
@@ -345,7 +346,7 @@ export function RegrasPage() {
         configChanged()
         showToast(existing ? 'Regra reativada.' : 'Regra silenciada por 7 dias.')
       })
-      .catch(() => setListError('Não foi possível alterar o silêncio da regra.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível alterar o silêncio da regra.', setListError))
       .finally(() => setSnoozeBusyId(null))
   }
 
@@ -360,7 +361,7 @@ export function RegrasPage() {
         configChanged()
         showToast('Silêncio removido.')
       })
-      .catch(() => setListError('Não foi possível reativar este item.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível reativar este item.', setListError))
       .finally(() => setSnoozeBusyId(null))
   }
 
@@ -484,7 +485,7 @@ export function RegrasPage() {
         configChanged()
         showToast('Regra pausada.')
       })
-      .catch(() => setListError('Não foi possível pausar a regra.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar a regra.', setListError))
       .finally(() => setPausingId(null))
   }
 
@@ -499,7 +500,7 @@ export function RegrasPage() {
         configChanged()
         showToast('Regra reativada.')
       })
-      .catch(() => setListError('Não foi possível reativar a regra.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível reativar a regra.', setListError))
       .finally(() => setPausingId(null))
   }
 
@@ -515,7 +516,7 @@ export function RegrasPage() {
         showToast('Regra excluída.')
       })
       .catch((error: unknown) => {
-        setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir a regra.')
+        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir a regra.', setListError)
       })
       .finally(() => setDeletingId(null))
   }

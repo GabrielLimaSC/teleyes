@@ -78,6 +78,7 @@ function mockFetch(handlers: {
   rules?: () => Response
   sources?: () => Response
   matches?: () => Response
+  health?: () => Response
 }) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
@@ -89,7 +90,7 @@ function mockFetch(handlers: {
     if (url.endsWith('/auth/logout') && method === 'POST') {
       return Promise.resolve(handlers.logout?.() ?? new Response(null, { status: 200 }))
     }
-    if (url === '/health') return Promise.resolve(jsonResponse(health))
+    if (url === '/health') return Promise.resolve(handlers.health?.() ?? jsonResponse(health))
     if (url.startsWith('/rules')) return Promise.resolve(handlers.rules?.() ?? jsonResponse([]))
     if (url.startsWith('/sources')) return Promise.resolve(handlers.sources?.() ?? jsonResponse([]))
     if (url.startsWith('/matches')) return Promise.resolve(handlers.matches?.() ?? jsonResponse([]))
@@ -110,6 +111,39 @@ afterEach(() => {
 })
 
 describe('LoginPage', () => {
+  it('shows the public demo password only when the API runs in demo mode (S19-03)', async () => {
+    mockFetch({
+      health: () =>
+        jsonResponse({
+          ...health,
+          demo: true,
+          telegram: { configured: false, state: 'demo' },
+          bot: { configured: false, state: 'demo' },
+        }),
+    })
+
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+
+    expect(await screen.findByTestId('demo-login-hint')).toHaveTextContent('demo-teleyes')
+  })
+
+  it('keeps the create_admin hint outside demo mode (S19-03)', async () => {
+    mockFetch({})
+
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+
+    expect(await screen.findByText(/create_admin\.py/)).toBeInTheDocument()
+    expect(screen.queryByTestId('demo-login-hint')).not.toBeInTheDocument()
+  })
+
   it('shows the login form when there is no session', async () => {
     mockFetch({})
 
