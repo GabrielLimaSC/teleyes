@@ -10,6 +10,7 @@ import type { HealthResponse } from '../api/health'
 import { listRules } from '../api/rules'
 import { listSources } from '../api/sources'
 import { fetchMatches } from '../api/matches'
+import { DEMO_PASSWORD } from '../api/demo'
 import { botStateLabel } from '../components/adapterStateLabel'
 import type { StateLabel } from '../components/adapterStateLabel'
 import '../styles/materials.css'
@@ -233,9 +234,15 @@ export function LoginPage() {
               autoComplete="current-password"
               required
             />
-            <span className="login-field__helper">
-              Definida com <code>scripts/create_admin.py</code>.
-            </span>
+            {anonHealth?.demo === true ? (
+              <span className="login-field__helper" data-testid="demo-login-hint">
+                Demonstração: use a senha <code>{DEMO_PASSWORD}</code>.
+              </span>
+            ) : (
+              <span className="login-field__helper">
+                Definida com <code>scripts/create_admin.py</code>.
+              </span>
+            )}
           </div>
           <button
             type="submit"

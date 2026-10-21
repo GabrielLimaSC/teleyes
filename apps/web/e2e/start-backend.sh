@@ -15,6 +15,8 @@ export DATABASE_URL="sqlite:///$DB_PATH"
 
 cd "$REPO_ROOT"
 source .venv/bin/activate
+# The venv's editable install may point at another checkout: run this one's code.
+export PYTHONPATH="$REPO_ROOT/apps/api:$REPO_ROOT"
 python -m alembic -c apps/api/alembic.ini upgrade head
 
 python - <<'PY'

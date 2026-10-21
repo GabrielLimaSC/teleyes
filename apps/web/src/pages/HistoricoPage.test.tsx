@@ -382,6 +382,50 @@ describe('HistoricoPage', () => {
     expect(deliveredTile).toHaveTextContent('1')
   })
 
+  it('ignores a bait price far below the rule median in the "Menor preço" tile (S19-03)', async () => {
+    const rule = {
+      id: 1,
+      name: 'Regra SSD',
+      include_terms: 'ssd',
+      exclude_terms: null,
+      max_price_cents: null,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+    }
+    const priced = (id: number, price: number) => ({
+      id,
+      source_id: 1,
+      rule_id: 1,
+      message_text: `ssd ${id}`,
+      price_cents: price,
+      price_cash_cents: null,
+      price_card_cents: null,
+      message_link: null,
+      matched_at: '2026-01-01T10:00:00Z',
+      created_at: '2026-01-01T10:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: false,
+    })
+    const matches = [priced(1, 45990), priced(2, 49990), priced(3, 2990), priced(4, 52990)]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([rule]))
+        if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    renderHistoricoPage()
+    await screen.findByText('ssd 1')
+
+    const lowestTile = screen.getByText('Menor preço').closest('.historico-stats__tile')
+    expect(lowestTile).toHaveTextContent('R$ 459,90')
+  })
+
   it('exports a CSV whose values match what is on screen (S11-04)', async () => {
     const rule = {
       id: 1,

@@ -21,6 +21,7 @@ import { useProductPanel } from '../hooks/useProductPanel'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
 import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
 import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { fetchFeedSettings, updateFeedSettings } from '../api/feedSettings'
@@ -197,7 +198,10 @@ export function FeedPage() {
   }, [matches])
 
   function reportError(err: unknown, fallback: string) {
-    showToast(err instanceof ApiError ? err.message : fallback, 'error')
+    // The read-only demo's refusal already has its (single) toast from DemoBanner.
+    reportFailure(err, err instanceof ApiError ? err.message : fallback, (message) =>
+      showToast(message, 'error'),
+    )
   }
 
   function requireCsrf(): string | null {

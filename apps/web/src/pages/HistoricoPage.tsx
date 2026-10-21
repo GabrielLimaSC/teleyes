@@ -11,6 +11,8 @@ import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import type { MatchFilters, MatchSort } from '../api/matches'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
+import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import { updateRule } from '../api/rules'
 import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
 import type { Match, Recipient, Rule, Snooze, Source } from '../api/types'
@@ -280,7 +282,10 @@ export function HistoricoPage() {
   }, [])
 
   function reportError(err: unknown, fallback: string) {
-    showToast(err instanceof ApiError ? err.message : fallback, 'error')
+    // The read-only demo's refusal already has its (single) toast from DemoBanner.
+    reportFailure(err, err instanceof ApiError ? err.message : fallback, (message) =>
+      showToast(message, 'error'),
+    )
   }
 
   function requireCsrf(): string | null {
@@ -439,7 +444,13 @@ export function HistoricoPage() {
     return {
       count: matches.length,
       avgPrice: prices.length > 0 ? Math.round(prices.reduce((sum, price) => sum + price, 0) / prices.length) : null,
-      lowestPrice: prices.length > 0 ? Math.min(...prices) : null,
+      // Same outlier floor as the Feed's "Menor preço" (S16-02): a bait price far below
+      // its rule's median is a parsing error or a trap, not the lowest price.
+      lowestPrice: robustLowestPriceCents(
+        matches
+          .filter((match): match is typeof match & { price_cents: number } => match.price_cents !== null)
+          .map((match) => ({ ruleId: match.rule_id, priceCents: match.price_cents })),
+      ),
       deliveriesDone,
     }
   }, [matches])

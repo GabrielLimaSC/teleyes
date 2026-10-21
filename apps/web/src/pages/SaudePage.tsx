@@ -53,6 +53,7 @@ const TELEGRAM_DETAILS: Record<AdapterState, ReactNode> = {
   connected: 'Sessão de leitura ativa',
   reconnecting: 'Tentando reconectar',
   blocked: 'Bloqueado ou sem conexão após as tentativas',
+  demo: 'Sem Telegram: os dados são fictícios',
 }
 
 function StatusTile({ label, state, detail }: { label: string; state: StateLabel; detail: ReactNode }) {
@@ -192,6 +193,8 @@ export function SaudePage() {
             detail={
               health.bot.state === 'configured' ? (
                 'Alertas saem por este bot'
+              ) : health.bot.state === 'demo' ? (
+                'Sem bot: nenhum alerta sai da demonstração'
               ) : (
                 <>
                   Sem <code>BOT_TOKEN</code>, nada é enviado
@@ -239,8 +242,14 @@ export function SaudePage() {
           <div>
             <h2>Teste de notificação</h2>
             <p className="saude-panel__sub">
-              Aciona o envio real. Sem <code>BOT_TOKEN</code> retorna <code>not_configured</code>, sem
-              fingir entrega.
+              {health?.demo === true ? (
+                'Na demonstração nada sai de verdade: o envio é simulado.'
+              ) : (
+                <>
+                  Aciona o envio real. Sem <code>BOT_TOKEN</code> retorna <code>not_configured</code>, sem
+                  fingir entrega.
+                </>
+              )}
             </p>
           </div>
           <label className="saude-panel__field">
