@@ -882,6 +882,75 @@ describe('HistoricoPage', () => {
   // (`HISTORICO_FILTERS_STORAGE_KEY`), not just component state, so a fresh
   // mount of the page (what happens on every SPA navigation, and on F5)
   // restores them instead of starting from `EMPTY_FILTERS`.
+  describe('"Excluir anúncio" (S20-01)', () => {
+    const wrongPrice = {
+      id: 7,
+      source_id: 1,
+      rule_id: 1,
+      message_text: 'GPU PNY NVIDIA GeForce RTX 5070 por R$ 699',
+      price_cents: 69_900,
+      price_cash_cents: null,
+      price_card_cents: null,
+      message_link: null,
+      matched_at: '2026-09-20T12:00:00Z',
+      created_at: '2026-09-20T12:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: true,
+      grouped_source_ids: null,
+      product_key: null,
+      sparkline: [],
+    }
+
+    function stubFetch() {
+      let deleted = false
+      const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url === '/matches/7' && init?.method === 'DELETE') {
+          deleted = true
+          return Promise.resolve(new Response(null, { status: 204 }))
+        }
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(deleted ? [] : [wrongPrice]))
+        return Promise.resolve(jsonResponse([]))
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+
+    it('asks for confirmation, and cancelling deletes nothing', async () => {
+      const fetchMock = stubFetch()
+      const user = userEvent.setup()
+      renderHistoricoPage()
+
+      await user.click(await screen.findByRole('button', { name: /Mais ações/ }))
+      await user.click(screen.getByRole('menuitem', { name: 'Excluir anúncio' }))
+
+      const dialog = await screen.findByRole('alertdialog')
+      expect(dialog).toHaveTextContent(
+        'Excluir este anúncio? Isso remove o registro do histórico e dos cálculos de preço. Não dá para desfazer.',
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
+    })
+
+    it('confirming deletes the match with the CSRF token and reloads the list', async () => {
+      const fetchMock = stubFetch()
+      const user = userEvent.setup()
+      renderHistoricoPage()
+
+      await user.click(await screen.findByRole('button', { name: /Mais ações/ }))
+      await user.click(screen.getByRole('menuitem', { name: 'Excluir anúncio' }))
+      await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Excluir anúncio' }))
+
+      await waitFor(() => expect(screen.queryByText(/GPU PNY NVIDIA/)).not.toBeInTheDocument())
+      const call = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE')
+      expect(call?.[0]).toBe('/matches/7')
+      expect(new Headers(call?.[1]?.headers).get('X-CSRF-Token')).toBe('test-csrf')
+      expect(await screen.findByText('Anúncio excluído.')).toBeInTheDocument()
+    })
+  })
+
   describe('persisted filters (S15-06)', () => {
     function stubEmptyFetch() {
       const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(jsonResponse([])))

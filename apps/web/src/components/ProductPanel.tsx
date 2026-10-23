@@ -9,6 +9,7 @@ import { formatClockMoment, formatDayMonth, formatMatchedAt } from '../utils/dat
 import { useIsProductPanelSheet } from '../hooks/useMediaQuery'
 import { useAuth } from '../auth/AuthContext'
 import { parsePriceInput } from '../utils/priceInput'
+import { CONFIRM_DIALOG_ATTR } from './ConfirmDialog'
 import './ProductPanel.css'
 
 const RANGES: ProductHistoryRange[] = ['90d', '30d', '7d']
@@ -504,6 +505,9 @@ export interface ProductPanelProps {
    * Histórico's filtered one) has no idea the panel just changed a price/
    * name until it refetches; this is that signal. */
   onEdited?: (match: EditableMatch) => void
+  /** S20-01: "Excluir" — deletes every record of the product. The page owns
+   * the confirmation dialog (it shows `count` in it) and the request. */
+  onDeleteProduct?: (count: number) => void
 }
 
 export function ProductPanel({
@@ -518,6 +522,7 @@ export function ProductPanel({
   targetRuleName,
   snoozed = false,
   onEdited,
+  onDeleteProduct,
 }: ProductPanelProps) {
   const headingId = useId()
   const panelRef = useRef<HTMLElement | null>(null)
@@ -627,6 +632,8 @@ export function ProductPanel({
   // so treating it as a close would just fight that.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // S20-01: a confirmation dialog on top owns Esc and clicks.
+      if (document.querySelector(`[${CONFIRM_DIALOG_ATTR}]`)) return
       if (event.key === 'Escape') onClose()
     }
     function handlePointerDown(event: PointerEvent) {
@@ -634,6 +641,7 @@ export function ProductPanel({
       if (!target) return
       if (panelRef.current?.contains(target)) return
       if (target.closest(`[${PRODUCT_OPEN_CONTROL_ATTR}]`)) return
+      if (target.closest(`[${CONFIRM_DIALOG_ATTR}]`)) return
       onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -967,6 +975,15 @@ export function ProductPanel({
                   onClick={() => setShowPostings((current) => !current)}
                 >
                   Ver as {product.total_count} {product.total_count === 1 ? 'postagem' : 'postagens'}
+                </button>
+              )}
+              {onDeleteProduct && (
+                <button
+                  type="button"
+                  className="plane-action plane-action--danger product-panel__chip"
+                  onClick={() => onDeleteProduct(product.total_count)}
+                >
+                  Excluir
                 </button>
               )}
             </div>

@@ -302,6 +302,32 @@ describe('ProductPanel', () => {
     expect(onSaveTarget).not.toHaveBeenCalled()
   })
 
+  it('"Excluir" hands the product record count to onDeleteProduct (S20-01)', async () => {
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+    const onDeleteProduct = vi.fn()
+
+    render(
+      <ProductPanel
+        productKey={product.product_key}
+        phase="open"
+        onClose={() => {}}
+        onDeleteProduct={onDeleteProduct}
+      />,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Excluir' }))
+    expect(onDeleteProduct).toHaveBeenCalledWith(product.total_count)
+  })
+
+  it('shows no "Excluir" without onDeleteProduct (S20-01)', async () => {
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await screen.findByText(product.title)
+    expect(screen.queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument()
+  })
+
   it('shows "Reativar" instead of "Silenciar 7 dias" when snoozed is true', async () => {
     const product = buildProduct()
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))

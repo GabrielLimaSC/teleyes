@@ -75,6 +75,15 @@ export function updateMatch(
   })
 }
 
+/** S20-01: `DELETE /matches/{id}` — removes a wrong listing (and the other
+ * matches of the same Telegram message) from the history and the price math. */
+export function deleteMatch(csrfToken: string, matchId: number): Promise<void> {
+  return apiRequest<void>(`/matches/${matchId}`, {
+    method: 'DELETE',
+    headers: jsonHeaders(csrfToken),
+  })
+}
+
 export function revertMatch(csrfToken: string, matchId: number): Promise<EditableMatch> {
   return apiRequest<EditableMatch>(`/matches/${matchId}/revert`, {
     method: 'POST',
