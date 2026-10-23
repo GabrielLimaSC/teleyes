@@ -72,6 +72,25 @@
   }
 }
 
+/* S20-01: 960-1099px — the panel is a fixed drawer (ProductPanel.css), never
+   a grid column, so the page keeps its whole width and is dimmed by the
+   drawer's backdrop instead. */
+@media (min-width: 960px) and (max-width: 1099px) {
+  .product-panel-layout,
+  .product-panel-layout[data-panel-phase='open'],
+  .product-panel-layout[data-panel-phase='closing'] {
+    grid-template-columns: minmax(0, 1fr);
+    transition: none;
+  }
+
+  .product-panel-layout[data-panel-phase='open'] .product-panel-layout__content,
+  .product-panel-layout[data-panel-phase='closing'] .product-panel-layout__content {
+    opacity: 1;
+    filter: none;
+    transition: none;
+  }
+}
+
 /* prefers-reduced-motion (07b): the grid change and the feed dim/saturate
    still happen, just without an animated transition — the panel's own
    120ms fade (ProductPanel.css) is the only motion left. */

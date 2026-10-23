@@ -12,6 +12,7 @@ from models.recipient import Recipient
 from models.rule import Rule
 from models.snooze import Snooze
 from models.source import Source
+from models.suppressed_message import SuppressedMessage
 
 __all__ = [
     "Admin",
@@ -28,4 +29,5 @@ __all__ = [
     "Rule",
     "Snooze",
     "Source",
+    "SuppressedMessage",
 ]

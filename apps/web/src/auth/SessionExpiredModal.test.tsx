@@ -28,7 +28,7 @@ afterEach(() => {
 describe('SessionExpiredModal (S13-08)', () => {
   it('shows a clear message (never the raw backend detail) and keeps the underlying form untouched', async () => {
     window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1 }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }))
 
     render(
       <AuthProvider>
@@ -62,7 +62,7 @@ describe('SessionExpiredModal (S13-08)', () => {
   it('a wrong password shows an inline error and keeps the modal open', async () => {
     window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse({ admin_id: 1 })) // /auth/me on mount
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' })) // /auth/me on mount
       .mockResolvedValueOnce(jsonResponse({ detail: 'invalid credentials' }, 401)) // /auth/login
 
     render(
@@ -90,9 +90,9 @@ describe('SessionExpiredModal (S13-08)', () => {
   it('the right password closes the modal and lets the action be retried', async () => {
     window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse({ admin_id: 1 })) // /auth/me on mount
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' })) // /auth/me on mount
       .mockResolvedValueOnce(jsonResponse({ csrf_token: 'tok-fresh' })) // /auth/login
-      .mockResolvedValueOnce(jsonResponse({ admin_id: 1 })) // /auth/me after login
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' })) // /auth/me after login
 
     render(
       <AuthProvider>
@@ -117,7 +117,7 @@ describe('SessionExpiredModal (S13-08)', () => {
 
   it('Cancelar closes the modal without logging in', async () => {
     window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1 }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }))
 
     render(
       <AuthProvider>

@@ -195,7 +195,7 @@ describe('LoginPage', () => {
   it('logs in with the real API contract and shows real stats in the authenticated view', async () => {
     let loggedIn = false
     mockFetch({
-      me: () => jsonResponse(loggedIn ? { admin_id: 1 } : null, loggedIn ? 200 : 401),
+      me: () => jsonResponse(loggedIn ? { admin_id: 1, csrf_token: 'tok-me' } : null, loggedIn ? 200 : 401),
       login: () => {
         loggedIn = true
         return jsonResponse({ csrf_token: 'test-csrf' })
@@ -238,7 +238,7 @@ describe('LoginPage', () => {
     vi.setSystemTime(new Date(2026, 8, 19, 23, 30, 0))
     let loggedIn = false
     mockFetch({
-      me: () => jsonResponse(loggedIn ? { admin_id: 1 } : null, loggedIn ? 200 : 401),
+      me: () => jsonResponse(loggedIn ? { admin_id: 1, csrf_token: 'tok-me' } : null, loggedIn ? 200 : 401),
       login: () => {
         loggedIn = true
         return jsonResponse({ csrf_token: 'test-csrf' })
@@ -288,7 +288,7 @@ describe('LoginPage', () => {
   it('logs out and returns to the login form', async () => {
     let loggedIn = true
     mockFetch({
-      me: () => jsonResponse(loggedIn ? { admin_id: 1 } : null, loggedIn ? 200 : 401),
+      me: () => jsonResponse(loggedIn ? { admin_id: 1, csrf_token: 'tok-me' } : null, loggedIn ? 200 : 401),
       logout: () => {
         loggedIn = false
         return new Response(null, { status: 200 })
@@ -309,8 +309,8 @@ describe('LoginPage', () => {
     expect(sessionStorage.getItem('teleyes.csrf_token')).toBeNull()
   })
 
-  it('warns instead of crashing when a reload lost the CSRF token', async () => {
-    mockFetch({ me: () => jsonResponse({ admin_id: 1 }) })
+  it('shows the active session after a reload (no lost-token warning)', async () => {
+    mockFetch({ me: () => jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }) })
     // no sessionStorage csrf token seeded — simulates a page reload
 
     render(
@@ -319,6 +319,7 @@ describe('LoginPage', () => {
       </AuthProvider>,
     )
 
-    expect(await screen.findByText(/perdeu o token de sessão/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Sair' })).toBeInTheDocument()
+    expect(screen.queryByText(/perdeu o token/)).toBeNull()
   })
 })

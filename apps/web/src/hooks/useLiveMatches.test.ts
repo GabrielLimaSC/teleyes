@@ -87,6 +87,18 @@ describe('useLiveMatches', () => {
     expect(spy).toHaveBeenCalledTimes(2)
   })
 
+  it('drops a deleted listing when a match_deleted event arrives (S20-01)', async () => {
+    const spy = vi.spyOn(matchesApi, 'fetchMatches')
+    spy.mockResolvedValueOnce([buildMatch(1), buildMatch(2)]).mockResolvedValueOnce([buildMatch(2)])
+
+    const { result } = renderHook(() => useLiveMatches())
+    await waitFor(() => expect(result.current.matches).toHaveLength(2))
+
+    FakeEventSource.instances[0].dispatch('match_deleted', JSON.stringify({ ids: [1] }))
+
+    await waitFor(() => expect(result.current.matches.map((match) => match.id)).toEqual([2]))
+  })
+
   it('reloads on resync as a full replace, not an append', async () => {
     const spy = vi.spyOn(matchesApi, 'fetchMatches')
     spy.mockResolvedValueOnce([buildMatch(1)]).mockResolvedValueOnce([buildMatch(2)])

@@ -20,6 +20,8 @@ import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { useDeleteListing } from '../hooks/useDeleteListing'
+import { RowActionsMenu } from '../components/RowActionsMenu'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
@@ -267,6 +269,15 @@ export function HistoricoPage() {
     return () => window.clearTimeout(timer)
   }, [form.search])
   const [matches, setMatches] = useState<Match[]>([])
+  // S20-01: "Excluir anúncio" (row menu) and "Excluir" (product panel). The
+  // list reloads right after, with the new totals, lowest price, etc.
+  const { requestDeleteMatch, requestDeleteProduct, dialog: deleteDialog } = useDeleteListing({
+    showToast,
+    onDeleted: (target) => {
+      if (target.kind === 'product') panel.close()
+      loadMatches()
+    },
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -473,6 +484,7 @@ export function HistoricoPage() {
   return (
     <main className="historico-page">
       <Toast toast={toast} onDismiss={dismiss} />
+      {deleteDialog}
       <div className="historico-page__header">
         <div>
           <h1>Histórico</h1>
@@ -790,6 +802,17 @@ export function HistoricoPage() {
                               <span className="historico-table__sr-only">: {NO_LINK_REASON}</span>
                             </span>
                           )}
+                          <RowActionsMenu
+                            label={`Mais ações: ${row.title}`}
+                            items={[
+                              {
+                                key: 'delete',
+                                label: 'Excluir anúncio',
+                                danger: true,
+                                onSelect: () => requestDeleteMatch(row.match.id),
+                              },
+                            ]}
+                          />
                         </div>
                       </div>
                     )
@@ -810,6 +833,7 @@ export function HistoricoPage() {
           onCreateRule={() => handleCreateRule(panel.productKey as string)}
           onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
           onEdited={() => loadMatches()}
+          onDeleteProduct={(count) => requestDeleteProduct(panel.productKey as string, count)}
           targetPriceCents={panelMatch?.target_price_cents ?? null}
           targetRuleName={panelRule?.name}
           snoozed={panelMatch?.snoozed ?? false}

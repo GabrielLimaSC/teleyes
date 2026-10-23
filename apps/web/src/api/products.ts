@@ -9,6 +9,13 @@ import type { Product, ProductHistoryRange, RuleSuggestion } from './types'
 export const fetchProduct = (key: string, range: ProductHistoryRange = '90d'): Promise<Product> =>
   apiRequest<Product>(`/products/${encodeURIComponent(key)}?range=${range}`)
 
+/** S20-01: `DELETE /products/{key}/matches` — every record of the product. */
+export const deleteProductMatches = (csrfToken: string, key: string): Promise<{ deleted: number }> =>
+  apiRequest<{ deleted: number }>(`/products/${encodeURIComponent(key)}/matches`, {
+    method: 'DELETE',
+    headers: { 'X-CSRF-Token': csrfToken },
+  })
+
 /** S14-09: `GET /products/{key}/rule-suggestion` — prefill for "nova regra a
  * partir do produto" (F2). Same 404-as-`ApiError` contract as `fetchProduct`. */
 export const fetchRuleSuggestion = (productKey: string): Promise<RuleSuggestion> =>

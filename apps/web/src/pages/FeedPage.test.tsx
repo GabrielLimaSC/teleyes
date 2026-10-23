@@ -16,7 +16,6 @@ vi.mock('../auth/AuthContext', async (importOriginal) => {
     useAuth: () => ({
       status: 'authenticated',
       adminId: 1,
-      csrfMissing: false,
       csrfToken: 'test-csrf',
       login: vi.fn(),
       logout: vi.fn(),

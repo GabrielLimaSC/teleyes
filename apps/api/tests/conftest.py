@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy.orm import Session
+from tests.match_api_support import api  # noqa: F401  (fixture shared by the match API tests)
 
 from models.db import get_engine, get_sessionmaker
 

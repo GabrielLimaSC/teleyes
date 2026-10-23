@@ -31,6 +31,7 @@ import { latestMatchForProduct } from '../utils/productMatch'
 import { localDateStamp, parseApiDate } from '../utils/dates'
 import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
+import { useDeleteListing } from '../hooks/useDeleteListing'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
@@ -115,6 +116,7 @@ const FeedMatchList = memo(function FeedMatchList({
   onCreateRule,
   onSnooze,
   onSetTarget,
+  onDelete,
 }: {
   visibleMatches: Match[]
   hasAnyMatch: boolean
@@ -125,6 +127,7 @@ const FeedMatchList = memo(function FeedMatchList({
   onCreateRule: (productKey: string) => void
   onSnooze: (match: Match) => void
   onSetTarget: (ruleId: number, targetCents: number) => void
+  onDelete: (match: Match) => void
 }) {
   return (
     <div className="feed-page__list">
@@ -145,6 +148,7 @@ const FeedMatchList = memo(function FeedMatchList({
             onCreateRule={onCreateRule}
             onSnooze={onSnooze}
             onSetTarget={onSetTarget}
+            onDelete={onDelete}
           />
         </div>
       ))}
@@ -158,6 +162,14 @@ export function FeedPage() {
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
   const { toast, showToast, dismiss } = useToast()
+  // S20-01: "Excluir anúncio" (card menu) and "Excluir" (product panel).
+  const { requestDeleteMatch, requestDeleteProduct, dialog: deleteDialog } = useDeleteListing({
+    showToast,
+    onDeleted: (target) => {
+      if (target.kind === 'product') panel.close()
+      refresh()
+    },
+  })
 
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
@@ -403,6 +415,7 @@ export function FeedPage() {
   const stableCreateRule = useStableCallback(handleCreateRule)
   const stableCardSnooze = useStableCallback(handleCardSnooze)
   const stableSetTarget = useStableCallback(handleSetTarget)
+  const stableDelete = useStableCallback((match: Match) => requestDeleteMatch(match.id))
 
   // S15-03: compact chrome while scrolled (chrome/scrollChrome.ts). The rails
   // only fold into icon strips while the grid actually has its 3 columns —
@@ -657,6 +670,7 @@ export function FeedPage() {
   return (
     <main className="feed-page">
       <Toast toast={toast} onDismiss={dismiss} />
+      {deleteDialog}
       {/* S16-01: no gradient/blur band anymore — this repaints the page's
           own background (color-paper + body-wash, same as index.css's
           `body`/`body::before`) behind a 56→112px mask, so a card scrolling
@@ -905,6 +919,7 @@ export function FeedPage() {
             onCreateRule={stableCreateRule}
             onSnooze={stableCardSnooze}
             onSetTarget={stableSetTarget}
+            onDelete={stableDelete}
           />
 
           <div ref={rightRailRef} id="feed-rail-right" className="feed-page__side-rail">
@@ -1055,6 +1070,7 @@ export function FeedPage() {
                 onCreateRule={() => handleCreateRule(panel.productKey as string)}
                 onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
                 onEdited={() => refresh()}
+                onDeleteProduct={(count) => requestDeleteProduct(panel.productKey as string, count)}
                 targetPriceCents={panelMatch?.target_price_cents ?? null}
                 targetRuleName={panelRule?.name}
                 snoozed={panelMatch?.snoozed ?? false}

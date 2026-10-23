@@ -193,7 +193,15 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Match
+         * @description S20-01: "Excluir anúncio" — removes a wrong listing (e.g. a price typo)
+         *     from the history and from every price calculation, with its deliveries and
+         *     correction audit rows. 404 when it does not exist (a second call, or a
+         *     sibling already deleted via the product), same as `DELETE /sources/{id}`.
+         *     The message identity is remembered so a re-scan does not bring it back.
+         */
+        delete: operations["delete_match_matches__match_id__delete"];
         options?: never;
         head?: never;
         /** Update Match */
@@ -273,6 +281,27 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{key}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Product Matches
+         * @description S20-01: deletes every record of a product (see `delete_matches`). 404
+         *     when the product has none, so a repeated call reads as "already gone".
+         */
+        delete: operations["delete_product_matches_products__key__matches_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -895,6 +924,13 @@ export interface components {
             /** Price */
             price?: string | null;
         };
+        /** MeResponse */
+        MeResponse: {
+            /** Admin Id */
+            admin_id: number;
+            /** Csrf Token */
+            csrf_token: string;
+        };
         /**
          * MetricReason
          * @description Fixed, categorical reasons a message was seen, discarded or failed.
@@ -930,6 +966,11 @@ export interface components {
             date: string;
             /** Price Cents */
             price_cents: number;
+        };
+        /** ProductMatchesDeleted */
+        ProductMatchesDeleted: {
+            /** Deleted */
+            deleted: number;
         };
         /** ProductPostingResponse */
         ProductPostingResponse: {
@@ -1395,9 +1436,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1668,6 +1707,37 @@ export interface operations {
             };
         };
     };
+    delete_match_matches__match_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_match_matches__match_id__patch: {
         parameters: {
             query?: never;
@@ -1826,6 +1896,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_product_matches_products__key__matches_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductMatchesDeleted"];
                 };
             };
             /** @description Validation Error */

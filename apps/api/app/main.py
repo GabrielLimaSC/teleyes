@@ -169,9 +169,17 @@ def login(
     return {"csrf_token": record.csrf_token}
 
 
+class MeResponse(BaseModel):
+    admin_id: int
+    csrf_token: str
+
+
 @app.get("/auth/me")
-def me(session: SessionRecord = Depends(get_current_session)) -> dict[str, int]:
-    return {"admin_id": session.admin_id}
+def me(session: SessionRecord = Depends(get_current_session)) -> MeResponse:
+    # S20-01: hands the CSRF token back so a reload or new tab recovers it. Safe:
+    # the request is authenticated by the HttpOnly SameSite=strict cookie and
+    # this app sets no CORS headers, so no other origin can read the response.
+    return MeResponse(admin_id=session.admin_id, csrf_token=session.csrf_token)
 
 
 @app.post("/auth/logout")
