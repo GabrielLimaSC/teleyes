@@ -4,18 +4,16 @@ Reuses the `api` fixture of `test_match_correction_api.py` (real app, in-memory
 schema, logged-in client).
 """
 
-# ruff: noqa: F811
 from datetime import timedelta
 
 from httpx import Response
 from sqlalchemy import func, select
-from test_match_correction_api import (
+from tests.match_api_support import (
     NOW,
     RTX_KEY,
     ApiContext,
     _add_match,
     _login_csrf,
-    api,  # noqa: F401  (pytest fixture, reused as is)
 )
 
 from app.pipeline import IncomingMessage, _persist_match
