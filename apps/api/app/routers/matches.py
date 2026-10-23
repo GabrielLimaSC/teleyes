@@ -251,7 +251,7 @@ def _latest_correction_created_at() -> Any:
 
 
 def _match_filters(
-    statement: Select[tuple[Match, Delivery, int | None, int | None]],
+    statement: Select[Any],
     *,
     rule_id: int | None,
     source_id: int | None,
@@ -260,7 +260,7 @@ def _match_filters(
     min_price_cents: int | None,
     max_price_cents: int | None,
     delivery_status: str | None,
-) -> Select[tuple[Match, Delivery, int | None, int | None]]:
+) -> Select[Any]:
     if rule_id is not None:
         statement = statement.where(Match.rule_id == rule_id)
     if source_id is not None:
