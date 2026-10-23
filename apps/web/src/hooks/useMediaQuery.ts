@@ -21,6 +21,13 @@ export function useMediaQuery(query: string): boolean {
  * sheet instead of a 520px side column. */
 export const PRODUCT_PANEL_SHEET_QUERY = '(max-width: 959px)'
 
+/** S20-01: from 960px up to 1099px a 520px side column would leave the page
+ * content a sliver, so the panel is a fixed drawer over the content (with a
+ * backdrop) instead of a grid column. */
+export const PRODUCT_PANEL_DRAWER_QUERY = '(min-width: 960px) and (max-width: 1099px)'
+
+export const useIsProductPanelDrawer = (): boolean => useMediaQuery(PRODUCT_PANEL_DRAWER_QUERY)
+
 export const useIsProductPanelSheet = (): boolean => useMediaQuery(PRODUCT_PANEL_SHEET_QUERY)
 
 export const usePrefersReducedMotion = (): boolean => useMediaQuery('(prefers-reduced-motion: reduce)')

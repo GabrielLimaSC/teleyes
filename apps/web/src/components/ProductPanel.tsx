@@ -6,7 +6,7 @@ import type { EditableMatch } from '../api/matches'
 import { ApiError } from '../api/auth'
 import type { Product, ProductHistoryRange, ProductPosting } from '../api/types'
 import { formatClockMoment, formatDayMonth, formatMatchedAt } from '../utils/dates'
-import { useIsProductPanelSheet } from '../hooks/useMediaQuery'
+import { useIsProductPanelDrawer, useIsProductPanelSheet } from '../hooks/useMediaQuery'
 import { useAuth } from '../auth/AuthContext'
 import { parsePriceInput } from '../utils/priceInput'
 import { CONFIRM_DIALOG_ATTR } from './ConfirmDialog'
@@ -530,6 +530,7 @@ export function ProductPanel({
   const focusedOnceRef = useRef(false)
   const editRequestIdRef = useRef(0)
   const isSheet = useIsProductPanelSheet()
+  const isDrawer = useIsProductPanelDrawer()
 
   // The panel mounts already at its "entering" (pre-transition) styles; two
   // rAFs later it flips to "entered" so the browser has committed the first
@@ -770,13 +771,13 @@ export function ProductPanel({
 
   return (
     <>
-      {isSheet && <div className={'product-panel-backdrop' + (phase === 'closing' ? ' product-panel-backdrop--closing' : '')} />}
+      {(isSheet || isDrawer) && <div className={'product-panel-backdrop' + (phase === 'closing' ? ' product-panel-backdrop--closing' : '')} />}
       <section
       ref={panelRef}
-      className={'product-panel' + (isSheet ? ' product-panel--sheet' : '')}
+      className={'product-panel' + (isSheet ? ' product-panel--sheet' : '') + (isDrawer ? ' product-panel--drawer' : '')}
       data-phase={visualPhase}
       role="dialog"
-      aria-modal={isSheet}
+      aria-modal={isSheet || isDrawer}
       aria-labelledby={headingId}
       style={isSheet && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)`, transition: 'none' } : undefined}
     >
