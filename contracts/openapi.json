@@ -794,6 +794,24 @@
         "title": "MatchUpdate",
         "type": "object"
       },
+      "MeResponse": {
+        "properties": {
+          "admin_id": {
+            "title": "Admin Id",
+            "type": "integer"
+          },
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "admin_id",
+          "csrf_token"
+        ],
+        "title": "MeResponse",
+        "type": "object"
+      },
       "MetricReason": {
         "description": "Fixed, categorical reasons a message was seen, discarded or failed.\n\nOnly these values (never free text) can be stored \u2014 a rejected message's\ncontent has no path into `increment_counter`, so it can never end up in\nthe database or in a log line built from this module.",
         "enum": [
@@ -2129,11 +2147,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
-                  "title": "Response Me Auth Me Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MeResponse"
                 }
               }
             },

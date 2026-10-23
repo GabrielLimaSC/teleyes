@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { fetchCurrentAdmin, login as apiLogin, logout as apiLogout } from '../api/auth'
+import { ApiError, fetchCurrentAdmin, login as apiLogin, logout as apiLogout } from '../api/auth'
 import { SessionExpiredModal } from './SessionExpiredModal'
 import {
   CSRF_BROADCAST_KEY,
@@ -13,8 +13,9 @@ const CSRF_STORAGE_KEY = 'teleyes.csrf_token'
 // S12-04: a browser that blocks web storage makes every `sessionStorage` call
 // throw (even reading the property can), and an uncaught throw in the state
 // initializer blanked the whole app. Storage is only a convenience that keeps
-// the CSRF token across a reload; without it the token lives in memory alone
-// and a reload asks for a new sign-in (the `csrfMissing` path).
+// the CSRF token across a reload; the source of truth is `GET /auth/me`
+// (S20-01), which hands the token back, so even without storage a reload or a
+// new tab recovers it.
 function readStoredCsrfToken(): string | null {
   try {
     return window.sessionStorage.getItem(CSRF_STORAGE_KEY)
@@ -42,12 +43,8 @@ interface AuthContextValue {
   adminId: number | null
   login: (password: string) => Promise<void>
   logout: () => Promise<void>
-  /** True once a reload lost the CSRF token (session cookie still valid, but
-   * logout needs a fresh login first — GET /auth/me has no way to hand back a
-   * token, only POST /auth/login does). */
-  csrfMissing: boolean
-  /** For any other mutating call (rules/sources/recipients CRUD) — null exactly
-   * when csrfMissing is true. */
+  /** For mutating calls (rules/sources/recipients CRUD). Recovered from
+   * `GET /auth/me` after any reload; null only while anonymous/checking. */
   csrfToken: string | null
   /** S13-08: a write came back with an expired session or CSRF mismatch —
    * `SessionExpiredModal` (mounted below) reads this to show itself. */
@@ -80,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setStatus('anonymous')
           setAdminId(null)
         } else {
+          storeCsrfToken(me.csrf_token)
+          setCsrfToken(me.csrf_token)
           setStatus('authenticated')
           setAdminId(me.admin_id)
         }
@@ -111,10 +110,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    if (csrfToken === null) {
-      throw new Error('Sessão sem token CSRF em memória — faça login de novo para poder sair.')
+    // S20-01: never leave the user stuck. A 401/403 means the session is
+    // already gone (api restarted, expired) or the token is stale — either
+    // way the local state must be cleared and the login shown.
+    let failure: unknown = null
+    if (csrfToken !== null) {
+      try {
+        await apiLogout(csrfToken)
+      } catch (error) {
+        const rejected = error instanceof ApiError && (error.status === 401 || error.status === 403)
+        if (!rejected) failure = error
+      }
     }
-    await apiLogout(csrfToken)
+    if (failure !== null) throw failure
     storeCsrfToken(null)
     setCsrfToken(null)
     setAdminId(null)
@@ -176,7 +184,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       adminId,
       login,
       logout,
-      csrfMissing: status === 'authenticated' && csrfToken === null,
       csrfToken,
       sessionExpired,
       cancelReauth,

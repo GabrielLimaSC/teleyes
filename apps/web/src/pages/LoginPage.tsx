@@ -66,7 +66,7 @@ function StatusRow({
 }
 
 export function LoginPage() {
-  const { status, adminId, logout, csrfMissing, login } = useAuth()
+  const { status, adminId, logout, login } = useAuth()
   const fillOrigin = useFillOrigin()
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -163,12 +163,6 @@ export function LoginPage() {
               <h2>Sessão ativa</h2>
               <p>Admin #{adminId}.</p>
             </div>
-            {csrfMissing && (
-              <p className="login-warning">
-                Esta aba recarregou e perdeu o token de sessão — para sair, será preciso entrar de
-                novo.
-              </p>
-            )}
             <button
               type="button"
               className="plane-action login-submit fill-button"

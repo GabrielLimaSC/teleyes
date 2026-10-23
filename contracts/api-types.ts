@@ -895,6 +895,13 @@ export interface components {
             /** Price */
             price?: string | null;
         };
+        /** MeResponse */
+        MeResponse: {
+            /** Admin Id */
+            admin_id: number;
+            /** Csrf Token */
+            csrf_token: string;
+        };
         /**
          * MetricReason
          * @description Fixed, categorical reasons a message was seen, discarded or failed.
@@ -1395,9 +1402,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
             /** @description Validation Error */

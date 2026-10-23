@@ -13,6 +13,7 @@ export interface LoginResponse {
 
 export interface MeResponse {
   admin_id: number
+  csrf_token: string
 }
 
 export async function login(password: string): Promise<LoginResponse> {

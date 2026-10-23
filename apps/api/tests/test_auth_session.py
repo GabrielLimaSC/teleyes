@@ -95,6 +95,24 @@ def test_protected_route_accepts_with_valid_session(client: TestClient) -> None:
     assert response.status_code == 200
 
 
+def test_me_returns_the_same_csrf_token_as_login(client: TestClient) -> None:
+    login = client.post("/auth/login", json={"password": PASSWORD})
+
+    me = client.get("/auth/me")
+
+    assert me.status_code == 200
+    assert me.json()["csrf_token"] == login.json()["csrf_token"]
+    assert isinstance(me.json()["admin_id"], int)
+    assert "access-control-allow-origin" not in me.headers
+
+
+def test_me_without_cookie_leaks_no_token(client: TestClient) -> None:
+    response = client.get("/auth/me")
+
+    assert response.status_code == 401
+    assert "csrf_token" not in response.text
+
+
 def test_mutation_without_csrf_token_is_rejected(client: TestClient) -> None:
     client.post("/auth/login", json={"password": PASSWORD})
 

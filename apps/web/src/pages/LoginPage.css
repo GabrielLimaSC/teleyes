@@ -233,9 +233,3 @@
   text-align: center;
 }
 
-.login-warning {
-  color: var(--plane-status-warn);
-  font-size: 13px;
-  margin: 0;
-  text-align: center;
-}
