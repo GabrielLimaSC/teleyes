@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import ScalarSelect, Select, and_, exists, func, or_, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.feed_settings import get_group_duplicates
 from app.main import get_current_session, get_db, require_csrf
+from app.match_deletion import delete_matches
 from app.pipeline import (
     DELIVERY_KIND_MANUAL_TARGET,
     GROUPING_WINDOW,
@@ -1050,3 +1051,24 @@ def revert_match(
     response = _fetch_match_response(db, match.id, now=now, tz=tz)
     assert response is not None
     return response
+
+
+@router.delete(
+    "/{match_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_csrf)],
+)
+def delete_match(match_id: int, request: Request, db: Session = Depends(get_db)) -> Response:
+    """S20-01: "Excluir anúncio" — removes a wrong listing (e.g. a price typo)
+    from the history and from every price calculation, with its deliveries and
+    correction audit rows. 404 when it does not exist (a second call, or a
+    sibling already deleted via the product), same as `DELETE /sources/{id}`.
+    The message identity is remembered so a re-scan does not bring it back.
+    """
+    match = db.get(Match, match_id)
+    if match is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="match not found")
+    deleted_ids = delete_matches(db, [match])
+    db.commit()
+    request.app.state.event_broker.publish("match_deleted", {"ids": deleted_ids})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

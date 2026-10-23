@@ -10,11 +10,13 @@ from datetime import datetime
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.main import get_current_session, get_db
+from app.main import get_current_session, get_db, require_csrf
+from app.match_deletion import delete_matches
 from app.pipeline import evaluate_rule
 from app.product_history import (
     HistoryRange,
@@ -26,7 +28,7 @@ from app.product_history import (
     series_for_range,
 )
 from app.utc import UtcDatetime, utc_now
-from models import Rule
+from models import Match, Rule
 from packages.rules.normalize import normalize_text
 from packages.rules.product import (
     is_model_code_suffix,
@@ -456,3 +458,28 @@ def get_product(
             for posting in postings[:POSTINGS_LIMIT]
         ],
     )
+
+
+class ProductMatchesDeleted(BaseModel):
+    deleted: int
+
+
+@router.delete(
+    "/{key}/matches",
+    response_model=ProductMatchesDeleted,
+    dependencies=[Depends(require_csrf)],
+)
+def delete_product_matches(
+    request: Request,
+    key: str = Path(min_length=1, max_length=255),
+    db: Session = Depends(get_db),
+) -> ProductMatchesDeleted:
+    """S20-01: deletes every record of a product (see `delete_matches`). 404
+    when the product has none, so a repeated call reads as "already gone"."""
+    matches = list(db.scalars(select(Match).where(Match.product_key == key)))
+    if not matches:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    deleted_ids = delete_matches(db, matches)
+    db.commit()
+    request.app.state.event_broker.publish("match_deleted", {"ids": deleted_ids})
+    return ProductMatchesDeleted(deleted=len(deleted_ids))

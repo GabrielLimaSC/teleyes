@@ -17,7 +17,7 @@ from app.digest_settings import load_digest_settings
 from app.feed_settings import get_group_duplicates
 from app.product_history import posting_identity
 from app.utc import ensure_utc, format_utc
-from models import Delivery, Match, Recipient, Rule, Source
+from models import Delivery, Match, Recipient, Rule, Source, SuppressedMessage
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.notifications.bot import BotNotifier, DeliveryResult
@@ -229,7 +229,18 @@ def _persist_match(
     insert of the same message+rule from another process, another session, or
     a repeated historical scan is a no-op here — no extra cache needed for
     either path to be idempotent across restarts.
+
+    S20-01: a message whose match the admin deleted is recorded in
+    `suppressed_message`; it is treated like an existing match, so it is never
+    recreated (nor alerted again) by a historical re-scan.
     """
+    if message.message_id is not None and session.scalar(
+        select(SuppressedMessage.id).where(
+            SuppressedMessage.source_id == message.source_id,
+            SuppressedMessage.telegram_message_id == message.message_id,
+        )
+    ):
+        return None
     db_match = Match(
         source_id=message.source_id,
         rule_id=rule.id,
