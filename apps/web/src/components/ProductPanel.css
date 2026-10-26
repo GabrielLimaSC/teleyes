@@ -1,27 +1,32 @@
 /* S14-08 (07/07b): the product panel — comp's own "vidro" recipe, distinct
    from --plane-glass (see the token comments in styles/materials.css for
-   why). Positioned as the grid's second track by the page
-   (productPanelLayout.css); a fixed bottom sheet below 960px, overridden at
-   the end of this file. */
+   why). A fixed drawer docked on the right (the page makes room for it from
+   1100px up, productPanelLayout.css); a fixed bottom sheet below 960px,
+   overridden at the end of this file. */
 .product-panel {
-  position: sticky;
-  top: 24px;
+  /* S20-03: always a fixed overlay docked on the right (a drawer), never a
+     grid track — so opening/closing never reflows the page, and only
+     `transform`/`opacity` ever animate (compositor-only). */
+  position: fixed;
+  /* Below the fixed theme toggle (top 32px + 40px), which sits above it. */
+  top: 80px;
+  /* Lines up with the page container's inner right edge (max 1440px, 24px
+     padding) — where the old second grid column used to be. */
+  right: max(24px, calc((100% - 1440px) / 2 + 24px));
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: 20px;
   /* S20-01: border-box — with the default content-box the 24px padding and
-     the border made it 570px inside a 520px grid track, which pushed the
-     page into horizontal scroll (and shifted everything left). */
+     the border made it wider than the 520px it declares. */
   box-sizing: border-box;
   width: 520px;
-  max-width: 100%;
-  max-height: calc(100vh - 48px);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 96px);
   overflow-y: auto;
   padding: 24px;
   border-radius: 20px;
   background: var(--product-panel-bg);
-  backdrop-filter: blur(20px) saturate(155%);
-  -webkit-backdrop-filter: blur(20px) saturate(155%);
   border: 1px solid var(--product-panel-border-color);
   box-shadow: var(--product-panel-shadow);
   /* 07b: enters translateX(24px)→0 + opacity 0→1, 280ms, 60ms delay; exits
@@ -30,6 +35,19 @@
      transition is ever declared for. */
   transform: translateX(24px);
   opacity: 0;
+  /* Its own compositor layer while it moves; released once settled. */
+  will-change: transform, opacity;
+}
+
+/* S20-03: the glass blur (backdrop-filter) is re-rasterized every frame when
+   the layer moves or fades over changing content — expensive on a 520px ×
+   full-height panel. It only applies once the panel stood still
+   (`data-settled`, set on transitionend); during the slide the panel is the
+   same translucent gradient, just without the blur. */
+.product-panel[data-settled] {
+  will-change: auto;
+  backdrop-filter: blur(20px) saturate(155%);
+  -webkit-backdrop-filter: blur(20px) saturate(155%);
 }
 
 .product-panel[data-phase='open'] {
@@ -359,6 +377,15 @@
   animation: product-panel-backdrop-in 220ms cubic-bezier(0.32, 0.72, 0, 1) reverse both;
 }
 
+/* S20-03: from 1100px up the page stays usable beside the panel, so the dim
+   layer ignores the pointer and is lighter — it replaces the old
+   opacity/saturate on the whole page content (a repaint of hundreds of
+   nodes per frame); this is one fixed layer animating only opacity. */
+.product-panel-backdrop--docked {
+  pointer-events: none;
+  background: color-mix(in srgb, var(--color-paper) 45%, transparent);
+}
+
 @keyframes product-panel-backdrop-in {
   from {
     opacity: 0;
@@ -399,6 +426,7 @@
     inset: auto 0 0 0;
     top: auto;
     width: auto;
+    max-width: none;
     max-height: 92vh;
     border-radius: 20px 20px 0 0;
     transform: translateY(100%);
@@ -413,21 +441,6 @@
   .product-panel[data-phase='closing'] {
     transform: translateY(100%);
     transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1), opacity 220ms cubic-bezier(0.32, 0.72, 0, 1);
-  }
-}
-
-/* S20-01: 960-1099px — a fixed drawer on the right over the page, not a grid
-   column (productPanelLayout.css gives the content the whole width). */
-@media (min-width: 960px) and (max-width: 1099px) {
-  .product-panel {
-    position: fixed;
-    /* Below the fixed theme toggle (top 32px + 40px), which sits above it. */
-    top: 80px;
-    right: 16px;
-    bottom: 16px;
-    width: min(520px, calc(100vw - 32px));
-    max-height: none;
-    z-index: 40;
   }
 }
 

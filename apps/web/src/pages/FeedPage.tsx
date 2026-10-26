@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MatchCard } from '../components/MatchCard'
 import { ProductPanel } from '../components/ProductPanel'
@@ -18,6 +18,7 @@ import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { useLiveMatches } from '../hooks/useLiveMatches'
 import type { FeedConnectionState } from '../hooks/useLiveMatches'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { useStableCallback } from '../hooks/useStableCallback'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import { ApiError } from '../api/auth'
@@ -90,17 +91,6 @@ interface TargetRuleRow {
   hit: boolean
   gapPct: number | null
   progressPct: number
-}
-
-/** A callback whose identity never changes but always runs the latest
- * closure — lets the memoized card list below skip re-renders that only the
- * page's own chrome state caused. */
-function useStableCallback<Args extends unknown[], Result>(callback: (...args: Args) => Result) {
-  const ref = useRef(callback)
-  useLayoutEffect(() => {
-    ref.current = callback
-  })
-  return useCallback((...args: Args) => ref.current(...args), [])
 }
 
 /** S15-03: the cards, memoized — scrolling in and out of the compact chrome
@@ -520,12 +510,25 @@ export function FeedPage() {
     const root = document.documentElement
     const leftWidth = COLLAPSED_RAIL_WIDTH
     const rightWidth = COLLAPSED_RAIL_WIDTH
+    // S20-03: a custom property written on <html> restyles the whole
+    // document (hundreds of cards). Read everything first, skip the write
+    // when nothing moved, and write the three together — the old
+    // read/write/read/write interleaving forced a full style recalc between
+    // each setProperty, three times per grid resize (opening the product
+    // panel resizes the grid).
+    let lastKey = ''
     const update = () => {
       const rect = gridElement.getBoundingClientRect()
       const gap = Number.parseFloat(window.getComputedStyle(gridElement).columnGap) || 0
-      root.style.setProperty('--feed-rail-left-center', `${rect.left + leftWidth / 2}px`)
-      root.style.setProperty('--feed-rail-right-center', `${rect.right - rightWidth / 2}px`)
-      root.style.setProperty('--feed-toolbar-right', `${root.clientWidth - (rect.right - rightWidth - gap)}px`)
+      const leftCenter = `${rect.left + leftWidth / 2}px`
+      const rightCenter = `${rect.right - rightWidth / 2}px`
+      const toolbarRight = `${root.clientWidth - (rect.right - rightWidth - gap)}px`
+      const key = `${leftCenter}|${rightCenter}|${toolbarRight}`
+      if (key === lastKey) return
+      lastKey = key
+      root.style.setProperty('--feed-rail-left-center', leftCenter)
+      root.style.setProperty('--feed-rail-right-center', rightCenter)
+      root.style.setProperty('--feed-toolbar-right', toolbarRight)
     }
     update()
     // jsdom (unit tests) has no ResizeObserver — the one-shot `update()`
