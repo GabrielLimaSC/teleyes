@@ -44,6 +44,13 @@ export function useProductPanel(): ProductPanelController {
   const triggerRef = useRef<HTMLElement | null>(null)
   const closeTimeoutRef = useRef<number | undefined>(undefined)
   const selfInitiatedRef = useRef(false)
+  // S20-03: react-router's setSearchParams changes identity with the URL;
+  // reading it through a ref keeps `open`/`close` stable, so the memoized
+  // feed cards and history rows don't re-render when the panel opens.
+  const setSearchParamsRef = useRef(setSearchParams)
+  useLayoutEffect(() => {
+    setSearchParamsRef.current = setSearchParams
+  })
 
   // Shared tail of every close path (×, Esc, click outside, and — via the
   // effect below — the browser back button): schedules the exit animation's
@@ -94,7 +101,7 @@ export function useProductPanel(): ProductPanelController {
       selfInitiatedRef.current = true
       setProductKey(key)
       setPhase('open')
-      setSearchParams(
+      setSearchParamsRef.current(
         (previous) => {
           const next = new URLSearchParams(previous)
           next.set(DEEP_LINK_PARAM, key)
@@ -103,12 +110,12 @@ export function useProductPanel(): ProductPanelController {
         { replace: false },
       )
     },
-    [setSearchParams],
+    [],
   )
 
   const close = useCallback(() => {
     selfInitiatedRef.current = true
-    setSearchParams(
+    setSearchParamsRef.current(
       (previous) => {
         const next = new URLSearchParams(previous)
         next.delete(DEEP_LINK_PARAM)
@@ -118,7 +125,7 @@ export function useProductPanel(): ProductPanelController {
     )
     setPhase('closing')
     scheduleClosedAfterExit()
-  }, [scheduleClosedAfterExit, setSearchParams])
+  }, [scheduleClosedAfterExit])
 
   return { productKey, phase, open, close }
 }

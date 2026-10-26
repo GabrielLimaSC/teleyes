@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MatchCard } from '../components/MatchCard'
 import { ProductPanel } from '../components/ProductPanel'
@@ -18,6 +18,7 @@ import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { useLiveMatches } from '../hooks/useLiveMatches'
 import type { FeedConnectionState } from '../hooks/useLiveMatches'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { useStableCallback } from '../hooks/useStableCallback'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import { ApiError } from '../api/auth'
@@ -90,17 +91,6 @@ interface TargetRuleRow {
   hit: boolean
   gapPct: number | null
   progressPct: number
-}
-
-/** A callback whose identity never changes but always runs the latest
- * closure — lets the memoized card list below skip re-renders that only the
- * page's own chrome state caused. */
-function useStableCallback<Args extends unknown[], Result>(callback: (...args: Args) => Result) {
-  const ref = useRef(callback)
-  useLayoutEffect(() => {
-    ref.current = callback
-  })
-  return useCallback((...args: Args) => ref.current(...args), [])
 }
 
 /** S15-03: the cards, memoized — scrolling in and out of the compact chrome

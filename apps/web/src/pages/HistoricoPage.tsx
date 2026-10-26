@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
@@ -20,6 +20,7 @@ import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { useStableCallback } from '../hooks/useStableCallback'
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
@@ -240,6 +241,125 @@ interface HistoricoRow {
   recipientNames: string[]
 }
 
+/** S20-03: one table row, memoized — opening/closing the product panel
+ * re-renders the page, and hundreds of unchanged rows must not re-render with
+ * it (the row only depends on its own data and two stable callbacks). */
+const HistoricoTableRow = memo(function HistoricoTableRow({
+  row,
+  onOpenProduct,
+  onRequestDelete,
+}: {
+  row: HistoricoRow
+  onOpenProduct: (productKey: string, trigger: HTMLElement) => void
+  onRequestDelete: (matchId: number) => void
+}) {
+  const category = categorize(row.match.message_text)
+  const openProduct = (trigger: HTMLElement) => {
+    if (row.productKey !== null) onOpenProduct(row.productKey, trigger)
+  }
+  const titleNode =
+    row.productKey !== null ? (
+      <button
+        type="button"
+        className="historico-table__title historico-table__title--button"
+        {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+        onClick={(event) => openProduct(event.currentTarget)}
+      >
+        {row.title}
+      </button>
+    ) : (
+      <span className="historico-table__title">{row.title}</span>
+    )
+  return (
+    <div className="historico-table__row">
+      <div className="historico-table__product">
+        <span
+          className="historico-table__icon"
+          style={{ background: CATEGORY_BACKGROUND[category] }}
+        >
+          <CategoryIcon category={category} />
+        </span>
+        {row.hasFullText ? (
+          <Tooltip label={row.linkCutText}>{titleNode}</Tooltip>
+        ) : (
+          titleNode
+        )}
+      </div>
+      <span className="historico-table__meta">
+        {row.ruleName} · {row.sourceName}
+        {row.groupedSourceNames.length > 0 && (
+          <span className="historico-table__grouped-sources">
+            Visto em: {row.groupedSourceNames.join(', ')}
+          </span>
+        )}
+      </span>
+      <span className="historico-table__time">{row.time}</span>
+      <div className="historico-table__cell--right">
+        <div className="historico-table__price">{row.priceText}</div>
+        {row.priceDetails.map((detail) => (
+          <span
+            key={detail}
+            className={
+              'historico-table__price-note' +
+              (detail === 'Menor já visto' ? ' historico-table__price-note--lowest' : '')
+            }
+          >
+            {detail}
+          </span>
+        ))}
+      </div>
+      <div className="historico-table__cell--right">
+        <span className="historico-table__delivery">{row.deliveryLabel}</span>
+        {row.recipientNames.length > 0 && (
+          <span className="historico-table__price-note">
+            Para: {row.recipientNames.join(', ')}
+          </span>
+        )}
+      </div>
+      <div className="historico-table__cell--right historico-table__promo">
+        {row.productKey !== null && (
+          <button
+            type="button"
+            className="product-open-trigger"
+            {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+            onClick={(event) => openProduct(event.currentTarget)}
+          >
+            Abrir produto <span aria-hidden="true">›</span>
+          </button>
+        )}
+        {row.match.message_link !== null ? (
+          <a
+            className="plane-action plane-action--secondary plane-action--compact historico-table__open"
+            href={row.match.message_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Abrir promoção: ${row.title}`}
+          >
+            Abrir promoção
+            <span aria-hidden="true">↗</span>
+          </a>
+        ) : (
+          <span className="historico-table__no-link" title={NO_LINK_REASON}>
+            Sem link
+            <span className="historico-table__sr-only">: {NO_LINK_REASON}</span>
+          </span>
+        )}
+        <RowActionsMenu
+          label={`Mais ações: ${row.title}`}
+          items={[
+            {
+              key: 'delete',
+              label: 'Excluir anúncio',
+              danger: true,
+              onSelect: () => onRequestDelete(row.match.id),
+            },
+          ]}
+        />
+      </div>
+    </div>
+  )
+})
+
 export function HistoricoPage() {
   const panel = useProductPanel()
   const navigate = useNavigate()
@@ -278,6 +398,7 @@ export function HistoricoPage() {
       loadMatches()
     },
   })
+  const stableRequestDeleteMatch = useStableCallback((matchId: number) => requestDeleteMatch(matchId))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -710,113 +831,14 @@ export function HistoricoPage() {
                     <span className="historico-table__cell--right">Entrega</span>
                     <span className="historico-table__cell--right">Promoção</span>
                   </div>
-                  {rows.map((row) => {
-                    const category = categorize(row.match.message_text)
-                    const openProduct = (trigger: HTMLElement) => {
-                      if (row.productKey !== null) panel.open(row.productKey, trigger)
-                    }
-                    const titleNode =
-                      row.productKey !== null ? (
-                        <button
-                          type="button"
-                          className="historico-table__title historico-table__title--button"
-                          {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
-                          onClick={(event) => openProduct(event.currentTarget)}
-                        >
-                          {row.title}
-                        </button>
-                      ) : (
-                        <span className="historico-table__title">{row.title}</span>
-                      )
-                    return (
-                      <div key={row.match.id} className="historico-table__row">
-                        <div className="historico-table__product">
-                          <span
-                            className="historico-table__icon"
-                            style={{ background: CATEGORY_BACKGROUND[category] }}
-                          >
-                            <CategoryIcon category={category} />
-                          </span>
-                          {row.hasFullText ? (
-                            <Tooltip label={row.linkCutText}>{titleNode}</Tooltip>
-                          ) : (
-                            titleNode
-                          )}
-                        </div>
-                        <span className="historico-table__meta">
-                          {row.ruleName} · {row.sourceName}
-                          {row.groupedSourceNames.length > 0 && (
-                            <span className="historico-table__grouped-sources">
-                              Visto em: {row.groupedSourceNames.join(', ')}
-                            </span>
-                          )}
-                        </span>
-                        <span className="historico-table__time">{row.time}</span>
-                        <div className="historico-table__cell--right">
-                          <div className="historico-table__price">{row.priceText}</div>
-                          {row.priceDetails.map((detail) => (
-                            <span
-                              key={detail}
-                              className={
-                                'historico-table__price-note' +
-                                (detail === 'Menor já visto' ? ' historico-table__price-note--lowest' : '')
-                              }
-                            >
-                              {detail}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="historico-table__cell--right">
-                          <span className="historico-table__delivery">{row.deliveryLabel}</span>
-                          {row.recipientNames.length > 0 && (
-                            <span className="historico-table__price-note">
-                              Para: {row.recipientNames.join(', ')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="historico-table__cell--right historico-table__promo">
-                          {row.productKey !== null && (
-                            <button
-                              type="button"
-                              className="product-open-trigger"
-                              {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
-                              onClick={(event) => openProduct(event.currentTarget)}
-                            >
-                              Abrir produto <span aria-hidden="true">›</span>
-                            </button>
-                          )}
-                          {row.match.message_link !== null ? (
-                            <a
-                              className="plane-action plane-action--secondary plane-action--compact historico-table__open"
-                              href={row.match.message_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label={`Abrir promoção: ${row.title}`}
-                            >
-                              Abrir promoção
-                              <span aria-hidden="true">↗</span>
-                            </a>
-                          ) : (
-                            <span className="historico-table__no-link" title={NO_LINK_REASON}>
-                              Sem link
-                              <span className="historico-table__sr-only">: {NO_LINK_REASON}</span>
-                            </span>
-                          )}
-                          <RowActionsMenu
-                            label={`Mais ações: ${row.title}`}
-                            items={[
-                              {
-                                key: 'delete',
-                                label: 'Excluir anúncio',
-                                danger: true,
-                                onSelect: () => requestDeleteMatch(row.match.id),
-                              },
-                            ]}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {rows.map((row) => (
+                    <HistoricoTableRow
+                      key={row.match.id}
+                      row={row}
+                      onOpenProduct={panel.open}
+                      onRequestDelete={stableRequestDeleteMatch}
+                    />
+                  ))}
                 </div>
               )}
             </>

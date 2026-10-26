@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { FormEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { FormEvent, PointerEvent as ReactPointerEvent, TransitionEvent } from 'react'
 import { fetchProduct } from '../api/products'
 import { fetchEditableMatches, revertMatch, updateMatch } from '../api/matches'
 import type { EditableMatch } from '../api/matches'
@@ -550,6 +550,22 @@ export function ProductPanel({
   }, [])
   const visualPhase = phase === 'closing' ? 'closing' : entered ? 'open' : 'entering'
 
+  // S20-03: `settled` = the enter transition finished (or never ran). The
+  // glass blur only turns on then, so it is never re-rasterized per frame
+  // while the panel slides; a timer covers environments with no
+  // transitionend (reduced motion, background tab).
+  const [settledPhase, setSettledPhase] = useState<string | null>(null)
+  const settled = settledPhase === 'open' && visualPhase === 'open'
+  useEffect(() => {
+    if (visualPhase !== 'open') return
+    const timer = window.setTimeout(() => setSettledPhase('open'), 450)
+    return () => window.clearTimeout(timer)
+  }, [visualPhase])
+  function handleTransitionEnd(event: TransitionEvent<HTMLElement>) {
+    if (event.target !== event.currentTarget || event.propertyName !== 'transform') return
+    if (visualPhase === 'open') setSettledPhase('open')
+  }
+
   const [range, setRange] = useState<ProductHistoryRange>('90d')
   const [product, setProduct] = useState<Product | null>(null)
   const [status, setStatus] = useState<Status>('loading')
@@ -771,11 +787,19 @@ export function ProductPanel({
 
   return (
     <>
-      {(isSheet || isDrawer) && <div className={'product-panel-backdrop' + (phase === 'closing' ? ' product-panel-backdrop--closing' : '')} />}
+      <div
+        className={
+          'product-panel-backdrop' +
+          (phase === 'closing' ? ' product-panel-backdrop--closing' : '') +
+          (isSheet || isDrawer ? '' : ' product-panel-backdrop--docked')
+        }
+      />
       <section
       ref={panelRef}
       className={'product-panel' + (isSheet ? ' product-panel--sheet' : '') + (isDrawer ? ' product-panel--drawer' : '')}
       data-phase={visualPhase}
+      data-settled={settled ? '' : undefined}
+      onTransitionEnd={handleTransitionEnd}
       role="dialog"
       aria-modal={isSheet || isDrawer}
       aria-labelledby={headingId}
