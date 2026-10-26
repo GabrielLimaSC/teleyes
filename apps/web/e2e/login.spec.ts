@@ -50,6 +50,7 @@ test('mobile menu navigates and closes after choosing a page', async ({ page }) 
 
   await page.getByRole('button', { name: 'Expandir navegação' }).click()
   await expect(page.locator('.nav-capsule__menu')).toBeVisible()
+  // Every tab (the 7th, 'Saúde', is the lowest) must be clickable, not covered by the page.
   await page.getByRole('link', { name: 'Saúde' }).click()
 
   await expect(page).toHaveURL('/saude')
