@@ -510,12 +510,25 @@ export function FeedPage() {
     const root = document.documentElement
     const leftWidth = COLLAPSED_RAIL_WIDTH
     const rightWidth = COLLAPSED_RAIL_WIDTH
+    // S20-03: a custom property written on <html> restyles the whole
+    // document (hundreds of cards). Read everything first, skip the write
+    // when nothing moved, and write the three together — the old
+    // read/write/read/write interleaving forced a full style recalc between
+    // each setProperty, three times per grid resize (opening the product
+    // panel resizes the grid).
+    let lastKey = ''
     const update = () => {
       const rect = gridElement.getBoundingClientRect()
       const gap = Number.parseFloat(window.getComputedStyle(gridElement).columnGap) || 0
-      root.style.setProperty('--feed-rail-left-center', `${rect.left + leftWidth / 2}px`)
-      root.style.setProperty('--feed-rail-right-center', `${rect.right - rightWidth / 2}px`)
-      root.style.setProperty('--feed-toolbar-right', `${root.clientWidth - (rect.right - rightWidth - gap)}px`)
+      const leftCenter = `${rect.left + leftWidth / 2}px`
+      const rightCenter = `${rect.right - rightWidth / 2}px`
+      const toolbarRight = `${root.clientWidth - (rect.right - rightWidth - gap)}px`
+      const key = `${leftCenter}|${rightCenter}|${toolbarRight}`
+      if (key === lastKey) return
+      lastKey = key
+      root.style.setProperty('--feed-rail-left-center', leftCenter)
+      root.style.setProperty('--feed-rail-right-center', rightCenter)
+      root.style.setProperty('--feed-toolbar-right', toolbarRight)
     }
     update()
     // jsdom (unit tests) has no ResizeObserver — the one-shot `update()`

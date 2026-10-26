@@ -72,6 +72,7 @@ interface Sample {
   maxGapAt: number
   loaf: number[]
   trace: Record<string, { total: number; max: number; count: number }>
+  timeline: string[]
 }
 
 const TRACE_NAMES = [
@@ -100,11 +101,24 @@ interface TraceEvent {
   args?: Record<string, unknown>
 }
 
-function summarizeTrace(buffer: Buffer): Sample['trace'] {
+function summarizeTrace(buffer: Buffer): { trace: Sample['trace']; timeline: string[] } {
   const json = JSON.parse(buffer.toString('utf8')) as { traceEvents: TraceEvent[] } | TraceEvent[]
   const events = Array.isArray(json) ? json : json.traceEvents
   const out: Sample['trace'] = {}
+  const timeline: string[] = []
+  const threadNames = new Map<number, string>()
+  for (const event of events as Array<TraceEvent & { name: string; args?: { name?: string } }>) {
+    if (event.ph === 'M' && event.name === 'thread_name') threadNames.set(event.tid, String(event.args?.name))
+  }
+  const t0 = Math.min(...events.filter((event) => event.ph === 'X' && event.dur !== undefined && ['Layout', 'EventDispatch'].includes(event.name)).map((event) => event.ts))
   for (const event of events) {
+    if (process.env.PANEL_PERF_ALL === '1' && event.ph === 'X' && event.dur !== undefined && event.dur >= 12000) {
+      timeline.push(`${((event.ts - t0) / 1000).toFixed(0)}ms *${event.name} ${(event.dur / 1000).toFixed(1)}ms ${threadNames.get(event.tid) ?? event.tid}`)
+    }
+    if (event.ph === 'X' && event.dur !== undefined && event.dur >= 6000 && ['Layout', 'UpdateLayoutTree', 'PrePaint', 'Paint', 'FunctionCall', 'EventDispatch', 'TimerFire', 'FireAnimationFrame'].includes(event.name)) {
+      const data = (event.args?.data ?? {}) as { type?: string; functionName?: string; url?: string; lineNumber?: number; columnNumber?: number }
+      timeline.push(`${((event.ts - t0) / 1000).toFixed(0)}ms ${event.name}${data.type ? `(${data.type})` : ''}${data.functionName !== undefined ? `[${data.functionName || 'anon'}@${(data.url ?? '').split('/').pop()}:${data.lineNumber}:${data.columnNumber}]` : ''} ${(event.dur / 1000).toFixed(1)}ms`)
+    }
     if (event.ph !== 'X' || event.dur === undefined) continue
     let key = event.name
     if (event.name === 'PipelineReporter') key = 'PipelineReporter(frame)'
@@ -115,7 +129,8 @@ function summarizeTrace(buffer: Buffer): Sample['trace'] {
     entry.count += 1
     entry.max = Math.max(entry.max, ms)
   }
-  return out
+  timeline.sort((a, b) => parseInt(a) - parseInt(b))
+  return { trace: out, timeline }
 }
 
 async function sampleDuring(browser: Browser, page: Page, cdp: CDPSession, durationMs: number, action: () => Promise<void>): Promise<Sample> {
@@ -128,10 +143,12 @@ async function sampleDuring(browser: Browser, page: Page, cdp: CDPSession, durat
       if (!w.__stop) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
-    ;(w as unknown as { __loaf: number[] }).__loaf = []
+    ;(w as unknown as { __loaf: number[]; __loafObserved?: boolean }).__loaf = []
     try {
+      if ((w as unknown as { __loafObserved?: boolean }).__loafObserved) throw new Error('already observing')
+      ;(w as unknown as { __loafObserved?: boolean }).__loafObserved = true
       new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) (w as unknown as { __loaf: number[] }).__loaf.push(entry.duration)
+        for (const entry of list.getEntries()) (w as unknown as { __loaf: number[] }).__loaf.push(entry.startTime, entry.duration)
       }).observe({ type: 'long-animation-frame', buffered: false })
     } catch {
       /* long-animation-frame unsupported */
@@ -142,12 +159,18 @@ async function sampleDuring(browser: Browser, page: Page, cdp: CDPSession, durat
   await action()
   await page.waitForTimeout(durationMs)
   const after = await metrics(cdp)
-  const trace = TRACE ? summarizeTrace(await browser.stopTracing()) : {}
-  const { stamps, loaf } = await page.evaluate(() => {
-    const w = window as unknown as { __frames: number[]; __stop: boolean; __loaf: number[] }
+  const { trace, timeline } = TRACE ? summarizeTrace(await browser.stopTracing()) : { trace: {}, timeline: [] as string[] }
+  const { stamps: allStamps, loaf: loafRaw, actionAt } = await page.evaluate(() => {
+    const w = window as unknown as { __frames: number[]; __stop: boolean; __loaf: number[]; __actionAt: number }
     w.__stop = true
-    return { stamps: w.__frames, loaf: w.__loaf }
+    return { stamps: w.__frames, loaf: w.__loaf, actionAt: w.__actionAt }
   })
+  // Only the frames from the one that follows the click on count: whatever
+  // ran before it (tracing start, the sampler's own setup) is harness noise.
+  const loafAfter: number[] = []
+  for (let index = 0; index < loafRaw.length; index += 2) if (loafRaw[index] + loafRaw[index + 1] >= actionAt) loafAfter.push(loafRaw[index + 1])
+  const firstAfter = allStamps.findIndex((stamp) => stamp >= actionAt)
+  const stamps = allStamps.slice(Math.max(0, firstAfter - 1))
   const gaps = stamps.slice(1).map((value, index) => value - stamps[index])
   return {
     frames: stamps.length,
@@ -159,8 +182,9 @@ async function sampleDuring(browser: Browser, page: Page, cdp: CDPSession, durat
     layoutMs: (after.LayoutDuration - before.LayoutDuration) * 1000,
     scriptMs: (after.ScriptDuration - before.ScriptDuration) * 1000,
     maxGapAt: gaps.indexOf(Math.max(0, ...gaps)),
-    loaf,
+    loaf: loafAfter,
     trace,
+    timeline,
   }
 }
 
@@ -170,6 +194,7 @@ function report(label: string, sample: Sample) {
     `PERF ${label}: frames=${sample.frames} maxGap=${sample.maxGap.toFixed(1)}ms >20ms=${sample.over20} (${pct}%) >33ms=${sample.over33} ` +
       `LayoutCount=${sample.layoutCount} RecalcStyle=${sample.recalcCount} LayoutDuration=${sample.layoutMs.toFixed(1)}ms Script=${sample.scriptMs.toFixed(1)}ms maxGapFrame=#${sample.maxGapAt} LoAF=[${sample.loaf.map((v) => v.toFixed(0)).join(',')}]`,
   )
+  if (process.env.PANEL_PERF_TIMELINE === '1') console.log(`  TIMELINE ${label}: ${sample.timeline.join(' | ')}`)
   for (const [name, v] of Object.entries(sample.trace)) {
     console.log(`  TRACE ${label} ${name}: total=${v.total.toFixed(1)}ms max=${v.max.toFixed(2)}ms n=${v.count}`)
   }
@@ -191,10 +216,49 @@ for (const pageName of ['feed', 'historico'] as const) {
     const cdp = await page.context().newCDPSession(page)
     await cdp.send('Performance.enable')
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })
+    // Let the page finish its own start-up work (live refresh, lazy card
+    // mounting) under the throttle: sample the panel, not the page load.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          let last = performance.now()
+          new PerformanceObserver((list) => {
+            if (list.getEntries().length > 0) last = performance.now()
+          }).observe({ type: 'longtask', buffered: false })
+          const check = () => (performance.now() - last > 1500 ? resolve() : setTimeout(check, 250))
+          check()
+          setTimeout(resolve, 25_000)
+        }),
+    )
+    if (process.env.PANEL_PERF_CSS) await page.addStyleTag({ content: process.env.PANEL_PERF_CSS })
+    if (process.env.PANEL_PERF_IDLE === '1') {
+      const idle = await sampleDuring(browser, page, cdp, 600, async () => {})
+      report(`${pageName} idle`, idle)
+      await trigger().click()
+      await page.waitForTimeout(80)
+      const anims = await page.evaluate(() =>
+        document.getAnimations().map((animation) => {
+          const effect = animation.effect as KeyframeEffect | null
+          const target = effect?.target as Element | null
+          const name = (animation as CSSAnimation).animationName ?? (animation as CSSTransition).transitionProperty
+          return `${animation.constructor.name}:${name}:${target?.tagName}.${(target?.className ?? '').toString().slice(0, 50)}:${animation.playState}`
+        }),
+      )
+      console.log(`  ANIMS ${pageName}: ${anims.join(' | ')}`)
+      await page.waitForTimeout(600)
+      await page.getByRole('button', { name: 'Fechar painel do produto' }).click()
+      await page.waitForTimeout(400)
+    }
     for (let run = 1; run <= RUNS; run += 1) {
-      const open = await sampleDuring(browser, page, cdp, 600, () => trigger().click())
+      const open = await sampleDuring(browser, page, cdp, 600, () => trigger().evaluate((element) => {
+          ;(window as unknown as { __actionAt: number }).__actionAt = performance.now()
+          ;(element as HTMLElement).click()
+        }))
       report(`${pageName} open #${run}`, open)
-      const close = await sampleDuring(browser, page, cdp, 400, () => page.getByRole('button', { name: 'Fechar painel do produto' }).click())
+      const close = await sampleDuring(browser, page, cdp, 400, () => page.getByRole('button', { name: 'Fechar painel do produto' }).evaluate((element) => {
+          ;(window as unknown as { __actionAt: number }).__actionAt = performance.now()
+          ;(element as HTMLElement).click()
+        }))
       report(`${pageName} close #${run}`, close)
       await page.waitForTimeout(300)
     }

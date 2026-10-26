@@ -1,16 +1,18 @@
 /**
- * S14-08 (07b): the split between a page's own content and the product
- * panel — shared by FeedPage and HistoricoPage. `data-panel-phase` mirrors
+ * S14-08 (07b): wrapper shared by FeedPage and HistoricoPage around a page's
+ * own content and the product panel. `data-panel-phase` mirrors
  * `useProductPanel`'s `phase`.
  *
  * S20-03: the panel is always a `position: fixed` overlay (ProductPanel.css)
- * that only animates `transform`/`opacity` on the compositor. From 1100px up
- * the page makes room for it ONCE (a static `padding-right`, applied in the
- * same commit that mounts the panel — before the slide starts — and held
- * through 'closing' so it is released only after the panel left). Nothing
- * about the content animates: no column/width transition, no filter, no
- * opacity on the page; the dim comes from the panel's own fixed backdrop
- * layer (ProductPanel.css), a separate, cheap compositor layer.
+ * that animates only `transform`/`opacity` on the compositor, and it does NOT
+ * take space from the page: the content keeps its exact width, so opening or
+ * closing causes no layout, no container-query re-evaluation and no
+ * `ResizeObserver` fallout (the old column split reflowed hundreds of cards
+ * and rows in one frame, right when the animation started). Nothing about the
+ * content animates either — no filter, no opacity on the page; the dim comes
+ * from the panel's own fixed backdrop layer (ProductPanel.css), a separate,
+ * cheap compositor layer. The drawer simply covers the right edge of the page
+ * while it is open (click outside / Esc / × closes it).
  */
 .product-panel-layout {
   display: block;
@@ -23,13 +25,4 @@
      panel opens (520px + 24px gap narrower than the viewport), not just the
      viewport itself — a `@media` breakpoint alone stays blind to that. */
   container-type: inline-size;
-}
-
-/* >= 1100px: the panel docks on the right and the content keeps clear of it.
-   520px panel + 24px gap, the same space the old second grid track took. */
-@media (min-width: 1100px) {
-  .product-panel-layout[data-panel-phase='open'],
-  .product-panel-layout[data-panel-phase='closing'] {
-    padding-right: 544px;
-  }
 }
