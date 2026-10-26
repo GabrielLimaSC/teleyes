@@ -29,7 +29,9 @@ const MESSAGES: Record<Exclude<SetupStepId, 'done'>, { text: string; cta: string
 export function SetupBanner() {
   const { status, unavailable } = useSetupStatus()
   if (status === null || unavailable !== null || status.next_step === 'done') return null
+  // A reply that is not a setup status (an old server, a proxy page) shows nothing.
   const message = MESSAGES[status.next_step]
+  if (message === undefined) return null
   return (
     <aside className="plane-pearl setup-banner" aria-label="Configuração pendente">
       <p className="setup-banner__text">{message.text}</p>
