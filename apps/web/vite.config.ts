@@ -23,6 +23,9 @@ const API_PREFIXES = [
   '/products',
   // S14-08: was missing since S14-03 — POST/GET /snoozes, DELETE /snoozes/{id}.
   '/snoozes',
+  // S19-04: purchases CRUD and the savings report behind the Economia page.
+  '/purchases',
+  '/savings',
   '/digest',
   '/openapi.json',
 ]

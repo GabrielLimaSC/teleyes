@@ -8,6 +8,7 @@ from models.listener_control import ListenerControl
 from models.match import Match
 from models.match_correction import MatchCorrection
 from models.processing_cursor import ProcessingCursor
+from models.purchase import Purchase
 from models.recipient import Recipient
 from models.rule import Rule
 from models.snooze import Snooze
@@ -25,6 +26,7 @@ __all__ = [
     "Match",
     "MatchCorrection",
     "ProcessingCursor",
+    "Purchase",
     "Recipient",
     "Rule",
     "Snooze",

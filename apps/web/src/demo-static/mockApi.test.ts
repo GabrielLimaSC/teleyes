@@ -56,6 +56,19 @@ describe('createMockApi', () => {
     expect(api().handle('GET', '/rules?include_inactive=true').status).toBe(200)
   })
 
+  it('serves the fictional purchases and savings report, and still refuses to write them (S19-04)', () => {
+    const purchases = api().handle('GET', '/purchases')
+    expect(purchases.status).toBe(200)
+    expect((purchases.body as unknown[]).length).toBeGreaterThanOrEqual(4)
+
+    const report = api().handle('GET', '/savings/report?black_friday=2026-11-27')
+    expect(report.status).toBe(200)
+    expect(report.body).toMatchObject({ totals: { purchases: expect.any(Number) } })
+
+    expect(api().handle('POST', '/purchases').status).toBe(403)
+    expect(api().handle('DELETE', '/purchases/1').status).toBe(403)
+  })
+
   it('rewrites dates relative to the load time: the newest offer is always recent', () => {
     for (const offsetDays of [0, 90, 400]) {
       const loadedAt = new Date(REFERENCE + offsetDays * 86_400_000)

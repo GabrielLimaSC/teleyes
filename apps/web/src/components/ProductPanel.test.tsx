@@ -225,6 +225,29 @@ describe('ProductPanel', () => {
     expect(screen.getByText('Editar dados')).toBeInTheDocument()
   })
 
+  it('offers "Marcar como comprado" only with its handler, and calls it (S19-04)', async () => {
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+    const onMarkPurchased = vi.fn()
+
+    const { unmount } = render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await screen.findByRole('heading', { name: product.title })
+    expect(screen.queryByRole('button', { name: 'Marcar como comprado' })).not.toBeInTheDocument()
+    unmount()
+
+    render(
+      <ProductPanel
+        productKey={product.product_key}
+        phase="open"
+        onClose={() => {}}
+        onMarkPurchased={onMarkPurchased}
+      />,
+    )
+    await screen.findByRole('heading', { name: product.title })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Marcar como comprado' }))
+    expect(onMarkPurchased).toHaveBeenCalledOnce()
+  })
+
   it('shows those blocks once their handler is passed', async () => {
     const product = buildProduct()
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
