@@ -16,6 +16,7 @@ import { botStateLabel, telegramStateLabel } from '../components/adapterStateLab
 import type { StateLabel } from '../components/adapterStateLabel'
 import { describeLoaded, describeListener } from '../components/listenerState'
 import { useFillOrigin } from '../utils/useFillOrigin'
+import { SetupBanner, SetupReopenLink } from '../components/SetupBanner'
 import '../styles/materials.css'
 import '../components/FillButton.css'
 import './SaudePage.css'
@@ -172,6 +173,9 @@ export function SaudePage() {
         <h1>Saúde</h1>
         <p className="saude-page__subtitle">Estado dos serviços e teste de entrega.</p>
       </div>
+
+      <SetupBanner />
+      <SetupReopenLink />
 
       {loading && <p>Carregando…</p>}
       {error && (

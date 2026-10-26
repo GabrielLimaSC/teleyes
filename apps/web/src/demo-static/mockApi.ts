@@ -160,6 +160,13 @@ export function createMockApi(fixtures: DemoFixtures, loadedAt: Date = new Date(
   }
 
   const read = (path: string, params: URLSearchParams, now: Date): MockResponse => {
+    // S19-02: the setup wizard never exists in the demo (the real API answers 403 too).
+    if (path.startsWith('/setup')) {
+      return {
+        status: 403,
+        body: { detail: { code: 'demo_mode', message: 'O assistente de configuração fica desativado na demonstração.' } },
+      }
+    }
     if (path === '/auth/me') return { status: 200, body: { admin_id: 1, csrf_token: 'demo-csrf-token' } }
     if (path === '/matches') {
       return { status: 200, body: filterMatches([...liveMatches, ...baseMatches], params) }
