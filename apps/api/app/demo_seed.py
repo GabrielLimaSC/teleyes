@@ -589,7 +589,12 @@ def _seed_purchases(session: Session, now: datetime) -> None:
                 Match.price_cents.is_not(None),
             )
         ).all()
-        known = [Observation(at=ensure_utc(at), price_cents=int(price)) for _, price, at in rows]
+        # The query already filters out NULLs; the checks narrow the types for mypy.
+        known = [
+            Observation(at=ensure_utc(at), price_cents=price)
+            for _, price, at in rows
+            if price is not None
+        ]
         prior = [
             o.price_cents
             for o in known
@@ -599,8 +604,11 @@ def _seed_purchases(session: Session, now: datetime) -> None:
         if reference is None:
             continue
         counts: dict[str, int] = {}
-        for product_key, _, _ in rows:
-            counts[product_key] = counts.get(product_key, 0) + 1
+        for row_key, _, _ in rows:
+            if row_key is not None:
+                counts[row_key] = counts.get(row_key, 0) + 1
+        if not counts:
+            continue
         product_key = min(counts, key=lambda candidate: (-counts[candidate], candidate))
         session.add(
             Purchase(
