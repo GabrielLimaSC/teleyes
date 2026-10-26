@@ -64,6 +64,8 @@ interface Sample {
   layoutCount: number
   recalcCount: number
   layoutMs: number
+  scriptMs: number
+  maxGapAt: number
 }
 
 async function sampleDuring(page: Page, cdp: CDPSession, durationMs: number, action: () => Promise<void>): Promise<Sample> {
@@ -95,6 +97,8 @@ async function sampleDuring(page: Page, cdp: CDPSession, durationMs: number, act
     layoutCount: after.LayoutCount - before.LayoutCount,
     recalcCount: after.RecalcStyleCount - before.RecalcStyleCount,
     layoutMs: (after.LayoutDuration - before.LayoutDuration) * 1000,
+    scriptMs: (after.ScriptDuration - before.ScriptDuration) * 1000,
+    maxGapAt: gaps.indexOf(Math.max(0, ...gaps)),
   }
 }
 
@@ -102,7 +106,7 @@ function report(label: string, sample: Sample) {
   const pct = sample.frames > 1 ? ((sample.over20 / (sample.frames - 1)) * 100).toFixed(0) : '0'
   console.log(
     `PERF ${label}: frames=${sample.frames} maxGap=${sample.maxGap.toFixed(1)}ms >20ms=${sample.over20} (${pct}%) >33ms=${sample.over33} ` +
-      `LayoutCount=${sample.layoutCount} RecalcStyle=${sample.recalcCount} LayoutDuration=${sample.layoutMs.toFixed(1)}ms`,
+      `LayoutCount=${sample.layoutCount} RecalcStyle=${sample.recalcCount} LayoutDuration=${sample.layoutMs.toFixed(1)}ms Script=${sample.scriptMs.toFixed(1)}ms maxGapFrame=#${sample.maxGapAt}`,
   )
 }
 
