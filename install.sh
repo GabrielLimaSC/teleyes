@@ -186,7 +186,9 @@ do_uninstall() {
     }
   fi
   dc "${down_args[@]}"
-  if [ "$PURGE" -eq 1 ]; then
+  if [ "$DEMO" -eq 1 ]; then
+    say "Demo removed (its data lived in memory only)."
+  elif [ "$PURGE" -eq 1 ]; then
     say "Containers and data removed. Your .env file was kept; delete it yourself if you want."
   else
     say "Containers removed. Data volumes kept: run ./install.sh again to bring everything back,"
