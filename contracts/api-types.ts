@@ -592,6 +592,241 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/setup/bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Bot Token */
+        put: operations["save_bot_token_setup_bot_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/bot/pairing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Pairing
+         * @description Open a window in which `/start <code>` adds a recipient.
+         */
+        post: operations["start_pairing_setup_bot_pairing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/bot/pairing/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poll Pairing */
+        post: operations["poll_pairing_setup_bot_pairing_poll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Credentials */
+        put: operations["save_credentials_setup_credentials_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Groups */
+        get: operations["get_groups_setup_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/groups/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh Groups */
+        post: operations["refresh_groups_setup_groups_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/groups/select": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Select Groups
+         * @description Register the chosen groups as sources. Only ids the listener actually saw.
+         */
+        post: operations["select_groups_setup_groups_select_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Status */
+        get: operations["get_status_setup_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/telegram/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect Telegram
+         * @description Delete the session file and every secret the wizard stored.
+         *
+         *     The listener notices the change within seconds and drops its connection. Values
+         *     that come from `.env` are not touched (the file is the user's); the account's
+         *     session should also be ended in Telegram (Settings, Devices), which only the
+         *     account owner can do.
+         */
+        post: operations["disconnect_telegram_setup_telegram_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/telegram/login/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login Cancel */
+        post: operations["login_cancel_setup_telegram_login_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/telegram/login/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login Code */
+        post: operations["login_code_setup_telegram_login_code_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/telegram/login/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login Password */
+        post: operations["login_password_setup_telegram_login_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/telegram/login/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login Start */
+        post: operations["login_start_setup_telegram_login_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/snoozes": {
         parameters: {
             query?: never;
@@ -689,6 +924,13 @@ export interface components {
          * @enum {string}
          */
         AdapterState: "not_configured" | "connecting" | "connected" | "reconnecting" | "blocked" | "demo";
+        /** ApiCredentialsStatus */
+        ApiCredentialsStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Source */
+            source: ("env" | "wizard") | null;
+        };
         /** BlackFridaySummaryResponse */
         BlackFridaySummaryResponse: {
             /**
@@ -715,10 +957,40 @@ export interface components {
              */
             state: "configured" | "not_configured" | "demo";
         };
+        /** BotStatus */
+        BotStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Pairing Active */
+            pairing_active: boolean;
+            /** Pairing Expires In Seconds */
+            pairing_expires_in_seconds: number | null;
+            /** Source */
+            source: ("env" | "wizard") | null;
+            /** Username */
+            username: string | null;
+        };
+        /** BotTokenRequest */
+        BotTokenRequest: {
+            /** Token */
+            token: string;
+        };
         /** ClearMatchesResponse */
         ClearMatchesResponse: {
             /** Deleted */
             deleted: number;
+        };
+        /** CodeRequest */
+        CodeRequest: {
+            /** Code */
+            code: string;
+        };
+        /** CredentialsRequest */
+        CredentialsRequest: {
+            /** Api Hash */
+            api_hash: string;
+            /** Api Id */
+            api_id: number;
         };
         /** DeliveryResponse */
         DeliveryResponse: {
@@ -735,6 +1007,20 @@ export interface components {
             recipient_id: number;
             /** Status */
             status: string;
+        };
+        /** DialogResponse */
+        DialogResponse: {
+            /** Chat Id */
+            chat_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "group" | "channel";
+            /** Monitored */
+            monitored: boolean;
+            /** Title */
+            title: string;
         };
         /** DigestQueueItemResponse */
         DigestQueueItemResponse: {
@@ -794,6 +1080,14 @@ export interface components {
             /** Sem Termo */
             sem_termo: number;
         };
+        /** DisconnectRequest */
+        DisconnectRequest: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+        };
         /** FeedSettingsResponse */
         FeedSettingsResponse: {
             /** Group Duplicates */
@@ -803,6 +1097,18 @@ export interface components {
         FeedSettingsUpdate: {
             /** Group Duplicates */
             group_duplicates: boolean;
+        };
+        /** GroupsResponse */
+        GroupsResponse: {
+            /** Dialogs */
+            dialogs: components["schemas"]["DialogResponse"][];
+            /** Error */
+            error: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "idle" | "waiting_listener" | "pending" | "running" | "done" | "failed";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -904,6 +1210,18 @@ export interface components {
         LoginRequest: {
             /** Password */
             password: string;
+        };
+        /** LoginStatus */
+        LoginStatus: {
+            /** Expires In Seconds */
+            expires_in_seconds?: number | null;
+            /** Phone Hint */
+            phone_hint?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "awaiting_code" | "awaiting_password" | "authorized";
         };
         /**
          * MatchCorrectionResponse
@@ -1096,6 +1414,48 @@ export interface components {
              * Format: date-time
              */
             period_start: string;
+        };
+        /** PairedRecipient */
+        PairedRecipient: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /** PairingPollResponse */
+        PairingPollResponse: {
+            /**
+             * Ignored Starts
+             * @default 0
+             */
+            ignored_starts: number;
+            recipient?: components["schemas"]["PairedRecipient"] | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "waiting" | "paired" | "expired";
+        };
+        /** PairingResponse */
+        PairingResponse: {
+            /** Bot Username */
+            bot_username: string;
+            /** Code */
+            code: string;
+            /** Deep Link */
+            deep_link: string;
+            /** Expires In Seconds */
+            expires_in_seconds: number;
+        };
+        /** PasswordRequest */
+        PasswordRequest: {
+            /** Password */
+            password: string;
+        };
+        /** PhoneRequest */
+        PhoneRequest: {
+            /** Phone */
+            phone: string;
         };
         /**
          * PricePointResponse
@@ -1441,6 +1801,56 @@ export interface components {
             noise: components["schemas"]["NoiseResponse"];
             totals: components["schemas"]["ReportTotalsResponse"];
         };
+        /** SecurityEventResponse */
+        SecurityEventResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Detail */
+            detail: string | null;
+            /** Kind */
+            kind: string;
+        };
+        /** SelectGroupsRequest */
+        SelectGroupsRequest: {
+            /** Chat Ids */
+            chat_ids: string[];
+        };
+        /** SelectGroupsResponse */
+        SelectGroupsResponse: {
+            /** Already Monitored */
+            already_monitored: number;
+            /** Created */
+            created: number;
+        };
+        /** SetupStatus */
+        SetupStatus: {
+            bot: components["schemas"]["BotStatus"];
+            /** Complete */
+            complete: boolean;
+            /** Configured */
+            configured: boolean;
+            credentials: components["schemas"]["ApiCredentialsStatus"];
+            /** Events */
+            events: components["schemas"]["SecurityEventResponse"][];
+            /** Listener Online */
+            listener_online: boolean;
+            login: components["schemas"]["LoginStatus"];
+            /**
+             * Next Step
+             * @enum {string}
+             */
+            next_step: "credentials" | "login" | "bot" | "recipient" | "groups" | "rule" | "done";
+            /** Recipients */
+            recipients: number;
+            /** Rules */
+            rules: number;
+            /** Sources */
+            sources: number;
+            steps: components["schemas"]["StepsStatus"];
+        };
         /**
          * SimulateMessageRequest
          * @description A controlled, test-only message — S3-07's browser demo, not the real listener.
@@ -1536,6 +1946,21 @@ export interface components {
             name?: string | null;
             /** Telegram Chat Id */
             telegram_chat_id?: string | null;
+        };
+        /** StepsStatus */
+        StepsStatus: {
+            /** Bot */
+            bot: boolean;
+            /** Credentials */
+            credentials: boolean;
+            /** Groups */
+            groups: boolean;
+            /** Login */
+            login: boolean;
+            /** Recipient */
+            recipient: boolean;
+            /** Rule */
+            rule: boolean;
         };
         /** TelegramHealth */
         TelegramHealth: {
@@ -2869,6 +3294,437 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_bot_token_setup_bot_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BotTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_pairing_setup_bot_pairing_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    poll_pairing_setup_bot_pairing_poll_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairingPollResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_credentials_setup_credentials_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_groups_setup_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_groups_setup_groups_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_groups_setup_groups_select_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectGroupsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelectGroupsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_setup_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_telegram_setup_telegram_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisconnectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_cancel_setup_telegram_login_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_code_setup_telegram_login_code_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_password_setup_telegram_login_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_start_setup_telegram_login_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
                 };
             };
             /** @description Validation Error */

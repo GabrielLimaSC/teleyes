@@ -22,10 +22,18 @@ x-app: &app
     TZ: "${DISPLAY_TIMEZONE:-UTC}"
 
 services:
+  # The api also mounts the session volume (S19-02): the setup wizard in the dashboard
+  # logs the Telegram account in and keeps the API credentials / bot token there
+  # (secrets.json, 0600), never in the database or its backups. Telegram itself is only
+  # ever *used* by the listener.
   api:
     <<: *app
+    environment:
+      TZ: "${DISPLAY_TIMEZONE:-UTC}"
+      TELEYES_SESSION_PATH: /app/session/teleyes.session
     volumes:
       - teleyes_data:/app/data
+      - teleyes_session:/app/session
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
@@ -33,8 +41,9 @@ services:
       retries: 5
       start_period: 20s
 
-  # Reads Telegram and sends alerts. Without TG_API_ID / TG_API_HASH / BOT_TOKEN it
-  # idles in `not_configured` instead of crashing (see the README, "Connect Telegram").
+  # Reads Telegram and sends alerts. Without credentials it idles in `not_configured`
+  # instead of crashing and starts by itself once the setup wizard in the dashboard (or
+  # .env) provides them (see the README, "Connect Telegram").
   listener:
     <<: *app
     entrypoint: ["/listener-entrypoint.sh"]

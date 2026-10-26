@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     tg_api_id: int | None = None
     tg_api_hash: str | None = None
     bot_token: str | None = None
+    # S19-02: where the Telegram session lives (the same variable the scripts and the
+    # listener read) and, optionally, where the wizard keeps its secrets file. Default:
+    # `secrets.json` beside the session, in the same private volume.
+    teleyes_session_path: str = "data/teleyes.session"
+    teleyes_secrets_path: str | None = None
     # S14-01: day boundaries of the price-history series ("menor preço do
     # dia") follow the timezone the dates are presented in; persistence
     # stays UTC. IANA name, validated on startup.
@@ -39,6 +44,20 @@ class Settings(BaseSettings):
     def _blank_cookie_flag_means_secure(cls, value: object) -> object:
         if isinstance(value, str) and value.strip() == "":
             return True
+        return value
+
+    @field_validator("teleyes_session_path", mode="before")
+    @classmethod
+    def _blank_session_path_means_default(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip() == "":
+            return "data/teleyes.session"
+        return value
+
+    @field_validator("teleyes_secrets_path", mode="before")
+    @classmethod
+    def _blank_secrets_path_means_default(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip() == "":
+            return None
         return value
 
     @field_validator("tg_api_id", mode="before")
