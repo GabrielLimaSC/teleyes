@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchHealth } from '../api/health'
 import { DEMO_BANNER_TEXT, DEMO_READONLY_MESSAGE, onDemoReadOnly } from '../api/demo'
 import { useToast } from '../hooks/useToast'
+import { DemoStaticStrip } from '../demo-static/DemoStaticStrip'
 import { Toast } from './Toast'
 import './DemoBanner.css'
 
@@ -41,7 +42,8 @@ export function DemoBanner() {
 
   return (
     <>
-      {demo && (
+      {demo && import.meta.env.VITE_DEMO_STATIC === '1' && <DemoStaticStrip />}
+      {demo && import.meta.env.VITE_DEMO_STATIC !== '1' && (
         <div className="demo-banner" role="note" aria-label="Aviso de modo demonstração">
           {DEMO_BANNER_TEXT}
         </div>

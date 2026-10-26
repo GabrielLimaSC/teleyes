@@ -33,7 +33,7 @@ function Brand() {
   return (
     <div className="login-panel__brand">
       <span className="login-card__mascot-frame">
-        <img className="login-card__mascot" src="/mascot.png" alt="" />
+        <img className="login-card__mascot" src={`${import.meta.env.BASE_URL}mascot.png`} alt="" />
       </span>
       <div>
         <h1>teleyes</h1>
