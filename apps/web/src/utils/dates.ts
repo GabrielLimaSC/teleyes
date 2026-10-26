@@ -100,3 +100,24 @@ export function isWithinLastDays(dateStamp: string, days: number, now: Date = ne
   cutoff.setDate(cutoff.getDate() - days)
   return dateStamp >= localDateStamp(cutoff)
 }
+
+/* S19-04: the date picker of the Economia form (`<input type="date">`). */
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+/** `YYYY-MM-DD` of the viewer's local day, for `<input type="date">`. */
+export function toDateInputValue(date: Date): string {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+export function apiDateToInput(iso: string): string {
+  return toDateInputValue(parseApiDate(iso))
+}
+
+/** A picked day becomes noon local time (so no timezone can move it to the next
+ * or previous day), serialised as the UTC instant the API stores. */
+export function inputDateToApi(day: string): string {
+  const [year, month, date] = day.split('-').map(Number)
+  return new Date(year ?? 1970, (month ?? 1) - 1, date ?? 1, 12, 0, 0).toISOString()
+}

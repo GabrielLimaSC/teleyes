@@ -165,6 +165,7 @@ export function MatchCard({
   onSnooze,
   onSetTarget,
   onDelete,
+  onMarkPurchased,
 }: {
   match: Match
   rule: Rule | undefined
@@ -201,6 +202,9 @@ export function MatchCard({
   /** S20-01: "Excluir anúncio" in the ⋯ menu — the page owns the
    * confirmation dialog and the `DELETE /matches/{id}`. */
   onDelete?: (match: Match) => void
+  /** S19-04: "Marcar como comprado" in the menu: the page opens the Economia form
+   * pre-filled with this match's product, rule and price. */
+  onMarkPurchased?: (match: Match) => void
 }) {
   const [showTargetForm, setShowTargetForm] = useState(false)
   const [targetInput, setTargetInput] = useState(
@@ -362,7 +366,8 @@ export function MatchCard({
   // standalone button and the menu only ever holds "Criar regra disso".
   const showSnoozeButton = canSnooze && !isNarrow
   const canDelete = onDelete !== undefined
-  const showMenu = canCreateRule || (isNarrow && canSnooze) || canDelete
+  const canMarkPurchased = onMarkPurchased !== undefined
+  const showMenu = canCreateRule || (isNarrow && canSnooze) || canDelete || canMarkPurchased
 
   function submitTarget(event: FormEvent) {
     event.preventDefault()
@@ -607,6 +612,19 @@ export function MatchCard({
                         }}
                       >
                         Criar regra disso
+                      </button>
+                    )}
+                    {canMarkPurchased && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="match-card__menu-item"
+                        onClick={() => {
+                          onMarkPurchased?.(match)
+                          closeMenu()
+                        }}
+                      >
+                        Marcar como comprado
                       </button>
                     )}
                     {canDelete && (

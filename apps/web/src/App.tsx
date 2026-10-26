@@ -10,6 +10,7 @@ import { HistoricoPage } from './pages/HistoricoPage'
 import { RegrasPage } from './pages/RegrasPage'
 import { FontesPage } from './pages/FontesPage'
 import { SaudePage } from './pages/SaudePage'
+import { EconomiaPage } from './pages/EconomiaPage'
 
 function App() {
   return (
@@ -48,6 +49,14 @@ function App() {
           element={
             <RequireAuth>
               <HistoricoPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/economia"
+          element={
+            <RequireAuth>
+              <EconomiaPage />
             </RequireAuth>
           }
         />
