@@ -101,6 +101,9 @@ Two processes share one SQLite file: the **listener** (Telethon session, rules, 
 - Per-rule sparklines and a per-product price chart.
 - Snooze for a product, and an optional daily digest instead of immediate alerts (target hits still alert
   immediately).
+- Savings report: register what you actually bought and see an honest estimate against the prices the app itself saw
+  (median of the 90 days before the purchase, "no data" when history is thin), plus a shareable results card
+  (PNG + aggregates JSON) that never includes group names, messages or links.
 - Retry of failed alert deliveries (recent failures are resent, never duplicated).
 - Health page: listener, notifier and database state, reporting `not_configured` honestly when credentials
   are missing.

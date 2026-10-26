@@ -6,7 +6,7 @@ const VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844 },
 ] as const
 
-const PAGES = ['/feed', '/regras', '/fontes', '/historico', '/saude'] as const
+const PAGES = ['/feed', '/regras', '/fontes', '/historico', '/economia', '/saude'] as const
 
 test.describe('responsive capture (desktop + mobile, one review round)', () => {
   for (const viewport of VIEWPORTS) {

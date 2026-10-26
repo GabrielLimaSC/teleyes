@@ -45,6 +45,11 @@
   flex-wrap: wrap;
 }
 
+.economia-page .plane-action {
+  min-height: 42px;
+  padding-inline: 18px;
+}
+
 .economia-page__error {
   color: var(--plane-status-danger);
 }
