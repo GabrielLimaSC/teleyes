@@ -54,6 +54,7 @@ export function LoginStep({ status, csrfToken, onStatus }: StepProps) {
         onStatus(next)
       })
       .catch((failure: unknown) => {
+        setPassword('') // a rejected 2FA password must not linger in the field
         lock.lockFrom(failure)
         setError(errorMessage(failure, fallback))
       })

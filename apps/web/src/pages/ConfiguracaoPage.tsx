@@ -82,9 +82,10 @@ export function ConfiguracaoPage() {
   // The user's own choice of step; `null` follows the server (the next pending step).
   const [chosen, setChosen] = useState<StepKey | 'none' | null>(null)
 
-  const handleStatus = (next: SetupStatus) => {
+  const handleStatus = (next: SetupStatus, key: StepKey, stay = false) => {
     apply(next)
-    setChosen(null) // move on to whatever the server says comes next
+    // Move on to whatever the server says comes next, unless the step asked to stay.
+    setChosen(stay ? key : null)
   }
 
   return (
@@ -119,7 +120,7 @@ export function ConfiguracaoPage() {
           {ORDER.map((key, index) => {
             const states = stepStates(status)
             const open = (chosen ?? currentStep(status.next_step)) === key
-            const common = { status, csrfToken, onStatus: handleStatus, onRefresh: refresh }
+            const common = { status, csrfToken, onStatus: (next: SetupStatus, options?: { stay?: boolean }) => handleStatus(next, key, options?.stay), onRefresh: refresh }
             return (
               <li key={key}>
                 <StepCard

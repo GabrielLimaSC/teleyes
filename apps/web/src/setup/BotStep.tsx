@@ -7,6 +7,7 @@ import type { Pairing } from '../api/setup'
 import { listRecipients, updateRecipient } from '../api/recipients'
 import { testNotification } from '../api/notifications'
 import type { Recipient } from '../api/types'
+import { useStableCallback } from '../hooks/useStableCallback'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { errorMessage, sleep, useCountdown, useRetryLock } from './timers'
 import type { StepProps } from './types'
@@ -93,7 +94,9 @@ function RecipientRow({ recipient, csrfToken }: { recipient: Recipient; csrfToke
 }
 
 /** Step 3: the alert bot (token) and who receives the alerts (pairing by /start). */
-export function BotStep({ status, csrfToken, onStatus }: StepProps) {
+export function BotStep({ status, csrfToken, onStatus: onStatusProp }: StepProps) {
+  // Stable identity: a new function every render would restart the /start wait loop.
+  const onStatus = useStableCallback(onStatusProp)
   const fillOrigin = useFillOrigin()
   const [token, setToken] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -136,13 +139,13 @@ export function BotStep({ status, csrfToken, onStatus }: StepProps) {
             setPairingNotice(`${result.recipient?.name ?? 'Destinatário'} cadastrado. Você já pode enviar um teste.`)
             loadRecipients()
             // The server closed the window: pull the new status (recipient step done).
-            onStatus(await fetchSetupStatus())
+            onStatus(await fetchSetupStatus(), { stay: true })
             return
           }
           if (result.state === 'expired') {
             setPairing(null)
             setPairingNotice('O link expirou. Gere um novo para tentar de novo.')
-            onStatus(await fetchSetupStatus())
+            onStatus(await fetchSetupStatus(), { stay: true })
             return
           }
           if (result.ignored_starts > 0) setIgnored((count) => count + result.ignored_starts)
@@ -199,7 +202,7 @@ export function BotStep({ status, csrfToken, onStatus }: StepProps) {
     startPairing(csrfToken)
       .then(async (next) => {
         setPairing(next)
-        onStatus(await fetchSetupStatus())
+        onStatus(await fetchSetupStatus(), { stay: true })
       })
       .catch((failure: unknown) => {
         setPairingError(

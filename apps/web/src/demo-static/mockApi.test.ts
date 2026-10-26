@@ -48,6 +48,15 @@ describe('createMockApi', () => {
     })
   })
 
+  it('hides the setup wizard: every /setup route is refused as demo mode (S19-02)', () => {
+    for (const path of ['/setup/status', '/setup/groups']) {
+      expect(api().handle('GET', path)).toMatchObject({
+        status: 403,
+        body: { detail: { code: 'demo_mode' } },
+      })
+    }
+  })
+
   it('serves the main routes from the fixtures', () => {
     for (const path of ['/health', '/rules', '/sources', '/recipients', '/metrics', '/snoozes', '/digest', '/settings/feed', '/listener/status']) {
       expect(api().handle('GET', path).status, path).toBe(200)
