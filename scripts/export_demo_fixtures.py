@@ -42,6 +42,8 @@ STATIC_PATHS = (
     "/digest",
     "/settings/feed",
     "/snoozes",
+    "/purchases",
+    "/savings/report",
     "/listener/status",
 )
 
