@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:demo-static": "tsc -b && VITE_DEMO_STATIC=1 VITE_BASE=${VITE_BASE:-/teleyes/} vite build --mode demo-static --outDir dist-demo-static --emptyOutDir",
+    "preview:demo-static": "vite preview --outDir dist-demo-static --base /teleyes/ --port 5185 --strictPort",
+    "test:e2e:demo-static": "playwright test -c playwright.demo-static.config.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",

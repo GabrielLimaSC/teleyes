@@ -44,3 +44,4 @@ backups/
 
 # Local design-tool state (not part of the project)
 .impeccable/
+apps/web/dist-demo-static/

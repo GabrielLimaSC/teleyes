@@ -1,0 +1,32 @@
+/* S19-05: the demo strip of the static site carries links, so it takes clicks, and on a
+   phone it wraps into two lines (the page keeps matching room below). */
+.demo-banner--static {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 14px;
+  row-gap: 0;
+  pointer-events: auto;
+}
+
+.demo-banner__links {
+  display: inline-flex;
+  gap: 14px;
+}
+
+.demo-banner--static a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  :root[data-demo] body {
+    padding-bottom: 52px;
+  }
+
+  :root[data-demo] .toast-viewport {
+    bottom: calc(var(--space-6) + 52px);
+  }
+}
