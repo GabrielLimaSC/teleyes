@@ -14,9 +14,17 @@
 > The GIF is recorded from the [demo stack](#try-the-demo-in-one-command): every store, product, price and
 > group in it is fictional. The dashboard is in Brazilian Portuguese (see [Features](#features)).
 
+## Live demo
+
+**[gabriellimasc.github.io/teleyes](https://gabriellimasc.github.io/teleyes/)** — the real dashboard in your
+browser, no install. It is a static build with no backend: every store, product, price and group is
+fictional, the dates are shifted so the data always looks fresh, a made-up offer shows up in the live feed
+now and then, and every write is refused with a clear message (nothing is saved). The code that generates it
+is `scripts/export_demo_fixtures.py` (data) and `apps/web/src/demo-static/` (the in-browser mock).
+
 ## Try the demo in one command
 
-You only need Docker. No Telegram account, no bot, no secrets, no `.env`.
+The full stack (real API, real pipeline, still 100% fictional data) on your machine. You only need Docker. No Telegram account, no bot, no secrets, no `.env`.
 
 ```bash
 git clone https://github.com/GabrielLimaSC/teleyes.git
@@ -202,7 +210,6 @@ Honest and undated:
 
 - A guided first-run wizard (credentials, Telegram login, first rule) in the dashboard.
 - Polish for a one-command self-hosted install.
-- An optional static public demo.
 - A savings report built from price history.
 
 Out of scope for now: multi-tenant use, channels other than Telegram, automatic replies or reactions in
