@@ -1,15 +1,14 @@
 /**
  * S14-08 (07b): the split between a page's own content and the product
- * panel — shared by FeedPage and HistoricoPage so the exact transition (grid
- * 1fr → 1fr 520px, 320ms in / 220ms out, the feed dimming to .55 opacity +
- * saturate(.85)) is implemented once. `data-panel-phase` mirrors
+ * panel — shared by FeedPage and HistoricoPage. `data-panel-phase` mirrors
  * `useProductPanel`'s `phase` ('closed' has no data attribute at all — the
  * page doesn't render the wrapper's open styles when nothing is open).
  *
- * Two real grid tracks at all times (`1fr 0px` closed, `1fr 520px` open) —
- * not one track appearing/disappearing — because `grid-template-columns`
- * only animates when the browser can match up the same number of tracks
- * before and after.
+ * S20-02: the columns never animate (that re-laid out the whole page every
+ * frame). The grid jumps to its final track once (`1fr 0px` closed, `1fr
+ * 520px` open, held through 'closing') and only compositor properties move:
+ * the panel's transform/opacity (ProductPanel.css) and the content's opacity
+ * (dimmed to .55 while open; the saturate(.85) is applied statically).
  */
 .product-panel-layout {
   display: grid;
@@ -20,12 +19,12 @@
 
 .product-panel-layout[data-panel-phase='open'] {
   grid-template-columns: minmax(0, 1fr) 520px;
-  transition: grid-template-columns 320ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .product-panel-layout[data-panel-phase='closing'] {
-  grid-template-columns: minmax(0, 1fr) 0px;
-  transition: grid-template-columns 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* S20-02: still the open track while closing — the page reflows once, when
+     the panel has finished leaving (phase 'closed'), never per frame. */
+  grid-template-columns: minmax(0, 1fr) 520px;
 }
 
 .product-panel-layout__content {
@@ -44,13 +43,13 @@
 .product-panel-layout[data-panel-phase='open'] .product-panel-layout__content {
   opacity: 0.55;
   filter: saturate(0.85);
-  transition: opacity 200ms linear, filter 200ms linear;
+  transition: opacity 200ms linear;
 }
 
 .product-panel-layout[data-panel-phase='closing'] .product-panel-layout__content {
   opacity: 1;
-  filter: saturate(1);
-  transition: opacity 220ms linear, filter 220ms linear;
+  filter: none;
+  transition: opacity 220ms linear;
 }
 
 /* 07b: below 960px the panel is a full-screen sheet (ProductPanel.css),
