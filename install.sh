@@ -305,25 +305,24 @@ do_install() {
 
   setup_admin
 
-  # S19-02 HOOK: the guided Telegram wizard plugs in here. It will ask for api_id /
-  # api_hash / bot token, write them to .env, run scripts/telegram_login.py and restart
-  # the listener. Until then we only print the exact manual steps below.
   step "teleyes is running"
   cat <<EOM
 Dashboard:  http://127.0.0.1:${PORT}    (log in with the password you chose)
 
 The monitor starts in the "not_configured" state: the dashboard works, but nothing is
-read from Telegram until you connect it. Next steps (about 5 minutes):
+read from Telegram until you connect it. Open the dashboard and follow the setup wizard
+(about 5 minutes): the banner on the Feed leads to it, or go straight to
+  http://127.0.0.1:${PORT}/configuracao
+You will need an API id/hash from https://my.telegram.org/apps and a bot token from
+@BotFather. The wizard stores them privately, logs the account in, lists your groups and
+creates the first rule. Details: docs/SECURITY_SETUP.md
 
-  1. Get your Telegram API credentials at https://my.telegram.org/apps and a bot token
-     from @BotFather, then paste them into: $(pwd)/.env
-        TG_API_ID=...   TG_API_HASH=...   BOT_TOKEN=...
-  2. Log the reading session in (it asks for your phone, the code and your 2FA password):
-        docker compose run --rm --entrypoint python listener scripts/telegram_login.py
-  3. Apply it:
-        docker compose up -d
-  4. In the dashboard add a source group, a recipient (send /start to your bot first) and
-     a rule, then click "Aplicar regras".
+Prefer the terminal? The manual path still works: put TG_API_ID, TG_API_HASH and BOT_TOKEN
+in $(pwd)/.env, then
+    docker compose run --rm --entrypoint python listener scripts/telegram_login.py
+    docker compose up -d
+and register a group, a recipient (send /start to your bot first) and a rule in the
+dashboard, then click "Aplicar regras".
 
 Logs: docker compose logs -f     Update: git pull && docker compose up -d --build
 Uninstall: ./install.sh --uninstall

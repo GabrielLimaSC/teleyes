@@ -140,7 +140,7 @@ A five-minute guide for macOS and Linux. Windows works through WSL2 (see the not
 
 **You need:** [Docker](https://docs.docker.com/get-docker/) with Compose v2 (Docker Desktop on macOS/Windows,
 Docker Engine on Linux), about 2 GB of free memory for Docker, and `git`. To actually monitor Telegram you
-will also need API credentials and a bot token, but **not to install**: the app starts without them.
+will also need Telegram API credentials and a bot token, but **not to install**: the app starts without them and the setup wizard collects them in the dashboard.
 
 ### 1. Install
 
@@ -163,28 +163,44 @@ Options: `--yes` (no questions; the password comes from the `TELEYES_ADMIN_PASSW
 
 Just want to look around first? `./install.sh --demo` starts the demo stack on http://127.0.0.1:18080.
 
-### 2. Connect Telegram
+### 2. Connect Telegram (setup wizard)
 
-> A guided wizard for this step is planned. Until then these are the exact manual steps.
+Open the dashboard and follow the **setup wizard**: the banner on the Feed and Health pages leads to it
+(`/configuracao`), and it resumes where you left off if you close the tab. No `.env` editing, no scripts.
 
-1. Create API credentials at <https://my.telegram.org/apps> (`api_id` and `api_hash`; a dedicated Telegram
-   account is recommended, because the session equals a full login) and a bot with
-   [@BotFather](https://t.me/BotFather) (`/newbot`, copy the token). Open your bot and send `/start`.
-2. Paste them into `.env`: `TG_API_ID=`, `TG_API_HASH=` and `BOT_TOKEN=`.
-3. Log the reading session in. It asks for your phone number, the code Telegram sends you and your 2FA
-   password if you have one, directly in the terminal:
+1. **App credentials.** Paste the `api_id` and `api_hash` you create at <https://my.telegram.org/apps>
+   (a dedicated Telegram account is recommended, because the session equals a full login).
+2. **Telegram account.** Phone number, then the code Telegram sends to that account's app, then the
+   two-step-verification password if it has one. The session is stored in a private volume.
+3. **Alert bot.** Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and paste its token.
+   The wizard shows the bot's `@username`, gives you a one-time link to tap **Start** (so a stranger who
+   finds the bot cannot register), and can send a test message.
+4. **Groups.** Pick, from the list of groups and channels the account already reads, the ones to watch.
+   teleyes only reads: it never joins, replies, reacts or forwards.
+5. **First rule.** Start from a template (for example "RTX 5070 up to R$ X") and finish with a live
+   checklist: monitor connected, bot ok, one group, one rule.
+
+Everything the wizard stores (API hash, bot token, session) lives in the `teleyes_session` volume with
+`0600` permissions, outside the database and its backups, and is never returned by the API or written to
+the logs. Reconnecting or wiping it is one button (**Desconectar Telegram**). The threat model is in
+[`docs/SECURITY_SETUP.md`](docs/SECURITY_SETUP.md). Keep the dashboard private: the wizard gives whoever is
+logged in full control of the connected Telegram account.
+
+<details>
+<summary>Prefer the terminal? The manual path still works</summary>
+
+1. Create the API credentials and a bot as above, open your bot and send `/start`.
+2. Put `TG_API_ID=`, `TG_API_HASH=` and `BOT_TOKEN=` in `.env` (values there win over the wizard's).
+3. Log the reading session in; it asks for your phone, the code and your 2FA password in the terminal:
 
    ```bash
    docker compose run --rm --entrypoint python listener scripts/telegram_login.py
    ```
 
-4. Apply the configuration:
+4. `docker compose up -d`, then register a source group, a recipient and a rule in the dashboard and click
+   **Aplicar regras**.
 
-   ```bash
-   docker compose up -d
-   ```
-
-5. In the dashboard, register a source group, a recipient and a rule, then click **Aplicar regras**.
+</details>
 
 The session lives in its own Docker volume (`teleyes_session`), separate from the database, so restoring a
 backup never touches your Telegram login.
@@ -207,7 +223,7 @@ should ignore it. `docker-compose.dev.yml` is a hot-reload stack for contributor
 | Times look wrong | Set `DISPLAY_TIMEZONE=Your/Zone` in `.env` (IANA name, e.g. `Europe/Lisbon`), then `docker compose up -d`. Stored timestamps are always UTC. |
 | Login works in Chrome but not in Safari | Keep `SESSION_COOKIE_SECURE=false` in `.env` for plain `http://127.0.0.1`; set it to `true` only behind HTTPS. |
 | Dashboard unreachable right after `up` | `docker compose ps` should show `api` and `web` as `healthy`; look at `docker compose logs api web`. |
-| Telegram says `not_configured` | Expected until step 2 is done. After editing `.env`, run `docker compose up -d` to apply it. |
+| Telegram says `not_configured` | Expected until the setup wizard (step 2) is done. If you configured through `.env`, run `docker compose up -d` to apply it. |
 | Forgot the dashboard password | `docker compose exec api python scripts/create_admin.py` sets a new one. |
 
 **Windows:** install Docker Desktop with the WSL2 backend, open a WSL2 shell (Ubuntu), clone the repository
@@ -308,7 +324,6 @@ cd apps/web && npm ci && npm run test && npx tsc -b && npm run lint
 
 Honest and undated:
 
-- A guided first-run wizard (credentials, Telegram login, first rule) in the dashboard.
 - A savings report built from price history.
 
 Out of scope for now: multi-tenant use, channels other than Telegram, automatic replies or reactions in
