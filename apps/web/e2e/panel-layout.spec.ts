@@ -129,3 +129,44 @@ for (const viewport of VIEWPORTS) {
     })
   }
 }
+
+// S20-03: the open/close animation is compositor-only. By construction: the
+// panel is a fixed overlay, the page content keeps its exact width (so no
+// reflow when it opens or closes) and carries no filter/opacity, and only
+// transform/opacity ever have a transition on the panel.
+for (const pageName of ['feed', 'historico'] as const) {
+  test(`${pageName}: the panel is a fixed overlay that never reflows or filters the page`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const title = await seed(page)
+    await page.goto(`/${pageName}`)
+    const row =
+      pageName === 'feed'
+        ? page.locator('.match-card', { hasText: title }).first()
+        : page.locator('.historico-table__row', { hasText: title }).first()
+    const trigger = row.getByRole('button', { name: /Abrir produto/ }).first()
+    await expect(trigger).toBeVisible()
+    const content = page.locator('.product-panel-layout__content')
+    const widthBefore = (await content.boundingBox())!.width
+
+    await trigger.click()
+    await expect(page.getByRole('heading', { name: title })).toBeVisible()
+    await page.waitForTimeout(500)
+
+    expect((await content.boundingBox())!.width).toBe(widthBefore)
+    const contentStyle = await content.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { filter: style.filter, opacity: style.opacity }
+    })
+    expect(contentStyle).toEqual({ filter: 'none', opacity: '1' })
+    const panelStyle = await page.locator('.product-panel').evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { position: style.position, properties: style.transitionProperty.split(',').map((value) => value.trim()) }
+    })
+    expect(panelStyle.position).toBe('fixed')
+    for (const property of panelStyle.properties) expect(['transform', 'opacity']).toContain(property)
+
+    await page.getByRole('button', { name: 'Fechar painel do produto' }).click()
+    await expect(page.locator('.product-panel')).toHaveCount(0)
+    expect((await content.boundingBox())!.width).toBe(widthBefore)
+  })
+}
