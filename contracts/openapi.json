@@ -7,7 +7,8 @@
           "connecting",
           "connected",
           "reconnecting",
-          "blocked"
+          "blocked",
+          "demo"
         ],
         "title": "AdapterState",
         "type": "string"
@@ -21,7 +22,8 @@
           "state": {
             "enum": [
               "configured",
-              "not_configured"
+              "not_configured",
+              "demo"
             ],
             "title": "State",
             "type": "string"
@@ -260,6 +262,11 @@
         "properties": {
           "bot": {
             "$ref": "#/components/schemas/BotHealth"
+          },
+          "demo": {
+            "default": false,
+            "title": "Demo",
+            "type": "boolean"
           },
           "env": {
             "title": "Env",
@@ -787,6 +794,24 @@
         "title": "MatchUpdate",
         "type": "object"
       },
+      "MeResponse": {
+        "properties": {
+          "admin_id": {
+            "title": "Admin Id",
+            "type": "integer"
+          },
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "admin_id",
+          "csrf_token"
+        ],
+        "title": "MeResponse",
+        "type": "object"
+      },
       "MetricReason": {
         "description": "Fixed, categorical reasons a message was seen, discarded or failed.\n\nOnly these values (never free text) can be stored \u2014 a rejected message's\ncontent has no path into `increment_counter`, so it can never end up in\nthe database or in a log line built from this module.",
         "enum": [
@@ -852,6 +877,19 @@
           "price_cents"
         ],
         "title": "PricePointResponse",
+        "type": "object"
+      },
+      "ProductMatchesDeleted": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "ProductMatchesDeleted",
         "type": "object"
       },
       "ProductPostingResponse": {
@@ -1257,6 +1295,17 @@
           "include_terms": {
             "title": "Include Terms",
             "type": "string"
+          },
+          "lowest_price_24h_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest Price 24H Cents"
           },
           "lowest_price_cents": {
             "anyOf": [
@@ -2111,11 +2160,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
-                  "title": "Response Me Auth Me Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MeResponse"
                 }
               }
             },
@@ -2628,6 +2673,23 @@
             }
           },
           {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
             "in": "cookie",
             "name": "teleyes_session",
             "required": false,
@@ -2677,6 +2739,56 @@
       }
     },
     "/matches/{match_id}": {
+      "delete": {
+        "description": "S20-01: \"Excluir an\u00fancio\" \u2014 removes a wrong listing (e.g. a price typo)\nfrom the history and from every price calculation, with its deliveries and\ncorrection audit rows. 404 when it does not exist (a second call, or a\nsibling already deleted via the product), same as `DELETE /sources/{id}`.\nThe message identity is remembered so a re-scan does not bring it back.",
+        "operationId": "delete_match_matches__match_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Match",
+        "tags": [
+          "matches"
+        ]
+      },
       "patch": {
         "operationId": "update_match_matches__match_id__patch",
         "parameters": [
@@ -2985,6 +3097,67 @@
           }
         },
         "summary": "Get Product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{key}/matches": {
+      "delete": {
+        "description": "S20-01: deletes every record of a product (see `delete_matches`). 404\nwhen the product has none, so a repeated call reads as \"already gone\".",
+        "operationId": "delete_product_matches_products__key__matches_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductMatchesDeleted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Product Matches",
         "tags": [
           "products"
         ]
@@ -3755,6 +3928,64 @@
           }
         },
         "summary": "Pause Rule",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
+    "/rules/{rule_id}/resume": {
+      "post": {
+        "operationId": "resume_rule_rules__rule_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Rule",
         "tags": [
           "rules"
         ]

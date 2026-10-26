@@ -45,8 +45,9 @@ export interface Match {
    * null without one), whether this match's own price reached it, and how
    * far off it still is in percent — computed fresh on every read, never
    * persisted. `target_gap_pct` is `null` without a target or a price, `0`
-   * once the target is hit. Items with `target_hit` sort first in `GET
-   * /matches`' response. */
+   * once the target is hit. Only items with `target_hit` that
+   * were matched in the last 24 h sort first in `GET /matches`' response;
+   * older hits keep `target_hit` true but are not pinned. */
   target_price_cents: number | null
   target_hit: boolean
   target_gap_pct: number | null
@@ -159,6 +160,9 @@ export interface Rule {
   /** S7-06: the rule's true historical minimum among its own priced
    * matches, or `null` with no priced match yet. */
   lowest_price_cents: number | null
+  /** S17-10: lowest priced match of the rule in the last 24 h, `null` with no
+   * live offer. The only price "atingido"/"falta N%" may be judged on. */
+  lowest_price_24h_cents: number | null
   /** S14-03: `until` of the rule's active snooze, `null` when it is not
    * silenced. Computed fresh on every read, never stored. */
   snoozed_until: string | null

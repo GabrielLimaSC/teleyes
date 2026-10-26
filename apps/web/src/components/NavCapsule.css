@@ -402,8 +402,9 @@
      drops its own disc, so collapsed there is exactly one circle — the
      capsule's glass — and opened, the tabs run in one row after it.
      S16-01: the disc's centre sits exactly on the Feed grid's left rail
-     column centre (`--feed-rail-left-center`, set in FeedPage.tsx off the
-     grid's real columns) — `left` is that minus half the disc, same math
+     COLLAPSED column centre (`--feed-rail-left-center`, set in FeedPage.tsx
+     off the grid's left edge + half a collapsed rail, whatever the rail's
+     real state, so it never jumps when the rails collapse — S17-04) — `left` is that minus half the disc, same math
      as any other centred-on-a-point box. 24px (the page's old fixed inset)
      is only the fallback for a page that never sets the variable. */
   :root[data-chrome='compact'] .nav-capsule {
@@ -494,7 +495,7 @@
   }
 
   /* The theme button rides the same line as the rest of the band, its
-     centre on the right rail column centre (S16-01, same mechanism as the
+     centre on the right collapsed-rail column centre (S16-01/S17-04, same mechanism as the
      mascot above — `left`, not `right`, so no 100vw/scrollbar math). */
   :root[data-chrome][data-chrome-animating] .theme-toggle,
   :root[data-chrome='compact'] .theme-toggle {

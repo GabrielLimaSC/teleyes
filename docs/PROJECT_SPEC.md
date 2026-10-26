@@ -6,14 +6,14 @@ O teleyes é um serviço pessoal e de usuário único que acompanha grupos de pr
 acessíveis pela conta configurada. Ele analisa mensagens em segundos, encontra ofertas conforme regras
 criadas no painel, evita alertas repetidos e envia uma mensagem privada pelo bot do teleyes.
 
-O projeto precisa continuar operando no computador doméstico sem uma sessão de desenvolvimento aberta.
+O projeto precisa continuar operando no computador de casa sem uma sessão de desenvolvimento aberta.
 Após configuração inicial, reinício do processo ou da máquina deve recuperar a operação automaticamente.
 
 ## 2. Pessoas e permissões
 
-- **Gabriel:** administrador do painel. Conecta o Telegram, gerencia grupos, regras e destinatários, vê
+- **Administrador:** administrador do painel. Conecta o Telegram, gerencia grupos, regras e destinatários, vê
   histórico e saúde do sistema.
-- **Namorada:** destinatária opcional. Na v1 não precisa de login; inicia uma conversa com o bot e pode
+- **Destinatário secundário:** destinatário opcional. Na v1 não precisa de login; inicia uma conversa com o bot e pode
   receber regras destinadas a ela.
 
 O sistema é single-tenant. Multiusuário completo, convites e permissões granulares ficam fora da v1.
@@ -36,12 +36,12 @@ O sistema é single-tenant. Multiusuário completo, convites e permissões granu
 Uma regra contém:
 
 - `name` e `enabled`;
-- `include_terms`: todos ou qualquer termo, com alternativas;
+- `include_terms`: todos ou qualquer termo, com alternativas; um termo com ` + ` (ex.: `memoria ram + 16gb`) exige todas as partes, em qualquer ordem (vale também para bloqueados);
 - `exclude_terms`;
 - `max_price_cents` opcional;
 - comportamento quando preço não for encontrado;
 - grupos/fontes selecionados;
-- destinatários: Gabriel, namorada ou ambos;
+- destinatários: o administrador, o destinatário secundário ou ambos;
 - janela de deduplicação;
 - timestamps e contadores de matches/alertas.
 
@@ -112,7 +112,7 @@ Não usar Tailscale Funnel, port forwarding ou exposição pública na v1.
 - Heartbeat externo opcional sem conteúdo sensível para detectar máquina, internet ou serviço offline.
 - Backup rotativo do SQLite e instrução de restauração testada.
 - Configuração do sistema operacional para iniciar o runtime no boot, impedir suspensão e recuperar após
-  queda de energia. O mecanismo exato depende do SO do desktop e será fechado antes do deploy.
+  queda de energia. O mecanismo exato depende do sistema operacional da máquina e deve ser fechado antes do deploy.
 
 ## 10. Segurança e Telegram
 
@@ -133,47 +133,47 @@ simula engajamento. O bot de alertas só envia aos chat IDs previamente cadastra
 6. Saúde/configurações: Telegram, bot, SSE, versão, uptime, backup e teste de alerta.
 
 O Impeccable trabalha em modo `Operate` e usa fluxo comp-first. O Codex de Design gera as alternativas;
-Gabriel escolhe o mockup antes da implementação visual definitiva.
+O mantenedor escolhe o mockup antes da implementação visual definitiva.
 
 ## 12. Entregas por fase
 
-### Sprint 0 — Alinhamento e riscos
+### Fase 0 — Alinhamento e riscos
 
-Tech Lead revisa este documento, confirma decisões delegadas, identifica lacunas e transforma cada sprint
+Revisão deste documento: confirma decisões delegadas, identifica lacunas e transforma cada fase
 em tasks com `done_when`, dono e testes. Não reabre decisões já confirmadas sem evidência nova.
 
-### Sprint 1 — Vertical slice real
+### Fase 1 — Vertical slice real
 
 Estrutura Python, SQLite e configuração segura. Autenticação MTProto real, seleção de um grupo, uma regra
 simples, persistência de um match e alerta real do bot. Demonstração: mensagem controlada contendo termo
 configurado produz exatamente uma notificação.
 
-### Sprint 2 — Regras e resiliência
+### Fase 2 — Regras e resiliência
 
 CRUD completo, preço, bloqueios, grupos, destinatários, deduplicação, backfill, reconexão e métricas.
 Demonstração: matriz de mensagens prova matches, descartes e ausência de duplicação.
 
-### Sprint 3 — API e acesso
+### Fase 3 — API e acesso
 
 Login, REST, SSE, health e contrato do frontend. Demonstração: feed recebe match ao vivo e reconecta sem
 perder estado.
 
-### Sprint 4 — Frontend com Impeccable
+### Fase 4 — Frontend com Impeccable
 
-PRODUCT.md, conceito visual, mockups pelo Codex de Design, escolha do Gabriel, implementação pelo Dev,
+PRODUCT.md, conceito visual, mockups pelo Codex de Design, escolha do mantenedor, implementação,
 responsividade, acessibilidade e estados completos. Demonstração em browsers desktop e mobile reais.
 
-### Sprint 5 — Operação doméstica
+### Fase 5 — Operação em casa
 
 Docker Compose, volumes, backup/restauração, Tailscale Serve, boot do SO, prevenção de suspensão,
 heartbeat e runbook. Demonstração: reiniciar processo/máquina e validar recuperação, acesso remoto e novo
 alerta.
 
-## 13. Portões que exigem Gabriel
+## 13. Passos que exigem ação humana
 
 - Criar/fornecer `api_id` e `api_hash` em ambiente local.
 - Fazer o login inicial da conta, código e 2FA; agentes nunca solicitam esses segredos no chat.
 - Criar o bot no BotFather, iniciar as conversas e cadastrar chat IDs.
-- Informar o sistema operacional do desktop de produção.
+- Informar o sistema operacional da máquina de produção.
 - Instalar/autorizar Tailscale nos dispositivos.
-- Escolher o mockup visual da Sprint 4.
+- Escolher o mockup visual.

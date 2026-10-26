@@ -29,6 +29,7 @@ const rule = (overrides: Partial<Record<string, unknown>> = {}) => ({
   active: true,
   created_at: '2026-01-01T00:00:00Z',
   lowest_price_cents: null,
+  lowest_price_24h_cents: null,
   ...overrides,
 })
 
@@ -77,6 +78,7 @@ function mockFetch(handlers: {
   rules?: () => Response
   sources?: () => Response
   matches?: () => Response
+  health?: () => Response
 }) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
@@ -88,7 +90,7 @@ function mockFetch(handlers: {
     if (url.endsWith('/auth/logout') && method === 'POST') {
       return Promise.resolve(handlers.logout?.() ?? new Response(null, { status: 200 }))
     }
-    if (url === '/health') return Promise.resolve(jsonResponse(health))
+    if (url === '/health') return Promise.resolve(handlers.health?.() ?? jsonResponse(health))
     if (url.startsWith('/rules')) return Promise.resolve(handlers.rules?.() ?? jsonResponse([]))
     if (url.startsWith('/sources')) return Promise.resolve(handlers.sources?.() ?? jsonResponse([]))
     if (url.startsWith('/matches')) return Promise.resolve(handlers.matches?.() ?? jsonResponse([]))
@@ -109,6 +111,39 @@ afterEach(() => {
 })
 
 describe('LoginPage', () => {
+  it('shows the public demo password only when the API runs in demo mode (S19-03)', async () => {
+    mockFetch({
+      health: () =>
+        jsonResponse({
+          ...health,
+          demo: true,
+          telegram: { configured: false, state: 'demo' },
+          bot: { configured: false, state: 'demo' },
+        }),
+    })
+
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+
+    expect(await screen.findByTestId('demo-login-hint')).toHaveTextContent('demo-teleyes')
+  })
+
+  it('keeps the create_admin hint outside demo mode (S19-03)', async () => {
+    mockFetch({})
+
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+
+    expect(await screen.findByText(/create_admin\.py/)).toBeInTheDocument()
+    expect(screen.queryByTestId('demo-login-hint')).not.toBeInTheDocument()
+  })
+
   it('shows the login form when there is no session', async () => {
     mockFetch({})
 
@@ -160,7 +195,7 @@ describe('LoginPage', () => {
   it('logs in with the real API contract and shows real stats in the authenticated view', async () => {
     let loggedIn = false
     mockFetch({
-      me: () => jsonResponse(loggedIn ? { admin_id: 1 } : null, loggedIn ? 200 : 401),
+      me: () => jsonResponse(loggedIn ? { admin_id: 1, csrf_token: 'tok-me' } : null, loggedIn ? 200 : 401),
       login: () => {
         loggedIn = true
         return jsonResponse({ csrf_token: 'test-csrf' })
@@ -203,7 +238,7 @@ describe('LoginPage', () => {
     vi.setSystemTime(new Date(2026, 8, 19, 23, 30, 0))
     let loggedIn = false
     mockFetch({
-      me: () => jsonResponse(loggedIn ? { admin_id: 1 } : null, loggedIn ? 200 : 401),
+      me: () => jsonResponse(loggedIn ? { admin_id: 1, csrf_token: 'tok-me' } : null, loggedIn ? 200 : 401),
       login: () => {
         loggedIn = true
         return jsonResponse({ csrf_token: 'test-csrf' })
@@ -253,7 +288,7 @@ describe('LoginPage', () => {
   it('logs out and returns to the login form', async () => {
     let loggedIn = true
     mockFetch({
-      me: () => jsonResponse(loggedIn ? { admin_id: 1 } : null, loggedIn ? 200 : 401),
+      me: () => jsonResponse(loggedIn ? { admin_id: 1, csrf_token: 'tok-me' } : null, loggedIn ? 200 : 401),
       logout: () => {
         loggedIn = false
         return new Response(null, { status: 200 })
@@ -274,8 +309,8 @@ describe('LoginPage', () => {
     expect(sessionStorage.getItem('teleyes.csrf_token')).toBeNull()
   })
 
-  it('warns instead of crashing when a reload lost the CSRF token', async () => {
-    mockFetch({ me: () => jsonResponse({ admin_id: 1 }) })
+  it('shows the active session after a reload (no lost-token warning)', async () => {
+    mockFetch({ me: () => jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }) })
     // no sessionStorage csrf token seeded — simulates a page reload
 
     render(
@@ -284,6 +319,7 @@ describe('LoginPage', () => {
       </AuthProvider>,
     )
 
-    expect(await screen.findByText(/perdeu o token de sessão/)).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Sair' })).toBeInTheDocument()
+    expect(screen.queryByText(/perdeu o token/)).toBeNull()
   })
 })

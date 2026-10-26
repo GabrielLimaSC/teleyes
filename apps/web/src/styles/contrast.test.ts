@@ -195,6 +195,7 @@ const PAIRS: Pair[] = [
     bg: PEARL,
   })),
   { name: 'offline banner', fg: 'offline-banner-text', bg: 'offline-banner-bg' },
+  { name: 'demo banner', fg: 'demo-banner-text', bg: 'demo-banner-bg' },
   // Delivery-status pills
   ...['neutral', 'good', 'info', 'danger', 'warn'].map((kind) => ({
     name: `pill ${kind}`,

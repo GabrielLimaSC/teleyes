@@ -35,6 +35,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.delivery_retry import resend_failed_deliveries
 from app.pipeline import (
     HISTORICAL_WINDOW,
     IncomingMessage,
@@ -43,7 +44,7 @@ from app.pipeline import (
     catch_up_since_cursor,
     initialize_new_source_cursor,
     prepare_source_at_startup,
-    process_message,
+    process_message_with_retry,
     run_historical_scan,
 )
 from models import Recipient, Rule, Source
@@ -98,6 +99,12 @@ def _chat_index(sources: Sequence[ListenerSource]) -> dict[int, ListenerSource]:
     return {int(source.chat_id): source for source in sources}
 
 
+# S13-04: how often the safety-net catch-up runs while connected.
+CATCH_UP_INTERVAL_SECONDS = 120.0
+# S17-01: how often recent failed alerts are retried while connected.
+RESEND_INTERVAL_SECONDS = 180.0
+
+
 @dataclass(frozen=True)
 class ApplyOutcome:
     sources_loaded: int
@@ -139,6 +146,10 @@ class ListenerLifecycle:
         # replaces it as a whole (never edits it in place), so a message in
         # flight always sees one consistent configuration.
         self._by_chat_id = _chat_index(self._sources)
+        # S13-04: lowest message id per source whose live processing failed for
+        # good (database stayed locked through every retry). The cursor may
+        # already be past it, so `catch_up` re-reads from here. Ids only.
+        self._failed_live: dict[int, int] = {}
         self.started = False
         # What the boot scan found, for the panel's "N matches no histórico".
         self.boot_scan = ScanSummary()
@@ -162,23 +173,48 @@ class ListenerLifecycle:
         if source is None:
             return  # not a listened chat: dropped, nothing read or stored
         for rule in source.rules:
-            with self._session_factory() as session:
-                incoming = IncomingMessage(
-                    source_id=source.source_id,
-                    message_id=message.id,
-                    text=message.text,
-                    link=build_message_link(source.chat_id, message.id),
-                    received_at=message.date,
+            incoming = IncomingMessage(
+                source_id=source.source_id,
+                message_id=message.id,
+                text=message.text,
+                link=build_message_link(source.chat_id, message.id),
+                received_at=message.date,
+            )
+            try:
+                result = await process_message_with_retry(
+                    self._session_factory,
+                    incoming,
+                    rule,
+                    source.recipients,
+                    self._notifier,
+                    self._dedupe_cache,
                 )
-                result = await process_message(
-                    session, incoming, rule, source.recipients, self._notifier, self._dedupe_cache
+            except Exception as error:
+                # The database stayed locked through every retry. Never let one
+                # rule's failure skip the others, and remember the message so the
+                # periodic catch-up re-reads it even though later messages
+                # already moved the cursor past it (ids only, never content).
+                logger.error(
+                    "event=live_message_failed source_id=%d %s",
+                    source.source_id,
+                    describe_error(error),
                 )
-                session.commit()
-                if result.match is not None:
-                    self._print(
-                        f"Match! fonte_id={source.source_id} regra={rule.name} "
-                        f"match_id={result.match.id} entregas={result.deliveries_sent}"
-                    )
+                self._remember_failed(source.source_id, message.id)
+                continue
+            if result.match is not None:
+                self._print(
+                    f"Match! fonte_id={source.source_id} regra={rule.name} "
+                    f"match_id={result.match.id} entregas={result.deliveries_sent}"
+                )
+
+    def _failure_recorder(self, source_id: int) -> Callable[[int], None]:
+        def record(message_id: int) -> None:
+            self._remember_failed(source_id, message_id)
+
+        return record
+
+    def _remember_failed(self, source_id: int, message_id: int) -> None:
+        self._failed_live[source_id] = min(message_id, self._failed_live.get(source_id, message_id))
 
     async def on_connected(self) -> None:
         """Call after every successful connection; picks boot or reconnect work."""
@@ -208,18 +244,83 @@ class ListenerLifecycle:
         async with self._catch_up_lock:
             total = 0
             for source in self._sources:
-                recovered = await catch_up_since_cursor(
-                    self._session_factory,
-                    self._fetcher,
-                    source,
-                    self._notifier,
-                    self._dedupe_cache,
-                    max_messages=self._backfill_max_messages,
-                    max_age=self._backfill_max_age,
-                )
+                # Taken out up front: failures during this very run re-add it.
+                floor_id = self._failed_live.pop(source.source_id, None)
+                try:
+                    recovered = await catch_up_since_cursor(
+                        self._session_factory,
+                        self._fetcher,
+                        source,
+                        self._notifier,
+                        self._dedupe_cache,
+                        max_messages=self._backfill_max_messages,
+                        max_age=self._backfill_max_age,
+                        floor_id=floor_id,
+                        on_failure=self._failure_recorder(source.source_id),
+                    )
+                except BaseException:
+                    if floor_id is not None:
+                        self._remember_failed(source.source_id, floor_id)
+                    raise
                 total += len(recovered)
             if total:
                 self._print(f"Recuperadas {total} avaliações de mensagens perdidas.")
+
+    async def run_periodic_catch_up(
+        self,
+        stop_event: asyncio.Event,
+        is_connected: Callable[[], bool],
+        *,
+        interval_seconds: float = CATCH_UP_INTERVAL_SECONDS,
+    ) -> None:
+        """S13-04: safety net for a live message that never got processed.
+
+        Telegram can drop an update and a database that stays locked can fail a
+        live write for good; the cursor-based `catch_up` re-reads whatever is
+        newer than the cursor (and anything remembered as failed) through the
+        very same idempotent pipeline, so it recovers the message without ever
+        alerting twice. Skipped until boot finished and while disconnected (the
+        reconnect watchdog handles that case).
+        """
+        while not stop_event.is_set():
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
+            except TimeoutError:
+                pass
+            if stop_event.is_set():
+                return
+            if not (self.started and is_connected()):
+                continue
+            try:
+                await self.catch_up()
+            except Exception as error:
+                logger.error("event=periodic_catch_up_failed %s", describe_error(error))
+
+    async def run_periodic_resend(
+        self,
+        stop_event: asyncio.Event,
+        is_connected: Callable[[], bool],
+        *,
+        interval_seconds: float = RESEND_INTERVAL_SECONDS,
+    ) -> None:
+        """S17-01: resend recent `failed` alerts, only while connected.
+
+        Same shape as `run_periodic_catch_up`. The pass is idempotent: a row
+        that became `sent` is never a candidate again (see `app.delivery_retry`).
+        """
+        while not stop_event.is_set():
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
+            except TimeoutError:
+                pass
+            if stop_event.is_set():
+                return
+            if not (self.started and is_connected()):
+                continue
+            try:
+                await resend_failed_deliveries(self._session_factory, self._notifier)
+            except Exception as error:
+                logger.error("event=periodic_resend_failed %s", describe_error(error))
 
     async def apply_config(
         self, new_sources: Sequence[ListenerSource], *, allowlisted_chat_ids: set[str]

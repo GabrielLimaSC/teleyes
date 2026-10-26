@@ -7,6 +7,7 @@ import {
   deleteRule,
   listRules,
   pauseRule,
+  resumeRule,
   testRule,
   updateRule,
 } from '../api/rules'
@@ -17,18 +18,21 @@ import { fetchRuleSuggestion } from '../api/products'
 import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
 import type { DigestSettings, PricePoint, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
-import { previewRuleMatch } from '../utils/ruleMatchPreview'
+import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
 import { formatDayMonth, formatMatchedAt } from '../utils/dates'
 import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
 import { settledToast } from '../components/listenerState'
+import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
 import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
 import { useListenerStatus } from '../hooks/useListenerStatus'
 import { useToast } from '../hooks/useToast'
+import { ruleTargetState } from '../utils/target'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { DestinatariosSection } from './DestinatariosSection'
 import '../components/CrudTable.css'
@@ -144,6 +148,31 @@ function RuleSparkline({ points }: { points: PricePoint[] }) {
 
 type FormTarget = { kind: 'create' } | { kind: 'edit'; rule: Rule }
 
+/** S17-10: the "Alvo" cell — target value plus where the rule stands, judged
+ * only on offers from the last 24 h (an expired offer is never "atingido"). */
+function RuleTargetCell({ rule }: { rule: Rule }) {
+  const targetState = ruleTargetState(rule)
+  return (
+    <div>
+      <span className={targetState.kind === 'hit' ? 'rule-target rule-target--hit' : 'rule-target'}>
+        {formatLowestPrice(rule.target_price_cents ?? null)}
+      </span>
+      {targetState.kind !== 'none' && (
+        <span
+          className="rule-target__detail"
+          title={targetState.kind === 'no-offer' ? 'sem oferta nas últimas 24 h' : undefined}
+        >
+          {targetState.kind === 'hit'
+            ? 'atingido'
+            : targetState.kind === 'gap'
+              ? `falta ${targetState.gapPct}%`
+              : 'sem oferta 24 h'}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function RegrasPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
@@ -215,7 +244,9 @@ export function RegrasPage() {
   const [ceilingDiscards, setCeilingDiscards] = useState<number | null>(null)
 
   const reload = () => {
-    setLoading(true)
+    // S18-01: `loading` starts true and only the first load shows the
+    // placeholder; a refetch after pause/resume keeps the table on screen
+    // (blanking it moved the page and dropped any open row menu).
     listRules(true)
       .then((data) => {
         setRules(data)
@@ -315,7 +346,7 @@ export function RegrasPage() {
         configChanged()
         showToast(existing ? 'Regra reativada.' : 'Regra silenciada por 7 dias.')
       })
-      .catch(() => setListError('Não foi possível alterar o silêncio da regra.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível alterar o silêncio da regra.', setListError))
       .finally(() => setSnoozeBusyId(null))
   }
 
@@ -330,7 +361,7 @@ export function RegrasPage() {
         configChanged()
         showToast('Silêncio removido.')
       })
-      .catch(() => setListError('Não foi possível reativar este item.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível reativar este item.', setListError))
       .finally(() => setSnoozeBusyId(null))
   }
 
@@ -404,6 +435,11 @@ export function RegrasPage() {
       setFormError(NO_TERMS_MESSAGE)
       return
     }
+    const termsProblem = termsError(form.includeTerms) ?? termsError(form.excludeTerms)
+    if (termsProblem !== null) {
+      setFormError(termsProblem)
+      return
+    }
     // S14-13: validate both price fields with the one parser before ever
     // building the request — a malformed "Teto"/"Alvo" now shows its own
     // pt-BR error instead of silently saving `null`/`NaN`.
@@ -449,7 +485,22 @@ export function RegrasPage() {
         configChanged()
         showToast('Regra pausada.')
       })
-      .catch(() => setListError('Não foi possível pausar a regra.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar a regra.', setListError))
+      .finally(() => setPausingId(null))
+  }
+
+  const handleResume = (rule: Rule) => {
+    if (csrfToken === null) {
+      setListError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    setPausingId(rule.id)
+    resumeRule(csrfToken, rule.id)
+      .then(() => {
+        configChanged()
+        showToast('Regra reativada.')
+      })
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível reativar a regra.', setListError))
       .finally(() => setPausingId(null))
   }
 
@@ -465,7 +516,7 @@ export function RegrasPage() {
         showToast('Regra excluída.')
       })
       .catch((error: unknown) => {
-        setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir a regra.')
+        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir a regra.', setListError)
       })
       .finally(() => setDeletingId(null))
   }
@@ -692,6 +743,7 @@ export function RegrasPage() {
                 <thead>
                   <tr>
                     <th>Regra</th>
+                    <th className="wide-table__status">Status</th>
                     <th className="wide-table__num">Teto</th>
                     <th className="wide-table__num">Alvo</th>
                     <th>Histórico 30d</th>
@@ -704,14 +756,27 @@ export function RegrasPage() {
                     <tr
                       key={rule.id}
                       className={
-                        formTarget.kind === 'edit' && formTarget.rule.id === rule.id
-                          ? 'wide-table__row--editing'
-                          : undefined
+                        [
+                          formTarget.kind === 'edit' && formTarget.rule.id === rule.id
+                            ? 'wide-table__row--editing'
+                            : '',
+                          rule.active ? '' : 'wide-table__row--paused',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined
                       }
                     >
                       <td className="crud-table__name" data-label="Regra">
                         <span>{rule.name}</span>
                         <span className="wide-table__terms">{rule.include_terms}</span>
+                      </td>
+                      <td className="wide-table__status" data-label="Status">
+                        <StatusToggle
+                          active={rule.active}
+                          pausing={pausingId === rule.id}
+                          onPause={() => handlePause(rule)}
+                          onResume={() => handleResume(rule)}
+                        />
                       </td>
                       <td className="wide-table__num" data-label="Teto">
                         {formatPriceLimit(rule.max_price_cents)}
@@ -719,18 +784,7 @@ export function RegrasPage() {
                       <td className="wide-table__num" data-label="Alvo">
                         {/* S15-02: one box, so the stacked phone card keeps value and
                             gap together on the right instead of spreading them. */}
-                        <div>
-                          <span className={rule.target_price_cents !== null && rule.lowest_price_cents !== null && rule.lowest_price_cents <= rule.target_price_cents ? 'rule-target rule-target--hit' : 'rule-target'}>
-                            {formatLowestPrice(rule.target_price_cents ?? null)}
-                          </span>
-                          {rule.target_price_cents !== null && rule.lowest_price_cents !== null && (
-                            <span className="rule-target__detail">
-                              {rule.lowest_price_cents <= rule.target_price_cents
-                                ? 'atingido'
-                                : `falta ${Math.max(1, Math.round(((rule.lowest_price_cents - rule.target_price_cents) / rule.lowest_price_cents) * 100))}%`}
-                            </span>
-                          )}
-                        </div>
+                        <RuleTargetCell rule={rule} />
                       </td>
                       <td data-label="Histórico 30d">
                         <RuleSparkline points={rule.history_30d ?? []} />
@@ -747,75 +801,62 @@ export function RegrasPage() {
                         )}
                       </td>
                       <td className="wide-table__actions" data-label="Ações">
-                        {/* S15-02: two fixed rows instead of a free wrap that
-                            stacked the seven controls in four — everyday
-                            actions first, the rarer/destructive ones below. */}
-                        <div className="wide-table__actions-inner">
-                          <div className="wide-table__actions-row">
-                            <StatusToggle
-                              active={rule.active}
-                              pausing={pausingId === rule.id}
-                              onPause={() => handlePause(rule)}
-                            />
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => openEdit(rule)}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => toggleRowTester(rule)}
-                            >
-                              Testar
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => handleSnooze(rule)}
-                              disabled={snoozeBusyId === rule.id}
-                            >
-                              {snoozeBusyId === rule.id
-                                ? 'Salvando…'
-                                : rule.snoozed_until
-                                  ? 'Reativar'
-                                  : 'Silenciar'}
-                            </button>
-                          </div>
-                          <div className="wide-table__actions-row">
-                            <button
-                              type="button"
-                              className="plane-action plane-action--secondary plane-action--compact"
-                              onClick={() => openDuplicate(rule)}
-                            >
-                              Duplicar
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--danger plane-action--compact"
-                              onClick={() => openClearConfirm(rule)}
-                              disabled={checkingClearId === rule.id}
-                            >
-                              {checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico'}
-                            </button>
-                            <button
-                              type="button"
-                              className="plane-action plane-action--danger plane-action--compact"
-                              onClick={() => handleDelete(rule)}
-                              disabled={deletingId === rule.id}
-                            >
-                              Excluir
-                            </button>
-                          </div>
+                        {/* S18-01: one row — the everyday actions in view, the
+                            rest behind "⋯". Nothing changed in what each does. */}
+                        <div className="rule-actions">
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => openEdit(rule)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="plane-action plane-action--secondary plane-action--compact"
+                            onClick={() => toggleRowTester(rule)}
+                          >
+                            Testar
+                          </button>
+                          <RowActionsMenu
+                            label={`Mais ações da regra ${rule.name}`}
+                            items={[
+                              { key: 'duplicate', label: 'Duplicar', onSelect: () => openDuplicate(rule) },
+                              {
+                                key: 'snooze',
+                                label:
+                                  snoozeBusyId === rule.id
+                                    ? 'Salvando…'
+                                    : rule.snoozed_until
+                                      ? 'Reativar'
+                                      : 'Silenciar',
+                                onSelect: () => handleSnooze(rule),
+                                disabled: snoozeBusyId === rule.id,
+                              },
+                              {
+                                key: 'clear',
+                                label: checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico',
+                                onSelect: () => openClearConfirm(rule),
+                                disabled: checkingClearId === rule.id,
+                                danger: true,
+                                separatorBefore: true,
+                              },
+                              {
+                                key: 'delete',
+                                label: 'Excluir',
+                                onSelect: () => handleDelete(rule),
+                                disabled: deletingId === rule.id,
+                                danger: true,
+                              },
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>
                   ))}
                   {rules.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="regras-page__empty">
+                      <td colSpan={7} className="regras-page__empty">
                         Nenhuma regra cadastrada. Use “Nova regra” para começar com termos específicos.
                       </td>
                     </tr>
@@ -1072,7 +1113,7 @@ export function RegrasPage() {
               label="Termos incluídos"
               value={form.includeTerms}
               onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
-              helper="Enter ou vírgula pra adicionar."
+              helper="Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb."
             />
             <label className="regras-form__field">
               Termos bloqueados
@@ -1080,8 +1121,12 @@ export function RegrasPage() {
                 value={form.excludeTerms}
                 onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
                 placeholder="usado, caixa aberta…"
+                aria-describedby="rule-exclude-terms-hint"
               />
             </label>
+            <p id="rule-exclude-terms-hint" className="regras-form__helper">
+              Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
+            </p>
             <div className="regras-form__price-grid">
               <label className="regras-form__field">
                 Teto (R$)

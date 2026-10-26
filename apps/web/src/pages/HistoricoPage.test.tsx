@@ -17,7 +17,6 @@ vi.mock('../auth/AuthContext', async (importOriginal) => {
     useAuth: () => ({
       status: 'authenticated',
       adminId: 1,
-      csrfMissing: false,
       csrfToken: 'test-csrf',
       login: vi.fn(),
       logout: vi.fn(),
@@ -37,6 +36,7 @@ function renderHistoricoPage() {
 }
 
 const EMPTY: FilterForm = {
+  search: '',
   ruleId: '',
   sourceId: '',
   recipientId: '',
@@ -379,6 +379,50 @@ describe('HistoricoPage', () => {
     expect(lowestTile).toHaveTextContent('R$ 10,00')
     const deliveredTile = screen.getByText('Entregas feitas').closest('.historico-stats__tile')
     expect(deliveredTile).toHaveTextContent('1')
+  })
+
+  it('ignores a bait price far below the rule median in the "Menor preço" tile (S19-03)', async () => {
+    const rule = {
+      id: 1,
+      name: 'Regra SSD',
+      include_terms: 'ssd',
+      exclude_terms: null,
+      max_price_cents: null,
+      active: true,
+      created_at: '2026-01-01T00:00:00Z',
+    }
+    const priced = (id: number, price: number) => ({
+      id,
+      source_id: 1,
+      rule_id: 1,
+      message_text: `ssd ${id}`,
+      price_cents: price,
+      price_cash_cents: null,
+      price_card_cents: null,
+      message_link: null,
+      matched_at: '2026-01-01T10:00:00Z',
+      created_at: '2026-01-01T10:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: false,
+    })
+    const matches = [priced(1, 45990), priced(2, 49990), priced(3, 2990), priced(4, 52990)]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([rule]))
+        if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(matches))
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    renderHistoricoPage()
+    await screen.findByText('ssd 1')
+
+    const lowestTile = screen.getByText('Menor preço').closest('.historico-stats__tile')
+    expect(lowestTile).toHaveTextContent('R$ 459,90')
   })
 
   it('exports a CSV whose values match what is on screen (S11-04)', async () => {
@@ -838,6 +882,75 @@ describe('HistoricoPage', () => {
   // (`HISTORICO_FILTERS_STORAGE_KEY`), not just component state, so a fresh
   // mount of the page (what happens on every SPA navigation, and on F5)
   // restores them instead of starting from `EMPTY_FILTERS`.
+  describe('"Excluir anúncio" (S20-01)', () => {
+    const wrongPrice = {
+      id: 7,
+      source_id: 1,
+      rule_id: 1,
+      message_text: 'GPU PNY NVIDIA GeForce RTX 5070 por R$ 699',
+      price_cents: 69_900,
+      price_cash_cents: null,
+      price_card_cents: null,
+      message_link: null,
+      matched_at: '2026-09-20T12:00:00Z',
+      created_at: '2026-09-20T12:00:00Z',
+      deliveries: [],
+      is_lowest_price_ever: true,
+      grouped_source_ids: null,
+      product_key: null,
+      sparkline: [],
+    }
+
+    function stubFetch() {
+      let deleted = false
+      const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url === '/matches/7' && init?.method === 'DELETE') {
+          deleted = true
+          return Promise.resolve(new Response(null, { status: 204 }))
+        }
+        if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(deleted ? [] : [wrongPrice]))
+        return Promise.resolve(jsonResponse([]))
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+
+    it('asks for confirmation, and cancelling deletes nothing', async () => {
+      const fetchMock = stubFetch()
+      const user = userEvent.setup()
+      renderHistoricoPage()
+
+      await user.click(await screen.findByRole('button', { name: /Mais ações/ }))
+      await user.click(screen.getByRole('menuitem', { name: 'Excluir anúncio' }))
+
+      const dialog = await screen.findByRole('alertdialog')
+      expect(dialog).toHaveTextContent(
+        'Excluir este anúncio? Isso remove o registro do histórico e dos cálculos de preço. Não dá para desfazer.',
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
+    })
+
+    it('confirming deletes the match with the CSRF token and reloads the list', async () => {
+      const fetchMock = stubFetch()
+      const user = userEvent.setup()
+      renderHistoricoPage()
+
+      await user.click(await screen.findByRole('button', { name: /Mais ações/ }))
+      await user.click(screen.getByRole('menuitem', { name: 'Excluir anúncio' }))
+      await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Excluir anúncio' }))
+
+      await waitFor(() => expect(screen.queryByText(/GPU PNY NVIDIA/)).not.toBeInTheDocument())
+      const call = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE')
+      expect(call?.[0]).toBe('/matches/7')
+      expect(new Headers(call?.[1]?.headers).get('X-CSRF-Token')).toBe('test-csrf')
+      expect(await screen.findByText('Anúncio excluído.')).toBeInTheDocument()
+    })
+  })
+
   describe('persisted filters (S15-06)', () => {
     function stubEmptyFetch() {
       const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(jsonResponse([])))
@@ -918,8 +1031,93 @@ describe('HistoricoPage', () => {
   })
 })
 
+describe('product search (S17-05)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    window.sessionStorage.clear()
+  })
+
+  function stubFetch(matchesBody: unknown[] = []) {
+    const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(jsonResponse(matchesBody)))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  const matchCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
+    fetchMock.mock.calls.map(([input]) => String(input)).filter((url) => url.startsWith('/matches'))
+
+  it('maps the search term to q and ignores blank terms', () => {
+    expect(toApiFilters({ ...EMPTY, search: '  b850m ' })).toEqual({ search: 'b850m' })
+    expect(toApiFilters({ ...EMPTY, search: '   ' })).toEqual({})
+  })
+
+  it('debounces typing into a single request with q', async () => {
+    const fetchMock = stubFetch()
+    const user = userEvent.setup()
+    renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    const before = matchCalls(fetchMock).length
+
+    await user.type(screen.getByLabelText('Buscar produto'), 'b850m')
+    expect(screen.getByLabelText('Buscar produto')).toHaveValue('b850m')
+    // Typing is fast: no request has gone out per keystroke.
+    expect(matchCalls(fetchMock).length).toBe(before)
+
+    await waitFor(() => expect(matchCalls(fetchMock).at(-1)).toBe('/matches?q=b850m'))
+    expect(matchCalls(fetchMock).length).toBe(before + 1)
+  })
+
+  it('shows a clear empty state naming the term', async () => {
+    stubFetch()
+    const user = userEvent.setup()
+    renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+
+    await user.type(screen.getByLabelText('Buscar produto'), 'xyz')
+    expect(await screen.findByText(/Nenhum resultado para “xyz”/)).toBeInTheDocument()
+  })
+
+  it('persists the term, restores it on remount, and "Limpar filtros" clears it', async () => {
+    const fetchMock = stubFetch()
+    const user = userEvent.setup()
+    const first = renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await user.type(screen.getByLabelText('Buscar produto'), 'geladeira')
+    await waitFor(() => expect(matchCalls(fetchMock).at(-1)).toBe('/matches?q=geladeira'))
+
+    first.unmount()
+    const secondFetch = stubFetch()
+    renderHistoricoPage()
+    expect(await screen.findByLabelText('Buscar produto')).toHaveValue('geladeira')
+    await waitFor(() => expect(matchCalls(secondFetch).at(-1)).toBe('/matches?q=geladeira'))
+
+    await user.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    expect(screen.getByLabelText('Buscar produto')).toHaveValue('')
+    await waitFor(() => expect(matchCalls(secondFetch).at(-1)).toBe('/matches'))
+    expect(window.sessionStorage.getItem(HISTORICO_FILTERS_STORAGE_KEY)).toBeNull()
+  })
+
+  it('renders and types with storage blocked', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    stubFetch()
+    const user = userEvent.setup()
+    renderHistoricoPage()
+    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await user.type(screen.getByLabelText('Buscar produto'), 'abc')
+    expect(screen.getByLabelText('Buscar produto')).toHaveValue('abc')
+    getItemSpy.mockRestore()
+    setItemSpy.mockRestore()
+  })
+})
+
 describe('parseStoredHistoricoFilters (S15-06)', () => {
   const EMPTY: FilterForm = {
+    search: '',
     ruleId: '',
     sourceId: '',
     recipientId: '',

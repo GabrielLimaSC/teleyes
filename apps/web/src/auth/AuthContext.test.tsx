@@ -15,7 +15,7 @@ function Probe() {
   return (
     <>
       <p>
-        {auth.status}|{auth.csrfToken ?? 'sem-token'}|{auth.csrfMissing ? 'csrf-faltando' : 'csrf-ok'}|
+        {auth.status}|{auth.csrfToken ?? 'sem-token'}|
         {auth.sessionExpired ? 'expirada' : 'valida'}
       </p>
       <button type="button" onClick={() => void auth.login('senha')}>
@@ -52,7 +52,7 @@ describe('AuthProvider without usable web storage (S12-04)', () => {
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(jsonResponse({ detail: 'no session' }, 401)) // /auth/me on mount
       .mockResolvedValueOnce(jsonResponse({ csrf_token: 'tok-123' })) // /auth/login
-      .mockResolvedValueOnce(jsonResponse({ admin_id: 1 })) // /auth/me after login
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' })) // /auth/me after login
       .mockResolvedValueOnce(new Response(null, { status: 204 })) // /auth/logout
 
     render(
@@ -60,22 +60,22 @@ describe('AuthProvider without usable web storage (S12-04)', () => {
         <Probe />
       </AuthProvider>,
     )
-    await waitFor(() => expect(screen.getByText('anonymous|sem-token|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('anonymous|sem-token|valida')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: 'entrar' }))
-    await waitFor(() => expect(screen.getByText('authenticated|tok-123|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('authenticated|tok-123|valida')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: 'sair' }))
-    await waitFor(() => expect(screen.getByText('anonymous|sem-token|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('anonymous|sem-token|valida')).toBeInTheDocument())
     expect(fetchMock).toHaveBeenCalledTimes(4)
   })
 })
 
 describe('AuthProvider with working web storage', () => {
   it('keeps the token across a reload, and clears it when signing out', async () => {
-    window.sessionStorage.setItem(STORAGE_KEY, 'tok-abc')
+    window.sessionStorage.setItem(STORAGE_KEY, 'tok-stale')
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse({ admin_id: 1 })) // /auth/me on mount
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' })) // /auth/me on mount
       .mockResolvedValueOnce(new Response(null, { status: 204 })) // /auth/logout
 
     render(
@@ -83,7 +83,7 @@ describe('AuthProvider with working web storage', () => {
         <Probe />
       </AuthProvider>,
     )
-    await waitFor(() => expect(screen.getByText('authenticated|tok-abc|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('authenticated|tok-me|valida')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: 'sair' }))
     await waitFor(() => expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull())
@@ -95,18 +95,18 @@ describe('AuthProvider with working web storage', () => {
 // write would, without going through the network layer.
 describe('AuthProvider session recovery (S13-08)', () => {
   it('flips sessionExpired on a pending reauth, and login() resolves it with the fresh token', async () => {
-    window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
+    window.sessionStorage.setItem(STORAGE_KEY, 'tok-stale')
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse({ admin_id: 1 })) // /auth/me on mount
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' })) // /auth/me on mount
       .mockResolvedValueOnce(jsonResponse({ csrf_token: 'tok-fresh' })) // /auth/login (reauth)
-      .mockResolvedValueOnce(jsonResponse({ admin_id: 1 })) // /auth/me after reauth
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' })) // /auth/me after reauth
 
     render(
       <AuthProvider>
         <Probe />
       </AuthProvider>,
     )
-    await waitFor(() => expect(screen.getByText('authenticated|tok-old|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('authenticated|tok-me|valida')).toBeInTheDocument())
 
     const reauthResult = requestReauth()
     await waitFor(() => expect(screen.getByText(/expirada$/)).toBeInTheDocument())
@@ -114,19 +114,19 @@ describe('AuthProvider session recovery (S13-08)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'entrar' }))
 
     await expect(reauthResult).resolves.toBe('tok-fresh')
-    await waitFor(() => expect(screen.getByText('authenticated|tok-fresh|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('authenticated|tok-fresh|valida')).toBeInTheDocument())
   })
 
   it('cancelReauth clears the flag and rejects the write waiting on it', async () => {
-    window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1 }))
+    window.sessionStorage.setItem(STORAGE_KEY, 'tok-stale')
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }))
 
     render(
       <AuthProvider>
         <Probe />
       </AuthProvider>,
     )
-    await waitFor(() => expect(screen.getByText('authenticated|tok-old|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('authenticated|tok-me|valida')).toBeInTheDocument())
 
     const reauthResult = requestReauth()
     // Attached synchronously, before the rejection can happen (on the click
@@ -143,15 +143,15 @@ describe('AuthProvider session recovery (S13-08)', () => {
   })
 
   it('adopts a fresh token broadcast from another tab and clears its own expired state', async () => {
-    window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1 }))
+    window.sessionStorage.setItem(STORAGE_KEY, 'tok-stale')
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }))
 
     render(
       <AuthProvider>
         <Probe />
       </AuthProvider>,
     )
-    await waitFor(() => expect(screen.getByText('authenticated|tok-old|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('authenticated|tok-me|valida')).toBeInTheDocument())
 
     const reauthResult = requestReauth()
     await waitFor(() => expect(screen.getByText(/expirada$/)).toBeInTheDocument())
@@ -167,26 +167,69 @@ describe('AuthProvider session recovery (S13-08)', () => {
     )
 
     await waitFor(() =>
-      expect(screen.getByText('authenticated|tok-other-tab|csrf-ok|valida')).toBeInTheDocument(),
+      expect(screen.getByText('authenticated|tok-other-tab|valida')).toBeInTheDocument(),
     )
     await expect(reauthResult).resolves.toBe('tok-other-tab')
     expect(window.sessionStorage.getItem(STORAGE_KEY)).toBe('tok-other-tab')
   })
 
   it('ignores unrelated storage events', async () => {
-    window.sessionStorage.setItem(STORAGE_KEY, 'tok-old')
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1 }))
+    window.sessionStorage.setItem(STORAGE_KEY, 'tok-stale')
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }))
 
     render(
       <AuthProvider>
         <Probe />
       </AuthProvider>,
     )
-    await waitFor(() => expect(screen.getByText('authenticated|tok-old|csrf-ok|valida')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('authenticated|tok-me|valida')).toBeInTheDocument())
 
     window.dispatchEvent(new StorageEvent('storage', { key: 'some.other.key', newValue: 'whatever' }))
 
     // Nothing changes.
-    expect(screen.getByText('authenticated|tok-old|csrf-ok|valida')).toBeInTheDocument()
+    expect(screen.getByText('authenticated|tok-me|valida')).toBeInTheDocument()
+  })
+})
+
+// S20-01: `GET /auth/me` hands the CSRF token back, so a reload or a new tab
+// (empty sessionStorage) is authenticated *with* a token and can sign out.
+describe('AuthProvider token recovery and resilient logout (S20-01)', () => {
+  it('recovers the token from /auth/me when storage is empty (reload / new tab)', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-from-me' })) // /auth/me
+      .mockResolvedValueOnce(new Response(null, { status: 204 })) // /auth/logout
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByText('authenticated|tok-from-me|valida')).toBeInTheDocument())
+    expect(window.sessionStorage.getItem(STORAGE_KEY)).toBe('tok-from-me')
+
+    await userEvent.click(screen.getByRole('button', { name: 'sair' }))
+    await waitFor(() => expect(screen.getByText('anonymous|sem-token|valida')).toBeInTheDocument())
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/auth/logout',
+      expect.objectContaining({ headers: { 'X-CSRF-Token': 'tok-from-me' } }),
+    )
+  })
+
+  it.each([401, 403])('signs out locally even when the server answers %i', async (status) => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ admin_id: 1, csrf_token: 'tok-me' }))
+      .mockResolvedValueOnce(jsonResponse({ detail: 'nope' }, status)) // /auth/logout
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+    await waitFor(() => expect(screen.getByText('authenticated|tok-me|valida')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'sair' }))
+    await waitFor(() => expect(screen.getByText('anonymous|sem-token|valida')).toBeInTheDocument())
+    expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 })

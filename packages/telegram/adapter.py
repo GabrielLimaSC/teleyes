@@ -16,6 +16,8 @@ class AdapterState(StrEnum):
     CONNECTED = "connected"
     RECONNECTING = "reconnecting"
     BLOCKED = "blocked"
+    # S19-03: demo mode has no listener at all; the state says so honestly.
+    DEMO = "demo"
 
 
 class FloodWaitError(Exception):

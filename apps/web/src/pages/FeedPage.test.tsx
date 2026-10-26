@@ -16,7 +16,6 @@ vi.mock('../auth/AuthContext', async (importOriginal) => {
     useAuth: () => ({
       status: 'authenticated',
       adminId: 1,
-      csrfMissing: false,
       csrfToken: 'test-csrf',
       login: vi.fn(),
       logout: vi.fn(),
@@ -159,8 +158,8 @@ describe('FeedPage', () => {
   it('shows real numbers in the Resumo rail (S11-03)', async () => {
     vi.stubGlobal('EventSource', InertEventSource)
     const rules = [
-      { id: 1, name: 'Regra A', include_terms: 'a', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
-      { id: 2, name: 'Regra B', include_terms: 'b', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
+      { id: 1, name: 'Regra A', include_terms: 'a', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null, lowest_price_24h_cents: null },
+      { id: 2, name: 'Regra B', include_terms: 'b', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null, lowest_price_24h_cents: null },
     ]
     const matches = [
       {
@@ -231,8 +230,8 @@ describe('FeedPage', () => {
   it('filters both the grid and the Resumo rail by the selected rule (S11-03)', async () => {
     vi.stubGlobal('EventSource', InertEventSource)
     const rules = [
-      { id: 1, name: 'Regra A', include_terms: 'a', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
-      { id: 2, name: 'Regra B', include_terms: 'b', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null },
+      { id: 1, name: 'Regra A', include_terms: 'a', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null, lowest_price_24h_cents: null },
+      { id: 2, name: 'Regra B', include_terms: 'b', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null, lowest_price_24h_cents: null },
     ]
     const matches = [
       {
@@ -379,10 +378,10 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
       target_price_cents: 5_800_00,
       active: true,
       created_at: '2026-01-01T00:00:00Z',
-      // S14-09 (#102)/S14-07 revisão 1: the all-time low (`lowest_price_cents`)
-      // stays here for other consumers, but "Alvos de preço" now reads the
-      // MOST RECENT day of `history_30d` (its last point) instead.
-      lowest_price_cents: 5_749_00,
+      // S17-10: "Alvos de preço" reads the last-24 h low, never the all-time
+      // low (`lowest_price_cents`) nor an older `history_30d` day.
+      lowest_price_cents: 5_000_00,
+      lowest_price_24h_cents: 5_749_00,
       snoozed_until: null,
       history_30d: [
         { date: '2025-12-15', price_cents: 6_200_00 },
@@ -398,7 +397,8 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
       target_price_cents: 2_050_00,
       active: true,
       created_at: '2026-01-01T00:00:00Z',
-      lowest_price_cents: 2_249_00,
+      lowest_price_cents: 2_000_00,
+      lowest_price_24h_cents: 2_249_00,
       snoozed_until: null,
       history_30d: [{ date: '2026-01-01', price_cents: 2_249_00 }],
     },
@@ -458,21 +458,20 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     // Scoped to `.feed-target` rows specifically — "RTX 5070 Ti" is also a
     // rule name in the unrelated "Filtrar por regra" list further down.
     const targetRows = document.querySelectorAll('.feed-target')
-    // RTX: history_30d's last point (R$ 5.749,00, most recent) is below the
-    // R$ 5.800,00 target — "atingido", even though an OLDER point
-    // (R$ 6.200,00) is not. Never the all-time `lowest_price_cents`.
+    // RTX: the 24 h low (R$ 5.749,00) is below the R$ 5.800,00 target —
+    // "atingido". Never the all-time `lowest_price_cents`.
     const rtxTarget = [...targetRows].find((row) => row.textContent?.includes('RTX 5070 Ti')) as HTMLElement
     expect(within(rtxTarget).getByText('atingido')).toBeInTheDocument()
     expect(within(rtxTarget).getByText('R$ 5.749,00')).toBeInTheDocument()
 
-    // Ryzen: history_30d's only (most recent) point, R$ 2.249,00, is above
-    // the R$ 2.050,00 target — "falta 9%".
+    // Ryzen: the 24 h low, R$ 2.249,00, is above the R$ 2.050,00 target
+    // (all-time low R$ 2.000,00 is below it, and must not count) — "falta 9%".
     const ryzenTarget = [...targetRows].find((row) => row.textContent?.includes('Ryzen 7 9800X3D')) as HTMLElement
     expect(within(ryzenTarget).getByText('falta 9%')).toBeInTheDocument()
     expect(within(ryzenTarget).getByText('R$ 2.249,00')).toBeInTheDocument()
   })
 
-  it('shows "sem preço recente" and never "atingido" for a rule with an empty history_30d', async () => {
+  it('shows a neutral "sem oferta" and never "atingido" for a rule with no offer in the last 24 h (S17-10)', async () => {
     const emptyHistoryRules = [
       {
         id: 3,
@@ -483,9 +482,11 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
         target_price_cents: 1_200_00,
         active: true,
         created_at: '2026-01-01T00:00:00Z',
-        lowest_price_cents: null,
+        // An old below-target offer exists, but nothing in the last 24 h.
+        lowest_price_cents: 1_000_00,
+        lowest_price_24h_cents: null,
         snoozed_until: null,
-        history_30d: [],
+        history_30d: [{ date: '2025-12-20', price_cents: 1_000_00 }],
       },
     ]
     stubSidebarFetch({ '/rules': () => jsonResponse(emptyHistoryRules) })
@@ -494,7 +495,7 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     await screen.findByText('Alvos de preço')
     const targetRows = document.querySelectorAll('.feed-target')
     const row = [...targetRows].find((item) => item.textContent?.includes('Placa-mãe B650M')) as HTMLElement
-    expect(within(row).getByText('sem preço recente')).toBeInTheDocument()
+        expect(within(row).getByText('sem oferta')).toBeInTheDocument()
     expect(within(row).queryByText('atingido')).not.toBeInTheDocument()
   })
 

@@ -63,10 +63,9 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   expect(actions.y + actions.height).toBeLessThanOrEqual(band)
   const capsule = await box(page.locator('.nav-capsule'))
   expect(capsule.width).toBeLessThan(70)
-  // S16-01: the disc's centre tracks the left rail's own column — at this
-  // point the rail hasn't collapsed yet (scrolling past it is a separate,
-  // later trigger), so its column is still the wide, open one; the disc
-  // still centres on it rather than a fixed inset.
+  // S17-04: the compact pieces sit in the corners (the "rails collapsed"
+  // position) even while the rails are still open, so nothing jumps when
+  // they collapse afterwards. Measured here, compared after the collapse.
   const centerXOf = (b: { x: number; width: number }) => b.x + b.width / 2
   const centerOf = (b: { y: number; height: number }) => b.y + b.height / 2
   const grid = page.locator('.feed-page__grid')
@@ -74,16 +73,17 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   const sideRail = page.locator('.feed-page__side-rail')
   const list = page.locator('.feed-page__list')
   await expect(grid).toHaveAttribute('data-left-rail', 'open')
-  expect(Math.abs(centerXOf(capsule) - centerXOf(await box(leftRail)))).toBeLessThan(2)
   // S15-04: disco, controles e botão de tema na mesma linha central da faixa.
   const toggle = await box(page.locator('.theme-toggle__button'))
   expect(Math.abs(centerOf(capsule) - centerOf(actions))).toBeLessThan(2)
   expect(Math.abs(centerOf(toggle) - centerOf(actions))).toBeLessThan(2)
-  // S16-01: the theme button's centre tracks the right rail's own column too.
-  expect(Math.abs(centerXOf(toggle) - centerXOf(await box(sideRail)))).toBeLessThan(2)
-  // S16-01: the toolbar's right edge sits on the cards column's own right edge.
-  const listBoxOpen = await box(list)
-  expect(Math.abs(actions.x + actions.width - (listBoxOpen.x + listBoxOpen.width))).toBeLessThan(2)
+  const openMascot = await box(page.locator('.nav-mascot'))
+  const openContext = await box(page.locator('.feed-page__context-capsule'))
+  const openActionsRight = actions.x + actions.width
+  const gridBox = await box(grid)
+  expect(Math.abs(centerXOf(capsule) - (gridBox.x + 32))).toBeLessThan(2)
+  expect(Math.abs(centerXOf(toggle) - (gridBox.x + gridBox.width - 32))).toBeLessThan(2)
+  await page.screenshot({ path: test.info().outputPath('compact-rails-open.png') })
   // Recolhida, só um círculo: o mascote não desenha disco próprio.
   await expect(page.locator('.nav-mascot__tint')).toHaveCSS('opacity', '0')
   const mascot = await box(page.locator('.nav-mascot'))
@@ -131,6 +131,13 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   const collapsedActions = await box(page.locator('.feed-page__header-actions'))
   const collapsedList = await box(list)
   expect(Math.abs(collapsedActions.x + collapsedActions.width - (collapsedList.x + collapsedList.width))).toBeLessThan(2)
+  // S17-04: same x as with the rails still open — no jump.
+  expect(Math.abs(centerXOf(collapsedCapsule) - centerXOf(capsule))).toBeLessThan(1)
+  expect(Math.abs(centerXOf(collapsedToggle) - centerXOf(toggle))).toBeLessThan(1)
+  expect(Math.abs(collapsedActions.x + collapsedActions.width - openActionsRight)).toBeLessThan(1)
+  expect(Math.abs((await box(page.locator('.nav-mascot'))).x - openMascot.x)).toBeLessThan(1)
+  expect(Math.abs((await box(page.locator('.feed-page__context-capsule'))).x - openContext.x)).toBeLessThan(1)
+  await page.screenshot({ path: test.info().outputPath('compact-rails-collapsed.png') })
 
   // O mascote abre e fecha a navbar no modo compacto.
   await page.getByRole('button', { name: 'Expandir navegação' }).click()

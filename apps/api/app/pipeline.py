@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
@@ -8,24 +11,25 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.db_retry import retry_when_locked, retry_when_locked_async
 from app.delivery_policy import is_snoozed
 from app.digest_settings import load_digest_settings
 from app.feed_settings import get_group_duplicates
 from app.product_history import posting_identity
 from app.utc import ensure_utc, format_utc
-from models import Delivery, Match, Recipient, Rule, Source
+from models import Delivery, Match, Recipient, Rule, Source, SuppressedMessage
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
-from packages.notifications.bot import BotNotifier
+from packages.notifications.bot import BotNotifier, DeliveryResult
 from packages.notifications.formatting import format_price_cents
 from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
-from packages.rules.normalize import normalize_text
 from packages.rules.price import extract_price
 from packages.rules.product import product_key
 from packages.rules.target import target_hit
 from packages.telegram.cursor import (
     MessageFetcherProtocol,
+    TelegramMessage,
     advance_cursor,
     backfill_since_cursor,
     has_cursor,
@@ -37,6 +41,14 @@ from packages.telegram.historical import (
 )
 from packages.telegram.links import build_message_link
 
+logger = logging.getLogger(__name__)
+
+# S17-01: a failed Bot API send is retried a couple of times in place (short,
+# async backoff: 1s then 2s) before the delivery is recorded as `failed`; the
+# listener's periodic resend (`app.delivery_retry`) takes it from there.
+NOTIFY_ATTEMPTS = 3
+NOTIFY_BASE_DELAY = 1.0
+
 
 class ListenerFetcherProtocol(MessageFetcherProtocol, RecentMessageFetcherProtocol, Protocol):
     """Structural union of both fetch shapes the listener startup path needs:
@@ -44,6 +56,7 @@ class ListenerFetcherProtocol(MessageFetcherProtocol, RecentMessageFetcherProtoc
     (unbounded, historical/head-lookup). `TelethonMessageFetcher` and the
     tests' `FakeTelegramClient` already implement both.
     """
+
 
 HISTORICAL_DELIVERY_STATUS = "historical"
 # S14-02: the two delivery channels a match can go out through. Almost every
@@ -152,8 +165,7 @@ def _build_match_rule(rule: Rule) -> MatchRule:
 
 
 def _discard_reason(match_rule: MatchRule, text: str) -> MetricReason:
-    normalized = normalize_text(text)
-    if any(normalize_text(term) in normalized for term in match_rule.exclude_terms):
+    if match_rule.blocked_by(text):
         return MetricReason.BLOCKED
     return MetricReason.NO_TERM
 
@@ -217,7 +229,18 @@ def _persist_match(
     insert of the same message+rule from another process, another session, or
     a repeated historical scan is a no-op here — no extra cache needed for
     either path to be idempotent across restarts.
+
+    S20-01: a message whose match the admin deleted is recorded in
+    `suppressed_message`; it is treated like an existing match, so it is never
+    recreated (nor alerted again) by a historical re-scan.
     """
+    if message.message_id is not None and session.scalar(
+        select(SuppressedMessage.id).where(
+            SuppressedMessage.source_id == message.source_id,
+            SuppressedMessage.telegram_message_id == message.message_id,
+        )
+    ):
+        return None
     db_match = Match(
         source_id=message.source_id,
         rule_id=rule.id,
@@ -376,6 +399,40 @@ def build_target_alert_text(text: str, rule: Rule, price_cents: int) -> str:
     )
 
 
+async def notify_with_retry(
+    notifier: BotNotifier,
+    *,
+    match_id: int,
+    recipient_id: int,
+    chat_id: str,
+    text: str,
+) -> DeliveryResult:
+    """`notifier.notify` with a short async retry (S17-01).
+
+    Safe because `BotNotifier` only remembers a pair after a successful send, so
+    a retry after an exception can never be blocked by its own dedupe. The last
+    exception propagates once the attempts run out. Logs class and attempt only.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            return await notifier.notify(
+                match_id=match_id, recipient_id=recipient_id, chat_id=chat_id, text=text
+            )
+        except Exception as error:
+            if attempt >= NOTIFY_ATTEMPTS:
+                raise
+            logger.warning(
+                "event=notify_retry match_id=%d attempt=%d of=%d error_class=%s",
+                match_id,
+                attempt,
+                NOTIFY_ATTEMPTS,
+                type(error).__name__,
+            )
+            await asyncio.sleep(NOTIFY_BASE_DELAY * 2 ** (attempt - 1))
+
+
 async def process_message(
     session: Session,
     message: IncomingMessage,
@@ -416,193 +473,304 @@ async def process_message(
     if not dedupe_cache.should_process(signature):
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
-    # S14-02: computed before `kind` is known below only insofar as it needs
-    # `evaluation.price_cents`/`rule` — both already available, so `kind`
-    # itself is decided here too, before persisting, to drive the
-    # kind-filtered grouping check right after it.
-    kind = decide_delivery_kind(rule, evaluation.price_cents)
-    is_target = kind == DELIVERY_KIND_TARGET
+    try:
+        # S14-02: computed before `kind` is known below only insofar as it needs
+        # `evaluation.price_cents`/`rule` — both already available, so `kind`
+        # itself is decided here too, before persisting, to drive the
+        # kind-filtered grouping check right after it.
+        kind = decide_delivery_kind(rule, evaluation.price_cents)
+        is_target = kind == DELIVERY_KIND_TARGET
 
-    # S7-11/S14-02: computed before persisting this match, so it can never
-    # see itself — a different source having already sent a real alert of
-    # the *same channel* for the exact same rule+price within the window
-    # means this one is the "same" real-world promotion on that channel, and
-    # must never notify again through it. Filtered by `kind` (see
-    # `_already_notified_group_match_exists`) so a target hit is only ever
-    # suppressed by an earlier target send, never by an earlier plain one.
-    already_grouped = evaluation.price_cents is not None and _already_notified_group_match_exists(
-        session, rule.id, evaluation.price_cents, message.received_at, GROUPING_WINDOW, kind=kind
-    )
-    # S14-02: for a target hit only, also check the *plain* channel's own
-    # grouping — purely for audit-trail parity (see the bookkeeping row
-    # below); it never affects whether the target alert itself is sent.
-    already_grouped_immediate = is_target and (
-        evaluation.price_cents is not None
-        and _already_notified_group_match_exists(
-            session,
-            rule.id,
-            evaluation.price_cents,
-            message.received_at,
-            GROUPING_WINDOW,
-            kind=DELIVERY_KIND_IMMEDIATE,
+        # S7-11/S14-02: computed before persisting this match, so it can never
+        # see itself — a different source having already sent a real alert of
+        # the *same channel* for the exact same rule+price within the window
+        # means this one is the "same" real-world promotion on that channel, and
+        # must never notify again through it. Filtered by `kind` (see
+        # `_already_notified_group_match_exists`) so a target hit is only ever
+        # suppressed by an earlier target send, never by an earlier plain one.
+        already_grouped = (
+            evaluation.price_cents is not None
+            and _already_notified_group_match_exists(
+                session,
+                rule.id,
+                evaluation.price_cents,
+                message.received_at,
+                GROUPING_WINDOW,
+                kind=kind,
+            )
         )
-    )
-
-    db_match = _persist_match(
-        session,
-        message,
-        rule,
-        evaluation.price_cents,
-        price_cash_cents=evaluation.price_cash_cents,
-        price_card_cents=evaluation.price_card_cents,
-    )
-    if db_match is None:
-        return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
-
-    increment_counter(session, MetricReason.SEEN, source_id=message.source_id)
-
-    # S14-03 (F3): silencing only ever suppresses the delivery below — the
-    # match is already persisted above and the caller still publishes it on
-    # SSE (`build_match_event` only checks `result.match`), exactly as if
-    # nothing were snoozed. S14-02: a target hit ignores this entirely —
-    # `is_snoozed`'s own `target_hit` parameter always returns `False` for
-    # one, Gabriel's decision (2026-09-23) that a price target fires through
-    # any active snooze.
-    if is_snoozed(
-        session,
-        rule_id=rule.id,
-        product_key=db_match.product_key,
-        now=message.received_at,
-        target_hit=is_target,
-    ):
-        return ProcessResult(match=db_match, deliveries_sent=0, reason="snoozed")
-
-    if not is_target and already_grouped:
-        for recipient in recipients:
-            session.add(
-                Delivery(
-                    match_id=db_match.id,
-                    recipient_id=recipient.id,
-                    kind=DELIVERY_KIND_IMMEDIATE,
-                    status=GROUPED_DELIVERY_STATUS,
-                    delivered_at=None,
-                )
+        # S14-02: for a target hit only, also check the *plain* channel's own
+        # grouping — purely for audit-trail parity (see the bookkeeping row
+        # below); it never affects whether the target alert itself is sent.
+        already_grouped_immediate = is_target and (
+            evaluation.price_cents is not None
+            and _already_notified_group_match_exists(
+                session,
+                rule.id,
+                evaluation.price_cents,
+                message.received_at,
+                GROUPING_WINDOW,
+                kind=DELIVERY_KIND_IMMEDIATE,
             )
-        session.flush()
-        return ProcessResult(match=db_match, deliveries_sent=0)
+        )
 
-    if is_target and already_grouped:
-        # S14-02 (Tech Lead fix): a repeat of the *same target group* (same
-        # rule, same price, within the window) as one already really sent on
-        # the target channel must not alert again — the first posting of a
-        # price already pinged Gabriel; the same offer showing up in two more
-        # groups afterwards is not three separate reasons to ping him. Unlike
-        # the plain channel's grouped branch above, this can only be reached
-        # once `already_grouped` was computed against `kind=target` (see
-        # `_already_notified_group_match_exists`), so it never fires on a
-        # plain send from before the target existed.
-        for recipient in recipients:
-            session.add(
-                Delivery(
-                    match_id=db_match.id,
-                    recipient_id=recipient.id,
-                    kind=DELIVERY_KIND_TARGET,
-                    status=GROUPED_DELIVERY_STATUS,
-                    delivered_at=None,
-                )
-            )
-        session.flush()
-        return ProcessResult(match=db_match, deliveries_sent=0, target_hit=True)
-
-    if is_target and already_grouped_immediate:
-        # S14-02: the plain channel would have suppressed this exact match as
-        # a repeat (S7-11) — recorded here for the same audit trail every
-        # other branch gets — but the target channel below still fires: a
-        # target hit ignores that suppression (Gabriel, 2026-09-23). This is
-        # a *different* group than the one just checked above (no earlier
-        # target send yet for this price, only an earlier plain one — e.g.
-        # Gabriel set the target after the first posting already went out as
-        # a plain alert), so it falls through to send.
-        for recipient in recipients:
-            session.add(
-                Delivery(
-                    match_id=db_match.id,
-                    recipient_id=recipient.id,
-                    kind=DELIVERY_KIND_IMMEDIATE,
-                    status=GROUPED_DELIVERY_STATUS,
-                    delivered_at=None,
-                )
+        db_match = _persist_match(
+            session,
+            message,
+            rule,
+            evaluation.price_cents,
+            price_cash_cents=evaluation.price_cash_cents,
+            price_card_cents=evaluation.price_card_cents,
+        )
+        if db_match is None:
+            return _commit_then(
+                session, ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
             )
 
-    # S14-04: a common match held back for the digest instead of notified now
-    # — only ever reachable here, never for a target hit (`is_target` always
-    # falls through to the notify loop below, piercing both snooze above and
-    # the digest here, Gabriel's decision carried over from S14-02/S14-03).
-    # `mute_individual` off keeps today's behavior unchanged even with the
-    # digest otherwise configured/enabled: only turning both on redirects a
-    # common match away from immediate delivery.
-    if not is_target:
-        digest_settings = load_digest_settings(session)
-        if digest_settings.enabled and digest_settings.mute_individual:
-            digest_grouped = (
-                evaluation.price_cents is not None
-                and _already_queued_or_sent_digest_group_exists(
-                    session, rule.id, evaluation.price_cents, message.received_at, GROUPING_WINDOW
-                )
+        increment_counter(session, MetricReason.SEEN, source_id=message.source_id)
+
+        # S14-03 (F3): silencing only ever suppresses the delivery below — the
+        # match is already persisted above and the caller still publishes it on
+        # SSE (`build_match_event` only checks `result.match`), exactly as if
+        # nothing were snoozed. S14-02: a target hit ignores this entirely —
+        # `is_snoozed`'s own `target_hit` parameter always returns `False` for
+        # one, Gabriel's decision (2026-09-23) that a price target fires through
+        # any active snooze.
+        if is_snoozed(
+            session,
+            rule_id=rule.id,
+            product_key=db_match.product_key,
+            now=message.received_at,
+            target_hit=is_target,
+        ):
+            return _commit_then(
+                session, ProcessResult(match=db_match, deliveries_sent=0, reason="snoozed")
             )
-            digest_status = GROUPED_DELIVERY_STATUS if digest_grouped else "pending"
+
+        if not is_target and already_grouped:
             for recipient in recipients:
                 session.add(
                     Delivery(
                         match_id=db_match.id,
                         recipient_id=recipient.id,
-                        kind=DELIVERY_KIND_DIGEST,
-                        status=digest_status,
+                        kind=DELIVERY_KIND_IMMEDIATE,
+                        status=GROUPED_DELIVERY_STATUS,
                         delivered_at=None,
                     )
                 )
             session.flush()
-            return ProcessResult(match=db_match, deliveries_sent=0)
+            return _commit_then(session, ProcessResult(match=db_match, deliveries_sent=0))
+
+        if is_target and already_grouped:
+            # S14-02 (Tech Lead fix): a repeat of the *same target group* (same
+            # rule, same price, within the window) as one already really sent on
+            # the target channel must not alert again — the first posting of a
+            # price already pinged Gabriel; the same offer showing up in two more
+            # groups afterwards is not three separate reasons to ping him. Unlike
+            # the plain channel's grouped branch above, this can only be reached
+            # once `already_grouped` was computed against `kind=target` (see
+            # `_already_notified_group_match_exists`), so it never fires on a
+            # plain send from before the target existed.
+            for recipient in recipients:
+                session.add(
+                    Delivery(
+                        match_id=db_match.id,
+                        recipient_id=recipient.id,
+                        kind=DELIVERY_KIND_TARGET,
+                        status=GROUPED_DELIVERY_STATUS,
+                        delivered_at=None,
+                    )
+                )
+            session.flush()
+            return _commit_then(
+                session, ProcessResult(match=db_match, deliveries_sent=0, target_hit=True)
+            )
+
+        if is_target and already_grouped_immediate:
+            # S14-02: the plain channel would have suppressed this exact match as
+            # a repeat (S7-11) — recorded here for the same audit trail every
+            # other branch gets — but the target channel below still fires: a
+            # target hit ignores that suppression (Gabriel, 2026-09-23). This is
+            # a *different* group than the one just checked above (no earlier
+            # target send yet for this price, only an earlier plain one — e.g.
+            # Gabriel set the target after the first posting already went out as
+            # a plain alert), so it falls through to send.
+            for recipient in recipients:
+                session.add(
+                    Delivery(
+                        match_id=db_match.id,
+                        recipient_id=recipient.id,
+                        kind=DELIVERY_KIND_IMMEDIATE,
+                        status=GROUPED_DELIVERY_STATUS,
+                        delivered_at=None,
+                    )
+                )
+
+        # S14-04: a common match held back for the digest instead of notified now
+        # — only ever reachable here, never for a target hit (`is_target` always
+        # falls through to the notify loop below, piercing both snooze above and
+        # the digest here, Gabriel's decision carried over from S14-02/S14-03).
+        # `mute_individual` off keeps today's behavior unchanged even with the
+        # digest otherwise configured/enabled: only turning both on redirects a
+        # common match away from immediate delivery.
+        if not is_target:
+            digest_settings = load_digest_settings(session)
+            if digest_settings.enabled and digest_settings.mute_individual:
+                digest_grouped = (
+                    evaluation.price_cents is not None
+                    and _already_queued_or_sent_digest_group_exists(
+                        session,
+                        rule.id,
+                        evaluation.price_cents,
+                        message.received_at,
+                        GROUPING_WINDOW,
+                    )
+                )
+                digest_status = GROUPED_DELIVERY_STATUS if digest_grouped else "pending"
+                for recipient in recipients:
+                    session.add(
+                        Delivery(
+                            match_id=db_match.id,
+                            recipient_id=recipient.id,
+                            kind=DELIVERY_KIND_DIGEST,
+                            status=digest_status,
+                            delivered_at=None,
+                        )
+                    )
+                session.flush()
+                return _commit_then(session, ProcessResult(match=db_match, deliveries_sent=0))
+
+        # S13-04: everything above is the short write phase. Commit it *now*,
+        # before any network call below: holding SQLite's single write lock
+        # across a Bot API round trip made every other writer wait (and,
+        # because SQLite waits synchronously on the event loop's thread, made
+        # this very task unable to resume while a sibling handler waited on
+        # the lock it held — a self-deadlock that only ended when the
+        # sibling's busy_timeout expired with "database is locked").
+        session.commit()
+    except BaseException:
+        # Nothing was persisted (the caller rolls the session back), so this
+        # signature must not stay marked as seen: the retry of a message whose
+        # write hit a locked database (S13-04) would otherwise be dropped as a
+        # "duplicate" of itself.
+        dedupe_cache.forget(signature)
+        raise
 
     notify_text = message.text
     if is_target:
         assert evaluation.price_cents is not None  # decide_delivery_kind guarantees this
         notify_text = build_target_alert_text(message.text, rule, evaluation.price_cents)
 
+    # Network phase: no transaction is open here (see the commit above), so a
+    # slow Bot API call can never block another writer. The send outcomes are
+    # collected first and written in one short transaction afterwards.
+    outcomes: list[tuple[Recipient, str, datetime | None, bool]] = []
     deliveries_sent = 0
     for recipient in recipients:
         try:
-            result = await notifier.notify(
+            result = await notify_with_retry(
+                notifier,
                 match_id=db_match.id,
                 recipient_id=recipient.id,
                 chat_id=recipient.telegram_chat_id,
                 text=notify_text,
             )
-        except Exception:  # one recipient's delivery failure must not sink the whole batch
-            increment_counter(session, MetricReason.DELIVERY_FAILURE, source_id=message.source_id)
-            session.add(
-                Delivery(
-                    match_id=db_match.id, recipient_id=recipient.id, kind=kind, status="failed"
-                )
+        except Exception as error:  # one recipient's delivery failure must not sink the whole batch
+            # S17-01: class and ids only, never the message text.
+            logger.error(
+                "event=notify_failed match_id=%d recipient_id=%d kind=%s error_class=%s",
+                db_match.id,
+                recipient.id,
+                kind,
+                type(error).__name__,
             )
+            outcomes.append((recipient, "failed", None, True))
             continue
 
         if result.delivered:
             deliveries_sent += 1
-
-        session.add(
-            Delivery(
-                match_id=db_match.id,
-                recipient_id=recipient.id,
-                kind=kind,
-                status="sent" if result.delivered else (result.reason or "skipped"),
-                delivered_at=datetime.now(UTC) if result.delivered else None,
+        outcomes.append(
+            (
+                recipient,
+                "sent" if result.delivered else (result.reason or "skipped"),
+                datetime.now(UTC) if result.delivered else None,
+                False,
             )
         )
 
-    session.flush()
-
+    await _record_delivery_outcomes(session, db_match, kind, message.source_id, outcomes)
     return ProcessResult(match=db_match, deliveries_sent=deliveries_sent, target_hit=is_target)
+
+
+async def process_message_with_retry(
+    session_factory: sessionmaker[Session],
+    message: IncomingMessage,
+    rule: Rule,
+    recipients: list[Recipient],
+    notifier: BotNotifier,
+    dedupe_cache: DedupeCache,
+) -> ProcessResult:
+    """`process_message` in its own session, retried while the database is locked.
+
+    S13-04: each attempt uses a fresh session, so a failed write leaves nothing
+    half-done. Safe to repeat because the write phase either commits as a whole
+    or not at all and happens *before* the network phase: a retry can never
+    re-send an alert (and a match that did commit is a no-op the second time,
+    by its S6-01 identity). Raises the lock error only once the attempts run out.
+    """
+
+    async def attempt() -> ProcessResult:
+        with session_factory() as session:
+            result = await process_message(
+                session, message, rule, recipients, notifier, dedupe_cache
+            )
+            session.commit()  # discards/counters written before the notify phase
+            return result
+
+    # `process_message` is a coroutine, so the retry loop needs an async operation.
+    return await retry_when_locked_async(attempt)
+
+
+def _commit_then(session: Session, result: ProcessResult) -> ProcessResult:
+    """Commit the short write phase, then hand `result` back (S13-04)."""
+    session.commit()
+    return result
+
+
+async def _record_delivery_outcomes(
+    session: Session,
+    db_match: Match,
+    kind: str,
+    source_id: int,
+    outcomes: list[tuple[Recipient, str, datetime | None, bool]],
+) -> None:
+    """Write the send results of an already-sent alert, retrying on a locked db.
+
+    The alert has left the building by now, so this write must not be lost to
+    a transient lock, and must never lead to a re-send: the match row is
+    already committed (its identity makes any reprocessing a no-op) and the
+    notifier remembers `(match, recipient)` pairs. Each attempt rebuilds the
+    rows after a rollback, since a failed flush leaves the session unusable.
+    """
+
+    match_id = db_match.id  # read once: a rollback below expires `db_match`
+
+    def write() -> None:
+        for recipient, status, delivered_at, failed in outcomes:
+            if failed:
+                increment_counter(session, MetricReason.DELIVERY_FAILURE, source_id=source_id)
+            session.add(
+                Delivery(
+                    match_id=match_id,
+                    recipient_id=recipient.id,
+                    kind=kind,
+                    status=status,
+                    delivered_at=delivered_at,
+                )
+            )
+        session.commit()
+
+    await retry_when_locked(write, on_retry=session.rollback)
 
 
 async def catch_up_since_cursor(
@@ -614,6 +782,8 @@ async def catch_up_since_cursor(
     *,
     max_messages: int = 100,
     max_age: timedelta | None = timedelta(hours=24),
+    floor_id: int | None = None,
+    on_failure: Callable[[int], None] | None = None,
 ) -> list[ProcessResult]:
     """Recover messages missed while disconnected, through the real pipeline.
 
@@ -626,34 +796,50 @@ async def catch_up_since_cursor(
     contract. Each recovered message runs through the same `process_message`
     as a live one, so matching/pricing/dedupe/notification and the cursor
     advance itself all stay identical between the two paths.
+
+    S13-04: the cursor write retries while the database is locked, and a
+    message whose processing keeps failing for that reason is reported through
+    `on_failure(message_id)` (the rest still run) instead of aborting the batch
+    — the cursor has already moved past it, so the caller must remember it.
+    Without `on_failure` the lock error propagates.
     """
-    with session_factory() as cursor_session:
-        recovered = await backfill_since_cursor(
-            cursor_session,
-            fetcher,
-            source.source_id,
-            source.chat_id,
-            max_messages=max_messages,
-            max_age=max_age,
-        )
-        cursor_session.commit()
+
+    async def read_and_advance() -> list[TelegramMessage]:
+        with session_factory() as cursor_session:
+            found = await backfill_since_cursor(
+                cursor_session,
+                fetcher,
+                source.source_id,
+                source.chat_id,
+                max_messages=max_messages,
+                max_age=max_age,
+                floor_id=floor_id,
+            )
+            cursor_session.commit()
+            return found
+
+    recovered = await retry_when_locked_async(read_and_advance)
 
     results: list[ProcessResult] = []
     for raw in recovered:
         for rule in source.rules:
-            with session_factory() as session:
-                incoming = IncomingMessage(
-                    source_id=source.source_id,
-                    message_id=raw.id,
-                    text=raw.text,
-                    link=build_message_link(source.chat_id, raw.id),
-                    received_at=raw.date,
+            incoming = IncomingMessage(
+                source_id=source.source_id,
+                message_id=raw.id,
+                text=raw.text,
+                link=build_message_link(source.chat_id, raw.id),
+                received_at=raw.date,
+            )
+            try:
+                results.append(
+                    await process_message_with_retry(
+                        session_factory, incoming, rule, source.recipients, notifier, dedupe_cache
+                    )
                 )
-                result = await process_message(
-                    session, incoming, rule, source.recipients, notifier, dedupe_cache
-                )
-                session.commit()
-                results.append(result)
+            except Exception:
+                if on_failure is None:
+                    raise
+                on_failure(raw.id)
     return results
 
 
@@ -717,9 +903,7 @@ async def prepare_source_at_startup(
 
     if not source_has_cursor:
         with session_factory() as session:
-            await initialize_new_source_cursor(
-                session, fetcher, source.source_id, source.chat_id
-            )
+            await initialize_new_source_cursor(session, fetcher, source.source_id, source.chat_id)
             session.commit()
         return StartupResult(initialized=True, recovered=[])
 

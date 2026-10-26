@@ -54,6 +54,7 @@ export function useLiveMatches(): LiveMatchesResult {
 
     const source = new EventSource('/events')
     source.addEventListener('match', reload)
+    source.addEventListener('match_deleted', reload)
     source.addEventListener('resync', reload)
     source.onopen = () => {
       if (!cancelledRef.current) setConnectionState('open')

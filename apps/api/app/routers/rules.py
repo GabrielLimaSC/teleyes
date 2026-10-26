@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 from app.main import get_current_session, get_db, require_csrf
 from app.pipeline import HISTORICAL_WINDOW, evaluate_rule, parse_terms
 from app.product_history import daily_lowest, get_display_timezone
+from app.target_window import target_window_start
 from app.utc import UtcDatetime, ensure_utc, utc_now
 from models import Match, Rule, Snooze, Source
-from packages.rules.normalize import normalize_text
+from packages.rules.match import MatchRule, terms_error
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
 
@@ -60,6 +61,10 @@ class RuleResponse(BaseModel):
     active: bool
     created_at: UtcDatetime
     lowest_price_cents: int | None = None
+    # S17-10: the rule's lowest priced match within the last
+    # `TARGET_HIT_WINDOW` (24 h), `None` with no live offer. The only price
+    # the UI may compare with `target_price_cents` ("atingido"/"falta N%").
+    lowest_price_24h_cents: int | None = None
     # S14-03: `until` of the rule's active snooze (`until > now`), `None`
     # when it is not silenced. Computed fresh on every read, never stored.
     snoozed_until: UtcDatetime | None = None
@@ -109,11 +114,7 @@ def _first_matching_term(include_terms: str, text: str) -> str:
     called only after `evaluate_rule` already confirmed a hit, so some term
     is always found; the fallback exists only to keep this total.
     """
-    normalized_message = normalize_text(text)
-    for term in parse_terms(include_terms):
-        if normalize_text(term) in normalized_message:
-            return term
-    return ""
+    return MatchRule(include_terms=parse_terms(include_terms)).first_include_hit(text) or ""
 
 
 def _not_found(error: NotFoundError) -> HTTPException:
@@ -138,6 +139,15 @@ def list_rules(
         db.execute(
             select(Match.rule_id, func.min(Match.price_cents))
             .where(Match.price_cents.is_not(None))
+            .group_by(Match.rule_id)
+        )
+        .tuples()
+        .all()
+    )
+    lowest_24h_by_rule: dict[int, int | None] = dict(
+        db.execute(
+            select(Match.rule_id, func.min(Match.price_cents))
+            .where(Match.price_cents.is_not(None), Match.matched_at >= target_window_start(now))
             .group_by(Match.rule_id)
         )
         .tuples()
@@ -173,6 +183,7 @@ def list_rules(
         RuleResponse.model_validate(rule).model_copy(
             update={
                 "lowest_price_cents": lowest_by_rule.get(rule.id),
+                "lowest_price_24h_cents": lowest_24h_by_rule.get(rule.id),
                 "snoozed_until": snoozed_until_by_rule.get(rule.id),
                 "history_30d": history_by_rule.get(rule.id, []),
             }
@@ -234,6 +245,8 @@ def test_rule(payload: RuleTestRequest, db: Session = Depends(get_db)) -> RuleTe
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="rule requires at least one include term",
         )
+    if error := terms_error(payload.include_terms) or terms_error(payload.exclude_terms):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=error)
 
     candidate_rule = Rule(
         include_terms=payload.include_terms,
@@ -316,6 +329,20 @@ def update_rule(rule_id: int, payload: RuleUpdate, db: Session = Depends(get_db)
 def pause_rule(rule_id: int, db: Session = Depends(get_db)) -> Rule:
     try:
         rule = rule_repo.pause_rule(db, rule_id)
+    except NotFoundError as error:
+        raise _not_found(error) from error
+    db.commit()
+    return rule
+
+
+@router.post(
+    "/{rule_id}/resume",
+    response_model=RuleResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def resume_rule(rule_id: int, db: Session = Depends(get_db)) -> Rule:
+    try:
+        rule = rule_repo.resume_rule(db, rule_id)
     except NotFoundError as error:
         raise _not_found(error) from error
     db.commit()

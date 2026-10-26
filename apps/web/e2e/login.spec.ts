@@ -16,6 +16,14 @@ test('logs in against the real API, navigates the shell, and logs out', async ({
   await page.reload()
   await expect(page.getByText(/Sessão ativa/)).toBeVisible()
 
+  // S20-01: a fresh tab has no sessionStorage token — /auth/me hands it back,
+  // so the session is whole (no "perdeu o token" warning) and Sair works.
+  await page.evaluate(() => sessionStorage.clear())
+  await page.reload()
+  await expect(page.getByText(/Sessão ativa/)).toBeVisible()
+  await expect(page.getByText(/perdeu o token/)).toHaveCount(0)
+  expect(await page.evaluate(() => sessionStorage.getItem('teleyes.csrf_token'))).toBeTruthy()
+
   // The desktop capsule keeps its links visible at rest.
   await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
   await nav.getByRole('link', { name: 'Feed' }).click()

@@ -16,6 +16,10 @@ import { describe, expect, it } from 'vitest'
 
 const SRC_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const THE_ONE_PLACE = 'utils/dates.ts'
+// S19-05: the static demo shifts fixture timestamps by a fixed offset. It only touches strings
+// that match a strict UTC pattern (trailing Z, so never read as local time) and never builds
+// a Date for display.
+const DEMO_STATIC_REWRITER = new Set(['demo-static/mockApi.ts'])
 
 const FORBIDDEN: Array<[string, RegExp]> = [
   ['new Date(<argument>)', /new\s+Date\(\s*[^\s)]/],
@@ -81,7 +85,7 @@ describe('no API timestamp is parsed outside utils/dates.ts (S13-01)', () => {
   it('has no forbidden date parsing in any other file', () => {
     const offenders: string[] = []
     for (const file of files) {
-      if (file === THE_ONE_PLACE) continue
+      if (file === THE_ONE_PLACE || DEMO_STATIC_REWRITER.has(file)) continue
       const found = findForbidden(readFileSync(path.join(SRC_ROOT, file), 'utf8'))
       if (found.length > 0) offenders.push(`${file}: ${found.join(', ')}`)
     }

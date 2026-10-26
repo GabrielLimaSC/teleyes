@@ -79,6 +79,7 @@ async def backfill_since_cursor(
     max_messages: int = 100,
     max_age: timedelta | None = None,
     now: datetime | None = None,
+    floor_id: int | None = None,
 ) -> list[TelegramMessage]:
     """Fetch messages newer than the persisted cursor after a (re)connect.
 
@@ -87,8 +88,15 @@ async def backfill_since_cursor(
     duplicate alert. The result is bounded by `max_messages` and, when
     `max_age` is set, by how old the message is. The cursor advances to the
     highest `id` actually returned.
+
+    `floor_id` (S13-04) is the lowest id of a live message whose processing
+    failed after later messages already moved the cursor: fetching restarts
+    just below it. Messages already processed come back too, but reprocessing
+    is idempotent (match identity, dedupe cache), so nothing alerts twice.
     """
     last_id = get_cursor(session, source_id)
+    if floor_id is not None:
+        last_id = min(last_id, floor_id - 1)
     cutoff: datetime | None = None
     if max_age is not None:
         cutoff = (now or datetime.now(UTC)) - max_age

@@ -1,13 +1,14 @@
 # Operação — teleyes
 
 > Runbook operacional: como instalar, rodar, atualizar, diagnosticar e desligar o sistema em produção
-> (desktop doméstico, Docker Compose). Para a visão de produto, arquitetura e como rodar os testes locais,
+> (máquina doméstica, Docker Compose). Para a visão de produto, arquitetura e como rodar os testes locais,
 > veja o [`README.md`](../README.md) na raiz do repositório.
 
 ## Índice
 
 - [Primeira instalação](#primeira-instalação)
 - [Operação do dia a dia](#operação-do-dia-a-dia)
+- [Modo demonstração](#modo-demonstração)
 - [Atualizar para uma nova versão](#atualizar-para-uma-nova-versão)
 - [Diagnóstico](#diagnóstico)
 - [Desligar com segurança](#desligar-com-segurança)
@@ -128,6 +129,26 @@ considerar a instalação completa.
 - **Ver o feed**: painel web, aba Feed/Histórico (SSE ao vivo).
 - **Testar notificação**: painel web, aba Saúde, "Enviar teste" — dispara um envio real pelo bot pro
   destinatário escolhido, sem depender de uma mensagem real do Telegram.
+
+## Modo demonstração
+
+`docker-compose.demo.yml` sobe só `api` + `web` sobre um banco **fictício** (tmpfs), sem listener, backup, bot
+nem segredos — pensado para mostrar o painel, nunca para operar de verdade. Não use em produção.
+
+```bash
+docker compose -f docker-compose.demo.yml up --build   # http://localhost:18080, senha: demo-teleyes
+```
+
+| Variável | Efeito |
+|---|---|
+| `TELEYES_DEMO=1` | modo demonstração: listener `demo`, notificador sem rede, banner em toda página, login público |
+| `TELEYES_DEMO_READONLY=1` | todo POST/PUT/PATCH/DELETE (exceto login/logout e o teste de regra) vira 403 "Modo demonstração: alterações desativadas." |
+| `TELEYES_DEMO_LIVE=1` | a API insere uma oferta fictícia a cada 20-40 s para o feed ao vivo se mexer |
+
+O compose liga as três por padrão (`TELEYES_DEMO_READONLY=0` libera escrita). O banco é semeado por
+`scripts/seed_demo.py --db <arquivo>` (idempotente; recusa banco com fonte/destinatário sem o marcador `demo:`
+mesmo com `--force`). O app recusa subir com `TELEYES_DEMO=1` num banco real, e sem a flag num banco de
+demonstração. Se recriar só o `api`, reinicie o `web` (o nginx guarda o IP do `api`).
 
 ## Atualizar para uma nova versão
 
@@ -285,7 +306,7 @@ docker compose -f docker-compose.prod.yml run --rm --entrypoint python backup sc
 
 ## Boot automático, energia e recuperação (Windows)
 
-Pensado pro desktop doméstico rodando o teleyes 24/7 recuperar sozinho depois de um reboot ou queda de
+Pensado para uma máquina doméstica rodando o teleyes 24/7 recuperar sozinho depois de um reboot ou queda de
 energia, sem ninguém precisar digitar comando nenhum. Scripts em `ops/windows/`.
 
 **Nada disto foi testado num Windows real ainda** — escrito e revisado numa worktree Mac, sem acesso a um

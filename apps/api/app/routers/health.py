@@ -17,7 +17,7 @@ class TelegramHealth(BaseModel):
 
 class BotHealth(BaseModel):
     configured: bool
-    state: Literal["configured", "not_configured"]
+    state: Literal["configured", "not_configured", "demo"]
 
 
 class HealthResponse(BaseModel):
@@ -27,6 +27,14 @@ class HealthResponse(BaseModel):
     uptime_seconds: float
     telegram: TelegramHealth
     bot: BotHealth
+    # S19-03: true only when started with TELEYES_DEMO=1; the panel shows a banner.
+    demo: bool = False
+
+
+def _bot_state(configured: bool, demo: bool) -> Literal["configured", "not_configured", "demo"]:
+    if demo:
+        return "demo"
+    return "configured" if configured else "not_configured"
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -43,10 +51,11 @@ def health(request: Request) -> HealthResponse:
         uptime_seconds=round(max(0.0, time.monotonic() - started_at), 3),
         telegram=TelegramHealth(
             configured=adapter.is_configured(),
-            state=adapter.state,
+            state=AdapterState.DEMO if settings.teleyes_demo else adapter.state,
         ),
         bot=BotHealth(
             configured=bot_configured,
-            state="configured" if bot_configured else AdapterState.NOT_CONFIGURED.value,
+            state=_bot_state(bot_configured, settings.teleyes_demo),
         ),
+        demo=settings.teleyes_demo,
     )

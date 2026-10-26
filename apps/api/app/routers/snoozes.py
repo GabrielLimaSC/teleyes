@@ -69,7 +69,7 @@ def _label_maps(db: Session, snoozes: list[Snooze]) -> tuple[dict[int, str], dic
             .order_by(Match.matched_at.desc())
         ).all()
         for key, message_text in rows:
-            if key in product_titles:
+            if key is None or key in product_titles:
                 continue
             title = product_title(message_text)
             if title is not None:

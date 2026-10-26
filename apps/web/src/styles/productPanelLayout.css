@@ -1,31 +1,21 @@
 /**
- * S14-08 (07b): the split between a page's own content and the product
- * panel — shared by FeedPage and HistoricoPage so the exact transition (grid
- * 1fr → 1fr 520px, 320ms in / 220ms out, the feed dimming to .55 opacity +
- * saturate(.85)) is implemented once. `data-panel-phase` mirrors
- * `useProductPanel`'s `phase` ('closed' has no data attribute at all — the
- * page doesn't render the wrapper's open styles when nothing is open).
+ * S14-08 (07b): wrapper shared by FeedPage and HistoricoPage around a page's
+ * own content and the product panel. `data-panel-phase` mirrors
+ * `useProductPanel`'s `phase`.
  *
- * Two real grid tracks at all times (`1fr 0px` closed, `1fr 520px` open) —
- * not one track appearing/disappearing — because `grid-template-columns`
- * only animates when the browser can match up the same number of tracks
- * before and after.
+ * S20-03: the panel is always a `position: fixed` overlay (ProductPanel.css)
+ * that animates only `transform`/`opacity` on the compositor, and it does NOT
+ * take space from the page: the content keeps its exact width, so opening or
+ * closing causes no layout, no container-query re-evaluation and no
+ * `ResizeObserver` fallout (the old column split reflowed hundreds of cards
+ * and rows in one frame, right when the animation started). Nothing about the
+ * content animates either — no filter, no opacity on the page; the dim comes
+ * from the panel's own fixed backdrop layer (ProductPanel.css), a separate,
+ * cheap compositor layer. The drawer simply covers the right edge of the page
+ * while it is open (click outside / Esc / × closes it).
  */
 .product-panel-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 0px;
-  gap: 24px;
-  align-items: start;
-}
-
-.product-panel-layout[data-panel-phase='open'] {
-  grid-template-columns: minmax(0, 1fr) 520px;
-  transition: grid-template-columns 320ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.product-panel-layout[data-panel-phase='closing'] {
-  grid-template-columns: minmax(0, 1fr) 0px;
-  transition: grid-template-columns 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  display: block;
 }
 
 .product-panel-layout__content {
@@ -33,57 +23,6 @@
   /* S14-07: lets a page's own responsive grid (FeedPage.css's
      `.feed-page__grid`) react to the width actually left over once the
      panel opens (520px + 24px gap narrower than the viewport), not just the
-     viewport itself — a `@media` breakpoint alone stays blind to that and
-     can leave a 2-column card grid squeezed into a sliver next to two full
-     -width side rails (caught by product-panel.spec.ts's "swap" test going
-     flaky once S14-07's richer cards made the squeeze's overflow tall/wide
-     enough to cover the next card's own click target). */
+     viewport itself — a `@media` breakpoint alone stays blind to that. */
   container-type: inline-size;
-}
-
-.product-panel-layout[data-panel-phase='open'] .product-panel-layout__content {
-  opacity: 0.55;
-  filter: saturate(0.85);
-  transition: opacity 200ms linear, filter 200ms linear;
-}
-
-.product-panel-layout[data-panel-phase='closing'] .product-panel-layout__content {
-  opacity: 1;
-  filter: saturate(1);
-  transition: opacity 220ms linear, filter 220ms linear;
-}
-
-/* 07b: below 960px the panel is a full-screen sheet (ProductPanel.css),
-   never a grid column — the feed keeps its normal single-column layout and
-   full opacity/saturation, dimmed instead by the sheet's own backdrop. */
-@media (max-width: 959px) {
-  .product-panel-layout,
-  .product-panel-layout[data-panel-phase='open'],
-  .product-panel-layout[data-panel-phase='closing'] {
-    grid-template-columns: minmax(0, 1fr);
-    transition: none;
-  }
-
-  .product-panel-layout[data-panel-phase='open'] .product-panel-layout__content,
-  .product-panel-layout[data-panel-phase='closing'] .product-panel-layout__content {
-    opacity: 1;
-    filter: none;
-    transition: none;
-  }
-}
-
-/* prefers-reduced-motion (07b): the grid change and the feed dim/saturate
-   still happen, just without an animated transition — the panel's own
-   120ms fade (ProductPanel.css) is the only motion left. */
-@media (prefers-reduced-motion: reduce) {
-  .product-panel-layout,
-  .product-panel-layout[data-panel-phase='open'],
-  .product-panel-layout[data-panel-phase='closing'] {
-    transition: none;
-  }
-
-  .product-panel-layout[data-panel-phase='open'] .product-panel-layout__content,
-  .product-panel-layout[data-panel-phase='closing'] .product-panel-layout__content {
-    transition: none;
-  }
 }

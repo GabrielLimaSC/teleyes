@@ -57,6 +57,29 @@
   }
 }
 
+/* S20-01: same stacking, but driven by the width the page content really has
+   (`.product-panel-layout__content` is the query container): with the product
+   panel open at 1100-1440px the viewport is wide but the content is not. */
+@container (max-width: 899px) {
+  .historico-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Stacked above the results, the filters use two columns instead of one
+     tall column of full-width fields. */
+  .historico-page__grid .historico-rail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+  }
+
+  .historico-page__grid .historico-rail__head,
+  .historico-page__grid .historico-rail__divider,
+  .historico-page__grid .historico-rail__price-grid {
+    grid-column: 1 / -1;
+  }
+}
+
 .historico-rail {
   padding: 20px;
   display: flex;
@@ -140,6 +163,12 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* S20-01: the table and the stat tiles react to the width this column
+     really gets (filters rail on its left, product panel on its right), not
+     to the viewport — a viewport media query was blind to the 544px the
+     open panel takes, and the 6-column row collapsed (one letter per line). */
+  min-width: 0;
+  container: historico-results / inline-size;
 }
 
 .historico-stats {
@@ -148,7 +177,7 @@
   gap: 12px;
 }
 
-@media (max-width: 720px) {
+@container historico-results (max-width: 899px) {
   .historico-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -170,6 +199,7 @@
 }
 
 .historico-stats__value {
+  overflow-wrap: anywhere;
   font-size: 24px;
   font-weight: 700;
   color: var(--plane-text-heading);
@@ -370,14 +400,29 @@
   white-space: nowrap;
 }
 
-@media (max-width: 900px) {
+/* S20-01: the 6-column row needs ~1000px (590px of fixed columns + gaps +
+   two flexible ones); narrower than that the column stacks into a two-column
+   card, then a single column. Container-based, see `.historico-page__results`. */
+@container historico-results (max-width: 999px) {
   .historico-table__row {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 8px;
   }
 
   .historico-table__row--head {
     display: none;
+  }
+
+  .historico-table__product,
+  .historico-table__promo {
+    grid-column: 1 / -1;
+  }
+
+  .historico-table__promo {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
   }
 
   .historico-table__cell--right {
@@ -385,8 +430,14 @@
   }
 }
 
+@container historico-results (max-width: 519px) {
+  .historico-table__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
-  .historico-rail__price-grid {
+  .historico-page__grid .historico-rail__price-grid {
     grid-template-columns: 1fr;
   }
 }

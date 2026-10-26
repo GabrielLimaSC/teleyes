@@ -12,6 +12,7 @@ export interface MatchFilters {
   maxPriceCents?: number
   deliveryStatus?: string
   sort?: MatchSort
+  search?: string
 }
 
 export interface MatchCorrection {
@@ -43,6 +44,7 @@ export function buildMatchQuery(filters: MatchFilters): string {
   if (filters.maxPriceCents !== undefined) params.set('max_price_cents', String(filters.maxPriceCents))
   if (filters.deliveryStatus !== undefined) params.set('delivery_status', filters.deliveryStatus)
   if (filters.sort !== undefined) params.set('sort', filters.sort)
+  if (filters.search !== undefined && filters.search.trim() !== '') params.set('q', filters.search.trim())
   return params.toString()
 }
 
@@ -70,6 +72,15 @@ export function updateMatch(
     method: 'PATCH',
     headers: jsonHeaders(csrfToken),
     body: JSON.stringify(input),
+  })
+}
+
+/** S20-01: `DELETE /matches/{id}` — removes a wrong listing (and the other
+ * matches of the same Telegram message) from the history and the price math. */
+export function deleteMatch(csrfToken: string, matchId: number): Promise<void> {
+  return apiRequest<void>(`/matches/${matchId}`, {
+    method: 'DELETE',
+    headers: jsonHeaders(csrfToken),
   })
 }
 

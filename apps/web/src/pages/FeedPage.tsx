@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MatchCard } from '../components/MatchCard'
 import { ProductPanel } from '../components/ProductPanel'
@@ -18,18 +18,21 @@ import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { useLiveMatches } from '../hooks/useLiveMatches'
 import type { FeedConnectionState } from '../hooks/useLiveMatches'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { useStableCallback } from '../hooks/useStableCallback'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
 import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
 import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { fetchFeedSettings, updateFeedSettings } from '../api/feedSettings'
 import { updateRule } from '../api/rules'
-import { targetGapPct, targetHit } from '../utils/target'
+import { ruleTargetState } from '../utils/target'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { localDateStamp, parseApiDate } from '../utils/dates'
 import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
+import { useDeleteListing } from '../hooks/useDeleteListing'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
@@ -45,6 +48,10 @@ const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: str
 }
 
 const TOP_N_OPTIONS = [3, 5, 10, 20]
+
+// Width of a collapsed Feed rail (FeedPage.css track contract); the compact
+// bar pieces are always anchored as if both rails were collapsed (S17-04).
+const COLLAPSED_RAIL_WIDTH = 64
 
 function formatCurrency(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -76,25 +83,14 @@ function formatDigestNextRun(nextRunAtLocal: string, now: Date): string {
 
 interface TargetRuleRow {
   rule: Rule
-  /** Most recent day's price from `rule.history_30d` (its last point, the
-   * array is oldest first) — `null` with no priced match in the last 30
-   * days. Never `rule.lowest_price_cents` (S7-06's all-time minimum), which
-   * would keep showing "atingido" long after the price went back up. */
+  /** S17-10: `rule.lowest_price_24h_cents` — the lowest offer of the last
+   * 24 h, `null` with none (neutral "sem oferta"). Never the all-time
+   * minimum (`lowest_price_cents`) nor an older day of `history_30d`: an
+   * expired offer is not "atingido". */
   latestPriceCents: number | null
   hit: boolean
   gapPct: number | null
   progressPct: number
-}
-
-/** A callback whose identity never changes but always runs the latest
- * closure — lets the memoized card list below skip re-renders that only the
- * page's own chrome state caused. */
-function useStableCallback<Args extends unknown[], Result>(callback: (...args: Args) => Result) {
-  const ref = useRef(callback)
-  useLayoutEffect(() => {
-    ref.current = callback
-  })
-  return useCallback((...args: Args) => ref.current(...args), [])
 }
 
 /** S15-03: the cards, memoized — scrolling in and out of the compact chrome
@@ -110,6 +106,7 @@ const FeedMatchList = memo(function FeedMatchList({
   onCreateRule,
   onSnooze,
   onSetTarget,
+  onDelete,
 }: {
   visibleMatches: Match[]
   hasAnyMatch: boolean
@@ -120,6 +117,7 @@ const FeedMatchList = memo(function FeedMatchList({
   onCreateRule: (productKey: string) => void
   onSnooze: (match: Match) => void
   onSetTarget: (ruleId: number, targetCents: number) => void
+  onDelete: (match: Match) => void
 }) {
   return (
     <div className="feed-page__list">
@@ -140,6 +138,7 @@ const FeedMatchList = memo(function FeedMatchList({
             onCreateRule={onCreateRule}
             onSnooze={onSnooze}
             onSetTarget={onSetTarget}
+            onDelete={onDelete}
           />
         </div>
       ))}
@@ -153,6 +152,14 @@ export function FeedPage() {
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
   const { toast, showToast, dismiss } = useToast()
+  // S20-01: "Excluir anúncio" (card menu) and "Excluir" (product panel).
+  const { requestDeleteMatch, requestDeleteProduct, dialog: deleteDialog } = useDeleteListing({
+    showToast,
+    onDeleted: (target) => {
+      if (target.kind === 'product') panel.close()
+      refresh()
+    },
+  })
 
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
@@ -193,7 +200,10 @@ export function FeedPage() {
   }, [matches])
 
   function reportError(err: unknown, fallback: string) {
-    showToast(err instanceof ApiError ? err.message : fallback, 'error')
+    // The read-only demo's refusal already has its (single) toast from DemoBanner.
+    reportFailure(err, err instanceof ApiError ? err.message : fallback, (message) =>
+      showToast(message, 'error'),
+    )
   }
 
   function requireCsrf(): string | null {
@@ -341,23 +351,20 @@ export function FeedPage() {
     }
   }, [visibleMatches])
 
-  // S14-07 (barra lateral) — revisão 1, bloqueio (2): "Alvos de preço" —
-  // every rule with a target, hit/gap computed from the rule's most RECENT
-  // price (`Rule.history_30d`'s last point, #102/S14-09), never its all-time
-  // minimum (`Rule.lowest_price_cents`, S7-06) — a rule stays "atingido"
-  // forever once it ever dipped below the target if the historical minimum
-  // is used instead of the current price. Same source `utils/target.ts`
-  // (mirrors `packages.rules.target` server-side) already uses for a single
-  // match's own `target_hit`/`target_gap_pct`, so this never disagrees with
-  // a card's own badge.
+  // S14-07 (barra lateral): "Alvos de preço" — every rule with a target.
+  // S17-10: hit/gap are judged on the rule's lowest offer of the LAST 24 H
+  // (`Rule.lowest_price_24h_cents`), the same window the backend applies to
+  // a card's own `target_hit`/`target_gap_pct`, so the rail never disagrees
+  // with a badge and an expired offer is never "atingido".
   const targetRows: TargetRuleRow[] = useMemo(
     () =>
       rules
         .filter((rule): rule is Rule & { target_price_cents: number } => rule.target_price_cents !== null)
         .map((rule) => {
-          const latestPriceCents = rule.history_30d?.at(-1)?.price_cents ?? null
-          const hit = targetHit(latestPriceCents, rule.target_price_cents)
-          const gapPct = targetGapPct(latestPriceCents, rule.target_price_cents)
+          const latestPriceCents = rule.lowest_price_24h_cents ?? null
+          const state = ruleTargetState(rule)
+          const hit = state.kind === 'hit'
+          const gapPct = state.kind === 'gap' ? state.gapPct : null
           const progressPct =
             latestPriceCents !== null && latestPriceCents > 0
               ? Math.max(0, Math.min(100, Math.round((rule.target_price_cents / latestPriceCents) * 100)))
@@ -398,6 +405,7 @@ export function FeedPage() {
   const stableCreateRule = useStableCallback(handleCreateRule)
   const stableCardSnooze = useStableCallback(handleCardSnooze)
   const stableSetTarget = useStableCallback(handleSetTarget)
+  const stableDelete = useStableCallback((match: Match) => requestDeleteMatch(match.id))
 
   // S15-03: compact chrome while scrolled (chrome/scrollChrome.ts). The rails
   // only fold into icon strips while the grid actually has its 3 columns —
@@ -482,9 +490,11 @@ export function FeedPage() {
 
   // S16-01: the compact bar's own pieces that live outside this component
   // (NavCapsule's mascot, ThemeToggle — both rendered by App, siblings of
-  // this page) read these three x-positions off `<html>`. The two rail
-  // widths come from FeedPage.css's own track contract (64px collapsed,
-  // its open default otherwise) — NEVER sampled off the grid's resolved
+  // this page) read these three x-positions off `<html>`.
+  // S17-04: they always use the COLLAPSED rail width (64px, FeedPage.css's
+  // track contract), whatever the rails' real state — once the bar is
+  // compact the pieces sit in the corners and never jump when the rails
+  // collapse afterwards. NEVER sampled off the grid's resolved
   // `grid-template-columns` while it's mid-spring: that chased the rail's
   // own 680ms width transition, and since the pieces reading the variable
   // (NavCapsule.css, ThemeToggle) transition `left` too, the two springs
@@ -498,14 +508,27 @@ export function FeedPage() {
   useEffect(() => {
     if (gridElement === null) return
     const root = document.documentElement
-    const leftWidth = leftState === 'collapsed' ? 64 : 272
-    const rightWidth = rightState === 'collapsed' ? 64 : 312
+    const leftWidth = COLLAPSED_RAIL_WIDTH
+    const rightWidth = COLLAPSED_RAIL_WIDTH
+    // S20-03: a custom property written on <html> restyles the whole
+    // document (hundreds of cards). Read everything first, skip the write
+    // when nothing moved, and write the three together — the old
+    // read/write/read/write interleaving forced a full style recalc between
+    // each setProperty, three times per grid resize (opening the product
+    // panel resizes the grid).
+    let lastKey = ''
     const update = () => {
       const rect = gridElement.getBoundingClientRect()
       const gap = Number.parseFloat(window.getComputedStyle(gridElement).columnGap) || 0
-      root.style.setProperty('--feed-rail-left-center', `${rect.left + leftWidth / 2}px`)
-      root.style.setProperty('--feed-rail-right-center', `${rect.right - rightWidth / 2}px`)
-      root.style.setProperty('--feed-toolbar-right', `${root.clientWidth - (rect.right - rightWidth - gap)}px`)
+      const leftCenter = `${rect.left + leftWidth / 2}px`
+      const rightCenter = `${rect.right - rightWidth / 2}px`
+      const toolbarRight = `${root.clientWidth - (rect.right - rightWidth - gap)}px`
+      const key = `${leftCenter}|${rightCenter}|${toolbarRight}`
+      if (key === lastKey) return
+      lastKey = key
+      root.style.setProperty('--feed-rail-left-center', leftCenter)
+      root.style.setProperty('--feed-rail-right-center', rightCenter)
+      root.style.setProperty('--feed-toolbar-right', toolbarRight)
     }
     update()
     // jsdom (unit tests) has no ResizeObserver — the one-shot `update()`
@@ -518,7 +541,7 @@ export function FeedPage() {
       observer.disconnect()
       window.removeEventListener('resize', update)
     }
-  }, [gridElement, leftState, rightState])
+  }, [gridElement])
 
   // Never leaves a stale Feed geometry behind for another page.
   useEffect(
@@ -583,7 +606,7 @@ export function FeedPage() {
     targetRows.length === 0
       ? 'Alvos de preço · nenhum'
       : `Alvos de preço · ${targetRows.length} ${targetRows.length === 1 ? 'ativo' : 'ativos'}` +
-        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : ', alvo atingido')
+        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : targetRows.some((row) => row.hit) ? ', alvo atingido' : ', sem oferta nas últimas 24 h')
 
   const leftStripItems: RailStripItem[] = [
     {
@@ -650,6 +673,7 @@ export function FeedPage() {
   return (
     <main className="feed-page">
       <Toast toast={toast} onDismiss={dismiss} />
+      {deleteDialog}
       {/* S16-01: no gradient/blur band anymore — this repaints the page's
           own background (color-paper + body-wash, same as index.css's
           `body`/`body::before`) behind a 56→112px mask, so a card scrolling
@@ -752,11 +776,18 @@ export function FeedPage() {
               {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum alvo definido ainda.</p>}
               <div className="feed-rail__list">
                 {targetRows.map(({ rule, latestPriceCents, hit, gapPct, progressPct }) => (
-                  <div key={rule.id} className="feed-target">
+                  <div
+                    key={rule.id}
+                    className="feed-target"
+                    aria-label={gapPct === null && !hit ? `${rule.name}: sem oferta nas últimas 24 h` : undefined}
+                  >
                     <div className="feed-target__head">
                       <span className="feed-target__name">{rule.name}</span>
-                      <span className={hit ? 'feed-target__status feed-target__status--hit' : 'feed-target__status'}>
-                        {hit ? 'atingido' : `falta ${gapPct ?? 0}%`}
+                      <span
+                        className={hit ? 'feed-target__status feed-target__status--hit' : 'feed-target__status'}
+                        title={gapPct === null && !hit ? 'sem oferta nas últimas 24 h' : undefined}
+                      >
+                        {hit ? 'atingido' : gapPct === null ? 'sem oferta' : `falta ${gapPct}%`}
                       </span>
                     </div>
                     <div className="feed-target__bar">
@@ -767,7 +798,13 @@ export function FeedPage() {
                     </div>
                     <div className="feed-target__foot">
                       <span>alvo {formatCurrency(rule.target_price_cents as number)}</span>
-                      <span>{latestPriceCents !== null ? formatCurrency(latestPriceCents) : 'sem preço recente'}</span>
+                      {latestPriceCents !== null ? (
+                        <span>{formatCurrency(latestPriceCents)}</span>
+                      ) : (
+                        <span className="feed-target__foot-muted" title="sem oferta nas últimas 24 h">
+                          últimas 24 h
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -885,6 +922,7 @@ export function FeedPage() {
             onCreateRule={stableCreateRule}
             onSnooze={stableCardSnooze}
             onSetTarget={stableSetTarget}
+            onDelete={stableDelete}
           />
 
           <div ref={rightRailRef} id="feed-rail-right" className="feed-page__side-rail">
@@ -1035,6 +1073,7 @@ export function FeedPage() {
                 onCreateRule={() => handleCreateRule(panel.productKey as string)}
                 onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
                 onEdited={() => refresh()}
+                onDeleteProduct={(count) => requestDeleteProduct(panel.productKey as string, count)}
                 targetPriceCents={panelMatch?.target_price_cents ?? null}
                 targetRuleName={panelRule?.name}
                 snoozed={panelMatch?.snoozed ?? false}

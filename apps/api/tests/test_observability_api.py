@@ -225,7 +225,8 @@ def test_matches_list_includes_deliveries_without_n_plus_one(api: ApiContext) ->
         event.remove(api.engine, "before_cursor_execute", capture_statement)
 
     assert response.status_code == 200
-    assert len(statements) == 1
+    # list + one rule-wide sparkline query (S17-09), never one per match.
+    assert len(statements) == 2
     assert len(response.json()) == 3
     assert _response_ids(response.json()) == {
         ids["match_a"],
@@ -264,6 +265,83 @@ def test_every_match_filter_and_price_range(api: ApiContext) -> None:
         response = api.client.get("/matches", params=query)
         assert response.status_code == 200
         assert _response_ids(response.json()) == expected_ids
+
+
+def _add_search_matches(api: ApiContext, ids: dict[str, int]) -> dict[str, int]:
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        board = Match(
+            source_id=ids["source_a"],
+            rule_id=ids["rule_a"],
+            message_text="Placa-mãe ASUS B850M-AYW Prime R$ 1.200,00",
+            price_cents=120_000,
+            product_key="placa mae asus b850m ayw",
+            matched_at=now,
+        )
+        fridge = Match(
+            source_id=ids["source_b"],
+            rule_id=ids["rule_b"],
+            message_text="GELADEIRA Frost Free",
+            price_cents=300_000,
+            matched_at=now,
+        )
+        session.add_all([board, fridge])
+        session.commit()
+        return {"board": board.id, "fridge": fridge.id}
+
+
+def test_matches_search_ignores_accent_case_and_punctuation(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    extra = _add_search_matches(api, ids)
+    _login(api)
+
+    for term in ("b850m", "B850M-AYW", "PLACA MAE", "placa-mãe", "geladeira"):
+        response = api.client.get("/matches", params={"q": term})
+        assert response.status_code == 200
+        expected = {extra["fridge"]} if "gela" in term.lower() else {extra["board"]}
+        assert _response_ids(response.json()) == expected, term
+
+    # Also hits `product_key` when the message text itself doesn't contain it.
+    assert _response_ids(api.client.get("/matches", params={"q": "notebook"}).json()) == {
+        ids["match_a"],
+        ids["match_b"],
+    }
+
+
+def test_matches_search_combines_with_other_filters_and_sort(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    extra = _add_search_matches(api, ids)
+    _login(api)
+
+    both = api.client.get("/matches", params={"q": "notebook", "sort": "price_desc"}).json()
+    assert [item["id"] for item in both] == [ids["match_b"], ids["match_a"]]
+
+    by_rule = api.client.get("/matches", params={"q": "b850m", "rule_id": ids["rule_a"]})
+    assert _response_ids(by_rule.json()) == {extra["board"]}
+    wrong_rule = api.client.get("/matches", params={"q": "b850m", "rule_id": ids["rule_b"]})
+    assert wrong_rule.json() == []
+
+    in_range = api.client.get(
+        "/matches", params={"q": "notebook", "min_price_cents": 20_000, "max_price_cents": 30_000}
+    )
+    assert _response_ids(in_range.json()) == {ids["match_b"]}
+    out_of_range = api.client.get("/matches", params={"q": "b850m", "max_price_cents": 50_000})
+    assert out_of_range.json() == []
+
+    with_delivery = api.client.get("/matches", params={"q": "notebook", "delivery_status": "sent"})
+    assert _response_ids(with_delivery.json()) == {ids["match_a"]}
+
+
+def test_matches_search_no_result_and_blank_query_keeps_feed_behavior(api: ApiContext) -> None:
+    ids = _seed_matches(api)
+    _add_search_matches(api, ids)
+    _login(api)
+
+    assert api.client.get("/matches", params={"q": "zzz inexistente"}).json() == []
+    everything = api.client.get("/matches").json()
+    for blank in ("", "   ", "---"):
+        response = api.client.get("/matches", params={"q": blank})
+        assert _response_ids(response.json()) == _response_ids(everything)
 
 
 def test_invalid_match_price_range_becomes_422(api: ApiContext) -> None:
@@ -481,7 +559,7 @@ def _seed_target_matches(api: ApiContext) -> dict[str, int]:
             rule_id=rule_with_target.id,
             message_text="RTX 5070 por R$ 2.050",
             price_cents=205_000,
-            matched_at=now - timedelta(days=1),
+            matched_at=now - timedelta(hours=2),
         )
         above = Match(
             source_id=source.id,
@@ -524,11 +602,11 @@ def test_matches_feed_exposes_target_fields(api: ApiContext) -> None:
     assert at_target["target_hit"] is True
     assert at_target["target_gap_pct"] == 0
 
-    # The worked example from the task: target 2050, price 2249 -> 9%.
+    # S17-10: `above` is 2 days old, an expired offer: no hit, no gap.
     above = by_id[ids["above"]]
     assert above["target_price_cents"] == 205_000
     assert above["target_hit"] is False
-    assert above["target_gap_pct"] == 9
+    assert above["target_gap_pct"] is None
 
     no_target = by_id[ids["no_target"]]
     assert no_target["target_price_cents"] is None
@@ -559,6 +637,64 @@ def test_matches_feed_sorts_target_hits_first(api: ApiContext) -> None:
     # Stable sort: relative order within the hit group is untouched (`below`
     # is more recent than `at_target`, same as the default recency order).
     assert ordered_ids.index(ids["below"]) < ordered_ids.index(ids["at_target"])
+
+
+def _seed_pinning_matches(api: ApiContext) -> dict[str, int]:
+    """S17-02: a recent target hit (2 h ago, R$ 20), an old target hit
+    (3 days ago, R$ 10, so it is the cheapest) and a recent non-hit
+    (1 h ago, R$ 30), all under one rule with a R$ 25 target.
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo Fixar", telegram_chat_id="-1098")
+        rule = Rule(name="Fixar", include_terms="fixar", target_price_cents=2_500)
+        session.add_all([source, rule])
+        session.flush()
+        rows = {
+            "recent_hit": (2_000, now - timedelta(hours=2)),
+            "old_hit": (1_000, now - timedelta(days=3)),
+            "recent_miss": (3_000, now - timedelta(hours=1)),
+        }
+        matches = {
+            key: Match(
+                source_id=source.id,
+                rule_id=rule.id,
+                message_text=f"Fixar {key}",
+                price_cents=price,
+                matched_at=matched_at,
+            )
+            for key, (price, matched_at) in rows.items()
+        }
+        session.add_all(matches.values())
+        session.commit()
+        return {key: match.id for key, match in matches.items()}
+
+
+def test_matches_feed_pins_only_recent_target_hits(api: ApiContext) -> None:
+    """S17-02: a target hit from 2 h ago goes first; one from 3 days ago
+    reads `target_hit` false (S17-10) and sits at its normal position, with
+    and without `sort=price_asc`.
+    """
+    ids = _seed_pinning_matches(api)
+    _login(api)
+
+    default = api.client.get("/matches").json()
+    assert [item["id"] for item in default] == [
+        ids["recent_hit"],
+        ids["recent_miss"],
+        ids["old_hit"],
+    ]
+    by_hit = {item["id"]: (item["target_hit"], item["target_gap_pct"]) for item in default}
+    assert by_hit[ids["recent_hit"]] == (True, 0)
+    assert by_hit[ids["old_hit"]] == (False, None)
+
+    by_price = api.client.get("/matches", params={"sort": "price_asc"}).json()
+    # Without pinning: old_hit, recent_hit, recent_miss.
+    assert [item["id"] for item in by_price] == [
+        ids["recent_hit"],
+        ids["old_hit"],
+        ids["recent_miss"],
+    ]
 
 
 def test_matches_lowest_price_stays_correct_for_a_match_inserted_out_of_chronological_order(
@@ -1184,3 +1320,44 @@ def test_notification_delivery_failure_becomes_502_without_error_leak(
     assert response.status_code == 502
     assert response.json() == {"detail": "notification delivery failed"}
     assert "test-token" not in response.text
+
+
+def test_rules_target_state_only_counts_offers_from_the_last_24_hours(api: ApiContext) -> None:
+    """S17-10: `lowest_price_24h_cents` ignores older matches, so a rule whose
+    only below-target offer is 3 days old has no live price at all.
+    """
+    now = datetime.now(UTC)
+    with api.session_factory() as session:
+        source = Source(name="Grupo 24h", telegram_chat_id="-1097")
+        fresh = Rule(name="Fresca", include_terms="fresca", target_price_cents=2_500)
+        stale = Rule(name="Velha", include_terms="velha", target_price_cents=2_500)
+        empty = Rule(name="Vazia", include_terms="vazia", target_price_cents=2_500)
+        session.add_all([source, fresh, stale, empty])
+        session.flush()
+        for rule, price, age in (
+            (fresh, 2_400, timedelta(hours=2)),
+            (fresh, 2_900, timedelta(hours=5)),
+            (fresh, 1_000, timedelta(days=3)),
+            (stale, 1_000, timedelta(days=3)),
+            (stale, 2_000, timedelta(hours=25)),
+        ):
+            session.add(
+                Match(
+                    source_id=source.id,
+                    rule_id=rule.id,
+                    message_text=f"{rule.name} {price}",
+                    price_cents=price,
+                    matched_at=now - age,
+                )
+            )
+        session.commit()
+        ids = {"fresh": fresh.id, "stale": stale.id, "empty": empty.id}
+    _login(api)
+
+    by_id = {rule["id"]: rule for rule in api.client.get("/rules").json()}
+
+    assert by_id[ids["fresh"]]["lowest_price_24h_cents"] == 2_400
+    assert by_id[ids["fresh"]]["lowest_price_cents"] == 1_000
+    assert by_id[ids["stale"]]["lowest_price_24h_cents"] is None
+    assert by_id[ids["stale"]]["lowest_price_cents"] == 1_000
+    assert by_id[ids["empty"]]["lowest_price_24h_cents"] is None

@@ -10,6 +10,7 @@ import {
 } from '../api/recipients'
 import type { RecipientInput } from '../api/recipients'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
 import type { Recipient } from '../api/types'
 import { StatusToggle } from '../components/StatusToggle'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -132,7 +133,7 @@ export function DestinatariosSection({ onChanged }: { onChanged?: () => void }) 
     setPausingId(recipient.id)
     pauseRecipient(csrfToken, recipient.id)
       .then(changed)
-      .catch(() => setListError('Não foi possível pausar o destinatário.'))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar o destinatário.', setListError))
       .finally(() => setPausingId(null))
   }
 
@@ -145,7 +146,7 @@ export function DestinatariosSection({ onChanged }: { onChanged?: () => void }) 
     deleteRecipient(csrfToken, recipient.id)
       .then(changed)
       .catch((error: unknown) => {
-        setListError(error instanceof ApiError ? error.message : 'Não foi possível excluir o destinatário.')
+        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir o destinatário.', setListError)
       })
       .finally(() => setDeletingId(null))
   }

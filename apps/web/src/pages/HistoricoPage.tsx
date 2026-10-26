@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
@@ -11,6 +11,8 @@ import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import type { MatchFilters, MatchSort } from '../api/matches'
 import { ApiError } from '../api/auth'
+import { reportFailure } from '../api/demo'
+import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import { updateRule } from '../api/rules'
 import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
 import type { Match, Recipient, Rule, Snooze, Source } from '../api/types'
@@ -18,6 +20,9 @@ import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { useProductPanel } from '../hooks/useProductPanel'
+import { useStableCallback } from '../hooks/useStableCallback'
+import { useDeleteListing } from '../hooks/useDeleteListing'
+import { RowActionsMenu } from '../components/RowActionsMenu'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
@@ -40,6 +45,8 @@ const DELIVERY_STATUS_OPTIONS = [
 // S7-07: ranking por preço — mais útil com uma regra específica filtrada
 // (comparar o mesmo produto/promoção), mas funciona com qualquer combinação
 // de filtros, inclusive nenhum.
+export const SEARCH_DEBOUNCE_MS = 300
+
 const SORT_OPTIONS: Array<{ value: '' | MatchSort; label: string }> = [
   { value: '', label: 'Mais recentes primeiro' },
   { value: 'price_asc', label: 'Menor preço primeiro' },
@@ -47,6 +54,7 @@ const SORT_OPTIONS: Array<{ value: '' | MatchSort; label: string }> = [
 ]
 
 export interface FilterForm {
+  search: string
   ruleId: string
   sourceId: string
   recipientId: string
@@ -57,6 +65,7 @@ export interface FilterForm {
 }
 
 const EMPTY_FILTERS: FilterForm = {
+  search: '',
   ruleId: '',
   sourceId: '',
   recipientId: '',
@@ -73,6 +82,7 @@ const EMPTY_FILTERS: FilterForm = {
 export const HISTORICO_FILTERS_STORAGE_KEY = 'teleyes:historico-filters'
 
 const FILTER_FORM_KEYS = [
+  'search',
   'ruleId',
   'sourceId',
   'recipientId',
@@ -118,6 +128,8 @@ export function parseStoredHistoricoFilters(raw: string): FilterForm | null {
 
 export function toApiFilters(form: FilterForm): MatchFilters {
   const filters: MatchFilters = {}
+  // S17-05: blank/whitespace-only search is not a filter.
+  if (form.search.trim() !== '') filters.search = form.search.trim()
   if (form.ruleId !== '') filters.ruleId = Number(form.ruleId)
   if (form.sourceId !== '') filters.sourceId = Number(form.sourceId)
   if (form.recipientId !== '') filters.recipientId = Number(form.recipientId)
@@ -229,6 +241,125 @@ interface HistoricoRow {
   recipientNames: string[]
 }
 
+/** S20-03: one table row, memoized — opening/closing the product panel
+ * re-renders the page, and hundreds of unchanged rows must not re-render with
+ * it (the row only depends on its own data and two stable callbacks). */
+const HistoricoTableRow = memo(function HistoricoTableRow({
+  row,
+  onOpenProduct,
+  onRequestDelete,
+}: {
+  row: HistoricoRow
+  onOpenProduct: (productKey: string, trigger: HTMLElement) => void
+  onRequestDelete: (matchId: number) => void
+}) {
+  const category = categorize(row.match.message_text)
+  const openProduct = (trigger: HTMLElement) => {
+    if (row.productKey !== null) onOpenProduct(row.productKey, trigger)
+  }
+  const titleNode =
+    row.productKey !== null ? (
+      <button
+        type="button"
+        className="historico-table__title historico-table__title--button"
+        {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+        onClick={(event) => openProduct(event.currentTarget)}
+      >
+        {row.title}
+      </button>
+    ) : (
+      <span className="historico-table__title">{row.title}</span>
+    )
+  return (
+    <div className="historico-table__row">
+      <div className="historico-table__product">
+        <span
+          className="historico-table__icon"
+          style={{ background: CATEGORY_BACKGROUND[category] }}
+        >
+          <CategoryIcon category={category} />
+        </span>
+        {row.hasFullText ? (
+          <Tooltip label={row.linkCutText}>{titleNode}</Tooltip>
+        ) : (
+          titleNode
+        )}
+      </div>
+      <span className="historico-table__meta">
+        {row.ruleName} · {row.sourceName}
+        {row.groupedSourceNames.length > 0 && (
+          <span className="historico-table__grouped-sources">
+            Visto em: {row.groupedSourceNames.join(', ')}
+          </span>
+        )}
+      </span>
+      <span className="historico-table__time">{row.time}</span>
+      <div className="historico-table__cell--right">
+        <div className="historico-table__price">{row.priceText}</div>
+        {row.priceDetails.map((detail) => (
+          <span
+            key={detail}
+            className={
+              'historico-table__price-note' +
+              (detail === 'Menor já visto' ? ' historico-table__price-note--lowest' : '')
+            }
+          >
+            {detail}
+          </span>
+        ))}
+      </div>
+      <div className="historico-table__cell--right">
+        <span className="historico-table__delivery">{row.deliveryLabel}</span>
+        {row.recipientNames.length > 0 && (
+          <span className="historico-table__price-note">
+            Para: {row.recipientNames.join(', ')}
+          </span>
+        )}
+      </div>
+      <div className="historico-table__cell--right historico-table__promo">
+        {row.productKey !== null && (
+          <button
+            type="button"
+            className="product-open-trigger"
+            {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
+            onClick={(event) => openProduct(event.currentTarget)}
+          >
+            Abrir produto <span aria-hidden="true">›</span>
+          </button>
+        )}
+        {row.match.message_link !== null ? (
+          <a
+            className="plane-action plane-action--secondary plane-action--compact historico-table__open"
+            href={row.match.message_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Abrir promoção: ${row.title}`}
+          >
+            Abrir promoção
+            <span aria-hidden="true">↗</span>
+          </a>
+        ) : (
+          <span className="historico-table__no-link" title={NO_LINK_REASON}>
+            Sem link
+            <span className="historico-table__sr-only">: {NO_LINK_REASON}</span>
+          </span>
+        )}
+        <RowActionsMenu
+          label={`Mais ações: ${row.title}`}
+          items={[
+            {
+              key: 'delete',
+              label: 'Excluir anúncio',
+              danger: true,
+              onSelect: () => onRequestDelete(row.match.id),
+            },
+          ]}
+        />
+      </div>
+    </div>
+  )
+})
+
 export function HistoricoPage() {
   const panel = useProductPanel()
   const navigate = useNavigate()
@@ -245,7 +376,29 @@ export function HistoricoPage() {
     emptyValue: EMPTY_FILTERS,
     parse: parseStoredHistoricoFilters,
   })
+  // S17-05: `form.search` follows every keystroke (and is what gets persisted);
+  // `appliedSearch` trails it by SEARCH_DEBOUNCE_MS and is what actually
+  // reaches the API, so typing doesn't fire one request per letter.
+  const [appliedSearch, setAppliedSearch] = useState(form.search)
+  useEffect(() => {
+    if (form.search === '') {
+      setAppliedSearch('')
+      return
+    }
+    const timer = window.setTimeout(() => setAppliedSearch(form.search), SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [form.search])
   const [matches, setMatches] = useState<Match[]>([])
+  // S20-01: "Excluir anúncio" (row menu) and "Excluir" (product panel). The
+  // list reloads right after, with the new totals, lowest price, etc.
+  const { requestDeleteMatch, requestDeleteProduct, dialog: deleteDialog } = useDeleteListing({
+    showToast,
+    onDeleted: (target) => {
+      if (target.kind === 'product') panel.close()
+      loadMatches()
+    },
+  })
+  const stableRequestDeleteMatch = useStableCallback((matchId: number) => requestDeleteMatch(matchId))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -261,7 +414,10 @@ export function HistoricoPage() {
   }, [])
 
   function reportError(err: unknown, fallback: string) {
-    showToast(err instanceof ApiError ? err.message : fallback, 'error')
+    // The read-only demo's refusal already has its (single) toast from DemoBanner.
+    reportFailure(err, err instanceof ApiError ? err.message : fallback, (message) =>
+      showToast(message, 'error'),
+    )
   }
 
   function requireCsrf(): string | null {
@@ -325,7 +481,7 @@ export function HistoricoPage() {
   // below reacting to a filter change.
   const loadMatches = useCallback(() => {
     setLoading(true)
-    fetchMatches(toApiFilters(form))
+    fetchMatches(toApiFilters({ ...form, search: appliedSearch }))
       .then((data) => {
         setMatches(data)
         setError(null)
@@ -336,6 +492,7 @@ export function HistoricoPage() {
     // individually would just repeat this same dependency list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    appliedSearch,
     form.ruleId,
     form.sourceId,
     form.recipientId,
@@ -419,7 +576,13 @@ export function HistoricoPage() {
     return {
       count: matches.length,
       avgPrice: prices.length > 0 ? Math.round(prices.reduce((sum, price) => sum + price, 0) / prices.length) : null,
-      lowestPrice: prices.length > 0 ? Math.min(...prices) : null,
+      // Same outlier floor as the Feed's "Menor preço" (S16-02): a bait price far below
+      // its rule's median is a parsing error or a trap, not the lowest price.
+      lowestPrice: robustLowestPriceCents(
+        matches
+          .filter((match): match is typeof match & { price_cents: number } => match.price_cents !== null)
+          .map((match) => ({ ruleId: match.rule_id, priceCents: match.price_cents })),
+      ),
       deliveriesDone,
     }
   }, [matches])
@@ -442,6 +605,7 @@ export function HistoricoPage() {
   return (
     <main className="historico-page">
       <Toast toast={toast} onDismiss={dismiss} />
+      {deleteDialog}
       <div className="historico-page__header">
         <div>
           <h1>Histórico</h1>
@@ -480,6 +644,18 @@ export function HistoricoPage() {
               Limpar filtros
             </button>
           </div>
+          <label>
+            Buscar produto
+            <input
+              type="search"
+              aria-label="Buscar produto"
+              placeholder="Ex.: b850m, geladeira"
+              maxLength={200}
+              autoComplete="off"
+              value={form.search}
+              onChange={(event) => updateField('search')(event.target.value)}
+            />
+          </label>
           <label>
             Regra
             {/* S14-07 revisão 2: an implicit label-wraps-select association
@@ -638,7 +814,13 @@ export function HistoricoPage() {
                 </div>
               </div>
 
-              {rows.length === 0 && <p>Nenhum match encontrado com esses filtros.</p>}
+              {rows.length === 0 && (
+                <p>
+                  {appliedSearch.trim() !== ''
+                    ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou limpe os filtros.`
+                    : 'Nenhum match encontrado com esses filtros.'}
+                </p>
+              )}
               {rows.length > 0 && (
                 <div className="plane-pearl historico-table">
                   <div className="historico-table__row historico-table__row--head">
@@ -649,102 +831,14 @@ export function HistoricoPage() {
                     <span className="historico-table__cell--right">Entrega</span>
                     <span className="historico-table__cell--right">Promoção</span>
                   </div>
-                  {rows.map((row) => {
-                    const category = categorize(row.match.message_text)
-                    const openProduct = (trigger: HTMLElement) => {
-                      if (row.productKey !== null) panel.open(row.productKey, trigger)
-                    }
-                    const titleNode =
-                      row.productKey !== null ? (
-                        <button
-                          type="button"
-                          className="historico-table__title historico-table__title--button"
-                          {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
-                          onClick={(event) => openProduct(event.currentTarget)}
-                        >
-                          {row.title}
-                        </button>
-                      ) : (
-                        <span className="historico-table__title">{row.title}</span>
-                      )
-                    return (
-                      <div key={row.match.id} className="historico-table__row">
-                        <div className="historico-table__product">
-                          <span
-                            className="historico-table__icon"
-                            style={{ background: CATEGORY_BACKGROUND[category] }}
-                          >
-                            <CategoryIcon category={category} />
-                          </span>
-                          {row.hasFullText ? (
-                            <Tooltip label={row.linkCutText}>{titleNode}</Tooltip>
-                          ) : (
-                            titleNode
-                          )}
-                        </div>
-                        <span className="historico-table__meta">
-                          {row.ruleName} · {row.sourceName}
-                          {row.groupedSourceNames.length > 0 && (
-                            <span className="historico-table__grouped-sources">
-                              Visto em: {row.groupedSourceNames.join(', ')}
-                            </span>
-                          )}
-                        </span>
-                        <span className="historico-table__time">{row.time}</span>
-                        <div className="historico-table__cell--right">
-                          <div className="historico-table__price">{row.priceText}</div>
-                          {row.priceDetails.map((detail) => (
-                            <span
-                              key={detail}
-                              className={
-                                'historico-table__price-note' +
-                                (detail === 'Menor já visto' ? ' historico-table__price-note--lowest' : '')
-                              }
-                            >
-                              {detail}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="historico-table__cell--right">
-                          <span className="historico-table__delivery">{row.deliveryLabel}</span>
-                          {row.recipientNames.length > 0 && (
-                            <span className="historico-table__price-note">
-                              Para: {row.recipientNames.join(', ')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="historico-table__cell--right historico-table__promo">
-                          {row.productKey !== null && (
-                            <button
-                              type="button"
-                              className="product-open-trigger"
-                              {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
-                              onClick={(event) => openProduct(event.currentTarget)}
-                            >
-                              Abrir produto <span aria-hidden="true">›</span>
-                            </button>
-                          )}
-                          {row.match.message_link !== null ? (
-                            <a
-                              className="plane-action plane-action--secondary plane-action--compact historico-table__open"
-                              href={row.match.message_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label={`Abrir promoção: ${row.title}`}
-                            >
-                              Abrir promoção
-                              <span aria-hidden="true">↗</span>
-                            </a>
-                          ) : (
-                            <span className="historico-table__no-link" title={NO_LINK_REASON}>
-                              Sem link
-                              <span className="historico-table__sr-only">: {NO_LINK_REASON}</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {rows.map((row) => (
+                    <HistoricoTableRow
+                      key={row.match.id}
+                      row={row}
+                      onOpenProduct={panel.open}
+                      onRequestDelete={stableRequestDeleteMatch}
+                    />
+                  ))}
                 </div>
               )}
             </>
@@ -761,6 +855,7 @@ export function HistoricoPage() {
           onCreateRule={() => handleCreateRule(panel.productKey as string)}
           onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
           onEdited={() => loadMatches()}
+          onDeleteProduct={(count) => requestDeleteProduct(panel.productKey as string, count)}
           targetPriceCents={panelMatch?.target_price_cents ?? null}
           targetRuleName={panelRule?.name}
           snoozed={panelMatch?.snoozed ?? false}

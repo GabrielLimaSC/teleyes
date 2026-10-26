@@ -14,6 +14,7 @@ const rule: Rule = {
   active: true,
   created_at: '2026-01-01T00:00:00Z',
   lowest_price_cents: null,
+  lowest_price_24h_cents: null,
   snoozed_until: null,
   history_30d: [],
 }
@@ -826,6 +827,8 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
       />,
     )
     expect(screen.getByRole('img', { name: /Histórico de preço/ })).toBeInTheDocument()
+    expect(screen.getByText('Regra · 90 dias')).toBeInTheDocument()
+    expect(screen.getByTitle('Menor preço da regra por dia, últimos 90 dias')).toBeInTheDocument()
     expect(screen.queryByText('linha = alvo')).not.toBeInTheDocument()
 
     rerender(
@@ -892,6 +895,24 @@ describe('MatchCard — ações (S14-07, 06)', () => {
     // Picking an item closes the menu and returns focus to its trigger.
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mais ações' })).toHaveFocus()
+  })
+
+  it('"Excluir anúncio" lives in the "⋯" menu and calls onDelete with the match (S20-01)', async () => {
+    const onDelete = vi.fn()
+    const match = buildMatch()
+    const user = userEvent.setup()
+    render(<MatchCard match={match} rule={rule} source={source} recipients={[]} onDelete={onDelete} />)
+
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Excluir anúncio' }))
+
+    expect(onDelete).toHaveBeenCalledWith(match)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('has no "⋯" menu at all without any menu action (S20-01)', () => {
+    render(<MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} />)
+    expect(screen.queryByRole('button', { name: 'Mais ações' })).not.toBeInTheDocument()
   })
 
   it('"Silenciar 7 dias" becomes "Reativar" once match.snoozed is true, both calling onSnooze with the match', async () => {

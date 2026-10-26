@@ -472,6 +472,10 @@
   background: var(--plane-tint-bg);
 }
 
+.match-card__menu-item--danger {
+  color: var(--plane-action-danger-color);
+}
+
 .match-card__target-form {
   display: flex;
   align-items: flex-end;

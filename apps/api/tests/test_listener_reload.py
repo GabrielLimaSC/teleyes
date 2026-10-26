@@ -231,7 +231,7 @@ async def test_a_new_source_and_a_new_recipient_start_listening_after_the_reques
     await world.boot()
 
     world.add_source(CHAT_B, name="Grupo novo")
-    world.add_recipient("888", name="Namorada")
+    world.add_recipient("888", name="Destinatário")
     world.chats.post(CHAT_B, 10, "iphone 15 R$ 4.000 (antes do pedido)", hours_ago=2)
     world.chats.post(CHAT_B, 11, "monitor sem relação", hours_ago=1)
 
@@ -378,7 +378,7 @@ async def test_a_paused_recipient_no_longer_receives_after_the_request(
     world.add_source(CHAT_A)
     world.add_rule("iphone")
     world.add_recipient("999")
-    other = world.add_recipient("888", name="Namorada")
+    other = world.add_recipient("888", name="Destinatário")
     await world.boot()
     await world.live(CHAT_A, 1, "iphone um")
     assert sorted(world.alerted_chats()) == ["888", "999"]
@@ -403,7 +403,7 @@ async def test_a_failed_reload_keeps_the_old_configuration_and_can_be_retried(
 
     world.add_source(CHAT_B, name="Grupo novo")
     world.add_rule("ps5", name="PS5")
-    world.add_recipient("888", name="Namorada")
+    world.add_recipient("888", name="Destinatário")
     secret = "R$ 999 texto de mensagem que nunca pode aparecer no erro"
     world.chats.fail_recent_for[CHAT_B] = RuntimeError(secret)
 

@@ -118,14 +118,14 @@ function MatchSparkline({ match }: { match: Match }) {
   if (geometry === null) return null
 
   return (
-    <div className="match-card__spark">
+    <div className="match-card__spark" title="Menor preço da regra por dia, últimos 90 dias">
       <svg
         viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
         width={SPARK_WIDTH}
         height={SPARK_HEIGHT}
         preserveAspectRatio="none"
         role="img"
-        aria-label="Histórico de preço, 90 dias"
+        aria-label="Histórico de preço da regra, 90 dias"
         className="match-card__spark-chart"
       >
         {geometry.targetY !== null && (
@@ -146,7 +146,7 @@ function MatchSparkline({ match }: { match: Match }) {
         />
       </svg>
       <div className="match-card__spark-axis">
-        <span>90 dias</span>
+        <span>Regra · 90 dias</span>
         {geometry.targetY !== null && <span>linha = alvo</span>}
       </div>
     </div>
@@ -164,6 +164,7 @@ export function MatchCard({
   onCreateRule,
   onSnooze,
   onSetTarget,
+  onDelete,
 }: {
   match: Match
   rule: Rule | undefined
@@ -197,6 +198,9 @@ export function MatchCard({
   /** S14-07: "Definir alvo" — cents already parsed from the inline field;
    * the page owns the actual `PATCH /rules/{id}`. */
   onSetTarget?: (ruleId: number, targetCents: number) => void
+  /** S20-01: "Excluir anúncio" in the ⋯ menu — the page owns the
+   * confirmation dialog and the `DELETE /matches/{id}`. */
+  onDelete?: (match: Match) => void
 }) {
   const [showTargetForm, setShowTargetForm] = useState(false)
   const [targetInput, setTargetInput] = useState(
@@ -357,7 +361,8 @@ export function MatchCard({
   // S16-03 (05): narrow pulls Silenciar into the ⋯ menu; wide keeps it a
   // standalone button and the menu only ever holds "Criar regra disso".
   const showSnoozeButton = canSnooze && !isNarrow
-  const showMenu = canCreateRule || (isNarrow && canSnooze)
+  const canDelete = onDelete !== undefined
+  const showMenu = canCreateRule || (isNarrow && canSnooze) || canDelete
 
   function submitTarget(event: FormEvent) {
     event.preventDefault()
@@ -602,6 +607,19 @@ export function MatchCard({
                         }}
                       >
                         Criar regra disso
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="match-card__menu-item match-card__menu-item--danger"
+                        onClick={() => {
+                          onDelete?.(match)
+                          closeMenu()
+                        }}
+                      >
+                        Excluir anúncio
                       </button>
                     )}
                   </div>

@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { NavCapsule } from './components/NavCapsule'
+import { DemoBanner } from './components/DemoBanner'
 import { OfflineBanner } from './components/OfflineBanner'
 import { ThemeToggle } from './components/ThemeToggle'
 import { RequireAuth } from './auth/RequireAuth'
@@ -14,6 +15,7 @@ function App() {
   return (
     <>
       <OfflineBanner />
+      <DemoBanner />
       <NavCapsule />
       <Routes>
         <Route path="/" element={<LoginPage />} />

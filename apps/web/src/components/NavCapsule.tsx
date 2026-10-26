@@ -8,7 +8,8 @@ import './NavCapsule.css'
 // centre out in the normal capsule, left to right (`order`) in the compact
 // one (S15-03/S15-04), where the mascot sits before every tab.
 const TABS = [
-  { to: '/', label: 'Login', stagger: 2, order: 0 },
+  // S19-05: the public static demo is always signed in, so this tab is the overview.
+  { to: '/', label: import.meta.env.VITE_DEMO_STATIC === '1' ? 'Início' : 'Login', stagger: 2, order: 0 },
   { to: '/feed', label: 'Feed', stagger: 1, order: 1 },
   { to: '/regras', label: 'Regras', stagger: 0, order: 2 },
   { to: '/fontes', label: 'Fontes', stagger: 0, order: 3 },
@@ -160,7 +161,7 @@ export function NavCapsule() {
           <span className="nav-mascot__refraction" aria-hidden="true" />
           <span className="nav-mascot__tint" aria-hidden="true" />
           <span className="nav-mascot__shine" aria-hidden="true" />
-          <img src="/mascot.png" alt="" width="256" height="256" />
+          <img src={`${import.meta.env.BASE_URL}mascot.png`} alt="" width="256" height="256" />
         </button>
       </nav>
     </header>

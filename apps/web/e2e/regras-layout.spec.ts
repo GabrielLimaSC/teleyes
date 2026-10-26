@@ -10,7 +10,7 @@ import { apiLogin, apiPost } from './helpers'
  *
  * Real backend (`/demo/messages`); tag aleatória, backend compartilhado.
  */
-test('Regras: ações em 2 fileiras, histórico visível e botões com altura real', async ({ page }) => {
+test('Regras: ações numa fileira só (S18-01), histórico visível e botões com altura real', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')
   const csrf = await apiLogin(page)
@@ -37,12 +37,11 @@ test('Regras: ações em 2 fileiras, histórico visível e botões com altura re
   const row = page.locator('tr', { has: page.getByText(`Layout ${tag}`, { exact: true }) })
   await expect(row).toBeVisible()
 
-  const rows = row.locator('.wide-table__actions-row')
-  await expect(rows).toHaveCount(2)
-  for (let index = 0; index < 2; index += 1) {
-    const box = await rows.nth(index).boundingBox()
-    expect(box!.height, `fileira ${index + 1} de ações numa linha só`).toBeLessThanOrEqual(34)
-  }
+  // S18-01: Editar, Testar and "⋯" in one single row.
+  const actions = row.locator('.rule-actions')
+  await expect(actions.getByRole('button')).toHaveCount(3)
+  const box = await actions.boundingBox()
+  expect(box!.height, 'ações numa linha só').toBeLessThanOrEqual(34)
 
   const line = row.locator('.rule-sparkline polyline')
   await expect(line).toHaveCount(1)

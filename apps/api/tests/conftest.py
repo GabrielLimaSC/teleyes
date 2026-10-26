@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy.orm import Session
+from tests.match_api_support import api  # noqa: F401  (fixture shared by the match API tests)
 
 from models.db import get_engine, get_sessionmaker
 
@@ -42,3 +43,11 @@ def session(db_path: Path) -> Iterator[Session]:
     engine = get_engine(url)
     with get_sessionmaker(engine)() as session:
         yield session
+
+
+@pytest.fixture(autouse=True)
+def instant_notify_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S17-01: the in-place send retry must not make the suite sleep."""
+    from app import pipeline
+
+    monkeypatch.setattr(pipeline, "NOTIFY_BASE_DELAY", 0.0)

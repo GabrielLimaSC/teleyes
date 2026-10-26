@@ -10,6 +10,7 @@ import type { HealthResponse } from '../api/health'
 import { listRules } from '../api/rules'
 import { listSources } from '../api/sources'
 import { fetchMatches } from '../api/matches'
+import { DEMO_PASSWORD } from '../api/demo'
 import { botStateLabel } from '../components/adapterStateLabel'
 import type { StateLabel } from '../components/adapterStateLabel'
 import '../styles/materials.css'
@@ -32,7 +33,7 @@ function Brand() {
   return (
     <div className="login-panel__brand">
       <span className="login-card__mascot-frame">
-        <img className="login-card__mascot" src="/mascot.png" alt="" />
+        <img className="login-card__mascot" src={`${import.meta.env.BASE_URL}mascot.png`} alt="" />
       </span>
       <div>
         <h1>teleyes</h1>
@@ -65,7 +66,7 @@ function StatusRow({
 }
 
 export function LoginPage() {
-  const { status, adminId, logout, csrfMissing, login } = useAuth()
+  const { status, adminId, logout, login } = useAuth()
   const fillOrigin = useFillOrigin()
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -162,12 +163,6 @@ export function LoginPage() {
               <h2>Sessão ativa</h2>
               <p>Admin #{adminId}.</p>
             </div>
-            {csrfMissing && (
-              <p className="login-warning">
-                Esta aba recarregou e perdeu o token de sessão — para sair, será preciso entrar de
-                novo.
-              </p>
-            )}
             <button
               type="button"
               className="plane-action login-submit fill-button"
@@ -233,9 +228,15 @@ export function LoginPage() {
               autoComplete="current-password"
               required
             />
-            <span className="login-field__helper">
-              Definida com <code>scripts/create_admin.py</code>.
-            </span>
+            {anonHealth?.demo === true ? (
+              <span className="login-field__helper" data-testid="demo-login-hint">
+                Demonstração: use a senha <code>{DEMO_PASSWORD}</code>.
+              </span>
+            ) : (
+              <span className="login-field__helper">
+                Definida com <code>scripts/create_admin.py</code>.
+              </span>
+            )}
           </div>
           <button
             type="submit"

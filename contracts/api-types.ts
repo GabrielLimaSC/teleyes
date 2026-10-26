@@ -193,7 +193,15 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Match
+         * @description S20-01: "Excluir anúncio" — removes a wrong listing (e.g. a price typo)
+         *     from the history and from every price calculation, with its deliveries and
+         *     correction audit rows. 404 when it does not exist (a second call, or a
+         *     sibling already deleted via the product), same as `DELETE /sources/{id}`.
+         *     The message identity is remembered so a re-scan does not bring it back.
+         */
+        delete: operations["delete_match_matches__match_id__delete"];
         options?: never;
         head?: never;
         /** Update Match */
@@ -273,6 +281,27 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{key}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Product Matches
+         * @description S20-01: deletes every record of a product (see `delete_matches`). 404
+         *     when the product has none, so a repeated call reads as "already gone".
+         */
+        delete: operations["delete_product_matches_products__key__matches_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -475,6 +504,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rules/{rule_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Rule */
+        post: operations["resume_rule_rules__rule_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/feed": {
         parameters: {
             query?: never;
@@ -589,7 +635,7 @@ export interface components {
          * AdapterState
          * @enum {string}
          */
-        AdapterState: "not_configured" | "connecting" | "connected" | "reconnecting" | "blocked";
+        AdapterState: "not_configured" | "connecting" | "connected" | "reconnecting" | "blocked" | "demo";
         /** BotHealth */
         BotHealth: {
             /** Configured */
@@ -598,7 +644,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "configured" | "not_configured";
+            state: "configured" | "not_configured" | "demo";
         };
         /** ClearMatchesResponse */
         ClearMatchesResponse: {
@@ -688,6 +734,11 @@ export interface components {
         /** HealthResponse */
         HealthResponse: {
             bot: components["schemas"]["BotHealth"];
+            /**
+             * Demo
+             * @default false
+             */
+            demo: boolean;
             /** Env */
             env: string;
             /**
@@ -873,6 +924,13 @@ export interface components {
             /** Price */
             price?: string | null;
         };
+        /** MeResponse */
+        MeResponse: {
+            /** Admin Id */
+            admin_id: number;
+            /** Csrf Token */
+            csrf_token: string;
+        };
         /**
          * MetricReason
          * @description Fixed, categorical reasons a message was seen, discarded or failed.
@@ -908,6 +966,11 @@ export interface components {
             date: string;
             /** Price Cents */
             price_cents: number;
+        };
+        /** ProductMatchesDeleted */
+        ProductMatchesDeleted: {
+            /** Deleted */
+            deleted: number;
         };
         /** ProductPostingResponse */
         ProductPostingResponse: {
@@ -1051,6 +1114,8 @@ export interface components {
             id: number;
             /** Include Terms */
             include_terms: string;
+            /** Lowest Price 24H Cents */
+            lowest_price_24h_cents?: number | null;
             /** Lowest Price Cents */
             lowest_price_cents?: number | null;
             /** Max Price Cents */
@@ -1371,9 +1436,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1614,6 +1677,7 @@ export interface operations {
                 max_price_cents?: number | null;
                 delivery_status?: string | null;
                 sort?: ("price_asc" | "price_desc") | null;
+                q?: string | null;
             };
             header?: never;
             path?: never;
@@ -1631,6 +1695,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MatchResponse"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_match_matches__match_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1801,6 +1896,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_product_matches_products__key__matches_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductMatchesDeleted"];
                 };
             };
             /** @description Validation Error */
@@ -2221,6 +2349,39 @@ export interface operations {
         };
     };
     pause_rule_rules__rule_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_rule_rules__rule_id__resume_post: {
         parameters: {
             query?: never;
             header?: never;

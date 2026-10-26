@@ -14,8 +14,8 @@
     NÃO TESTADO DE VERDADE nesta sessão — escrito e revisado numa worktree
     Mac, sem Windows real disponível. Sintaxe conferida contra a documentação
     do PowerShell/Docker, mas a execução real (e portanto o `done_when` de
-    S5-06: reboot real recupera sozinho) fica pendente do teste do Gabriel no
-    desktop de casa.
+    S5-06: reboot real recupera sozinho) fica pendente de teste numa
+    máquina Windows real.
 
 .PARAMETER RepoPath
     Raiz do repositório (onde está docker-compose.prod.yml). Padrão: dois

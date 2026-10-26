@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { apiLogin, apiPost } from './helpers'
+import { apiLogin, apiPost, clickRowMenuItem } from './helpers'
 
 /**
  * S12-01 / S12-04: visual baseline of both themes. Opt-in (`VISUAL=1`) so the
@@ -243,12 +243,12 @@ test('seeded data across every screen', async ({ page }) => {
     idle: await apiPost<{ id: number }>(page, '/rules', csrf, { name: 'Regra sem matches', include_terms: 'nadaaqui' }),
   }
   const gabriel = await apiPost<{ id: number }>(page, '/recipients', csrf, { name: 'Gabriel', telegram_chat_id: '901', allowlisted: true })
-  const namorada = await apiPost<{ id: number }>(page, '/recipients', csrf, { name: 'Namorada', telegram_chat_id: '902', allowlisted: true })
+  const secondary = await apiPost<{ id: number }>(page, '/recipients', csrf, { name: 'Destinatário', telegram_chat_id: '902', allowlisted: true })
   await apiPost(page, '/recipients', csrf, { name: 'Sem autorização', telegram_chat_id: '903', allowlisted: false })
 
   // `link` is the message's Telegram address: the ones that have it show "Abrir
   // promoção" in Feed and Histórico, the ones without it show "Sem link" (S13-03).
-  const send = (source: { id: number }, rule: { id: number }, text: string, recipients = [gabriel.id, namorada.id], link?: string) =>
+  const send = (source: { id: number }, rule: { id: number }, text: string, recipients = [gabriel.id, secondary.id], link?: string) =>
     apiPost(page, '/demo/messages', csrf, { source_id: source.id, rule_id: rule.id, recipient_ids: recipients, text, link })
 
   // Category tiles: phone, laptop, headphones, gaming, generic.
@@ -347,7 +347,7 @@ test('seeded data across every screen', async ({ page }) => {
   await page.getByLabel('Mensagem de exemplo').fill('iphone 15 por 3000')
   await shoot(page, 'regras-tester', '1440')
 
-  await page.locator('tr', { hasText: 'iPhone até' }).first().getByRole('button', { name: 'Limpar histórico' }).click()
+  await clickRowMenuItem(page, page.locator('tr', { hasText: 'iPhone até' }).first(), 'Limpar histórico')
   await expect(page.getByRole('heading', { name: /Limpar histórico:/ })).toBeVisible()
   await shoot(page, 'regras-clear-confirm', '1440')
   await page.getByRole('button', { name: 'Cancelar' }).click()

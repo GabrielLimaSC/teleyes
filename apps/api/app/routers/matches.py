@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import ScalarSelect, Select, and_, exists, func, or_, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -11,19 +11,22 @@ from sqlalchemy.orm import Session, aliased
 
 from app.feed_settings import get_group_duplicates
 from app.main import get_current_session, get_db, require_csrf
+from app.match_deletion import delete_matches
 from app.pipeline import (
     DELIVERY_KIND_MANUAL_TARGET,
     GROUPING_WINDOW,
     build_target_alert_text,
     compute_group_key,
 )
-from app.product_history import get_display_timezone, posting_identity, sparklines_for_keys
+from app.product_history import get_display_timezone, posting_identity, sparklines_for_rules
 from app.routers.notifications import BotNotifierFactory, get_bot_notifier_factory
 from app.routers.products import PricePointResponse
+from app.target_window import within_target_window
 from app.utc import UtcDatetime, utc_now
 from auth.session import SessionRecord
 from models import Delivery, Match, MatchCorrection, Recipient, Rule, Snooze, Source
 from packages.rules.manual_price import PriceParseError, parse_manual_price_cents
+from packages.rules.normalize import normalize_text
 from packages.rules.target import target_gap_pct, target_hit
 
 router = APIRouter(
@@ -102,8 +105,10 @@ class MatchResponse(BaseModel):
     # target_price_cents` (null without one); `target_hit` and
     # `target_gap_pct` are computed fresh on every read from those two plus
     # `price_cents` (`packages.rules.target`), never persisted — same
-    # reasoning as `is_lowest_price_ever` above. Items with `target_hit` sort
-    # first in this endpoint's response (see `list_matches`).
+    # reasoning as `is_lowest_price_ever` above. S17-10: both only apply to a
+    # match inside `TARGET_HIT_WINDOW` (24 h); an older match reads
+    # `target_hit=False`, `target_gap_pct=None` (an expired offer). Items with
+    # `target_hit` sort first in this endpoint's response (see `list_matches`).
     target_price_cents: int | None = None
     target_hit: bool = False
     target_gap_pct: int | None = None
@@ -247,7 +252,7 @@ def _latest_correction_created_at() -> Any:
 
 
 def _match_filters(
-    statement: Select[tuple[Match, Delivery, int | None, int | None]],
+    statement: Select[Any],
     *,
     rule_id: int | None,
     source_id: int | None,
@@ -256,7 +261,7 @@ def _match_filters(
     min_price_cents: int | None,
     max_price_cents: int | None,
     delivery_status: str | None,
-) -> Select[tuple[Match, Delivery, int | None, int | None]]:
+) -> Select[Any]:
     if rule_id is not None:
         statement = statement.where(Match.rule_id == rule_id)
     if source_id is not None:
@@ -284,6 +289,25 @@ def _match_filters(
 
 
 MatchSort = Literal["price_asc", "price_desc"]
+
+
+def _matches_search(db_match: Match, normalized_query: str) -> bool:
+    """S17-05: product search, accent/case/punctuation-insensitive.
+
+    SQLite cannot normalize text (no unaccent, ILIKE is ASCII-only), so the
+    search runs in Python over rows the SQL filters already narrowed down, with
+    the same `normalize_text` the rule matcher uses. It checks the message,
+    the product key and the manual display name. No SQL string building and no
+    migration. Cost: O(rows returned by the SQL filters) normalizations per
+    request; `GET /matches` already loads and groups that whole set in Python,
+    so the search adds no new unbounded step.
+    """
+    haystack = " ".join(
+        normalize_text(part)
+        for part in (db_match.message_text, db_match.product_key, db_match.display_name)
+        if part
+    )
+    return normalized_query in haystack
 
 
 def _order_by(sort: MatchSort | None) -> list[Any]:
@@ -485,6 +509,7 @@ def _build_match_response(
     target_price_cents: int | None,
     correction_admin_id: int | None,
     correction_created_at: datetime | None,
+    now: datetime,
 ) -> MatchResponse:
     """One `Match` row's aggregates (already fetched by the caller's own
     query — `list_matches` or `_fetch_match_response`) turned into a
@@ -500,6 +525,10 @@ def _build_match_response(
         MatchCorrectionResponse(admin_id=correction_admin_id, created_at=correction_created_at)
         if correction_admin_id is not None and correction_created_at is not None
         else None
+    )
+    # S17-10: a target only means something for a still-live offer.
+    live_target_price = (
+        target_price_cents if within_target_window(db_match.matched_at, now) else None
     )
     return MatchResponse(
         id=db_match.id,
@@ -519,8 +548,8 @@ def _build_match_response(
         product_key=db_match.product_key,
         snoozed=bool(snoozed_now),
         target_price_cents=target_price_cents,
-        target_hit=target_hit(db_match.price_cents, target_price_cents),
-        target_gap_pct=target_gap_pct(db_match.price_cents, target_price_cents),
+        target_hit=target_hit(db_match.price_cents, live_target_price),
+        target_gap_pct=target_gap_pct(db_match.price_cents, live_target_price),
         grouped_match_ids=[db_match.id],
         group_key=compute_group_key(
             db_match.product_key, db_match.price_cents, db_match.matched_at
@@ -544,6 +573,7 @@ def list_matches(
     max_price_cents: int | None = Query(default=None, ge=0),
     delivery_status: str | None = Query(default=None, min_length=1, max_length=32),
     sort: Literal["price_asc", "price_desc"] | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=200),
     db: Session = Depends(get_db),
     now: datetime = Depends(utc_now),
     tz: ZoneInfo = Depends(get_display_timezone),
@@ -578,6 +608,8 @@ def list_matches(
         delivery_status=delivery_status,
     ).order_by(*_order_by(sort))
 
+    normalized_query = normalize_text(q) if q else ""
+    rejected_ids: set[int] = set()
     matches: dict[int, MatchResponse] = {}
     for (
         db_match,
@@ -588,8 +620,13 @@ def list_matches(
         correction_admin_id,
         correction_created_at,
     ) in db.execute(statement):
+        if db_match.id in rejected_ids:
+            continue
         response = matches.get(db_match.id)
         if response is None:
+            if normalized_query and not _matches_search(db_match, normalized_query):
+                rejected_ids.add(db_match.id)
+                continue
             response = _build_match_response(
                 db_match,
                 lowest_price_cents=lowest_price_cents,
@@ -597,6 +634,7 @@ def list_matches(
                 target_price_cents=target_price_cents,
                 correction_admin_id=correction_admin_id,
                 correction_created_at=correction_created_at,
+                now=now,
             )
             matches[db_match.id] = response
         if delivery is not None:
@@ -604,10 +642,11 @@ def list_matches(
 
     visible = _apply_display_grouping(matches)
     visible = _apply_duplicate_grouping(db, visible)
-    # S14-02: a target hit is prioritized in the live feed's own ordering,
-    # on top of whatever `sort`/grouping already produced — a stable sort
-    # only moves target hits to the front, it never reorders within either
-    # group.
+    # S14-02 / S17-02: a target hit is prioritized in the live feed's own
+    # ordering, on top of whatever `sort`/grouping already produced — a
+    # stable sort only moves those to the front, it never reorders within
+    # either group. S17-10: `target_hit` already only holds inside
+    # `TARGET_HIT_WINDOW`, so an expired hit is not pinned.
     visible.sort(key=lambda response: not response.target_hit)
     _attach_sparklines(db, visible, now=now, tz=tz)
     return visible
@@ -616,14 +655,11 @@ def list_matches(
 def _attach_sparklines(
     db: Session, responses: list[MatchResponse], *, now: datetime, tz: ZoneInfo
 ) -> None:
-    keys = {response.product_key for response in responses if response.product_key is not None}
-    sparklines = sparklines_for_keys(db, keys, now, tz)
+    # S17-09: the card chart is the RULE's lowest-price series, not the product's.
+    sparklines = sparklines_for_rules(db, {response.rule_id for response in responses}, now, tz)
     for response in responses:
-        if response.product_key is None:
-            continue
         response.sparkline = [
-            PricePointResponse.from_point(point)
-            for point in sparklines.get(response.product_key, [])
+            PricePointResponse.from_point(point) for point in sparklines.get(response.rule_id, [])
         ]
 
 
@@ -669,6 +705,7 @@ def _fetch_match_response(
                 target_price_cents=target_price_cents,
                 correction_admin_id=correction_admin_id,
                 correction_created_at=correction_created_at,
+                now=now,
             )
         if delivery is not None:
             response.deliveries.append(DeliveryResponse.model_validate(delivery))
@@ -1014,3 +1051,24 @@ def revert_match(
     response = _fetch_match_response(db, match.id, now=now, tz=tz)
     assert response is not None
     return response
+
+
+@router.delete(
+    "/{match_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_csrf)],
+)
+def delete_match(match_id: int, request: Request, db: Session = Depends(get_db)) -> Response:
+    """S20-01: "Excluir anúncio" — removes a wrong listing (e.g. a price typo)
+    from the history and from every price calculation, with its deliveries and
+    correction audit rows. 404 when it does not exist (a second call, or a
+    sibling already deleted via the product), same as `DELETE /sources/{id}`.
+    The message identity is remembered so a re-scan does not bring it back.
+    """
+    match = db.get(Match, match_id)
+    if match is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="match not found")
+    deleted_ids = delete_matches(db, [match])
+    db.commit()
+    request.app.state.event_broker.publish("match_deleted", {"ids": deleted_ids})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
