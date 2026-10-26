@@ -324,6 +324,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/purchases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Purchases */
+        get: operations["list_purchases_purchases_get"];
+        put?: never;
+        /** Create Purchase */
+        post: operations["create_purchase_purchases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchases/{purchase_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Purchase */
+        put: operations["update_purchase_purchases__purchase_id__put"];
+        post?: never;
+        /** Delete Purchase */
+        delete: operations["delete_purchase_purchases__purchase_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipients": {
         parameters: {
             query?: never;
@@ -521,6 +557,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/savings/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Savings Report */
+        get: operations["savings_report_savings_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/feed": {
         parameters: {
             query?: never;
@@ -636,6 +689,22 @@ export interface components {
          * @enum {string}
          */
         AdapterState: "not_configured" | "connecting" | "connected" | "reconnecting" | "blocked" | "demo";
+        /** BlackFridaySummaryResponse */
+        BlackFridaySummaryResponse: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Days Before Max */
+            days_before_max: number | null;
+            /** Days Before Min */
+            days_before_min: number | null;
+            /** Is Default */
+            is_default: boolean;
+            /** Purchases Before */
+            purchases_before: number;
+        };
         /** BotHealth */
         BotHealth: {
             /** Configured */
@@ -716,6 +785,15 @@ export interface components {
             /** Top N */
             top_n: number;
         };
+        /** DiscardedResponse */
+        DiscardedResponse: {
+            /** Bloqueado */
+            bloqueado: number;
+            /** Preco Acima Teto */
+            preco_acima_teto: number;
+            /** Sem Termo */
+            sem_termo: number;
+        };
         /** FeedSettingsResponse */
         FeedSettingsResponse: {
             /** Group Duplicates */
@@ -751,6 +829,40 @@ export interface components {
             uptime_seconds: number;
             /** Version */
             version: string;
+        };
+        /** ItemSavingsResponse */
+        ItemSavingsResponse: {
+            /** Average 30D Cents */
+            average_30d_cents: number | null;
+            /** Average 90D Cents */
+            average_90d_cents: number | null;
+            /** Highest Seen Cents */
+            highest_seen_cents: number | null;
+            /** Lowest Seen Cents */
+            lowest_seen_cents: number | null;
+            /** Median 30D Cents */
+            median_30d_cents: number | null;
+            /** Median 90D Cents */
+            median_90d_cents: number | null;
+            /** Samples 30D */
+            samples_30d: number;
+            /** Samples 90D */
+            samples_90d: number;
+            /** Saving Vs Median Cents */
+            saving_vs_median_cents: number | null;
+            /** Saving Vs Median Pct */
+            saving_vs_median_pct: number | null;
+            /** Saving Vs Usual Cents */
+            saving_vs_usual_cents: number | null;
+            /** Saving Vs Usual Pct */
+            saving_vs_usual_pct: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data";
+            /** Usual Price Cents */
+            usual_price_cents: number | null;
         };
         /**
          * ListenerStatusResponse
@@ -955,6 +1067,37 @@ export interface components {
             updated_at: string;
         };
         /**
+         * NoiseResponse
+         * @description Aggregates only. `counters_scope` says the metric counters are cumulative since
+         *     the database existed (they have no date), the other numbers cover the period.
+         */
+        NoiseResponse: {
+            /** Alerts Matched */
+            alerts_matched: number;
+            /** Alerts Sent */
+            alerts_sent: number;
+            /**
+             * Counters Scope
+             * @constant
+             */
+            counters_scope: "all_time";
+            discarded: components["schemas"]["DiscardedResponse"];
+            /** Duplicates Grouped */
+            duplicates_grouped: number;
+            /** Messages Analyzed */
+            messages_analyzed: number;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+        };
+        /**
          * PricePointResponse
          * @description Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).
          */
@@ -1032,6 +1175,49 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** PurchaseInput */
+        PurchaseInput: {
+            /** Name */
+            name: string;
+            /** Price Cents */
+            price_cents: number;
+            /** Product Key */
+            product_key?: string | null;
+            /**
+             * Purchased At
+             * Format: date-time
+             */
+            purchased_at: string;
+            /** Rule Id */
+            rule_id?: number | null;
+            /** Store */
+            store?: string | null;
+        };
+        /** PurchaseResponse */
+        PurchaseResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Price Cents */
+            price_cents: number;
+            /** Product Key */
+            product_key: string | null;
+            /**
+             * Purchased At
+             * Format: date-time
+             */
+            purchased_at: string;
+            /** Rule Id */
+            rule_id: number | null;
+            /** Store */
+            store: string | null;
+        };
         /** RecipientCreate */
         RecipientCreate: {
             /**
@@ -1070,6 +1256,42 @@ export interface components {
             name?: string | null;
             /** Telegram Chat Id */
             telegram_chat_id?: string | null;
+        };
+        /** ReportItemResponse */
+        ReportItemResponse: {
+            /** Days Before Black Friday */
+            days_before_black_friday: number;
+            /** Id */
+            id: number;
+            /** Linked */
+            linked: boolean;
+            /** Name */
+            name: string;
+            /** Price Cents */
+            price_cents: number;
+            /**
+             * Purchased At
+             * Format: date-time
+             */
+            purchased_at: string;
+            savings: components["schemas"]["ItemSavingsResponse"] | null;
+            /** Store */
+            store: string | null;
+        };
+        /** ReportTotalsResponse */
+        ReportTotalsResponse: {
+            /** Estimated Saving Cents */
+            estimated_saving_cents: number;
+            /** Estimated Saving Pct */
+            estimated_saving_pct: number | null;
+            /** Linked With Data */
+            linked_with_data: number;
+            /** Purchases */
+            purchases: number;
+            /** Reference Total Cents */
+            reference_total_cents: number;
+            /** Total Paid Cents */
+            total_paid_cents: number;
         };
         /** RuleCreate */
         RuleCreate: {
@@ -1205,6 +1427,19 @@ export interface components {
             name?: string | null;
             /** Target Price Cents */
             target_price_cents?: number | null;
+        };
+        /** SavingsReportResponse */
+        SavingsReportResponse: {
+            black_friday: components["schemas"]["BlackFridaySummaryResponse"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Items */
+            items: components["schemas"]["ReportItemResponse"][];
+            noise: components["schemas"]["NoiseResponse"];
+            totals: components["schemas"]["ReportTotalsResponse"];
         };
         /**
          * SimulateMessageRequest
@@ -1975,6 +2210,140 @@ export interface operations {
             };
         };
     };
+    list_purchases_purchases_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_purchase_purchases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_purchase_purchases__purchase_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_purchase_purchases__purchase_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purchase_id: number;
+            };
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_recipients_recipients_get: {
         parameters: {
             query?: {
@@ -2401,6 +2770,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    savings_report_savings_report_get: {
+        parameters: {
+            query?: {
+                black_friday?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsReportResponse"];
                 };
             };
             /** @description Validation Error */

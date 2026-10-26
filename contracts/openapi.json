@@ -13,6 +13,54 @@
         "title": "AdapterState",
         "type": "string"
       },
+      "BlackFridaySummaryResponse": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "days_before_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Before Max"
+          },
+          "days_before_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Before Min"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "purchases_before": {
+            "title": "Purchases Before",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "is_default",
+          "purchases_before",
+          "days_before_min",
+          "days_before_max"
+        ],
+        "title": "BlackFridaySummaryResponse",
+        "type": "object"
+      },
       "BotHealth": {
         "properties": {
           "configured": {
@@ -219,6 +267,29 @@
         "title": "DigestSettingsUpdate",
         "type": "object"
       },
+      "DiscardedResponse": {
+        "properties": {
+          "bloqueado": {
+            "title": "Bloqueado",
+            "type": "integer"
+          },
+          "preco_acima_teto": {
+            "title": "Preco Acima Teto",
+            "type": "integer"
+          },
+          "sem_termo": {
+            "title": "Sem Termo",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sem_termo",
+          "bloqueado",
+          "preco_acima_teto"
+        ],
+        "title": "DiscardedResponse",
+        "type": "object"
+      },
       "FeedSettingsResponse": {
         "properties": {
           "group_duplicates": {
@@ -298,6 +369,165 @@
           "bot"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "ItemSavingsResponse": {
+        "properties": {
+          "average_30d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average 30D Cents"
+          },
+          "average_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average 90D Cents"
+          },
+          "highest_seen_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highest Seen Cents"
+          },
+          "lowest_seen_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest Seen Cents"
+          },
+          "median_30d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median 30D Cents"
+          },
+          "median_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median 90D Cents"
+          },
+          "samples_30d": {
+            "title": "Samples 30D",
+            "type": "integer"
+          },
+          "samples_90d": {
+            "title": "Samples 90D",
+            "type": "integer"
+          },
+          "saving_vs_median_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Median Cents"
+          },
+          "saving_vs_median_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Median Pct"
+          },
+          "saving_vs_usual_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Usual Cents"
+          },
+          "saving_vs_usual_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Usual Pct"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_data"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "usual_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Price Cents"
+          }
+        },
+        "required": [
+          "status",
+          "samples_90d",
+          "samples_30d",
+          "median_30d_cents",
+          "average_30d_cents",
+          "median_90d_cents",
+          "average_90d_cents",
+          "lowest_seen_cents",
+          "highest_seen_cents",
+          "usual_price_cents",
+          "saving_vs_median_cents",
+          "saving_vs_median_pct",
+          "saving_vs_usual_cents",
+          "saving_vs_usual_pct"
+        ],
+        "title": "ItemSavingsResponse",
         "type": "object"
       },
       "ListenerStatusResponse": {
@@ -859,6 +1089,57 @@
         "title": "MetricResponse",
         "type": "object"
       },
+      "NoiseResponse": {
+        "description": "Aggregates only. `counters_scope` says the metric counters are cumulative since\nthe database existed (they have no date), the other numbers cover the period.",
+        "properties": {
+          "alerts_matched": {
+            "title": "Alerts Matched",
+            "type": "integer"
+          },
+          "alerts_sent": {
+            "title": "Alerts Sent",
+            "type": "integer"
+          },
+          "counters_scope": {
+            "const": "all_time",
+            "title": "Counters Scope",
+            "type": "string"
+          },
+          "discarded": {
+            "$ref": "#/components/schemas/DiscardedResponse"
+          },
+          "duplicates_grouped": {
+            "title": "Duplicates Grouped",
+            "type": "integer"
+          },
+          "messages_analyzed": {
+            "title": "Messages Analyzed",
+            "type": "integer"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_start",
+          "period_end",
+          "counters_scope",
+          "messages_analyzed",
+          "discarded",
+          "alerts_matched",
+          "duplicates_grouped",
+          "alerts_sent"
+        ],
+        "title": "NoiseResponse",
+        "type": "object"
+      },
       "PricePointResponse": {
         "description": "Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).",
         "properties": {
@@ -1087,6 +1368,140 @@
         "title": "ProductSourceResponse",
         "type": "object"
       },
+      "PurchaseInput": {
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "price_cents": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000000.0,
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "title": "Purchased At",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store"
+          }
+        },
+        "required": [
+          "name",
+          "price_cents",
+          "purchased_at"
+        ],
+        "title": "PurchaseInput",
+        "type": "object"
+      },
+      "PurchaseResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "title": "Purchased At",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "price_cents",
+          "purchased_at",
+          "store",
+          "product_key",
+          "rule_id",
+          "created_at"
+        ],
+        "title": "PurchaseResponse",
+        "type": "object"
+      },
       "RecipientCreate": {
         "properties": {
           "allowlisted": {
@@ -1186,6 +1601,113 @@
           }
         },
         "title": "RecipientUpdate",
+        "type": "object"
+      },
+      "ReportItemResponse": {
+        "properties": {
+          "days_before_black_friday": {
+            "title": "Days Before Black Friday",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "linked": {
+            "title": "Linked",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "title": "Purchased At",
+            "type": "string"
+          },
+          "savings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemSavingsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "store",
+          "price_cents",
+          "purchased_at",
+          "linked",
+          "days_before_black_friday",
+          "savings"
+        ],
+        "title": "ReportItemResponse",
+        "type": "object"
+      },
+      "ReportTotalsResponse": {
+        "properties": {
+          "estimated_saving_cents": {
+            "title": "Estimated Saving Cents",
+            "type": "integer"
+          },
+          "estimated_saving_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Saving Pct"
+          },
+          "linked_with_data": {
+            "title": "Linked With Data",
+            "type": "integer"
+          },
+          "purchases": {
+            "title": "Purchases",
+            "type": "integer"
+          },
+          "reference_total_cents": {
+            "title": "Reference Total Cents",
+            "type": "integer"
+          },
+          "total_paid_cents": {
+            "title": "Total Paid Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "purchases",
+          "linked_with_data",
+          "total_paid_cents",
+          "estimated_saving_cents",
+          "reference_total_cents",
+          "estimated_saving_pct"
+        ],
+        "title": "ReportTotalsResponse",
         "type": "object"
       },
       "RuleCreate": {
@@ -1644,6 +2166,40 @@
           }
         },
         "title": "RuleUpdate",
+        "type": "object"
+      },
+      "SavingsReportResponse": {
+        "properties": {
+          "black_friday": {
+            "$ref": "#/components/schemas/BlackFridaySummaryResponse"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "noise": {
+            "$ref": "#/components/schemas/NoiseResponse"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ReportTotalsResponse"
+          }
+        },
+        "required": [
+          "generated_at",
+          "totals",
+          "black_friday",
+          "items",
+          "noise"
+        ],
+        "title": "SavingsReportResponse",
         "type": "object"
       },
       "SimulateMessageRequest": {
@@ -3223,6 +3779,233 @@
         ]
       }
     },
+    "/purchases": {
+      "get": {
+        "operationId": "list_purchases_purchases_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PurchaseResponse"
+                  },
+                  "title": "Response List Purchases Purchases Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Purchases",
+        "tags": [
+          "purchases"
+        ]
+      },
+      "post": {
+        "operationId": "create_purchase_purchases_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Purchase",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/purchases/{purchase_id}": {
+      "delete": {
+        "operationId": "delete_purchase_purchases__purchase_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchase_id",
+            "required": true,
+            "schema": {
+              "title": "Purchase Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Purchase",
+        "tags": [
+          "purchases"
+        ]
+      },
+      "put": {
+        "operationId": "update_purchase_purchases__purchase_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchase_id",
+            "required": true,
+            "schema": {
+              "title": "Purchase Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Purchase",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
     "/recipients": {
       "get": {
         "operationId": "list_recipients_recipients_get",
@@ -3988,6 +4771,72 @@
         "summary": "Resume Rule",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/savings/report": {
+      "get": {
+        "operationId": "savings_report_savings_report_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "black_friday",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Black Friday"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Savings Report",
+        "tags": [
+          "savings"
         ]
       }
     },

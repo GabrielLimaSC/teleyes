@@ -286,3 +286,35 @@ def _drop_price_outliers(rows: list[tuple[datetime, int]]) -> list[tuple[datetim
     median = prices[mid] if len(prices) % 2 else (prices[mid - 1] + prices[mid]) / 2
     floor = median * SPARKLINE_OUTLIER_FLOOR_RATIO
     return [(at, price) for at, price in rows if price >= floor]
+
+
+def load_rule_price_points(session: Session, rule_id: int) -> list[tuple[datetime, int]]:
+    """S19-04: every distinct priced posting a rule caught, as `(matched_at, price)`.
+
+    Same posting dedupe and manual-edit priority as `load_postings`, for a purchase
+    linked to a rule instead of a product. Never exposes text, links or source names.
+    """
+    rows = session.execute(
+        select(
+            Match.id,
+            Match.source_id,
+            Match.telegram_message_id,
+            Match.price_cents,
+            Match.matched_at,
+            Match.price_source,
+            _latest_correction_id().label("latest_correction_id"),
+        )
+        .where(Match.rule_id == rule_id)
+        .order_by(Match.id)
+    )
+    selected: dict[PostingIdentity, Any] = {}
+    for row in rows:
+        identity = posting_identity(row.id, row.source_id, row.telegram_message_id)
+        current = selected.get(identity)
+        if current is None or _posting_row_priority(row) > _posting_row_priority(current):
+            selected[identity] = row
+    return [
+        (ensure_utc(row.matched_at), int(row.price_cents))
+        for row in selected.values()
+        if row.price_cents is not None
+    ]
