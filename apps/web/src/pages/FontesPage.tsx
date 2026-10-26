@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { FormEvent } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
 import { createSource, deleteSource, listSources, pauseSource, updateSource } from '../api/sources'
@@ -157,8 +158,8 @@ export function FontesPage() {
         </button>
       </div>
       <p style={{ marginTop: -12, marginBottom: 20, fontSize: 13, color: 'var(--text-muted)' }}>
-        Cadastro manual pelo chat_id do grupo — ainda não há um jeito de listar os grupos que a conta já
-        acessa direto por aqui.
+        Cadastro manual pelo chat_id do grupo. Para escolher numa lista dos grupos que a conta já acessa, use o{' '}
+        <Link to="/configuracao">assistente de configuração</Link>.
       </p>
 
       {formTarget && (

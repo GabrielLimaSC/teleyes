@@ -47,6 +47,29 @@ describe('apiRequest', () => {
     } satisfies Partial<ApiError>)
   })
 
+  it('reads the structured detail the setup wizard sends: message, code and the wait', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              detail: { code: 'flood_wait', message: 'Aguarde 13 minutos.', retry_after_seconds: 754 },
+            }),
+            { status: 429 },
+          ),
+        ),
+      ),
+    )
+
+    await expect(apiRequest('/setup/telegram/login/start')).rejects.toMatchObject({
+      message: 'Aguarde 13 minutos.',
+      status: 429,
+      code: 'flood_wait',
+      retryAfterSeconds: 754,
+    } satisfies Partial<ApiError>)
+  })
+
   it('falls back to a generic message when the error body has no detail', async () => {
     vi.stubGlobal(
       'fetch',

@@ -11,6 +11,7 @@ import { RegrasPage } from './pages/RegrasPage'
 import { FontesPage } from './pages/FontesPage'
 import { SaudePage } from './pages/SaudePage'
 import { EconomiaPage } from './pages/EconomiaPage'
+import { ConfiguracaoPage } from './pages/ConfiguracaoPage'
 
 function App() {
   return (
@@ -65,6 +66,14 @@ function App() {
           element={
             <RequireAuth>
               <SaudePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/configuracao"
+          element={
+            <RequireAuth>
+              <ConfiguracaoPage />
             </RequireAuth>
           }
         />

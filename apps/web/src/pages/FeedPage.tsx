@@ -35,6 +35,7 @@ import { localDateStamp, parseApiDate } from '../utils/dates'
 import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import { useDeleteListing } from '../hooks/useDeleteListing'
+import { SetupBanner } from '../components/SetupBanner'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
@@ -745,6 +746,8 @@ export function FeedPage() {
           </button>
         </div>
       </div>
+
+      <SetupBanner />
 
       {loading && <p>Carregando…</p>}
       {error && (

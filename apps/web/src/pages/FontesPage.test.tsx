@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FontesPage } from './FontesPage'
 
@@ -51,7 +52,11 @@ describe('FontesPage "Último match" (S13-01)', () => {
   it('shows the last match in local time: 01:43 UTC is 22:43 the day before in America/Sao_Paulo', async () => {
     stubApi([match(1, '2026-09-20T01:43:00')])
 
-    render(<FontesPage />)
+    render(
+      <MemoryRouter>
+        <FontesPage />
+      </MemoryRouter>,
+    )
 
     const cell = (await screen.findByText('Fonte TZ')).closest('tr')!.querySelector('[data-label="Último match"]')
     expect(cell).toHaveTextContent('19/09/2026')
@@ -63,7 +68,11 @@ describe('FontesPage "Último match" (S13-01)', () => {
     // ('20' > '19'), but the second is the later instant (02:00 UTC).
     stubApi([match(1, '2026-09-20T01:00:00Z'), match(2, '2026-09-19T23:00:00-03:00')])
 
-    render(<FontesPage />)
+    render(
+      <MemoryRouter>
+        <FontesPage />
+      </MemoryRouter>,
+    )
 
     const cell = (await screen.findByText('Fonte TZ')).closest('tr')!.querySelector('[data-label="Último match"]')
     expect(cell).toHaveTextContent('23:00:00')
@@ -72,7 +81,11 @@ describe('FontesPage "Último match" (S13-01)', () => {
   it('says so when the source has no match yet', async () => {
     stubApi([])
 
-    render(<FontesPage />)
+    render(
+      <MemoryRouter>
+        <FontesPage />
+      </MemoryRouter>,
+    )
 
     expect(await screen.findByText('Nenhum match ainda')).toBeInTheDocument()
   })
