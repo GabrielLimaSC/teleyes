@@ -897,6 +897,30 @@ describe('MatchCard — ações (S14-07, 06)', () => {
     expect(screen.getByRole('button', { name: 'Mais ações' })).toHaveFocus()
   })
 
+  it('"Marcar como comprado" lives in the "⋯" menu and calls onMarkPurchased with the match (S19-04)', async () => {
+    const onMarkPurchased = vi.fn()
+    const match = buildMatch({ product_key: 'produto-x' })
+    const user = userEvent.setup()
+    render(
+      <MatchCard match={match} rule={rule} source={source} recipients={[]} onMarkPurchased={onMarkPurchased} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Marcar como comprado' }))
+
+    expect(onMarkPurchased).toHaveBeenCalledWith(match)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('has no "Marcar como comprado" without its handler (S19-04)', async () => {
+    const user = userEvent.setup()
+    render(<MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onDelete={() => {}} />)
+
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+
+    expect(screen.queryByRole('menuitem', { name: 'Marcar como comprado' })).not.toBeInTheDocument()
+  })
+
   it('"Excluir anúncio" lives in the "⋯" menu and calls onDelete with the match (S20-01)', async () => {
     const onDelete = vi.fn()
     const match = buildMatch()
