@@ -12,7 +12,12 @@ from models import Admin
 # mirroring how scripts/ is a thin, untested-elsewhere CLI wrapper around
 # logic worth covering directly.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
-from create_admin import upsert_admin_password  # type: ignore[import-not-found]  # noqa: E402
+from create_admin import (  # type: ignore[import-not-found]  # noqa: E402
+    DEMO_PASSWORD,
+    MIN_PASSWORD_LENGTH,
+    upsert_admin_password,
+    validate_password,
+)
 
 
 def test_creates_the_first_admin_when_none_exists(session: Session) -> None:
@@ -37,3 +42,12 @@ def test_updates_the_existing_admin_instead_of_creating_a_second_row(session: Se
     assert len(admins) == 1
     assert verify_password("senha-nova", admins[0].password_hash) is True
     assert verify_password("senha-antiga", admins[0].password_hash) is False
+
+
+def test_validate_password_accepts_a_normal_password() -> None:
+    assert validate_password("x" * MIN_PASSWORD_LENGTH) is None
+
+
+def test_validate_password_rejects_short_and_demo_passwords() -> None:
+    assert validate_password("curta") is not None
+    assert validate_password(DEMO_PASSWORD) is not None

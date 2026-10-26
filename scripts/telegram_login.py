@@ -18,7 +18,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from telethon import TelegramClient
 
-SESSION_PATH = Path("data/teleyes.session")
+# S19-01: the self-host compose keeps the session in its own volume.
+SESSION_PATH = Path(os.environ.get("TELEYES_SESSION_PATH", "data/teleyes.session"))
 
 
 async def main() -> None:

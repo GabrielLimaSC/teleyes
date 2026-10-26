@@ -16,7 +16,9 @@ existir, e nada no fluxo de onboarding anterior a esta task criava essa
 linha.
 """
 
+import argparse
 import getpass
+import os
 import sys
 
 from sqlalchemy import select
@@ -45,18 +47,55 @@ def upsert_admin_password(session: Session, password: str) -> str:
     return "atualizado"
 
 
-def main() -> None:
-    password = getpass.getpass("Senha do painel: ")
+PASSWORD_ENV_VAR = "TELEYES_ADMIN_PASSWORD"
+EXIT_NO_ADMIN = 3
+
+
+def admin_exists() -> bool:
+    session_factory = get_sessionmaker(get_engine())
+    with session_factory() as session:
+        return session.scalar(select(Admin)) is not None
+
+
+def validate_password(password: str) -> str | None:
+    """Return the reason the password is unacceptable, or None when it is fine."""
     if len(password) < MIN_PASSWORD_LENGTH:
-        print(f"Senha precisa ter pelo menos {MIN_PASSWORD_LENGTH} caracteres.")
-        sys.exit(1)
+        return f"Senha precisa ter pelo menos {MIN_PASSWORD_LENGTH} caracteres."
     if password == DEMO_PASSWORD:
-        print("Essa é a senha pública da demonstração; escolha outra para um painel real.")
-        sys.exit(1)
-    confirm = getpass.getpass("Confirme a senha: ")
-    if password != confirm:
-        print("Senhas não coincidem.")
-        sys.exit(1)
+        return "Essa é a senha pública da demonstração; escolha outra para um painel real."
+    return None
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help=f"só informa se já existe admin (exit 0 = existe, {EXIT_NO_ADMIN} = não existe)",
+    )
+    args = parser.parse_args()
+    if args.check:
+        sys.exit(0 if admin_exists() else EXIT_NO_ADMIN)
+
+    # S19-01: install.sh passes the password through the environment (never argv),
+    # so it can run non-interactively. Without it, prompt as before.
+    from_env = os.environ.get(PASSWORD_ENV_VAR)
+    if from_env:
+        password = from_env
+        problem = validate_password(password)
+        if problem:
+            print(problem)
+            sys.exit(1)
+    else:
+        password = getpass.getpass("Senha do painel: ")
+        problem = validate_password(password)
+        if problem:
+            print(problem)
+            sys.exit(1)
+        confirm = getpass.getpass("Confirme a senha: ")
+        if password != confirm:
+            print("Senhas não coincidem.")
+            sys.exit(1)
 
     session_factory = get_sessionmaker(get_engine())
     with session_factory() as session:
