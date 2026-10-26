@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import get_settings
 from app.main import SESSION_COOKIE_NAME, app, get_db
 from auth.hashing import hash_password
 from auth.rate_limit import LoginRateLimiter
@@ -72,6 +73,35 @@ def test_login_with_correct_password_sets_httponly_secure_samesite_cookie(
     assert "HttpOnly" in set_cookie
     assert "Secure" in set_cookie
     assert "SameSite=strict" in set_cookie.lower() or "samesite=strict" in set_cookie.lower()
+
+
+def test_login_cookie_drops_secure_when_self_host_opts_out(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "false")
+    get_settings.cache_clear()
+    try:
+        response = client.post("/auth/login", json={"password": PASSWORD})
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    set_cookie = response.headers["set-cookie"]
+    assert "HttpOnly" in set_cookie
+    assert "Secure" not in set_cookie
+
+
+def test_login_cookie_stays_secure_when_the_flag_is_blank(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "")
+    get_settings.cache_clear()
+    try:
+        response = client.post("/auth/login", json={"password": PASSWORD})
+    finally:
+        get_settings.cache_clear()
+
+    assert "Secure" in response.headers["set-cookie"]
 
 
 def test_login_with_wrong_password_is_rejected_and_sets_no_cookie(client: TestClient) -> None:

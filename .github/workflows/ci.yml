@@ -36,6 +36,27 @@ jobs:
       - name: Tests (pytest)
         run: pytest -q
 
+  shell:
+    name: Shell scripts (shellcheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck (shellcheck is preinstalled on ubuntu-latest)
+        run: shellcheck install.sh scripts/test_install.sh docker/*.sh
+
+  compose:
+    name: Compose files (config)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the self-host and demo compose files
+        # No .env exists in CI, so no secret is ever interpolated or printed.
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.demo.yml config --quiet
+
   web:
     name: Web (tsc, oxlint, vitest)
     runs-on: ubuntu-latest

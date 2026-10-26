@@ -131,6 +131,11 @@ def require_csrf(
     return session
 
 
+def _session_cookie_secure() -> bool:
+    settings = get_settings()
+    return settings.session_cookie_secure and not settings.teleyes_demo
+
+
 class LoginRequest(BaseModel):
     password: str
 
@@ -163,7 +168,9 @@ def login(
         # S19-03: the public demo is reached over plain http://localhost by
         # strangers, and Safari drops Secure cookies there. Real deployments
         # (demo off) keep Secure.
-        secure=not get_settings().teleyes_demo,
+        # S19-01: a plain-http self-host sets SESSION_COOKIE_SECURE=false for the
+        # same reason; the default stays Secure.
+        secure=_session_cookie_secure(),
         samesite="strict",
     )
     return {"csrf_token": record.csrf_token}
