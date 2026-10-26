@@ -11,6 +11,7 @@ from models.processing_cursor import ProcessingCursor
 from models.purchase import Purchase
 from models.recipient import Recipient
 from models.rule import Rule
+from models.setup import DialogScan, SecurityEvent, TelegramDialog
 from models.snooze import Snooze
 from models.source import Source
 from models.suppressed_message import SuppressedMessage
@@ -29,6 +30,9 @@ __all__ = [
     "Purchase",
     "Recipient",
     "Rule",
+    "DialogScan",
+    "SecurityEvent",
+    "TelegramDialog",
     "Snooze",
     "Source",
     "SuppressedMessage",

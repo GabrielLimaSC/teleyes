@@ -27,6 +27,8 @@ const API_PREFIXES = [
   '/purchases',
   '/savings',
   '/digest',
+  // S19-02: the first-run setup wizard API. The page itself lives at /configuracao.
+  '/setup',
   '/openapi.json',
 ]
 

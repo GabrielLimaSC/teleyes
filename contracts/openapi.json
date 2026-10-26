@@ -13,6 +13,35 @@
         "title": "AdapterState",
         "type": "string"
       },
+      "ApiCredentialsStatus": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "env",
+                  "wizard"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "configured",
+          "source"
+        ],
+        "title": "ApiCredentialsStatus",
+        "type": "object"
+      },
       "BlackFridaySummaryResponse": {
         "properties": {
           "date": {
@@ -84,6 +113,78 @@
         "title": "BotHealth",
         "type": "object"
       },
+      "BotStatus": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "pairing_active": {
+            "title": "Pairing Active",
+            "type": "boolean"
+          },
+          "pairing_expires_in_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pairing Expires In Seconds"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "env",
+                  "wizard"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "configured",
+          "source",
+          "username",
+          "pairing_active",
+          "pairing_expires_in_seconds"
+        ],
+        "title": "BotStatus",
+        "type": "object"
+      },
+      "BotTokenRequest": {
+        "properties": {
+          "token": {
+            "maxLength": 128,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "BotTokenRequest",
+        "type": "object"
+      },
       "ClearMatchesResponse": {
         "properties": {
           "deleted": {
@@ -95,6 +196,39 @@
           "deleted"
         ],
         "title": "ClearMatchesResponse",
+        "type": "object"
+      },
+      "CodeRequest": {
+        "properties": {
+          "code": {
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "CodeRequest",
+        "type": "object"
+      },
+      "CredentialsRequest": {
+        "properties": {
+          "api_hash": {
+            "maxLength": 64,
+            "title": "Api Hash",
+            "type": "string"
+          },
+          "api_id": {
+            "title": "Api Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "api_id",
+          "api_hash"
+        ],
+        "title": "CredentialsRequest",
         "type": "object"
       },
       "DeliveryResponse": {
@@ -137,6 +271,38 @@
           "created_at"
         ],
         "title": "DeliveryResponse",
+        "type": "object"
+      },
+      "DialogResponse": {
+        "properties": {
+          "chat_id": {
+            "title": "Chat Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "group",
+              "channel"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "monitored": {
+            "title": "Monitored",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat_id",
+          "title",
+          "kind",
+          "monitored"
+        ],
+        "title": "DialogResponse",
         "type": "object"
       },
       "DigestQueueItemResponse": {
@@ -290,6 +456,17 @@
         "title": "DiscardedResponse",
         "type": "object"
       },
+      "DisconnectRequest": {
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          }
+        },
+        "title": "DisconnectRequest",
+        "type": "object"
+      },
       "FeedSettingsResponse": {
         "properties": {
           "group_duplicates": {
@@ -314,6 +491,47 @@
           "group_duplicates"
         ],
         "title": "FeedSettingsUpdate",
+        "type": "object"
+      },
+      "GroupsResponse": {
+        "properties": {
+          "dialogs": {
+            "items": {
+              "$ref": "#/components/schemas/DialogResponse"
+            },
+            "title": "Dialogs",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "waiting_listener",
+              "pending",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "error",
+          "dialogs"
+        ],
+        "title": "GroupsResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -682,6 +900,47 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginStatus": {
+        "properties": {
+          "expires_in_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Seconds"
+          },
+          "phone_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Hint"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "awaiting_code",
+              "awaiting_password",
+              "authorized"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "LoginStatus",
         "type": "object"
       },
       "MatchCorrectionResponse": {
@@ -1138,6 +1397,113 @@
           "alerts_sent"
         ],
         "title": "NoiseResponse",
+        "type": "object"
+      },
+      "PairedRecipient": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PairedRecipient",
+        "type": "object"
+      },
+      "PairingPollResponse": {
+        "properties": {
+          "ignored_starts": {
+            "default": 0,
+            "title": "Ignored Starts",
+            "type": "integer"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PairedRecipient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "enum": [
+              "waiting",
+              "paired",
+              "expired"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "PairingPollResponse",
+        "type": "object"
+      },
+      "PairingResponse": {
+        "properties": {
+          "bot_username": {
+            "title": "Bot Username",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "deep_link": {
+            "title": "Deep Link",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "title": "Expires In Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "deep_link",
+          "bot_username",
+          "expires_in_seconds"
+        ],
+        "title": "PairingResponse",
+        "type": "object"
+      },
+      "PasswordRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "PasswordRequest",
+        "type": "object"
+      },
+      "PhoneRequest": {
+        "properties": {
+          "phone": {
+            "maxLength": 40,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "PhoneRequest",
         "type": "object"
       },
       "PricePointResponse": {
@@ -2202,6 +2568,148 @@
         "title": "SavingsReportResponse",
         "type": "object"
       },
+      "SecurityEventResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "detail",
+          "created_at"
+        ],
+        "title": "SecurityEventResponse",
+        "type": "object"
+      },
+      "SelectGroupsRequest": {
+        "properties": {
+          "chat_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Chat Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chat_ids"
+        ],
+        "title": "SelectGroupsRequest",
+        "type": "object"
+      },
+      "SelectGroupsResponse": {
+        "properties": {
+          "already_monitored": {
+            "title": "Already Monitored",
+            "type": "integer"
+          },
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "already_monitored"
+        ],
+        "title": "SelectGroupsResponse",
+        "type": "object"
+      },
+      "SetupStatus": {
+        "properties": {
+          "bot": {
+            "$ref": "#/components/schemas/BotStatus"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "credentials": {
+            "$ref": "#/components/schemas/ApiCredentialsStatus"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/SecurityEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "listener_online": {
+            "title": "Listener Online",
+            "type": "boolean"
+          },
+          "login": {
+            "$ref": "#/components/schemas/LoginStatus"
+          },
+          "next_step": {
+            "enum": [
+              "credentials",
+              "login",
+              "bot",
+              "recipient",
+              "groups",
+              "rule",
+              "done"
+            ],
+            "title": "Next Step",
+            "type": "string"
+          },
+          "recipients": {
+            "title": "Recipients",
+            "type": "integer"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "integer"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "integer"
+          },
+          "steps": {
+            "$ref": "#/components/schemas/StepsStatus"
+          }
+        },
+        "required": [
+          "credentials",
+          "login",
+          "bot",
+          "recipients",
+          "sources",
+          "rules",
+          "listener_online",
+          "steps",
+          "next_step",
+          "configured",
+          "complete",
+          "events"
+        ],
+        "title": "SetupStatus",
+        "type": "object"
+      },
       "SimulateMessageRequest": {
         "description": "A controlled, test-only message \u2014 S3-07's browser demo, not the real listener.\n\nReal Telegram ingestion stays in `scripts/run_pipeline_demo.py`; this exists so\nthe SSE feed and match history can be exercised end to end without a Telegram\ncredential.",
         "properties": {
@@ -2481,6 +2989,44 @@
           }
         },
         "title": "SourceUpdate",
+        "type": "object"
+      },
+      "StepsStatus": {
+        "properties": {
+          "bot": {
+            "title": "Bot",
+            "type": "boolean"
+          },
+          "credentials": {
+            "title": "Credentials",
+            "type": "boolean"
+          },
+          "groups": {
+            "title": "Groups",
+            "type": "boolean"
+          },
+          "login": {
+            "title": "Login",
+            "type": "boolean"
+          },
+          "recipient": {
+            "title": "Recipient",
+            "type": "boolean"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "credentials",
+          "login",
+          "bot",
+          "recipient",
+          "groups",
+          "rule"
+        ],
+        "title": "StepsStatus",
         "type": "object"
       },
       "TelegramHealth": {
@@ -4943,6 +5489,716 @@
         "summary": "Update Feed Settings",
         "tags": [
           "settings"
+        ]
+      }
+    },
+    "/setup/bot": {
+      "put": {
+        "operationId": "save_bot_token_setup_bot_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BotTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Bot Token",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/bot/pairing": {
+      "post": {
+        "description": "Open a window in which `/start <code>` adds a recipient.",
+        "operationId": "start_pairing_setup_bot_pairing_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Pairing",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/bot/pairing/poll": {
+      "post": {
+        "operationId": "poll_pairing_setup_bot_pairing_poll_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingPollResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Poll Pairing",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/credentials": {
+      "put": {
+        "operationId": "save_credentials_setup_credentials_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Credentials",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/groups": {
+      "get": {
+        "operationId": "get_groups_setup_groups_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Groups",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/groups/refresh": {
+      "post": {
+        "operationId": "refresh_groups_setup_groups_refresh_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Groups",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/groups/select": {
+      "post": {
+        "description": "Register the chosen groups as sources. Only ids the listener actually saw.",
+        "operationId": "select_groups_setup_groups_select_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectGroupsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectGroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Groups",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/status": {
+      "get": {
+        "operationId": "get_status_setup_status_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/disconnect": {
+      "post": {
+        "description": "Delete the session file and every secret the wizard stored.\n\nThe listener notices the change within seconds and drops its connection. Values\nthat come from `.env` are not touched (the file is the user's); the account's\nsession should also be ended in Telegram (Settings, Devices), which only the\naccount owner can do.",
+        "operationId": "disconnect_telegram_setup_telegram_disconnect_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisconnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disconnect Telegram",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/cancel": {
+      "post": {
+        "operationId": "login_cancel_setup_telegram_login_cancel_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Cancel",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/code": {
+      "post": {
+        "operationId": "login_code_setup_telegram_login_code_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Code",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/password": {
+      "post": {
+        "operationId": "login_password_setup_telegram_login_password_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Password",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/start": {
+      "post": {
+        "operationId": "login_start_setup_telegram_login_start_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Start",
+        "tags": [
+          "setup"
         ]
       }
     },

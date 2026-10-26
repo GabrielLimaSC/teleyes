@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.setup_runtime import current_credentials
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 
 router = APIRouter(tags=["health"])
@@ -41,7 +42,9 @@ def _bot_state(configured: bool, demo: bool) -> Literal["configured", "not_confi
 def health(request: Request) -> HealthResponse:
     settings = get_settings()
     adapter: TelegramAdapter = request.app.state.telegram_adapter
-    bot_configured: bool = request.app.state.bot_configured
+    # S19-02: credentials saved by the setup wizard count as configured too.
+    credentials = current_credentials(request.app.state.secret_store, settings)
+    bot_configured: bool = request.app.state.bot_configured or credentials.has_bot
     started_at: float = request.app.state.started_at
 
     return HealthResponse(
@@ -50,7 +53,7 @@ def health(request: Request) -> HealthResponse:
         version=request.app.version,
         uptime_seconds=round(max(0.0, time.monotonic() - started_at), 3),
         telegram=TelegramHealth(
-            configured=adapter.is_configured(),
+            configured=adapter.is_configured() or credentials.has_api,
             state=AdapterState.DEMO if settings.teleyes_demo else adapter.state,
         ),
         bot=BotHealth(
