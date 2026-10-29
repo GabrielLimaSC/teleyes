@@ -235,7 +235,7 @@ test('the nav capsule is fully reachable by keyboard with visible focus', async 
   await apiLogin(page)
   await page.goto('/feed')
 
-  const labels = ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Saúde']
+  const labels = ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Economia', 'Saúde']
   const loginLink = page.getByRole('link', { name: 'Login' })
   await loginLink.focus()
   await expect(loginLink).toBeFocused()
@@ -269,7 +269,7 @@ test('the mascot badge fits inside the capsule and never overlaps a tab (S9-05)'
   expect(mascotBox!.y).toBeGreaterThanOrEqual(capsuleBox!.y - 0.5)
   expect(mascotBox!.y + mascotBox!.height).toBeLessThanOrEqual(capsuleBox!.y + capsuleBox!.height + 0.5)
 
-  // Never overlaps any tab — on desktop the six tabs sit in the wings
+  // Never overlaps any tab — on desktop the seven tabs sit in the wings
   // either side of the mascot's reserved middle slot.
   const tabs = page.locator('.nav-tab')
   const tabCount = await tabs.count()

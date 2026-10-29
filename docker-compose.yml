@@ -1,13 +1,95 @@
+# teleyes self-host stack — the official path for anyone who clones the repo.
+#
+#   ./install.sh            (does everything below and more)
+#   docker compose up -d --build
+#
+# Differences from docker-compose.prod.yml (the author's own 24/7 deployment, kept
+# untouched): neutral names, the Telegram session in its OWN volume (separate from
+# the database, so a data restore never touches the login), and every knob is read
+# from .env (TELEYES_PORT, DISPLAY_TIMEZONE). Only `web` is published, and only to
+# 127.0.0.1; use a reverse proxy or Tailscale Serve for HTTPS (see README).
+name: teleyes
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/api.Dockerfile
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    TZ: "${DISPLAY_TIMEZONE:-UTC}"
+
 services:
+  # The api also mounts the session volume (S19-02): the setup wizard in the dashboard
+  # logs the Telegram account in and keeps the API credentials / bot token there
+  # (secrets.json, 0600), never in the database or its backups. Telegram itself is only
+  # ever *used* by the listener.
   api:
+    <<: *app
+    environment:
+      TZ: "${DISPLAY_TIMEZONE:-UTC}"
+      TELEYES_SESSION_PATH: /app/session/teleyes.session
+    volumes:
+      - teleyes_data:/app/data
+      - teleyes_session:/app/session
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Reads Telegram and sends alerts. Without credentials it idles in `not_configured`
+  # instead of crashing and starts by itself once the setup wizard in the dashboard (or
+  # .env) provides them (see the README, "Connect Telegram").
+  listener:
+    <<: *app
+    entrypoint: ["/listener-entrypoint.sh"]
+    environment:
+      TZ: "${DISPLAY_TIMEZONE:-UTC}"
+      TELEYES_SESSION_PATH: /app/session/teleyes.session
+    volumes:
+      - teleyes_data:/app/data
+      - teleyes_session:/app/session
+    depends_on:
+      api:
+        condition: service_healthy
+
+  backup:
+    <<: *app
+    entrypoint: ["/backup-entrypoint.sh"]
+    environment:
+      TZ: "${DISPLAY_TIMEZONE:-UTC}"
+      BACKUP_DIR: /app/backups
+    volumes:
+      # Read-write on purpose: SQLite WAL readers need write access to the directory.
+      - teleyes_data:/app/data
+      - teleyes_backups:/app/backups
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
     ports:
-      - "8000:8000"
-    env_file:
-      - path: .env
-        required: false
-    volumes:
-      - ./apps/api:/app/apps/api
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - "127.0.0.1:${TELEYES_PORT:-8080}:80"
+    healthcheck:
+      # 127.0.0.1, not localhost: nginx only listens on IPv4.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  teleyes_data:
+  teleyes_session:
+  teleyes_backups:

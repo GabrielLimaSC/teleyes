@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthContext'
@@ -106,6 +106,9 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // Unmount first: a mounted page opens its EventSource (useHealth) in an effect, and that
+  // must never run after the stub is gone (ReferenceError: EventSource is not defined).
+  cleanup()
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })

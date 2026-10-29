@@ -12,5 +12,8 @@ set -e
 mkdir -p /app/data
 chmod 700 /app/data
 chmod 600 /app/data/teleyes.db /app/data/teleyes.session 2>/dev/null || true
+# Self-host compose keeps the Telegram session in its own volume (S19-01); a no-op elsewhere.
+chmod 700 /app/session 2>/dev/null || true
+chmod 600 /app/session/teleyes.session /app/session/secrets.json 2>/dev/null || true
 
 exec python scripts/run_listener.py

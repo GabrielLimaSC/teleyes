@@ -2,6 +2,8 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'rea
 import { useNavigate } from 'react-router-dom'
 import { MatchCard } from '../components/MatchCard'
 import { ProductPanel } from '../components/ProductPanel'
+import { ECONOMIA_PATH, draftFromMatch } from '../economia/purchaseDraft'
+import type { EconomiaNavState } from '../economia/purchaseDraft'
 import { Toast } from '../components/Toast'
 import { RailChevron, RailStrip } from '../components/RailStrip'
 import type { RailStripItem } from '../components/RailStrip'
@@ -33,6 +35,7 @@ import { localDateStamp, parseApiDate } from '../utils/dates'
 import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import { useDeleteListing } from '../hooks/useDeleteListing'
+import { SetupBanner } from '../components/SetupBanner'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
@@ -107,6 +110,7 @@ const FeedMatchList = memo(function FeedMatchList({
   onSnooze,
   onSetTarget,
   onDelete,
+  onMarkPurchased,
 }: {
   visibleMatches: Match[]
   hasAnyMatch: boolean
@@ -118,6 +122,7 @@ const FeedMatchList = memo(function FeedMatchList({
   onSnooze: (match: Match) => void
   onSetTarget: (ruleId: number, targetCents: number) => void
   onDelete: (match: Match) => void
+  onMarkPurchased: (match: Match) => void
 }) {
   return (
     <div className="feed-page__list">
@@ -139,6 +144,7 @@ const FeedMatchList = memo(function FeedMatchList({
             onSnooze={onSnooze}
             onSetTarget={onSetTarget}
             onDelete={onDelete}
+            onMarkPurchased={onMarkPurchased}
           />
         </div>
       ))}
@@ -219,6 +225,15 @@ export function FeedPage() {
   // past the navigation itself.
   function handleCreateRule(productKey: string) {
     navigate(`/regras?produto=${encodeURIComponent(productKey)}`)
+  }
+
+  // S19-04: "Marcar como comprado" opens the Economia form pre-filled with this
+  // match's product, rule and price.
+  function handleMarkPurchased(match: Match) {
+    const state: EconomiaNavState = {
+      prefill: draftFromMatch(match, rules.find((rule) => rule.id === match.rule_id)),
+    }
+    navigate(ECONOMIA_PATH, { state })
   }
 
   // S14-07: "Silenciar 7 dias" / "Reativar" from the card — always scope
@@ -406,6 +421,7 @@ export function FeedPage() {
   const stableCardSnooze = useStableCallback(handleCardSnooze)
   const stableSetTarget = useStableCallback(handleSetTarget)
   const stableDelete = useStableCallback((match: Match) => requestDeleteMatch(match.id))
+  const stableMarkPurchased = useStableCallback(handleMarkPurchased)
 
   // S15-03: compact chrome while scrolled (chrome/scrollChrome.ts). The rails
   // only fold into icon strips while the grid actually has its 3 columns —
@@ -731,6 +747,8 @@ export function FeedPage() {
         </div>
       </div>
 
+      <SetupBanner />
+
       {loading && <p>Carregando…</p>}
       {error && (
         <p role="alert" className="feed-page__error">
@@ -923,6 +941,7 @@ export function FeedPage() {
             onSnooze={stableCardSnooze}
             onSetTarget={stableSetTarget}
             onDelete={stableDelete}
+            onMarkPurchased={stableMarkPurchased}
           />
 
           <div ref={rightRailRef} id="feed-rail-right" className="feed-page__side-rail">
@@ -1072,6 +1091,7 @@ export function FeedPage() {
                 onSaveTarget={panelMatch ? (cents) => handleSetTarget(panelMatch.rule_id, cents) : undefined}
                 onCreateRule={() => handleCreateRule(panel.productKey as string)}
                 onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
+                onMarkPurchased={panelMatch ? () => handleMarkPurchased(panelMatch) : undefined}
                 onEdited={() => refresh()}
                 onDeleteProduct={(count) => requestDeleteProduct(panel.productKey as string, count)}
                 targetPriceCents={panelMatch?.target_price_cents ?? null}

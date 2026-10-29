@@ -15,6 +15,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel,
+  busyLabel = 'Excluindo…',
   busy = false,
   onConfirm,
   onCancel,
@@ -22,6 +23,8 @@ export function ConfirmDialog({
   title: string
   message: string
   confirmLabel: string
+  /** Shown on the confirm button while `busy`; defaults to the delete wording. */
+  busyLabel?: string
   busy?: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -67,7 +70,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
           >
-            {busy ? 'Excluindo…' : confirmLabel}
+            {busy ? busyLabel : confirmLabel}
           </button>
         </div>
       </div>

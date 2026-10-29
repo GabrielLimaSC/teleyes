@@ -16,13 +16,22 @@ access everything the account can access.
 
 Never share, attach or paste in an issue, pull request, log or screenshot:
 
-- the Telegram `.session` file;
+- the Telegram `.session` file and `secrets.json` (where the setup wizard keeps the API credentials
+  and the bot token);
 - `TG_API_ID` / `TG_API_HASH` and the bot token (`BOT_TOKEN`);
 - your `.env`, the SQLite database or its backups;
 - dashboard cookies or the admin password.
 
 If any of these leaked, revoke them right away: terminate the session in Telegram (Settings, Devices),
 regenerate the API credentials, and revoke the bot token with @BotFather.
+
+## The setup wizard
+
+The dashboard can connect Telegram for you (API credentials, account login, bot, groups). That gives the
+dashboard administrator full power over the connected Telegram account, so it is limited to the
+authenticated administrator, protected by CSRF and rate limits, disabled in demo mode, and never returns or
+logs a secret. The threat model, the storage decision and the residual risks are in
+[`docs/SECURITY_SETUP.md`](docs/SECURITY_SETUP.md).
 
 ## Scope
 

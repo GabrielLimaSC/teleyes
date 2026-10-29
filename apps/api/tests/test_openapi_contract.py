@@ -32,6 +32,9 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/products/{key}/matches": {"delete"},
     "/snoozes": {"get", "post"},
     "/snoozes/{snooze_id}": {"delete"},
+    "/purchases": {"get", "post"},
+    "/purchases/{purchase_id}": {"put", "delete"},
+    "/savings/report": {"get"},
     "/metrics": {"get"},
     "/notifications/test": {"post"},
     "/events": {"get"},
@@ -40,6 +43,19 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/demo/messages": {"post"},
     "/settings/feed": {"get", "put"},
     "/digest": {"get", "put"},
+    "/setup/status": {"get"},
+    "/setup/credentials": {"put"},
+    "/setup/telegram/login/start": {"post"},
+    "/setup/telegram/login/code": {"post"},
+    "/setup/telegram/login/password": {"post"},
+    "/setup/telegram/login/cancel": {"post"},
+    "/setup/telegram/disconnect": {"post"},
+    "/setup/bot": {"put"},
+    "/setup/bot/pairing": {"post"},
+    "/setup/bot/pairing/poll": {"post"},
+    "/setup/groups": {"get"},
+    "/setup/groups/refresh": {"post"},
+    "/setup/groups/select": {"post"},
 }
 
 EXPECTED_RESPONSE_SCHEMAS = [
@@ -61,6 +77,10 @@ EXPECTED_RESPONSE_SCHEMAS = [
     "DigestSettingsResponse",
     "DigestQueueItemResponse",
     "RuleSuggestionResponse",
+    "SetupStatus",
+    "GroupsResponse",
+    "PairingResponse",
+    "PairingPollResponse",
 ]
 
 

@@ -96,6 +96,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 
+from app.dialog_scan import DialogScanWorker
 from app.digest import DigestScheduler
 from app.listener_control import (
     config_fingerprint,
@@ -111,6 +112,14 @@ from packages.monitoring.heartbeat import load_heartbeat_config, run_heartbeat
 from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
+from packages.setup.credentials import (
+    TelegramCredentials,
+    fingerprint,
+    not_ready_reason,
+    resolve_from_environ,
+    secrets_path_for,
+)
+from packages.setup.secret_store import SecretStore
 from packages.telegram.adapter import TelegramAdapter
 from packages.telegram.connection_supervisor import (
     BackoffPolicy,
@@ -121,7 +130,8 @@ from packages.telegram.connection_supervisor import (
 from packages.telegram.reconnect_watch import supervise_reconnects
 from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
 
-SESSION_PATH = Path("data/teleyes.session")
+# S19-01: the self-host compose keeps the session in its own volume.
+SESSION_PATH = Path(os.environ.get("TELEYES_SESSION_PATH", "data/teleyes.session"))
 BACKFILL_MAX_MESSAGES = 100
 BACKFILL_MAX_AGE = timedelta(hours=24)
 RECONNECT_POLL_SECONDS = 15.0
@@ -156,30 +166,63 @@ def _configure_logging() -> None:
     logging.getLogger("app.listener_reload").setLevel(logging.INFO)
 
 
-async def _idle_until_stopped(
-    stop_event: asyncio.Event, message: str, *, remind_every: float = 300.0
-) -> None:
-    """Stay up quietly instead of exiting.
+CONFIG_POLL_SECONDS = 5.0
 
-    `restart: unless-stopped` (docker-compose.prod.yml) restarts a container
-    on *any* exit, success included — not just failures. Exiting the moment
-    something's `not_configured` would turn into a restart-loop (repeatedly
-    starting, printing one line, exiting, over and over) instead of the same
-    calm, honestly-idle-but-up state `app.main`'s FastAPI service already
-    reports via `GET /health` for the exact same conditions. Returns as soon
-    as `stop_event` fires (see `main`'s signal handlers) rather than blocking
-    a graceful shutdown for up to `remind_every`.
-    """
+
+def _current_credentials() -> TelegramCredentials:
+    """S19-02: environment first, then what the setup wizard saved (re-read every time)."""
+    store = SecretStore(secrets_path_for(SESSION_PATH))
+    return resolve_from_environ(store, os.environ)
+
+
+async def _wait_for_change(process_stop: asyncio.Event, baseline: str, message: str) -> None:
+    """Idle (printing `message` now and every 5 minutes) until the credentials, the
+    session or the wizard's stored secrets change, or a stop is requested."""
     print(message)
-    while not stop_event.is_set():
+    waited = 0.0
+    while not process_stop.is_set():
         try:
-            await asyncio.wait_for(stop_event.wait(), timeout=remind_every)
+            await asyncio.wait_for(process_stop.wait(), timeout=CONFIG_POLL_SECONDS)
         except TimeoutError:
+            pass
+        if fingerprint(_current_credentials(), SESSION_PATH) != baseline:
+            return
+        waited += CONFIG_POLL_SECONDS
+        if waited >= 300.0:
+            waited = 0.0
             print(message)
 
 
+async def _watch_for_config_change(
+    stop_event: asyncio.Event, process_stop: asyncio.Event, baseline: str
+) -> bool:
+    """Ends the session's `stop_event` on a process stop or a credentials change.
+    Returns True when it was a change (the caller then starts a fresh session)."""
+    while not stop_event.is_set():
+        try:
+            await asyncio.wait_for(process_stop.wait(), timeout=CONFIG_POLL_SECONDS)
+        except TimeoutError:
+            pass
+        if process_stop.is_set():
+            stop_event.set()
+            return False
+        if fingerprint(_current_credentials(), SESSION_PATH) != baseline:
+            print("Credenciais ou sessão do Telegram mudaram — reiniciando a conexão.")
+            stop_event.set()
+            return True
+    return False
+
+
 async def main() -> int:
-    """Returns the process exit code: 0 on a requested stop, 1 once `blocked`."""
+    """Returns the process exit code: 0 on a requested stop, 1 once `blocked`.
+
+    S19-02: configuration is no longer fixed at process start. While anything is
+    missing (API credentials, bot token, Telegram session) the process idles and
+    re-reads the sources every few seconds, so the setup wizard in the panel can finish
+    without a restart; when the credentials or the session change underneath a running
+    connection (reconnect with another account, "Desconectar Telegram") the session is
+    torn down and rebuilt.
+    """
     load_dotenv()
     _configure_logging()
 
@@ -191,23 +234,48 @@ async def main() -> int:
     # until the grace period expires and Docker escalates to SIGKILL. `api`
     # (uvicorn) never hit this because uvicorn already installs its own
     # SIGTERM/SIGINT handlers. The handler only sets an event, so it can't raise.
+    process_stop = asyncio.Event()
+    install_stop_signal_handlers(asyncio.get_running_loop(), process_stop)
+
+    while not process_stop.is_set():
+        credentials = _current_credentials()
+        reason = not_ready_reason(credentials, SESSION_PATH)
+        if reason is not None:
+            await _wait_for_change(
+                process_stop, fingerprint(credentials, SESSION_PATH), reason
+            )
+            continue
+        exit_code, restart = await _run_session(credentials, process_stop)
+        if not restart:
+            return exit_code
+    return 0
+
+
+async def _run_session(
+    credentials: TelegramCredentials, process_stop: asyncio.Event
+) -> tuple[int, bool]:
+    """One Telegram session with fixed credentials. Returns `(exit_code, restart)`."""
+    assert credentials.api_id is not None and credentials.api_hash is not None
+    assert credentials.bot_token is not None
+    api_id, api_hash, bot_token = credentials.api_id, credentials.api_hash, credentials.bot_token
     stop_event = asyncio.Event()
-    install_stop_signal_handlers(asyncio.get_running_loop(), stop_event)
+    watcher = asyncio.create_task(
+        _watch_for_config_change(stop_event, process_stop, fingerprint(credentials, SESSION_PATH))
+    )
+    try:
+        code = await _serve(api_id, api_hash, bot_token, stop_event)
+    finally:
+        stop_event.set()
+        restart = False
+        if watcher.done():
+            restart = not watcher.cancelled() and watcher.exception() is None and watcher.result()
+        else:
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
+    return code, restart and not process_stop.is_set()
 
-    api_id = os.environ.get("TG_API_ID")
-    api_hash = os.environ.get("TG_API_HASH")
-    bot_token = os.environ.get("BOT_TOKEN")
-    if not api_id or not api_hash:
-        await _idle_until_stopped(
-            stop_event, "TG_API_ID/TG_API_HASH ausentes — not_configured, sem fingir conexão."
-        )
-        return 0
-    if not bot_token:
-        await _idle_until_stopped(
-            stop_event, "BOT_TOKEN ausente — not_configured, sem fingir conexão."
-        )
-        return 0
 
+async def _serve(api_id: int, api_hash: str, bot_token: str, stop_event: asyncio.Event) -> int:
     session_factory = get_sessionmaker(get_engine())
 
     with session_factory() as session:
@@ -239,9 +307,9 @@ async def main() -> int:
             "continua vivo e passa a escutar sem reiniciar."
         )
 
-    client = TelegramClient(str(SESSION_PATH), int(api_id), api_hash)
+    client = TelegramClient(str(SESSION_PATH), api_id, api_hash)
     adapter = TelegramAdapter(
-        api_id=int(api_id), api_hash=api_hash, client=client, sleep=asyncio.sleep
+        api_id=api_id, api_hash=api_hash, client=client, sleep=asyncio.sleep
     )
 
     notifier = BotNotifier(
@@ -287,6 +355,9 @@ async def main() -> int:
     # `reload_task` below (not gated on the first successful connect), same
     # reasoning as `reload_task` already keeping the panel's heartbeat alive
     # while Telegram itself is unreachable.
+    scan_worker = DialogScanWorker(
+        session_factory=session_factory, client=client, is_connected=client.is_connected
+    )
     digest_scheduler = DigestScheduler(session_factory=session_factory, notifier=notifier)
 
     watchdog: asyncio.Task[None] | None = None
@@ -351,18 +422,33 @@ async def main() -> int:
     resend_task = asyncio.create_task(
         lifecycle.run_periodic_resend(stop_event, client.is_connected)
     )
+    # S19-02: answers the wizard's "list my groups" request (read-only `iter_dialogs`).
+    scan_task = asyncio.create_task(scan_worker.run(stop_event))
     try:
         outcome = await supervisor.run()
     finally:
         stop_event.set()
         background = [
             task
-            for task in (watchdog, heartbeat, reload_task, digest_task, catch_up_task, resend_task)
+            for task in (
+                watchdog,
+                heartbeat,
+                reload_task,
+                digest_task,
+                catch_up_task,
+                resend_task,
+                scan_task,
+            )
             if task is not None
         ]
         for task in background:
             task.cancel()
         await asyncio.gather(*background, return_exceptions=True)
+        # The session may be rebuilt next (S19-02): close the socket and the session file.
+        try:
+            await client.disconnect()
+        except Exception as error:
+            print(f"Não foi possível encerrar a conexão limpa ({type(error).__name__}).")
 
     return 1 if outcome is SupervisorOutcome.BLOCKED else 0
 

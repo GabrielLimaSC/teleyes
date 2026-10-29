@@ -618,3 +618,17 @@
   --product-panel-trigger-hover-bg: rgba(122, 166, 247, 0.14);
   --product-panel-backdrop-bg: rgba(6, 7, 10, 0.55);
 }
+
+/* ---- S19-04: "cartão de resultados" (economia/resultsCard.ts). The exported image is
+   shared outside the app, so it is always the dark look, whatever theme is active. ---- */
+:root {
+  --results-card-bg: #0f1116;
+  --results-card-glow: #3b5b99;
+  --results-card-surface: #171a21;
+  --results-card-border: #2b313b;
+  --results-card-text: #f2f4f8;
+  --results-card-muted: #a3acbb;
+  --results-card-good: #5ee08f;
+  --results-card-bad: #ff9b91;
+  --results-card-accent: #8ab4f8;
+}

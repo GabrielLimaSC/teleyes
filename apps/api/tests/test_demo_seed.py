@@ -22,7 +22,7 @@ from app.demo_seed import (
 )
 from app.utc import ensure_utc
 from auth.hashing import verify_password
-from models import Admin, Delivery, Match, Recipient, Rule, Snooze, Source
+from models import Admin, Delivery, Match, Purchase, Recipient, Rule, Snooze, Source
 from models.db import get_engine, get_sessionmaker
 from packages.metrics.counters import MetricCounter
 from packages.rules.target import target_hit
@@ -244,3 +244,18 @@ async def test_demo_notifier_reports_sent_without_a_client() -> None:
     assert notifier._client is None
     assert (await notifier.notify_digest("demo:recipient-1", "x")).delivered is True
     await notifier.notify_operational("x")
+
+
+def test_seed_registers_fictional_purchases_linked_to_the_seeded_history(
+    seeded: sessionmaker[Session],
+) -> None:
+    with seeded() as session:
+        purchases = list(session.scalars(select(Purchase).order_by(Purchase.id)))
+        known_keys = set(session.scalars(select(Match.product_key).distinct()))
+
+    assert len(purchases) >= 4
+    assert all("exemplo" in purchase.name.lower() for purchase in purchases)
+    assert all(purchase.price_cents > 0 for purchase in purchases)
+    linked = [purchase for purchase in purchases if purchase.product_key is not None]
+    assert linked and all(purchase.product_key in known_keys for purchase in linked)
+    assert any(purchase.product_key is None for purchase in purchases)

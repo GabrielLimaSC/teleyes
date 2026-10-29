@@ -6,12 +6,21 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.demo_mode import DemoNotifier, DemoReadOnlyMiddleware, check_database_mode
+from app.setup_runtime import (
+    build_limiters,
+    build_secret_store,
+    current_credentials,
+    session_path,
+)
 from auth.csrf import verify_csrf_token
 from auth.hashing import verify_password
 from auth.rate_limit import LoginRateLimiter
@@ -22,6 +31,8 @@ from packages.events.broker import EventBroker
 from packages.notifications.bot import BotNotifier
 from packages.notifications.http_client import HttpBotClient
 from packages.rules.dedupe import DedupeCache
+from packages.setup.bot_api import HttpBotApi
+from packages.setup.telegram_login import TelegramLoginService
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 
 SESSION_COOKIE_NAME = "teleyes_session"
@@ -48,7 +59,10 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
         await stack.enter_async_context(
             watch_matches(application.state.session_factory, application.state.event_broker)
         )
-        yield
+        try:
+            yield
+        finally:
+            await application.state.telegram_login.shutdown()
 
 
 app = FastAPI(title="teleyes", version="0.1.0", lifespan=_lifespan)
@@ -57,6 +71,28 @@ app.state.rate_limiter = LoginRateLimiter()
 app.state.session_factory = get_sessionmaker(get_engine())
 app.state.started_at = time.monotonic()
 app.state.event_broker = EventBroker()
+
+
+# S19-02: the setup wizard (see docs/SECURITY_SETUP.md). The secret store and the login
+# service are replaceable in tests; the login holds at most one pending login in memory.
+app.state.secret_store = build_secret_store(get_settings())
+app.state.telegram_login = TelegramLoginService(session_path=session_path(get_settings()))
+app.state.bot_api_factory = HttpBotApi
+app.state.setup_limiters = build_limiters()
+app.state.bot_pairing = None
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(request: Request, exc: RequestValidationError) -> Response:
+    """The default 422 body quotes the rejected input. Under /setup that input may be an
+    api_hash, a bot token or a 2FA password, so there it is dropped."""
+    if request.url.path.startswith("/setup"):
+        errors = [
+            {"loc": error.get("loc"), "msg": error.get("msg"), "type": error.get("type")}
+            for error in exc.errors()
+        ]
+        return JSONResponse(status_code=422, content={"detail": errors})
+    return await request_validation_exception_handler(request, exc)
 
 
 def _publish_adapter_state_event(state: AdapterState) -> None:
@@ -80,7 +116,8 @@ def _build_bot_notifier(allowlisted_chat_ids: set[str]) -> BotNotifier:
     if get_settings().teleyes_demo:
         # S19-03: no bot in the demo; this notifier cannot open a connection.
         return DemoNotifier()
-    bot_token = get_settings().bot_token
+    # S19-02: the token may come from the wizard's secret store as well as from `.env`.
+    bot_token = current_credentials(app.state.secret_store, get_settings()).bot_token
     client = HttpBotClient(bot_token) if bot_token else None
     return BotNotifier(
         bot_token=bot_token,
@@ -131,6 +168,11 @@ def require_csrf(
     return session
 
 
+def _session_cookie_secure() -> bool:
+    settings = get_settings()
+    return settings.session_cookie_secure and not settings.teleyes_demo
+
+
 class LoginRequest(BaseModel):
     password: str
 
@@ -163,7 +205,9 @@ def login(
         # S19-03: the public demo is reached over plain http://localhost by
         # strangers, and Safari drops Secure cookies there. Real deployments
         # (demo off) keep Secure.
-        secure=not get_settings().teleyes_demo,
+        # S19-01: a plain-http self-host sets SESSION_COOKIE_SECURE=false for the
+        # same reason; the default stays Secure.
+        secure=_session_cookie_secure(),
         samesite="strict",
     )
     return {"csrf_token": record.csrf_token}
@@ -199,9 +243,12 @@ def _register_routers() -> None:
     from app.routers.metrics import router as metrics_router
     from app.routers.notifications import router as notifications_router
     from app.routers.products import router as products_router
+    from app.routers.purchases import router as purchases_router
     from app.routers.recipients import router as recipients_router
     from app.routers.rules import router as rules_router
+    from app.routers.savings_report import router as savings_report_router
     from app.routers.settings import router as settings_router
+    from app.routers.setup import router as setup_router
     from app.routers.snoozes import router as snoozes_router
     from app.routers.sources import router as sources_router
 
@@ -212,12 +259,15 @@ def _register_routers() -> None:
     app.include_router(matches_router)
     app.include_router(products_router)
     app.include_router(snoozes_router)
+    app.include_router(purchases_router)
+    app.include_router(savings_report_router)
     app.include_router(metrics_router)
     app.include_router(notifications_router)
     app.include_router(events_router)
     app.include_router(listener_router)
     app.include_router(demo_router)
     app.include_router(settings_router)
+    app.include_router(setup_router)
     app.include_router(digest_router)
 
 

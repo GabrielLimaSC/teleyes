@@ -48,12 +48,34 @@ describe('createMockApi', () => {
     })
   })
 
+  it('hides the setup wizard: every /setup route is refused as demo mode (S19-02)', () => {
+    for (const path of ['/setup/status', '/setup/groups']) {
+      expect(api().handle('GET', path)).toMatchObject({
+        status: 403,
+        body: { detail: { code: 'demo_mode' } },
+      })
+    }
+  })
+
   it('serves the main routes from the fixtures', () => {
     for (const path of ['/health', '/rules', '/sources', '/recipients', '/metrics', '/snoozes', '/digest', '/settings/feed', '/listener/status']) {
       expect(api().handle('GET', path).status, path).toBe(200)
     }
     expect(api().handle('GET', '/health').body).toMatchObject({ demo: true })
     expect(api().handle('GET', '/rules?include_inactive=true').status).toBe(200)
+  })
+
+  it('serves the fictional purchases and savings report, and still refuses to write them (S19-04)', () => {
+    const purchases = api().handle('GET', '/purchases')
+    expect(purchases.status).toBe(200)
+    expect((purchases.body as unknown[]).length).toBeGreaterThanOrEqual(4)
+
+    const report = api().handle('GET', '/savings/report?black_friday=2026-11-27')
+    expect(report.status).toBe(200)
+    expect(report.body).toMatchObject({ totals: { purchases: expect.any(Number) } })
+
+    expect(api().handle('POST', '/purchases').status).toBe(403)
+    expect(api().handle('DELETE', '/purchases/1').status).toBe(403)
   })
 
   it('rewrites dates relative to the load time: the newest offer is always recent', () => {

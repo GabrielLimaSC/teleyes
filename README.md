@@ -101,6 +101,9 @@ Two processes share one SQLite file: the **listener** (Telethon session, rules, 
 - Per-rule sparklines and a per-product price chart.
 - Snooze for a product, and an optional daily digest instead of immediate alerts (target hits still alert
   immediately).
+- Savings report: register what you actually bought and see an honest estimate against the prices the app itself saw
+  (median of the 90 days before the purchase, "no data" when history is thin), plus a shareable results card
+  (PNG + aggregates JSON) that never includes group names, messages or links.
 - Retry of failed alert deliveries (recent failures are resent, never duplicated).
 - Health page: listener, notifier and database state, reporting `not_configured` honestly when credentials
   are missing.
@@ -133,32 +136,145 @@ Two processes share one SQLite file: the **listener** (Telethon session, rules, 
 
 ## Quick start (self-hosting)
 
-Prerequisites: Docker with Compose, Telegram API credentials (`TG_API_ID` and `TG_API_HASH`, created at
-<https://my.telegram.org/apps>, preferably for a dedicated account), and a bot token from
-[@BotFather](https://t.me/BotFather).
+A five-minute guide for macOS and Linux. Windows works through WSL2 (see the note below).
+
+**You need:** [Docker](https://docs.docker.com/get-docker/) with Compose v2 (Docker Desktop on macOS/Windows,
+Docker Engine on Linux), about 2 GB of free memory for Docker, and `git`. To actually monitor Telegram you
+will also need Telegram API credentials and a bot token, but **not to install**: the app starts without them and the setup wizard collects them in the dashboard.
+
+### 1. Install
 
 ```bash
 git clone https://github.com/GabrielLimaSC/teleyes.git
 cd teleyes
-cp .env.example .env     # then fill in TG_API_ID, TG_API_HASH and BOT_TOKEN
-
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d --wait api   # runs migrations, waits for health
-docker compose -f docker-compose.prod.yml run --rm --entrypoint python api scripts/telegram_login.py
-docker compose -f docker-compose.prod.yml run --rm --entrypoint python api scripts/create_admin.py
-docker compose -f docker-compose.prod.yml up -d              # starts listener, backup and web
+./install.sh
 ```
 
-The dashboard is then at `http://localhost:8080` (published on localhost only). Register a source group
-and a recipient, write a rule, and click **Aplicar regras**.
+The installer checks Docker, creates a private `.env` from [`.env.example`](.env.example) (detecting your
+timezone), builds and starts the stack, asks you for a dashboard password (typed without echo; only its
+Argon2 hash is stored), waits for the health checks and prints the URL. The first build takes a few
+minutes. Then open **http://127.0.0.1:8080** and sign in.
 
-Environment variables (see [`.env.example`](.env.example)): `TG_API_ID`, `TG_API_HASH`, `BOT_TOKEN`,
-`APP_ENV`, `DISPLAY_TIMEZONE` (default `America/Sao_Paulo`), and optionally `HEARTBEAT_URL` /
-`HEARTBEAT_INTERVAL_SECONDS` for an external uptime monitor.
+The stack starts in the honest `not_configured` state: the dashboard works, but nothing is read from
+Telegram until step 2. Re-running `./install.sh` is safe: it keeps your `.env`, your data and your password.
 
-The full walkthrough (daily operation, diagnostics, backup and restore, updates, Windows boot automation) is
-in [`docs/OPERATIONS.md`](docs/OPERATIONS.md), written in Portuguese. A guided first-run wizard to replace
-the manual steps above is on the [roadmap](#roadmap).
+Options: `--yes` (no questions; the password comes from the `TELEYES_ADMIN_PASSWORD` environment variable),
+`--port 9090`, `--demo` (the fictional-data demo only), `--uninstall` (see [Uninstall](#uninstall)).
+
+Just want to look around first? `./install.sh --demo` starts the demo stack on http://127.0.0.1:18080.
+
+### 2. Connect Telegram (setup wizard)
+
+Open the dashboard and follow the **setup wizard**: the banner on the Feed and Health pages leads to it
+(`/configuracao`), and it resumes where you left off if you close the tab. No `.env` editing, no scripts.
+
+1. **App credentials.** Paste the `api_id` and `api_hash` you create at <https://my.telegram.org/apps>
+   (a dedicated Telegram account is recommended, because the session equals a full login).
+2. **Telegram account.** Phone number, then the code Telegram sends to that account's app, then the
+   two-step-verification password if it has one. The session is stored in a private volume.
+3. **Alert bot.** Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and paste its token.
+   The wizard shows the bot's `@username`, gives you a one-time link to tap **Start** (so a stranger who
+   finds the bot cannot register), and can send a test message.
+4. **Groups.** Pick, from the list of groups and channels the account already reads, the ones to watch.
+   teleyes only reads: it never joins, replies, reacts or forwards.
+5. **First rule.** Start from a template (for example "RTX 5070 up to R$ X") and finish with a live
+   checklist: monitor connected, bot ok, one group, one rule.
+
+Everything the wizard stores (API hash, bot token, session) lives in the `teleyes_session` volume with
+`0600` permissions, outside the database and its backups, and is never returned by the API or written to
+the logs. Reconnecting or wiping it is one button (**Desconectar Telegram**). The threat model is in
+[`docs/SECURITY_SETUP.md`](docs/SECURITY_SETUP.md). Keep the dashboard private: the wizard gives whoever is
+logged in full control of the connected Telegram account.
+
+<details>
+<summary>Prefer the terminal? The manual path still works</summary>
+
+1. Create the API credentials and a bot as above, open your bot and send `/start`.
+2. Put `TG_API_ID=`, `TG_API_HASH=` and `BOT_TOKEN=` in `.env` (values there win over the wizard's).
+3. Log the reading session in; it asks for your phone, the code and your 2FA password in the terminal:
+
+   ```bash
+   docker compose run --rm --entrypoint python listener scripts/telegram_login.py
+   ```
+
+4. `docker compose up -d`, then register a source group, a recipient and a rule in the dashboard and click
+   **Aplicar regras**.
+
+</details>
+
+The session lives in its own Docker volume (`teleyes_session`), separate from the database, so restoring a
+backup never touches your Telegram login.
+
+### Which compose file?
+
+`docker-compose.yml` is the supported way to run teleyes; `install.sh` drives it. `docker-compose.prod.yml` is
+the author's own 24/7 deployment (different volume names, behind Tailscale Serve) and is kept as is; strangers
+should ignore it. `docker-compose.dev.yml` is a hot-reload stack for contributors.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `Docker is not installed` | Install Docker Desktop or Docker Engine: <https://docs.docker.com/get-docker/> |
+| `the daemon is not running` | Start Docker Desktop and wait until it says it is running. On Linux: `sudo systemctl start docker`, and add your user to the `docker` group (`sudo usermod -aG docker $USER`, then log in again). |
+| `Docker Compose v2 is missing` | Update Docker Desktop, or install the plugin: <https://docs.docker.com/compose/install/> |
+| `Port 8080 is already in use` | Use another port: `./install.sh --port 9090` (it is remembered in `.env`). |
+| Build killed, `exit 137`, or `npm` dies | Docker is out of memory. Docker Desktop: Settings > Resources > Memory, set 2 GB or more, then re-run `./install.sh`. |
+| Times look wrong | Set `DISPLAY_TIMEZONE=Your/Zone` in `.env` (IANA name, e.g. `Europe/Lisbon`), then `docker compose up -d`. Stored timestamps are always UTC. |
+| Login works in Chrome but not in Safari | Keep `SESSION_COOKIE_SECURE=false` in `.env` for plain `http://127.0.0.1`; set it to `true` only behind HTTPS. |
+| Dashboard unreachable right after `up` | `docker compose ps` should show `api` and `web` as `healthy`; look at `docker compose logs api web`. |
+| Telegram says `not_configured` | Expected until the setup wizard (step 2) is done. If you configured through `.env`, run `docker compose up -d` to apply it. |
+| Forgot the dashboard password | `docker compose exec api python scripts/create_admin.py` sets a new one. |
+
+**Windows:** install Docker Desktop with the WSL2 backend, open a WSL2 shell (Ubuntu), clone the repository
+**inside the Linux filesystem** (for example under `~/`, not `/mnt/c/...`) and run `./install.sh` there.
+Then browse to http://127.0.0.1:8080 from Windows.
+
+### Updating
+
+```bash
+cd teleyes
+git pull
+docker compose up -d --build
+```
+
+Migrations run automatically when the `api` container starts, and your volumes are untouched. If an update
+changes `.env.example`, compare it with your `.env` and add any new variable you want.
+
+### Backups and restore
+
+The `backup` service copies the SQLite database every 6 hours (`BACKUP_INTERVAL_SECONDS`) into the
+`teleyes_backups` volume and keeps the newest 28 (`BACKUP_RETENTION_COUNT`). One extra backup right now:
+
+```bash
+docker compose run --rm --no-deps --entrypoint python backup scripts/run_backup.py --once
+```
+
+To restore (never overwrite the database while `api` and `listener` are writing to it):
+
+```bash
+docker compose run --rm --no-deps --entrypoint sh backup -c "ls -la /app/backups"   # pick a file
+docker compose stop api listener
+docker compose run --rm --no-deps --entrypoint sh backup -c "rm -f /app/data/teleyes.db-wal /app/data/teleyes.db-shm && cp /app/backups/teleyes-<timestamp>.db /app/data/teleyes.db"
+docker compose up -d
+```
+
+The Telegram session is not in the backup (it is a credential, in its own volume). To copy backups off the
+machine, use `docker cp` from a container that mounts `teleyes_backups`, or a bind-mounted copy job.
+
+### Uninstall
+
+```bash
+./install.sh --uninstall           # asks first; removes the containers, keeps your data
+./install.sh --uninstall --purge   # also deletes the database, the Telegram session and the backups
+```
+
+Both keep your `.env`; delete it yourself when you no longer need it. Log out of the session in Telegram
+(Settings > Devices) if you are done with it for good.
+
+Environment variables are documented one by one in [`.env.example`](.env.example). The deeper operational
+guide (diagnostics, Windows boot automation, the author's production setup) is in
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md), written in Portuguese.
 
 ## Security
 
@@ -186,7 +302,8 @@ Numbers from a run on 2026-10-21 against a fresh install:
 | Playwright (`npm run test:e2e`) | 139 tests in 29 files; run locally against a real backend, not in CI yet |
 
 GitHub Actions runs ruff, mypy, pytest, tsc, Oxlint and Vitest on every push and pull request to `dev` and
-`main` ([workflow](.github/workflows/ci.yml)).
+`main` ([workflow](.github/workflows/ci.yml)). CI installs Python dependencies pinned by `constraints-ci.txt`
+(the exact versions of a known-green run). To bump them, install without the constraints file on a branch, copy the versions from the green run's `Successfully installed` line, and update the file.
 
 ```bash
 # Backend (Python 3.12+)
@@ -201,15 +318,13 @@ cd apps/web && npm ci && npm run test && npx tsc -b && npm run lint
 
 - **Backend:** Python 3.12, FastAPI, Telethon (MTProto), SQLAlchemy 2, Alembic, SQLite (WAL), Argon2.
 - **Frontend:** React, Vite, TypeScript, Server-Sent Events.
-- **Ops:** Docker Compose (`api`, `listener`, `backup`, `web`), nginx, Tailscale Serve for private access.
+- **Ops:** Docker Compose (`api`, `listener`, `backup`, `web`) with a one-command `install.sh`, nginx, Tailscale Serve for private access.
 - **Quality:** pytest, Ruff, mypy, Vitest, Oxlint, Playwright, GitHub Actions.
 
 ## Roadmap
 
 Honest and undated:
 
-- A guided first-run wizard (credentials, Telegram login, first rule) in the dashboard.
-- Polish for a one-command self-hosted install.
 - A savings report built from price history.
 
 Out of scope for now: multi-tenant use, channels other than Telegram, automatic replies or reactions in

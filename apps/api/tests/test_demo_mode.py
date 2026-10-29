@@ -30,6 +30,17 @@ from auth.hashing import hash_password
 from models import Admin, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
 
+
+def _patch_session_factory(monkeypatch: pytest.MonkeyPatch, factory: Any) -> None:
+    """Swap ``app.state.session_factory`` for one test.
+
+    Starlette's ``State`` keeps values in ``_state``, not in ``__dict__``. Since
+    pytest 9.2 ``monkeypatch.setattr`` records the old value from ``__dict__``, so its
+    undo would delete the attribute and break every later test.
+    """
+    monkeypatch.setitem(app.state._state, "session_factory", factory)
+
+
 # Real clock: the dry-run endpoint looks back from the actual current time.
 NOW = datetime.now(UTC)
 AlembicRunner = Callable[..., CompletedProcess[str]]
@@ -92,7 +103,7 @@ def _reset_settings() -> Iterator[None]:
 def demo_client(
     monkeypatch: pytest.MonkeyPatch, demo_factory: sessionmaker[Session]
 ) -> Iterator[TestClient]:
-    monkeypatch.setattr(app.state, "session_factory", demo_factory)
+    _patch_session_factory(monkeypatch, demo_factory)
     # Live replay stays off: nothing should write behind the test's back.
     _set_env(monkeypatch, TELEYES_DEMO="1", TELEYES_DEMO_READONLY="1")
     with TestClient(app, base_url="https://testserver") as client:
@@ -126,6 +137,9 @@ def _login(client: TestClient) -> str:
         ("PUT", "/digest"),
         ("POST", "/snoozes"),
         ("DELETE", "/snoozes/1"),
+        ("POST", "/purchases"),
+        ("PUT", "/purchases/1"),
+        ("DELETE", "/purchases/1"),
         ("PATCH", "/matches/1"),
         ("POST", "/notifications/test"),
         ("POST", "/demo/messages"),
@@ -188,7 +202,7 @@ async def test_middleware_lets_sse_and_other_non_mutating_requests_through() -> 
 def test_the_guard_is_off_when_readonly_is_off(
     monkeypatch: pytest.MonkeyPatch, demo_factory: sessionmaker[Session]
 ) -> None:
-    monkeypatch.setattr(app.state, "session_factory", demo_factory)
+    _patch_session_factory(monkeypatch, demo_factory)
     _set_env(monkeypatch, TELEYES_DEMO="1", TELEYES_DEMO_READONLY="0")
 
     with TestClient(app, base_url="https://testserver") as client:
@@ -207,7 +221,7 @@ def test_the_guard_is_off_when_readonly_is_off(
 def test_readonly_without_demo_does_nothing(
     monkeypatch: pytest.MonkeyPatch, real_factory: sessionmaker[Session]
 ) -> None:
-    monkeypatch.setattr(app.state, "session_factory", real_factory)
+    _patch_session_factory(monkeypatch, real_factory)
     _set_env(monkeypatch, TELEYES_DEMO_READONLY="1")
 
     with TestClient(app, base_url="https://testserver") as client:
@@ -222,14 +236,14 @@ def test_the_session_cookie_is_not_secure_only_in_the_demo(
     real_factory: sessionmaker[Session],
 ) -> None:
     # Safari drops Secure cookies on plain http://localhost, where the demo runs.
-    monkeypatch.setattr(app.state, "session_factory", demo_factory)
+    _patch_session_factory(monkeypatch, demo_factory)
     _set_env(monkeypatch, TELEYES_DEMO="1")
     with TestClient(app, base_url="https://testserver") as client:
         demo_cookie = client.post("/auth/login", json={"password": DEMO_PASSWORD}).headers[
             "set-cookie"
         ]
 
-    monkeypatch.setattr(app.state, "session_factory", real_factory)
+    _patch_session_factory(monkeypatch, real_factory)
     _set_env(monkeypatch)
     with TestClient(app, base_url="https://testserver") as client:
         with real_factory() as session:
@@ -326,7 +340,7 @@ def test_a_database_without_tables_does_not_block_startup(tmp_path: Path) -> Non
 def test_the_app_refuses_to_start_in_demo_mode_on_a_real_database(
     monkeypatch: pytest.MonkeyPatch, real_factory: sessionmaker[Session]
 ) -> None:
-    monkeypatch.setattr(app.state, "session_factory", real_factory)
+    _patch_session_factory(monkeypatch, real_factory)
     _set_env(monkeypatch, TELEYES_DEMO="1")
 
     with pytest.raises(DemoModeError), TestClient(app):
@@ -336,7 +350,7 @@ def test_the_app_refuses_to_start_in_demo_mode_on_a_real_database(
 def test_the_app_refuses_to_start_in_normal_mode_on_a_demo_database(
     monkeypatch: pytest.MonkeyPatch, demo_factory: sessionmaker[Session]
 ) -> None:
-    monkeypatch.setattr(app.state, "session_factory", demo_factory)
+    _patch_session_factory(monkeypatch, demo_factory)
     _set_env(monkeypatch)
 
     with pytest.raises(DemoModeError), TestClient(app):
@@ -346,7 +360,7 @@ def test_the_app_refuses_to_start_in_normal_mode_on_a_demo_database(
 def test_the_demo_password_does_not_log_in_a_normal_database(
     monkeypatch: pytest.MonkeyPatch, real_factory: sessionmaker[Session]
 ) -> None:
-    monkeypatch.setattr(app.state, "session_factory", real_factory)
+    _patch_session_factory(monkeypatch, real_factory)
     _set_env(monkeypatch)
 
     with TestClient(app, base_url="https://testserver") as client:
@@ -364,7 +378,7 @@ def test_the_test_notification_is_a_no_op_that_never_touches_the_network(
     def no_network(*args: object, **kwargs: object) -> None:
         raise AssertionError("demo mode must not open a network connection")
 
-    monkeypatch.setattr(app.state, "session_factory", demo_factory)
+    _patch_session_factory(monkeypatch, demo_factory)
     _set_env(monkeypatch, TELEYES_DEMO="1", TELEYES_DEMO_READONLY="0")
     with TestClient(app, base_url="https://testserver") as client:
         csrf = _login(client)

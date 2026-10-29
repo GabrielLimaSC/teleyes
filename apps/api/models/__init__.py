@@ -8,8 +8,10 @@ from models.listener_control import ListenerControl
 from models.match import Match
 from models.match_correction import MatchCorrection
 from models.processing_cursor import ProcessingCursor
+from models.purchase import Purchase
 from models.recipient import Recipient
 from models.rule import Rule
+from models.setup import DialogScan, SecurityEvent, TelegramDialog
 from models.snooze import Snooze
 from models.source import Source
 from models.suppressed_message import SuppressedMessage
@@ -25,8 +27,12 @@ __all__ = [
     "Match",
     "MatchCorrection",
     "ProcessingCursor",
+    "Purchase",
     "Recipient",
     "Rule",
+    "DialogScan",
+    "SecurityEvent",
+    "TelegramDialog",
     "Snooze",
     "Source",
     "SuppressedMessage",

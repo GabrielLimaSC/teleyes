@@ -508,6 +508,8 @@ export interface ProductPanelProps {
   /** S20-01: "Excluir" — deletes every record of the product. The page owns
    * the confirmation dialog (it shows `count` in it) and the request. */
   onDeleteProduct?: (count: number) => void
+  /** S19-04: "Marcar como comprado": the page opens the Economia form pre-filled. */
+  onMarkPurchased?: () => void
 }
 
 export function ProductPanel({
@@ -523,6 +525,7 @@ export function ProductPanel({
   snoozed = false,
   onEdited,
   onDeleteProduct,
+  onMarkPurchased,
 }: ProductPanelProps) {
   const headingId = useId()
   const panelRef = useRef<HTMLElement | null>(null)
@@ -990,6 +993,11 @@ export function ProductPanel({
               {onSnooze && (
                 <button type="button" className="plane-action plane-action--secondary product-panel__chip" onClick={onSnooze}>
                   {snoozed ? 'Reativar' : 'Silenciar 7 dias'}
+                </button>
+              )}
+              {onMarkPurchased && (
+                <button type="button" className="plane-action plane-action--secondary product-panel__chip" onClick={onMarkPurchased}>
+                  Marcar como comprado
                 </button>
               )}
               {product.postings.length > 0 && (

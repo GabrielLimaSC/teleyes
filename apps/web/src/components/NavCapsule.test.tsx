@@ -6,14 +6,14 @@ import { NavCapsule } from './NavCapsule'
 describe('NavCapsule', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it('renders all six pages and marks the current one active', () => {
+  it('renders all seven pages and marks the current one active', () => {
     render(
       <MemoryRouter initialEntries={['/feed']}>
         <NavCapsule />
       </MemoryRouter>,
     )
 
-    const labels = ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Saúde']
+    const labels = ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Economia', 'Saúde']
     for (const label of labels) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }

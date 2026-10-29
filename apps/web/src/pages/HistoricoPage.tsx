@@ -7,6 +7,8 @@ import { Tooltip } from '../components/Tooltip'
 import { Toast } from '../components/Toast'
 import { cardTitle, productText } from '../components/matchTitle'
 import { ProductPanel, PRODUCT_OPEN_CONTROL_ATTR } from '../components/ProductPanel'
+import { ECONOMIA_PATH, draftFromMatch } from '../economia/purchaseDraft'
+import type { EconomiaNavState } from '../economia/purchaseDraft'
 import { fetchRecipients, fetchRules, fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import type { MatchFilters, MatchSort } from '../api/matches'
@@ -435,6 +437,14 @@ export function HistoricoPage() {
     navigate(`/regras?produto=${encodeURIComponent(productKey)}`)
   }
 
+  // S19-04: "Marcar como comprado" from the product panel opens Economia pre-filled.
+  function handleMarkPurchased(match: Match) {
+    const state: EconomiaNavState = {
+      prefill: draftFromMatch(match, rules.find((rule) => rule.id === match.rule_id)),
+    }
+    navigate(ECONOMIA_PATH, { state })
+  }
+
   // S14-08 parte 2 (rodada 2): same silence/reactivate flow as FeedPage's
   // `handleCardSnooze` — always scope 'product', always 7 days; reactivating
   // needs the snooze's own id, looked up from `snoozes` (this page's own
@@ -854,6 +864,7 @@ export function HistoricoPage() {
           onSaveTarget={panelMatch ? (cents) => handleSetTarget(panelMatch.rule_id, cents) : undefined}
           onCreateRule={() => handleCreateRule(panel.productKey as string)}
           onSnooze={panelMatch ? () => handleCardSnooze(panelMatch) : undefined}
+          onMarkPurchased={panelMatch ? () => handleMarkPurchased(panelMatch) : undefined}
           onEdited={() => loadMatches()}
           onDeleteProduct={(count) => requestDeleteProduct(panel.productKey as string, count)}
           targetPriceCents={panelMatch?.target_price_cents ?? null}

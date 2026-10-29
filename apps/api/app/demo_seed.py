@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.demo_mode import DEMO_CHAT_PREFIX, DEMO_PASSWORD, DemoNotifier, is_demo_chat_id
 from app.listener_control import current_fingerprint
 from app.pipeline import IncomingMessage, process_message
+from app.savings import Observation, median
 from app.utc import ensure_utc
 from auth.hashing import hash_password
 from models import (
@@ -43,6 +44,7 @@ from models import (
     ListenerControl,
     Match,
     ProcessingCursor,
+    Purchase,
     Recipient,
     Rule,
     Snooze,
@@ -553,7 +555,82 @@ def _finish(session: Session, now: datetime, rng: random.Random) -> None:
             updated_at=now,
         )
     )
+    _seed_purchases(session, now)
     session.commit()
+
+
+# S19-04: fictional purchases for the Economia screen. (rule key, days before `now`, price as a
+# fraction of the 90-day median the app had seen by then, name). One is above the median on
+# purpose: the report shows an overpayment honestly.
+PURCHASE_SCRIPT: tuple[tuple[str, int, float, str, str | None], ...] = (
+    ("rtx", 41, 0.93, "Placa de vídeo RTX 5090 (exemplo)", "Loja Exemplo"),
+    ("monitor", 27, 0.91, "Monitor 27 polegadas (exemplo)", "MegaStore Demo"),
+    ("ssd", 19, 1.06, "SSD NVMe 2 TB (exemplo)", "Tech Fictícia"),
+    ("fone", 11, 0.88, "Fone bluetooth (exemplo)", None),
+)
+UNLINKED_PURCHASES: tuple[tuple[int, int, str, str | None], ...] = (
+    (33, 4_990, "Cabo HDMI 2.1 (exemplo)", "Mercado Demo"),
+)
+
+
+def _seed_purchases(session: Session, now: datetime) -> None:
+    """Fictional purchases linked to seeded products, priced from the seeded history itself."""
+    rules = {rule.name: rule for rule in session.scalars(select(Rule))}
+    for key, days_ago, fraction, name, store in PURCHASE_SCRIPT:
+        spec = next(candidate for candidate in RULE_SPECS if candidate.key == key)
+        rule = rules.get(spec.name)
+        if rule is None:
+            continue
+        purchased_at = now - timedelta(days=days_ago)
+        rows = session.execute(
+            select(Match.product_key, Match.price_cents, Match.matched_at).where(
+                Match.rule_id == rule.id,
+                Match.product_key.is_not(None),
+                Match.price_cents.is_not(None),
+            )
+        ).all()
+        # The query already filters out NULLs; the checks narrow the types for mypy.
+        known = [
+            Observation(at=ensure_utc(at), price_cents=price)
+            for _, price, at in rows
+            if price is not None
+        ]
+        prior = [
+            o.price_cents
+            for o in known
+            if purchased_at - timedelta(days=90) <= o.at <= purchased_at
+        ]
+        reference = median(prior)
+        if reference is None:
+            continue
+        counts: dict[str, int] = {}
+        for row_key, _, _ in rows:
+            if row_key is not None:
+                counts[row_key] = counts.get(row_key, 0) + 1
+        if not counts:
+            continue
+        product_key = min(counts, key=lambda candidate: (-counts[candidate], candidate))
+        session.add(
+            Purchase(
+                name=name,
+                price_cents=round_price_cents(reference * fraction / 100),
+                purchased_at=purchased_at,
+                store=store,
+                product_key=product_key,
+                created_at=purchased_at,
+            )
+        )
+    for days_ago, cents, name, store in UNLINKED_PURCHASES:
+        purchased_at = now - timedelta(days=days_ago)
+        session.add(
+            Purchase(
+                name=name,
+                price_cents=cents,
+                purchased_at=purchased_at,
+                store=store,
+                created_at=purchased_at,
+            )
+        )
 
 
 def _write_counters(

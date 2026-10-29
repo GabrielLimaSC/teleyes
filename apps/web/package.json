@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:demo": "playwright test -c playwright.demo.config.ts"
+    "test:e2e:demo": "playwright test -c playwright.demo.config.ts",
+    "test:e2e:setup": "playwright test -c playwright.setup.config.ts"
   },
   "dependencies": {
     "react": "^19.2.8",

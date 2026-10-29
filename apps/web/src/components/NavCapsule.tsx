@@ -14,7 +14,8 @@ const TABS = [
   { to: '/regras', label: 'Regras', stagger: 0, order: 2 },
   { to: '/fontes', label: 'Fontes', stagger: 0, order: 3 },
   { to: '/historico', label: 'Histórico', stagger: 1, order: 4 },
-  { to: '/saude', label: 'Saúde', stagger: 2, order: 5 },
+  { to: '/economia', label: 'Economia', stagger: 2, order: 5 },
+  { to: '/saude', label: 'Saúde', stagger: 3, order: 6 },
 ]
 
 const COMPACT_NAV_QUERY = '(max-width: 760px)'

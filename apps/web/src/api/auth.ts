@@ -1,9 +1,15 @@
 export class ApiError extends Error {
   status: number
+  /** S19-02: the machine-readable code of the setup wizard's errors (`/setup/*`). */
+  code?: string
+  /** S19-02: seconds to wait, when the server rate limited the action or Telegram asked to. */
+  retryAfterSeconds?: number
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, extra: { code?: string; retryAfterSeconds?: number } = {}) {
     super(message)
     this.status = status
+    this.code = extra.code
+    this.retryAfterSeconds = extra.retryAfterSeconds
   }
 }
 

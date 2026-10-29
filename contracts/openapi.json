@@ -13,6 +13,83 @@
         "title": "AdapterState",
         "type": "string"
       },
+      "ApiCredentialsStatus": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "env",
+                  "wizard"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "configured",
+          "source"
+        ],
+        "title": "ApiCredentialsStatus",
+        "type": "object"
+      },
+      "BlackFridaySummaryResponse": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "days_before_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Before Max"
+          },
+          "days_before_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Before Min"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "purchases_before": {
+            "title": "Purchases Before",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "is_default",
+          "purchases_before",
+          "days_before_min",
+          "days_before_max"
+        ],
+        "title": "BlackFridaySummaryResponse",
+        "type": "object"
+      },
       "BotHealth": {
         "properties": {
           "configured": {
@@ -36,6 +113,78 @@
         "title": "BotHealth",
         "type": "object"
       },
+      "BotStatus": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "pairing_active": {
+            "title": "Pairing Active",
+            "type": "boolean"
+          },
+          "pairing_expires_in_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pairing Expires In Seconds"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "env",
+                  "wizard"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "configured",
+          "source",
+          "username",
+          "pairing_active",
+          "pairing_expires_in_seconds"
+        ],
+        "title": "BotStatus",
+        "type": "object"
+      },
+      "BotTokenRequest": {
+        "properties": {
+          "token": {
+            "maxLength": 128,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "BotTokenRequest",
+        "type": "object"
+      },
       "ClearMatchesResponse": {
         "properties": {
           "deleted": {
@@ -47,6 +196,39 @@
           "deleted"
         ],
         "title": "ClearMatchesResponse",
+        "type": "object"
+      },
+      "CodeRequest": {
+        "properties": {
+          "code": {
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "CodeRequest",
+        "type": "object"
+      },
+      "CredentialsRequest": {
+        "properties": {
+          "api_hash": {
+            "maxLength": 64,
+            "title": "Api Hash",
+            "type": "string"
+          },
+          "api_id": {
+            "title": "Api Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "api_id",
+          "api_hash"
+        ],
+        "title": "CredentialsRequest",
         "type": "object"
       },
       "DeliveryResponse": {
@@ -89,6 +271,38 @@
           "created_at"
         ],
         "title": "DeliveryResponse",
+        "type": "object"
+      },
+      "DialogResponse": {
+        "properties": {
+          "chat_id": {
+            "title": "Chat Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "group",
+              "channel"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "monitored": {
+            "title": "Monitored",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat_id",
+          "title",
+          "kind",
+          "monitored"
+        ],
+        "title": "DialogResponse",
         "type": "object"
       },
       "DigestQueueItemResponse": {
@@ -219,6 +433,40 @@
         "title": "DigestSettingsUpdate",
         "type": "object"
       },
+      "DiscardedResponse": {
+        "properties": {
+          "bloqueado": {
+            "title": "Bloqueado",
+            "type": "integer"
+          },
+          "preco_acima_teto": {
+            "title": "Preco Acima Teto",
+            "type": "integer"
+          },
+          "sem_termo": {
+            "title": "Sem Termo",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sem_termo",
+          "bloqueado",
+          "preco_acima_teto"
+        ],
+        "title": "DiscardedResponse",
+        "type": "object"
+      },
+      "DisconnectRequest": {
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          }
+        },
+        "title": "DisconnectRequest",
+        "type": "object"
+      },
       "FeedSettingsResponse": {
         "properties": {
           "group_duplicates": {
@@ -243,6 +491,47 @@
           "group_duplicates"
         ],
         "title": "FeedSettingsUpdate",
+        "type": "object"
+      },
+      "GroupsResponse": {
+        "properties": {
+          "dialogs": {
+            "items": {
+              "$ref": "#/components/schemas/DialogResponse"
+            },
+            "title": "Dialogs",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "waiting_listener",
+              "pending",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "error",
+          "dialogs"
+        ],
+        "title": "GroupsResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -298,6 +587,165 @@
           "bot"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "ItemSavingsResponse": {
+        "properties": {
+          "average_30d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average 30D Cents"
+          },
+          "average_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average 90D Cents"
+          },
+          "highest_seen_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highest Seen Cents"
+          },
+          "lowest_seen_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest Seen Cents"
+          },
+          "median_30d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median 30D Cents"
+          },
+          "median_90d_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median 90D Cents"
+          },
+          "samples_30d": {
+            "title": "Samples 30D",
+            "type": "integer"
+          },
+          "samples_90d": {
+            "title": "Samples 90D",
+            "type": "integer"
+          },
+          "saving_vs_median_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Median Cents"
+          },
+          "saving_vs_median_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Median Pct"
+          },
+          "saving_vs_usual_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Usual Cents"
+          },
+          "saving_vs_usual_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving Vs Usual Pct"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_data"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "usual_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Price Cents"
+          }
+        },
+        "required": [
+          "status",
+          "samples_90d",
+          "samples_30d",
+          "median_30d_cents",
+          "average_30d_cents",
+          "median_90d_cents",
+          "average_90d_cents",
+          "lowest_seen_cents",
+          "highest_seen_cents",
+          "usual_price_cents",
+          "saving_vs_median_cents",
+          "saving_vs_median_pct",
+          "saving_vs_usual_cents",
+          "saving_vs_usual_pct"
+        ],
+        "title": "ItemSavingsResponse",
         "type": "object"
       },
       "ListenerStatusResponse": {
@@ -452,6 +900,47 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginStatus": {
+        "properties": {
+          "expires_in_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Seconds"
+          },
+          "phone_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Hint"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "awaiting_code",
+              "awaiting_password",
+              "authorized"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "LoginStatus",
         "type": "object"
       },
       "MatchCorrectionResponse": {
@@ -859,6 +1348,164 @@
         "title": "MetricResponse",
         "type": "object"
       },
+      "NoiseResponse": {
+        "description": "Aggregates only. `counters_scope` says the metric counters are cumulative since\nthe database existed (they have no date), the other numbers cover the period.",
+        "properties": {
+          "alerts_matched": {
+            "title": "Alerts Matched",
+            "type": "integer"
+          },
+          "alerts_sent": {
+            "title": "Alerts Sent",
+            "type": "integer"
+          },
+          "counters_scope": {
+            "const": "all_time",
+            "title": "Counters Scope",
+            "type": "string"
+          },
+          "discarded": {
+            "$ref": "#/components/schemas/DiscardedResponse"
+          },
+          "duplicates_grouped": {
+            "title": "Duplicates Grouped",
+            "type": "integer"
+          },
+          "messages_analyzed": {
+            "title": "Messages Analyzed",
+            "type": "integer"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_start",
+          "period_end",
+          "counters_scope",
+          "messages_analyzed",
+          "discarded",
+          "alerts_matched",
+          "duplicates_grouped",
+          "alerts_sent"
+        ],
+        "title": "NoiseResponse",
+        "type": "object"
+      },
+      "PairedRecipient": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PairedRecipient",
+        "type": "object"
+      },
+      "PairingPollResponse": {
+        "properties": {
+          "ignored_starts": {
+            "default": 0,
+            "title": "Ignored Starts",
+            "type": "integer"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PairedRecipient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "enum": [
+              "waiting",
+              "paired",
+              "expired"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "PairingPollResponse",
+        "type": "object"
+      },
+      "PairingResponse": {
+        "properties": {
+          "bot_username": {
+            "title": "Bot Username",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "deep_link": {
+            "title": "Deep Link",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "title": "Expires In Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "deep_link",
+          "bot_username",
+          "expires_in_seconds"
+        ],
+        "title": "PairingResponse",
+        "type": "object"
+      },
+      "PasswordRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "PasswordRequest",
+        "type": "object"
+      },
+      "PhoneRequest": {
+        "properties": {
+          "phone": {
+            "maxLength": 40,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "PhoneRequest",
+        "type": "object"
+      },
       "PricePointResponse": {
         "description": "Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).",
         "properties": {
@@ -1087,6 +1734,140 @@
         "title": "ProductSourceResponse",
         "type": "object"
       },
+      "PurchaseInput": {
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "price_cents": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000000.0,
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "title": "Purchased At",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store"
+          }
+        },
+        "required": [
+          "name",
+          "price_cents",
+          "purchased_at"
+        ],
+        "title": "PurchaseInput",
+        "type": "object"
+      },
+      "PurchaseResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "product_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Key"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "title": "Purchased At",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "price_cents",
+          "purchased_at",
+          "store",
+          "product_key",
+          "rule_id",
+          "created_at"
+        ],
+        "title": "PurchaseResponse",
+        "type": "object"
+      },
       "RecipientCreate": {
         "properties": {
           "allowlisted": {
@@ -1186,6 +1967,113 @@
           }
         },
         "title": "RecipientUpdate",
+        "type": "object"
+      },
+      "ReportItemResponse": {
+        "properties": {
+          "days_before_black_friday": {
+            "title": "Days Before Black Friday",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "linked": {
+            "title": "Linked",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "title": "Purchased At",
+            "type": "string"
+          },
+          "savings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemSavingsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "store",
+          "price_cents",
+          "purchased_at",
+          "linked",
+          "days_before_black_friday",
+          "savings"
+        ],
+        "title": "ReportItemResponse",
+        "type": "object"
+      },
+      "ReportTotalsResponse": {
+        "properties": {
+          "estimated_saving_cents": {
+            "title": "Estimated Saving Cents",
+            "type": "integer"
+          },
+          "estimated_saving_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Saving Pct"
+          },
+          "linked_with_data": {
+            "title": "Linked With Data",
+            "type": "integer"
+          },
+          "purchases": {
+            "title": "Purchases",
+            "type": "integer"
+          },
+          "reference_total_cents": {
+            "title": "Reference Total Cents",
+            "type": "integer"
+          },
+          "total_paid_cents": {
+            "title": "Total Paid Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "purchases",
+          "linked_with_data",
+          "total_paid_cents",
+          "estimated_saving_cents",
+          "reference_total_cents",
+          "estimated_saving_pct"
+        ],
+        "title": "ReportTotalsResponse",
         "type": "object"
       },
       "RuleCreate": {
@@ -1646,6 +2534,182 @@
         "title": "RuleUpdate",
         "type": "object"
       },
+      "SavingsReportResponse": {
+        "properties": {
+          "black_friday": {
+            "$ref": "#/components/schemas/BlackFridaySummaryResponse"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "noise": {
+            "$ref": "#/components/schemas/NoiseResponse"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ReportTotalsResponse"
+          }
+        },
+        "required": [
+          "generated_at",
+          "totals",
+          "black_friday",
+          "items",
+          "noise"
+        ],
+        "title": "SavingsReportResponse",
+        "type": "object"
+      },
+      "SecurityEventResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "detail",
+          "created_at"
+        ],
+        "title": "SecurityEventResponse",
+        "type": "object"
+      },
+      "SelectGroupsRequest": {
+        "properties": {
+          "chat_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Chat Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chat_ids"
+        ],
+        "title": "SelectGroupsRequest",
+        "type": "object"
+      },
+      "SelectGroupsResponse": {
+        "properties": {
+          "already_monitored": {
+            "title": "Already Monitored",
+            "type": "integer"
+          },
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "already_monitored"
+        ],
+        "title": "SelectGroupsResponse",
+        "type": "object"
+      },
+      "SetupStatus": {
+        "properties": {
+          "bot": {
+            "$ref": "#/components/schemas/BotStatus"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "credentials": {
+            "$ref": "#/components/schemas/ApiCredentialsStatus"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/SecurityEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "listener_online": {
+            "title": "Listener Online",
+            "type": "boolean"
+          },
+          "login": {
+            "$ref": "#/components/schemas/LoginStatus"
+          },
+          "next_step": {
+            "enum": [
+              "credentials",
+              "login",
+              "bot",
+              "recipient",
+              "groups",
+              "rule",
+              "done"
+            ],
+            "title": "Next Step",
+            "type": "string"
+          },
+          "recipients": {
+            "title": "Recipients",
+            "type": "integer"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "integer"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "integer"
+          },
+          "steps": {
+            "$ref": "#/components/schemas/StepsStatus"
+          }
+        },
+        "required": [
+          "credentials",
+          "login",
+          "bot",
+          "recipients",
+          "sources",
+          "rules",
+          "listener_online",
+          "steps",
+          "next_step",
+          "configured",
+          "complete",
+          "events"
+        ],
+        "title": "SetupStatus",
+        "type": "object"
+      },
       "SimulateMessageRequest": {
         "description": "A controlled, test-only message \u2014 S3-07's browser demo, not the real listener.\n\nReal Telegram ingestion stays in `scripts/run_pipeline_demo.py`; this exists so\nthe SSE feed and match history can be exercised end to end without a Telegram\ncredential.",
         "properties": {
@@ -1925,6 +2989,44 @@
           }
         },
         "title": "SourceUpdate",
+        "type": "object"
+      },
+      "StepsStatus": {
+        "properties": {
+          "bot": {
+            "title": "Bot",
+            "type": "boolean"
+          },
+          "credentials": {
+            "title": "Credentials",
+            "type": "boolean"
+          },
+          "groups": {
+            "title": "Groups",
+            "type": "boolean"
+          },
+          "login": {
+            "title": "Login",
+            "type": "boolean"
+          },
+          "recipient": {
+            "title": "Recipient",
+            "type": "boolean"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "credentials",
+          "login",
+          "bot",
+          "recipient",
+          "groups",
+          "rule"
+        ],
+        "title": "StepsStatus",
         "type": "object"
       },
       "TelegramHealth": {
@@ -3223,6 +4325,233 @@
         ]
       }
     },
+    "/purchases": {
+      "get": {
+        "operationId": "list_purchases_purchases_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PurchaseResponse"
+                  },
+                  "title": "Response List Purchases Purchases Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Purchases",
+        "tags": [
+          "purchases"
+        ]
+      },
+      "post": {
+        "operationId": "create_purchase_purchases_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Purchase",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/purchases/{purchase_id}": {
+      "delete": {
+        "operationId": "delete_purchase_purchases__purchase_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchase_id",
+            "required": true,
+            "schema": {
+              "title": "Purchase Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Purchase",
+        "tags": [
+          "purchases"
+        ]
+      },
+      "put": {
+        "operationId": "update_purchase_purchases__purchase_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchase_id",
+            "required": true,
+            "schema": {
+              "title": "Purchase Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Purchase",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
     "/recipients": {
       "get": {
         "operationId": "list_recipients_recipients_get",
@@ -3991,6 +5320,72 @@
         ]
       }
     },
+    "/savings/report": {
+      "get": {
+        "operationId": "savings_report_savings_report_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "black_friday",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Black Friday"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Savings Report",
+        "tags": [
+          "savings"
+        ]
+      }
+    },
     "/settings/feed": {
       "get": {
         "operationId": "get_feed_settings_settings_feed_get",
@@ -4094,6 +5489,716 @@
         "summary": "Update Feed Settings",
         "tags": [
           "settings"
+        ]
+      }
+    },
+    "/setup/bot": {
+      "put": {
+        "operationId": "save_bot_token_setup_bot_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BotTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Bot Token",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/bot/pairing": {
+      "post": {
+        "description": "Open a window in which `/start <code>` adds a recipient.",
+        "operationId": "start_pairing_setup_bot_pairing_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Pairing",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/bot/pairing/poll": {
+      "post": {
+        "operationId": "poll_pairing_setup_bot_pairing_poll_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingPollResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Poll Pairing",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/credentials": {
+      "put": {
+        "operationId": "save_credentials_setup_credentials_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Credentials",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/groups": {
+      "get": {
+        "operationId": "get_groups_setup_groups_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Groups",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/groups/refresh": {
+      "post": {
+        "operationId": "refresh_groups_setup_groups_refresh_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Groups",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/groups/select": {
+      "post": {
+        "description": "Register the chosen groups as sources. Only ids the listener actually saw.",
+        "operationId": "select_groups_setup_groups_select_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectGroupsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectGroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Groups",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/status": {
+      "get": {
+        "operationId": "get_status_setup_status_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/disconnect": {
+      "post": {
+        "description": "Delete the session file and every secret the wizard stored.\n\nThe listener notices the change within seconds and drops its connection. Values\nthat come from `.env` are not touched (the file is the user's); the account's\nsession should also be ended in Telegram (Settings, Devices), which only the\naccount owner can do.",
+        "operationId": "disconnect_telegram_setup_telegram_disconnect_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisconnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disconnect Telegram",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/cancel": {
+      "post": {
+        "operationId": "login_cancel_setup_telegram_login_cancel_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Cancel",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/code": {
+      "post": {
+        "operationId": "login_code_setup_telegram_login_code_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Code",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/password": {
+      "post": {
+        "operationId": "login_password_setup_telegram_login_password_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Password",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/setup/telegram/login/start": {
+      "post": {
+        "operationId": "login_start_setup_telegram_login_start_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Start",
+        "tags": [
+          "setup"
         ]
       }
     },

@@ -49,7 +49,8 @@ from packages.telegram.adapter import AdapterState, TelegramAdapter
 from packages.telegram.reconnect_watch import supervise_reconnects
 from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
 
-SESSION_PATH = Path("data/teleyes.session")
+# S19-01: the self-host compose keeps the session in its own volume.
+SESSION_PATH = Path(os.environ.get("TELEYES_SESSION_PATH", "data/teleyes.session"))
 ALEMBIC_INI_PATH = Path(__file__).resolve().parents[1] / "apps" / "api" / "alembic.ini"
 BACKFILL_MAX_MESSAGES = 100
 BACKFILL_MAX_AGE = timedelta(hours=24)

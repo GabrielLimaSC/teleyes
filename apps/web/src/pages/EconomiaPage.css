@@ -1,0 +1,424 @@
+/**
+ * S19-04: Economia — purchases, the savings estimate and the results card.
+ * Planes and colors come from `styles/materials.css`, so light/dark need no extra rules.
+ */
+.economia-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 8px 24px 64px;
+}
+
+.economia-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 16px 0 24px;
+}
+
+.economia-page h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.14;
+  margin: 0 0 6px;
+  color: var(--plane-text-heading);
+}
+
+.economia-page h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--plane-text-heading);
+}
+
+.economia-page__subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-page__header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.economia-page .plane-action {
+  min-height: 42px;
+  padding-inline: 18px;
+}
+
+.economia-page__error {
+  color: var(--plane-status-danger);
+}
+
+.economia-page__method {
+  margin: 16px 2px 24px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+  max-width: 78ch;
+}
+
+/* ---- Summary tiles ---- */
+.economia-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.economia-tile {
+  padding: 18px;
+  min-width: 0;
+}
+
+.economia-tile__label {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.economia-tile__value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--plane-text-heading);
+  overflow-wrap: anywhere;
+}
+
+.economia-tile__detail {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--plane-text-helper);
+}
+
+.economia-tile__bf {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.economia-tile__bf input {
+  font: inherit;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+}
+
+.economia-tile__bf button {
+  font: inherit;
+  font-size: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--plane-text-eyebrow);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.economia-tone--good {
+  color: var(--plane-status-good);
+}
+
+.economia-tone--bad {
+  color: var(--plane-status-danger);
+}
+
+.economia-tone--neutral,
+.economia-tone--none {
+  color: inherit;
+}
+
+/* ---- Table ---- */
+.economia-table-wrap {
+  padding: 8px 12px;
+  overflow-x: auto;
+}
+
+.economia-table-wrap .crud-table {
+  color: var(--plane-text-primary);
+}
+
+.economia-table-wrap .crud-table th {
+  color: var(--plane-text-secondary);
+  border-bottom-color: var(--plane-divider-color);
+}
+
+.economia-table-wrap .crud-table td,
+.economia-table-wrap .crud-table tr {
+  border-color: var(--plane-divider-color);
+}
+
+.economia-table-wrap .crud-table__name {
+  color: var(--plane-text-heading);
+}
+
+.economia-table__store {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--plane-text-helper);
+}
+
+.economia-table-wrap .crud-table__actions button {
+  background: var(--plane-action-secondary-bg);
+  border: var(--plane-action-secondary-border);
+  color: var(--plane-text-primary);
+}
+
+.economia-table-wrap .crud-table__actions button.crud-table__actions--danger {
+  color: var(--plane-status-danger);
+}
+
+/* ---- Noise ---- */
+.economia-noise {
+  margin-top: 24px;
+  padding: 18px;
+}
+
+.economia-noise__sub {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-noise__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.economia-noise__grid dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.economia-noise__grid dd {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.economia-noise__grid dd.economia-noise__detail {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--plane-text-helper);
+}
+
+/* ---- Form ---- */
+.economia-form {
+  padding: 18px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.economia-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-form input {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+  min-width: 0;
+}
+
+.economia-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.economia-form__link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.economia-form__linked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-text-primary);
+}
+
+.economia-form__options {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  border-radius: 12px;
+  border: var(--plane-pearl-border);
+  background: var(--plane-surface-sunken);
+}
+
+.economia-form__options button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+}
+
+.economia-form__options button:hover,
+.economia-form__options button:focus-visible {
+  background: var(--plane-row-highlight);
+}
+
+.economia-form__kind {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--plane-tint-bg);
+  color: var(--plane-text-eyebrow);
+}
+
+.economia-form__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.economia-form__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.economia-form__error {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-status-danger);
+}
+
+/* ---- Results card panel ---- */
+.economia-card-panel {
+  margin-top: 24px;
+  padding: 18px;
+}
+
+.economia-card-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.economia-card-panel__note {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-card-panel__body {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.economia-card-panel__options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+  color: var(--plane-text-primary);
+  font-size: 14px;
+}
+
+.economia-card-panel__options legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.economia-card-panel__options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.economia-card-panel__buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.economia-card-panel__preview {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  border-radius: 16px;
+  border: var(--plane-pearl-border);
+}
+
+@media (max-width: 900px) {
+  .economia-noise__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .economia-page {
+    padding: 8px 16px 64px;
+  }
+
+  .economia-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .economia-card-panel__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .economia-table-wrap {
+    overflow-x: visible;
+  }
+
+  .economia-table-wrap .crud-table tr {
+    border-bottom: 1px solid var(--plane-divider-color);
+  }
+
+  .economia-table-wrap .crud-table td[data-label]::before {
+    color: var(--plane-text-helper);
+  }
+}

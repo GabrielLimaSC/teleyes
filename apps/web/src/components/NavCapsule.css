@@ -226,8 +226,11 @@
     padding-inline: 8px;
   }
 
+  /* 18px padding + 74px menu offset + 4 rows of tabs (7 tabs: the right
+     column holds 4) + menu padding/border + 8px bottom padding. Too short,
+     and the last tab sits under the page content and can't be clicked. */
   .nav-shell--open {
-    min-height: 266px;
+    min-height: 316px;
   }
 
   .nav-capsule {

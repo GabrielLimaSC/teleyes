@@ -2,21 +2,36 @@ import { ApiError } from './auth'
 import { requestReauth } from '../auth/sessionRecovery'
 import { isDemoReadOnly, notifyDemoReadOnly } from './demo'
 
-async function extractDetail(response: Response, fallback: string): Promise<string> {
+interface ErrorDetail {
+  message: string
+  code?: string
+  retryAfterSeconds?: number
+}
+
+/** `detail` is a plain string for most routes; the setup wizard (S19-02) sends
+ * `{code, message, retry_after_seconds?}` so the page can react to the code. */
+async function extractDetail(response: Response, fallback: string): Promise<ErrorDetail> {
   try {
     const body: unknown = await response.json()
-    if (
-      typeof body === 'object' &&
-      body !== null &&
-      'detail' in body &&
-      typeof (body as { detail: unknown }).detail === 'string'
-    ) {
-      return (body as { detail: string }).detail
+    if (typeof body === 'object' && body !== null && 'detail' in body) {
+      const detail = (body as { detail: unknown }).detail
+      if (typeof detail === 'string') return { message: detail }
+      if (typeof detail === 'object' && detail !== null && 'message' in detail) {
+        const structured = detail as { message: unknown; code?: unknown; retry_after_seconds?: unknown }
+        if (typeof structured.message === 'string') {
+          return {
+            message: structured.message,
+            code: typeof structured.code === 'string' ? structured.code : undefined,
+            retryAfterSeconds:
+              typeof structured.retry_after_seconds === 'number' ? structured.retry_after_seconds : undefined,
+          }
+        }
+      }
     }
   } catch {
     // no JSON body — fall through to the generic message
   }
-  return fallback
+  return { message: fallback }
 }
 
 function isWriteRequest(init: RequestInit): boolean {
@@ -57,14 +72,18 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const response = await fetch(path, { credentials: 'same-origin', ...init })
   if (!response.ok) {
-    const detail = await extractDetail(response, `Erro inesperado (${response.status}).`)
+    const {
+      message: detail,
+      code,
+      retryAfterSeconds,
+    } = await extractDetail(response, `Erro inesperado (${response.status}).`)
     if (!_isRetry && isWriteRequest(init) && isSessionExpired(response.status, detail)) {
       const freshToken = await requestReauth()
       return apiRequest<T>(path, withFreshCsrfToken(init, freshToken), true)
     }
     // S19-03: a read-only demo refuses every write; the DemoBanner shows the toast.
     if (isDemoReadOnly(response.status, detail)) notifyDemoReadOnly()
-    throw new ApiError(detail, response.status)
+    throw new ApiError(detail, response.status, { code, retryAfterSeconds })
   }
   if (response.status === 204) {
     return undefined as T
