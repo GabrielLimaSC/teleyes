@@ -302,7 +302,8 @@ Numbers from a run on 2026-10-21 against a fresh install:
 | Playwright (`npm run test:e2e`) | 139 tests in 29 files; run locally against a real backend, not in CI yet |
 
 GitHub Actions runs ruff, mypy, pytest, tsc, Oxlint and Vitest on every push and pull request to `dev` and
-`main` ([workflow](.github/workflows/ci.yml)).
+`main` ([workflow](.github/workflows/ci.yml)). CI installs Python dependencies pinned by `constraints-ci.txt`
+(the exact versions of a known-green run). To bump them, install without the constraints file on a branch, copy the versions from the green run's `Successfully installed` line, and update the file.
 
 ```bash
 # Backend (Python 3.12+)
