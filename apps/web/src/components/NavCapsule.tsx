@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { CSSProperties } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useChromeMode } from '../chrome/scrollChrome'
+import { Mascot } from './Mascot'
+import { ThemeToggle } from './ThemeToggle'
 import './NavCapsule.css'
 
 // `stagger`: distance from the mascot, the order the tabs reappear in —
 // centre out in the normal capsule, left to right (`order`) in the compact
 // one (S15-03/S15-04), where the mascot sits before every tab.
 const TABS = [
-  // S19-05: the public static demo is always signed in, so this tab is the overview.
-  { to: '/', label: import.meta.env.VITE_DEMO_STATIC === '1' ? 'Início' : 'Login', stagger: 2, order: 0 },
-  { to: '/feed', label: 'Feed', stagger: 1, order: 1 },
-  { to: '/regras', label: 'Regras', stagger: 0, order: 2 },
-  { to: '/fontes', label: 'Fontes', stagger: 0, order: 3 },
-  { to: '/historico', label: 'Histórico', stagger: 1, order: 4 },
-  { to: '/economia', label: 'Economia', stagger: 2, order: 5 },
-  { to: '/saude', label: 'Saúde', stagger: 3, order: 6 },
+  // Left wing: follow what happens. Right wing: configure (Tema is its 4th slot).
+  { to: '/', label: 'Início', stagger: 3, order: 0 },
+  { to: '/feed', label: 'Feed', stagger: 2, order: 1 },
+  { to: '/historico', label: 'Histórico', stagger: 1, order: 2 },
+  { to: '/economia', label: 'Economia', stagger: 0, order: 3 },
+  { to: '/regras', label: 'Regras', stagger: 0, order: 4 },
+  { to: '/fontes', label: 'Fontes', stagger: 1, order: 5 },
+  { to: '/saude', label: 'Saúde', stagger: 2, order: 6 },
 ]
 
 const COMPACT_NAV_QUERY = '(max-width: 760px)'
@@ -51,6 +53,7 @@ export function NavCapsule() {
   const [isPinnedOpen, setIsPinnedOpen] = useState(false)
   const isCompact = useSyncExternalStore(subscribeToCompactNavigation, isCompactNavigation, () => true)
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const currentTab = TABS.find((tab) => tab.to === pathname)?.label ?? 'Navegação'
   // S15-03: while the Feed is scrolled, the capsule shrinks to the mascot
   // disc at the top-left (NavCapsule.css) and the mascot becomes its toggle.
@@ -134,35 +137,41 @@ export function NavCapsule() {
 
         <div className="nav-capsule__menu" id="teleyes-navigation-tabs">
           <span className="nav-capsule__wing nav-capsule__wing--left">
-            {TABS.slice(0, 3).map((tab) => (
+            {TABS.slice(0, 4).map((tab) => (
               <NavTab key={tab.to} {...tab} onNavigate={closeAll} />
             ))}
           </span>
 
           <span className="nav-capsule__wing nav-capsule__wing--right">
-            {TABS.slice(3).map((tab) => (
+            {TABS.slice(4).map((tab) => (
               <NavTab key={tab.to} {...tab} onNavigate={closeAll} />
             ))}
+            <span className="nav-tab-slot" style={{ '--nav-stagger': 3, '--nav-order': 7 } as CSSProperties}>
+              <ThemeToggle />
+            </span>
           </span>
         </div>
 
+        {/* One element in both roles, so the compact-chrome spring keeps moving
+            the same node: a toggle where the tabs are collapsed, else "home". */}
         <button
           type="button"
           className="nav-mascot"
-          aria-label={isExpanded ? 'Recolher navegação' : 'Expandir navegação'}
+          aria-label={
+            mascotIsToggle ? (isExpanded ? 'Recolher navegação' : 'Expandir navegação') : 'Ir para o início'
+          }
           aria-expanded={mascotIsToggle ? isExpanded : undefined}
           aria-controls={mascotIsToggle ? 'teleyes-navigation-tabs' : undefined}
-          aria-hidden={!mascotIsToggle}
-          disabled={!mascotIsToggle}
-          tabIndex={mascotIsToggle ? undefined : -1}
-          onClick={() =>
-            isCompact ? setIsPinnedOpen((open) => !open) : setIsChromeOpen((open) => !open)
-          }
+          onClick={() => {
+            if (!mascotIsToggle) navigate('/')
+            else if (isCompact) setIsPinnedOpen((open) => !open)
+            else setIsChromeOpen((open) => !open)
+          }}
         >
           <span className="nav-mascot__refraction" aria-hidden="true" />
           <span className="nav-mascot__tint" aria-hidden="true" />
           <span className="nav-mascot__shine" aria-hidden="true" />
-          <img src={`${import.meta.env.BASE_URL}mascot.png`} alt="" width="256" height="256" />
+          <Mascot width={46} height={46} />
         </button>
       </nav>
     </header>

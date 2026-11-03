@@ -10,7 +10,7 @@ test('logs in against the real API, navigates the shell, and logs out', async ({
   await expect(page.getByText(/Sessão ativa/)).toBeVisible()
 
   const nav = page.getByRole('navigation', { name: 'Navegação principal' })
-  await expect(nav.getByRole('link', { name: 'Login' })).toHaveClass(/nav-tab--active/)
+  await expect(nav.getByRole('link', { name: 'Início' })).toHaveClass(/nav-tab--active/)
 
   // session persists across a reload (real cookie, not just in-memory state)
   await page.reload()
@@ -30,7 +30,7 @@ test('logs in against the real API, navigates the shell, and logs out', async ({
   await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Feed' })).toHaveClass(/nav-tab--active/)
 
-  await nav.getByRole('link', { name: 'Login' }).click()
+  await nav.getByRole('link', { name: 'Início' }).click()
   await page.getByRole('button', { name: 'Sair' }).click()
   await expect(page.getByLabel('Senha')).toBeVisible()
 })

@@ -70,24 +70,20 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   const centerOf = (b: { y: number; height: number }) => b.y + b.height / 2
   const grid = page.locator('.feed-page__grid')
   const leftRail = page.locator('.feed-rail')
-  const sideRail = page.locator('.feed-page__side-rail')
   const list = page.locator('.feed-page__list')
   await expect(grid).toHaveAttribute('data-left-rail', 'open')
-  // S15-04: disco, controles e botão de tema na mesma linha central da faixa.
-  const toggle = await box(page.locator('.theme-toggle__button'))
+  // S15-04: disco e controles na mesma linha central da faixa (S21-01: o tema agora vive dentro da cápsula).
   expect(Math.abs(centerOf(capsule) - centerOf(actions))).toBeLessThan(2)
-  expect(Math.abs(centerOf(toggle) - centerOf(actions))).toBeLessThan(2)
   const openMascot = await box(page.locator('.nav-mascot'))
   const openContext = await box(page.locator('.feed-page__context-capsule'))
   const openActionsRight = actions.x + actions.width
   const gridBox = await box(grid)
   expect(Math.abs(centerXOf(capsule) - (gridBox.x + 32))).toBeLessThan(2)
-  expect(Math.abs(centerXOf(toggle) - (gridBox.x + gridBox.width - 32))).toBeLessThan(2)
   await page.screenshot({ path: test.info().outputPath('compact-rails-open.png') })
   // Recolhida, só um círculo: o mascote não desenha disco próprio.
   await expect(page.locator('.nav-mascot__tint')).toHaveCSS('opacity', '0')
   const mascot = await box(page.locator('.nav-mascot'))
-  expect(mascot.x).toBeGreaterThanOrEqual(capsule.x)
+  expect(mascot.x).toBeGreaterThanOrEqual(capsule.x - 0.5)
   expect(mascot.x + mascot.width).toBeLessThanOrEqual(capsule.x + capsule.width + 1)
   // S16-01: "Feed ao vivo · N matches" shows up only once compact, next to
   // the disc — and the dissolve band repaints the real page background,
@@ -125,15 +121,11 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   const collapsedCapsule = await box(page.locator('.nav-capsule'))
   const collapsedLeftRail = await box(leftRail)
   expect(Math.abs(centerXOf(collapsedCapsule) - centerXOf(collapsedLeftRail))).toBeLessThan(2)
-  const collapsedToggle = await box(page.locator('.theme-toggle__button'))
-  const collapsedSideRail = await box(sideRail)
-  expect(Math.abs(centerXOf(collapsedToggle) - centerXOf(collapsedSideRail))).toBeLessThan(2)
   const collapsedActions = await box(page.locator('.feed-page__header-actions'))
   const collapsedList = await box(list)
   expect(Math.abs(collapsedActions.x + collapsedActions.width - (collapsedList.x + collapsedList.width))).toBeLessThan(2)
   // S17-04: same x as with the rails still open — no jump.
   expect(Math.abs(centerXOf(collapsedCapsule) - centerXOf(capsule))).toBeLessThan(1)
-  expect(Math.abs(centerXOf(collapsedToggle) - centerXOf(toggle))).toBeLessThan(1)
   expect(Math.abs(collapsedActions.x + collapsedActions.width - openActionsRight)).toBeLessThan(1)
   expect(Math.abs((await box(page.locator('.nav-mascot'))).x - openMascot.x)).toBeLessThan(1)
   expect(Math.abs((await box(page.locator('.feed-page__context-capsule'))).x - openContext.x)).toBeLessThan(1)

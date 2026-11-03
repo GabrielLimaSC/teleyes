@@ -1,3 +1,4 @@
+import { Mascot } from '../components/Mascot'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
@@ -33,7 +34,7 @@ function Brand() {
   return (
     <div className="login-panel__brand">
       <span className="login-card__mascot-frame">
-        <img className="login-card__mascot" src={`${import.meta.env.BASE_URL}mascot.png`} alt="" />
+        <Mascot className="login-card__mascot" />
       </span>
       <div>
         <h1>teleyes</h1>

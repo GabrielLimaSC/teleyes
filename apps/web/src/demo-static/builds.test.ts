@@ -80,7 +80,7 @@ describe('demo-static build', () => {
   it('serves assets, favicon and the SPA fallback under /teleyes/', () => {
     const html = readFileSync(join(staticDir, 'index.html'), 'utf-8')
     expect(html).toContain('src="/teleyes/assets/')
-    expect(html).toContain('href="/teleyes/favicon.svg"')
+    expect(html).toContain('href="/teleyes/favicon-32.png"')
     expect(readFileSync(join(staticDir, '404.html'), 'utf-8')).toBe(html)
     expect(statSync(join(staticDir, 'mascot.png')).size).toBeGreaterThan(0)
   })
