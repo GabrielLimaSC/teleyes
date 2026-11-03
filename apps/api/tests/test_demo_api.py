@@ -63,7 +63,7 @@ def api() -> Iterator[ApiContext]:
     try:
         app.dependency_overrides[get_db] = override_get_db
         app.dependency_overrides[get_bot_notifier_factory] = notifier_factory
-        app.state.session_store = SessionStore()
+        app.state.session_store = SessionStore(test_sessionmaker)
         app.state.rate_limiter = LoginRateLimiter()
         app.state.event_broker = broker
         app.state.demo_dedupe_cache = DedupeCache()

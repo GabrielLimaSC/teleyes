@@ -1275,6 +1275,11 @@ export interface components {
         LoginRequest: {
             /** Password */
             password: string;
+            /**
+             * Remember
+             * @default false
+             */
+            remember: boolean;
         };
         /** LoginStatus */
         LoginStatus: {
@@ -2169,7 +2174,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
         };
         requestBody: {
             content: {

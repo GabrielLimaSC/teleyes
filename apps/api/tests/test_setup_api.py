@@ -153,7 +153,7 @@ def wizard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Wizard]:
         )
     }
     app.dependency_overrides[get_db] = override_get_db
-    app.state.session_store = SessionStore()
+    app.state.session_store = SessionStore(factory)
     app.state.rate_limiter = LoginRateLimiter()
     app.state.secret_store = store
     app.state.telegram_login = TelegramLoginService(

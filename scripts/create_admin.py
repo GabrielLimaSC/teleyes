@@ -21,12 +21,12 @@ import getpass
 import os
 import sys
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.demo_mode import DEMO_PASSWORD
 from auth.hashing import hash_password
-from models import Admin
+from models import Admin, AdminSession
 from models.db import get_engine, get_sessionmaker
 
 MIN_PASSWORD_LENGTH = 8
@@ -44,6 +44,8 @@ def upsert_admin_password(session: Session, password: str) -> str:
         session.add(Admin(password_hash=hash_password(password)))
         return "criado"
     admin.password_hash = hash_password(password)
+    # S21-12: a new password signs every browser out, "manter conectado" included.
+    session.execute(delete(AdminSession))
     return "atualizado"
 
 

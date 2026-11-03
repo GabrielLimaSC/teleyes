@@ -2,10 +2,11 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from auth.hashing import verify_password
-from models import Admin
+from auth.session import SessionStore
+from models import Admin, AdminSession
 
 # scripts/ isn't a package under apps/api (pytest's pythonpath), so it's not
 # importable the normal way — added to sys.path just for this test file,
@@ -51,3 +52,22 @@ def test_validate_password_accepts_a_normal_password() -> None:
 def test_validate_password_rejects_short_and_demo_passwords() -> None:
     assert validate_password("curta") is not None
     assert validate_password(DEMO_PASSWORD) is not None
+
+
+def test_resetting_the_password_signs_every_session_out(session: Session) -> None:
+    # S21-12: sessions are persistent now, so a stolen "manter conectado" cookie would
+    # otherwise survive the password change meant to lock the thief out.
+    upsert_admin_password(session, "senha-antiga")
+    session.commit()
+    admin_id = session.scalars(select(Admin)).one().id
+    store = SessionStore(sessionmaker(bind=session.get_bind()))
+    remembered = store.create_session(admin_id, remember=True)
+    plain = store.create_session(admin_id)
+
+    action = upsert_admin_password(session, "senha-nova")
+    session.commit()
+
+    assert action == "atualizado"
+    assert store.get_session(remembered.session_id) is None
+    assert store.get_session(plain.session_id) is None
+    assert session.scalars(select(AdminSession)).all() == []

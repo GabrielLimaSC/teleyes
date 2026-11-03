@@ -1,4 +1,5 @@
 from models.admin import Admin
+from models.admin_session import AdminSession
 from models.base import Base
 from models.delivery import Delivery
 from models.digest_run import DigestRun
@@ -19,6 +20,7 @@ from models.suppressed_message import SuppressedMessage
 
 __all__ = [
     "Admin",
+    "AdminSession",
     "Base",
     "Delivery",
     "DigestRun",

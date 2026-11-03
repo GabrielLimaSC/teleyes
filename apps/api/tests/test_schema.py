@@ -471,3 +471,30 @@ def test_target_price_and_delivery_kind_migration_defaults_and_downgrades(
     assert "target_price_cents" not in rule_columns
     assert "kind" not in delivery_columns
     assert remaining == [(1,)]
+
+
+def test_admin_session_migration_creates_and_drops_the_table(
+    db_path: Path, alembic_runner: AlembicRunner
+) -> None:
+    url = f"sqlite:///{db_path}"
+    previous_head = "b7d41e9a2c05"
+    before = alembic_runner("upgrade", previous_head, database_url=url)
+    assert before.returncode == 0, before.stderr
+    assert "admin_session" not in inspect(get_engine(url)).get_table_names()
+
+    upgrade = alembic_runner("upgrade", "head", database_url=url)
+    assert upgrade.returncode == 0, upgrade.stderr
+    inspector = inspect(get_engine(url))
+    assert {c["name"] for c in inspector.get_columns("admin_session")} == {
+        "id_hash",
+        "admin_id",
+        "created_at",
+        "last_seen_at",
+        "expires_at",
+        "remember",
+    }
+    assert inspector.get_pk_constraint("admin_session")["constrained_columns"] == ["id_hash"]
+
+    downgrade = alembic_runner("downgrade", previous_head, database_url=url)
+    assert downgrade.returncode == 0, downgrade.stderr
+    assert "admin_session" not in inspect(get_engine(url)).get_table_names()

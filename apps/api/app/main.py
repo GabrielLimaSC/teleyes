@@ -24,7 +24,7 @@ from app.setup_runtime import (
 from auth.csrf import verify_csrf_token
 from auth.hashing import verify_password
 from auth.rate_limit import LoginRateLimiter
-from auth.session import SessionRecord, SessionStore
+from auth.session import REMEMBER_TTL_SECONDS, SessionRecord, SessionStore
 from models import Admin
 from models.db import get_engine, get_sessionmaker
 from packages.events.broker import EventBroker
@@ -66,9 +66,9 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="teleyes", version="0.1.0", lifespan=_lifespan)
-app.state.session_store = SessionStore()
-app.state.rate_limiter = LoginRateLimiter()
 app.state.session_factory = get_sessionmaker(get_engine())
+app.state.session_store = SessionStore(app.state.session_factory)
+app.state.rate_limiter = LoginRateLimiter()
 app.state.started_at = time.monotonic()
 app.state.event_broker = EventBroker()
 
@@ -175,6 +175,9 @@ def _session_cookie_secure() -> bool:
 
 class LoginRequest(BaseModel):
     password: str
+    # S21-12: "Manter conectado". Off: browser-session cookie, sliding 24h inactivity.
+    # On: the cookie and the server-side session both last 30 days from login.
+    remember: bool = False
 
 
 @app.post("/auth/login")
@@ -183,6 +186,7 @@ def login(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    previous_session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
 ) -> dict[str, str]:
     rate_limiter: LoginRateLimiter = request.app.state.rate_limiter
     client_key = request.client.host if request.client else "unknown"
@@ -197,10 +201,16 @@ def login(
 
     rate_limiter.record_success(client_key)
     store: SessionStore = request.app.state.session_store
-    record = store.create_session(admin.id)
+    # Session fixation: the token is always minted here, never taken from the client,
+    # and a session the browser was already holding does not outlive the new login.
+    if previous_session_id is not None:
+        store.delete_session(previous_session_id)
+    record = store.create_session(admin.id, remember=payload.remember)
     response.set_cookie(
         SESSION_COOKIE_NAME,
         record.session_id,
+        # No Max-Age without "remember": a browser-session cookie.
+        max_age=int(REMEMBER_TTL_SECONDS) if payload.remember else None,
         httponly=True,
         # S19-03: the public demo is reached over plain http://localhost by
         # strangers, and Safari drops Secure cookies there. Real deployments
