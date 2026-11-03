@@ -95,10 +95,45 @@ describe('EconomiaPage', () => {
     await screen.findByText('SSD NVMe')
 
     const rowOf = (name: string) => screen.getByText(name).closest('tr')!
-    expect(rowOf('SSD NVMe')).toHaveTextContent('−R$ 100,00 (-20,0%)')
-    expect(rowOf('SSD NVMe').querySelector('.economia-tone--bad')).not.toBeNull()
-    expect(rowOf('Fone')).toHaveTextContent('sem dados')
-    expect(rowOf('Cabo HDMI').querySelector('[data-label="Economia estimada"]')).toHaveTextContent('—')
+    expect(rowOf('SSD NVMe')).toHaveTextContent('−R$ 100,00 · 20,0%')
+    expect(rowOf('SSD NVMe').querySelector('.economia-pill--bad')).not.toBeNull()
+    expect(rowOf('Fone')).toHaveTextContent('sem histórico')
+    expect(rowOf('Fone').querySelector('.price-range--empty')).toHaveTextContent('menos de 3 preços vistos — fora da conta')
+    expect(rowOf('Cabo HDMI').querySelector('[data-label="Economia"]')).toHaveTextContent('sem histórico')
+    expect(rowOf('Cabo HDMI').querySelector('.economia-pill--good, .economia-pill--bad')).toBeNull()
+  })
+
+  it('shows the saving card with the percentage badge and keeps the methodology visible', async () => {
+    stub()
+    renderPage()
+    await screen.findByText('Placa-mãe B850M')
+    const tiles = screen.getByRole('region', { name: 'Resumo' })
+    expect(within(tiles).getByText('7,7% abaixo da mediana')).toBeInTheDocument()
+    expect(within(tiles).getByText('Mediana 90d')).toBeInTheDocument()
+    expect(within(tiles).getByText('Você pagou')).toBeInTheDocument()
+    expect(within(tiles).getByText(/numa única peça \(/)).toBeInTheDocument()
+    expect(within(tiles).getByText(/Não é uma garantia de preço de mercado/)).toBeInTheDocument()
+  })
+
+  it('shows a negative total in red with the "acima da mediana" badge', async () => {
+    stub(
+      savingsReport({
+        totals: {
+          purchases: 1,
+          linked_with_data: 1,
+          total_paid_cents: 130_000,
+          estimated_saving_cents: -30_000,
+          reference_total_cents: 100_000,
+          estimated_saving_pct: -30,
+        },
+        items: [reportItem({ price_cents: 130_000, savings: { ...reportItem().savings!, median_90d_cents: 100_000, saving_vs_median_cents: -30_000, saving_vs_median_pct: -30 } })],
+      }),
+    )
+    renderPage()
+    await screen.findByText('Placa-mãe B850M')
+    const tiles = screen.getByRole('region', { name: 'Resumo' })
+    expect(within(tiles).getByText('−R$ 300,00')).toHaveClass('economia-tone--bad')
+    expect(within(tiles).getByText('30,0% acima da mediana')).toBeInTheDocument()
   })
 
   it('says so when there is no purchase yet and keeps the card button off', async () => {
@@ -156,14 +191,16 @@ describe('EconomiaPage', () => {
     const user = userEvent.setup()
     const row = (await screen.findByText('SSD NVMe 2 TB')).closest('tr')!
 
-    await user.click(within(row).getByRole('button', { name: 'Excluir' }))
+    await user.click(within(row).getByRole('button', { name: /Mais ações da compra SSD NVMe 2 TB/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
     await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
 
-    await user.click(within(row).getByRole('button', { name: 'Excluir' }))
+    await user.click(within(row).getByRole('button', { name: /Mais ações da compra SSD NVMe 2 TB/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Excluir compra' }))
 
     await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/purchases/2')).toBe(true))
