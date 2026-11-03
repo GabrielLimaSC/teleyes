@@ -172,3 +172,25 @@ describe('fixtures privacy', () => {
     expect([...hosts]).toEqual(['example.com'])
   })
 })
+
+describe('S21-13 endpoints of the v2 interface', () => {
+  const get = (url: string) => api().handle('GET', url)
+
+  it('serves the recorded activity, health history, events and goal', () => {
+    for (const url of ['/sources/activity?days=7', '/health/history?hours=24', '/health/events?limit=20', '/savings/goal']) {
+      expect(get(url).status).toBe(200)
+    }
+  })
+
+  it('previews alerts per week from the recorded matches', () => {
+    const all = get('/recipients/preview?rules_mode=all&notify_target=true&notify_common=true').body as {
+      alerts_per_week: number
+      per_rule: { rule_id: number; per_week: number }[]
+    }
+    expect(all.alerts_per_week).toBe(all.per_rule.reduce((sum, row) => sum + row.per_week, 0))
+    const none = get('/recipients/preview?rules_mode=all&notify_target=false&notify_common=false').body as {
+      alerts_per_week: number
+    }
+    expect(none.alerts_per_week).toBe(0)
+  })
+})
