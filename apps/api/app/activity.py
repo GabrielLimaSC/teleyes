@@ -201,6 +201,8 @@ def read_source_activity(
         )
         .group_by(MetricHourly.source_id, MetricHourly.hour_utc)
     ):
+        if source_id is None:  # excluded by the query; narrows the type for mypy
+            continue
         local_day = ensure_utc(hour).astimezone(zone).date()
         per_source_day[source_id][local_day] += int(total or 0)
 
