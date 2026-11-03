@@ -4,19 +4,20 @@ import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
 import { deleteRecipient, listRecipients, pauseRecipient } from '../api/recipients'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
-import type { Recipient } from '../api/types'
-import { StatusToggle } from '../components/StatusToggle'
+import type { DigestSettings, Recipient, Rule } from '../api/types'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/CrudTable.css'
 import '../components/FillButton.css'
 import './RegrasPage.css'
+import { RecipientCard } from './RecipientCard'
 
 /**
  * No nav tab exists for "Destinatários" — recipient management lives on the
  * Regras page, since that's where alert routing is configured. S21-02: the
  * create/edit form moved to the page's contextual right rail
- * (`RecipientRailForm`); this section keeps the list, pause and delete, and
- * reloads whenever the page bumps `version` after a save.
+ * (`RecipientRailForm`); S21-07: each recipient is a card that also edits the
+ * delivery behaviour (which rules, which alert types). The list reloads
+ * whenever the page bumps `version` after a save.
  */
 export function DestinatariosSection({
   onChanged,
@@ -26,6 +27,8 @@ export function DestinatariosSection({
   onEdit,
   headerExtra,
   onLoaded,
+  rules,
+  digest,
 }: {
   onChanged?: () => void
   version: number
@@ -34,6 +37,8 @@ export function DestinatariosSection({
   onEdit: (recipient: Recipient) => void
   headerExtra?: ReactNode
   onLoaded?: (recipients: Recipient[]) => void
+  rules: Rule[]
+  digest: DigestSettings | null
 }) {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
@@ -118,69 +123,23 @@ export function DestinatariosSection({
       )}
 
       {!loading && !listError && (
-        <div className="plane-pearl crud-table-wrap wide-table-wrap">
-          <table className="crud-table wide-table">
-            <thead>
-              <tr>
-                <th>Destinatário</th>
-                <th>Chat ID</th>
-                <th>Autorizado</th>
-                <th>Status</th>
-                <th className="wide-table__num">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recipients.map((recipient) => (
-                <tr
-                  key={recipient.id}
-                  className={
-                    editingId === recipient.id
-                      ? 'wide-table__row--editing'
-                      : undefined
-                  }
-                >
-                  <td className="crud-table__name" data-label="Destinatário">
-                    {recipient.name}
-                  </td>
-                  <td data-label="Chat ID">{recipient.telegram_chat_id}</td>
-                  <td data-label="Autorizado">{recipient.allowlisted ? 'Sim' : 'Não'}</td>
-                  <td data-label="Status">
-                    <StatusToggle
-                      active={recipient.active}
-                      pausing={pausingId === recipient.id}
-                      onPause={() => handlePause(recipient)}
-                    />
-                  </td>
-                  <td className="wide-table__actions" data-label="Ações">
-                    <div className="wide-table__actions-inner">
-                      <div className="wide-table__actions-row">
-                        <button
-                          type="button"
-                          className="plane-action plane-action--secondary plane-action--compact"
-                          onClick={() => onEdit(recipient)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="plane-action plane-action--danger plane-action--compact"
-                          onClick={() => handleDelete(recipient)}
-                          disabled={deletingId === recipient.id}
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {recipients.length === 0 && (
-                <tr>
-                  <td colSpan={5}>Nenhum destinatário cadastrado ainda.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="recipient-cards">
+          {recipients.map((recipient) => (
+            <RecipientCard
+              key={recipient.id}
+              recipient={recipient}
+              rules={rules}
+              digest={digest}
+              editing={editingId === recipient.id}
+              pausing={pausingId === recipient.id}
+              deleting={deletingId === recipient.id}
+              onPause={() => handlePause(recipient)}
+              onDelete={() => handleDelete(recipient)}
+              onEdit={() => onEdit(recipient)}
+              onSaved={changed}
+            />
+          ))}
+          {recipients.length === 0 && <p>Nenhum destinatário cadastrado ainda.</p>}
         </div>
       )}
     </section>

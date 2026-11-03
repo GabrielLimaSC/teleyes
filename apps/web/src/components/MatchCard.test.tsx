@@ -17,6 +17,7 @@ const rule: Rule = {
   lowest_price_24h_cents: null,
   snoozed_until: null,
   history_30d: [],
+  recipient_ids: [1],
 }
 
 const source: Source = {
@@ -35,6 +36,10 @@ const recipients: Recipient[] = [
     allowlisted: true,
     active: true,
     created_at: '2026-01-01T00:00:00Z',
+    rules_mode: 'all',
+    rule_ids: [],
+    notify_target: true,
+    notify_common: true,
   },
 ]
 

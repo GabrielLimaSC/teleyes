@@ -40,6 +40,8 @@ import { DeliveryAdjustments } from './DeliveryAdjustments'
 import { DestinatariosSection } from './DestinatariosSection'
 import { RecipientRailForm } from './RecipientRailForm'
 import type { RecipientFormTarget } from './RecipientRailForm'
+import { Avatar } from './RecipientDeliveryParts'
+import { initial, recipientsLabel, recipientsMissingRule } from './recipientDelivery'
 import '../components/CrudTable.css'
 import '../components/FillButton.css'
 import './RegrasPage.css'
@@ -165,6 +167,26 @@ function RuleTargetCell({ rule }: { rule: Rule }) {
   )
 }
 
+/** S21-07: who receives a rule, from the API's resolved `recipient_ids`. */
+function RuleRecipients({ rule, recipients }: { rule: Rule; recipients: Recipient[] | null }) {
+  const ids = rule.recipient_ids ?? []
+  if (recipients === null && ids.length > 0) return <span className="delivery-who">…</span>
+  const known = (recipients ?? []).filter((recipient) => ids.includes(recipient.id))
+  const label = recipientsLabel(known.map((recipient) => recipient.name))
+  return (
+    <span className={label.none ? 'delivery-who delivery-who--none' : 'delivery-who'}>
+      {!label.none && (
+        <span className="delivery-avatars">
+          {known.slice(0, 3).map((recipient) => (
+            <Avatar key={recipient.id} letter={initial(recipient.name)} title={recipient.name} />
+          ))}
+        </span>
+      )}
+      {label.text}
+    </span>
+  )
+}
+
 export function RegrasPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
@@ -241,7 +263,8 @@ export function RegrasPage() {
   const [expandedId, setExpandedIdState] = useState<number | null>(readExpandedFromUrl)
   const [recipientTarget, setRecipientTarget] = useState<RecipientFormTarget | null>(null)
   const [recipientsVersion, setRecipientsVersion] = useState(0)
-  const [recipientCount, setRecipientCount] = useState<number | null>(null)
+  const [recipients, setRecipients] = useState<Recipient[] | null>(null)
+  const recipientCount = recipients === null ? null : recipients.length
   const [recent, setRecent] = useState<{ ruleId: number; matches: Match[] | null; failed: boolean } | null>(null)
   const [recentVersion, setRecentVersion] = useState(0)
   const testerPanelRef = useRef<HTMLDivElement>(null)
@@ -477,6 +500,13 @@ export function RegrasPage() {
     setRecipientTarget(null)
     setRecipientsVersion((version) => version + 1)
     listener.refresh()
+    reload()
+  }
+  // A card saved new delivery settings: the "Destinatários" column of the rules
+  // table (computed by the API) must follow.
+  const recipientsChanged = () => {
+    listener.refresh()
+    reload()
   }
 
   const resetForm = () => {
@@ -836,6 +866,7 @@ export function RegrasPage() {
                     <th>Regra</th>
                     <th className="rules-table__num">Teto</th>
                     <th className="rules-table__num">Alvo</th>
+                    <th className="rules-table__recipients">Destinatários</th>
                     <th className="rules-table__status">Status</th>
                     <th className="rules-table__actions">
                       <span className="rules-table__sr">Ações</span>
@@ -879,6 +910,9 @@ export function RegrasPage() {
                           {/* S15-02: one box, so the stacked phone card keeps value and
                               gap together on the right instead of spreading them. */}
                           <RuleTargetCell rule={rule} />
+                        </td>
+                        <td className="rules-table__recipients" data-label="Destinatários">
+                          <RuleRecipients rule={rule} recipients={recipients} />
                         </td>
                         <td className="rules-table__status" data-label="Status">
                           <div className="rule-status">
@@ -935,7 +969,7 @@ export function RegrasPage() {
                       </tr>
                       {expanded && (
                         <tr id={detailId} className="rules-table__detail">
-                          <td colSpan={5}>
+                          <td colSpan={6}>
                             <div className="rule-detail" role="region" aria-label={`Detalhes da regra ${rule.name}`}>
                               <RuleHistoryChart
                                 points={rule.history_30d ?? []}
@@ -943,6 +977,13 @@ export function RegrasPage() {
                                 targetCents={rule.target_price_cents}
                               />
                               <div className="rule-detail__side">
+                                {recipients !== null && recipientsMissingRule(recipients, rule).length > 0 && (
+                                  <p className="delivery-warn" role="status">
+                                    {recipientsMissingRule(recipients, rule).length === 1
+                                      ? '1 destinatário não recebe esta regra'
+                                      : `${recipientsMissingRule(recipients, rule).length} destinatários não recebem esta regra`}
+                                  </p>
+                                )}
                                 <h3 className="rule-detail__heading">Últimos matches</h3>
                                 {(recent === null || recent.ruleId !== rule.id || (recent.matches === null && !recent.failed)) && (
                                   <p role="status" className="rule-detail__muted">Carregando matches…</p>
@@ -1156,12 +1197,14 @@ export function RegrasPage() {
           )}
 
           <DestinatariosSection
-            onChanged={listener.refresh}
+            onChanged={recipientsChanged}
+            rules={rules}
+            digest={digest}
             version={recipientsVersion}
             editingId={recipientTarget?.kind === 'edit' ? recipientTarget.recipient.id : null}
             onAdd={openRecipientCreate}
             onEdit={openRecipientEdit}
-            onLoaded={(list) => setRecipientCount(list.length)}
+            onLoaded={setRecipients}
             headerExtra={
               <DeliveryAdjustments
                 digest={digest}
@@ -1179,6 +1222,7 @@ export function RegrasPage() {
             <RecipientRailForm
               key={recipientTarget.kind === 'edit' ? `edit-${recipientTarget.recipient.id}` : 'create'}
               target={recipientTarget}
+              rules={rules}
               onSaved={recipientSaved}
               onCancel={closeRecipientForm}
             />

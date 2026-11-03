@@ -168,6 +168,9 @@ export interface Rule {
   snoozed_until: string | null
   /** Real daily minimum for this rule in the last 30 days, oldest first. */
   history_30d: PricePoint[]
+  /** S21-06: ids of the active, allowlisted recipients that receive this rule
+   * (already resolved on the server, `all` mode included). */
+  recipient_ids: number[]
 }
 
 export interface RuleSuggestion {
@@ -242,6 +245,8 @@ export interface Source {
   created_at: string
 }
 
+export type RulesMode = 'all' | 'selected'
+
 export interface Recipient {
   id: number
   name: string
@@ -249,4 +254,14 @@ export interface Recipient {
   allowlisted: boolean
   active: boolean
   created_at: string
+  /** S21-06 (F8): `all` or `selected` (only `rule_ids`). */
+  rules_mode: RulesMode
+  rule_ids: number[]
+  notify_target: boolean
+  notify_common: boolean
+}
+
+export interface RecipientPreview {
+  alerts_per_week: number
+  per_rule: Array<{ rule_id: number; per_week: number }>
 }

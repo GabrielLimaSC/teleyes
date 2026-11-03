@@ -1,0 +1,332 @@
+/* S21-07 (F8): per-recipient delivery behaviour — cards, chips, rail form. */
+
+.delivery-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 10px;
+  background: var(--plane-tint-bg);
+  border: 1px solid var(--plane-tint-border-color);
+}
+
+.delivery-seg__opt {
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 12px;
+  min-height: 32px;
+  background: transparent;
+  color: var(--plane-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delivery-seg__opt--on {
+  background: var(--plane-input-bg);
+  color: var(--plane-text-heading);
+  box-shadow: var(--plane-pearl-shadow);
+}
+
+.delivery-seg__opt:focus-visible,
+.delivery-chip:focus-visible,
+.delivery-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.delivery-switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--plane-disabled-bg);
+  cursor: pointer;
+}
+
+.delivery-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--plane-text-heading);
+  transition: transform 140ms ease;
+}
+
+.delivery-switch--on {
+  background: var(--plane-status-good-dot);
+}
+
+.delivery-switch--on .delivery-switch__knob {
+  transform: translateX(16px);
+}
+
+.delivery-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.delivery-chip {
+  border: 1px solid var(--plane-tint-border-color);
+  border-radius: 999px;
+  padding: 4px 11px;
+  min-height: 28px;
+  background: transparent;
+  color: var(--plane-text-helper);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: line-through;
+  text-decoration-color: transparent;
+}
+
+.delivery-chip--on {
+  background: var(--plane-tint-bg);
+  color: var(--plane-text-heading);
+  border-color: var(--plane-status-good-dot);
+}
+
+.delivery-chip:disabled {
+  cursor: default;
+}
+
+.delivery-muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.delivery-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--plane-tint-bg);
+  border: 2px solid var(--plane-input-bg);
+  color: var(--plane-text-eyebrow);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.delivery-avatars {
+  display: inline-flex;
+}
+
+.delivery-avatars .delivery-avatar + .delivery-avatar {
+  margin-left: -6px;
+}
+
+.delivery-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.delivery-who--none {
+  color: var(--plane-status-warn);
+}
+
+.delivery-warn {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--plane-status-warn-bg);
+  color: var(--plane-status-warn);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Recipient cards */
+.recipient-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.recipient-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  min-width: 0;
+}
+
+.recipient-card--editing {
+  background: var(--plane-row-highlight);
+}
+
+.recipient-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.recipient-card__head .delivery-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+
+.recipient-card__id {
+  flex: 1;
+  min-width: 0;
+}
+
+.recipient-card__name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  overflow-wrap: anywhere;
+}
+
+.recipient-card__chat {
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.recipient-card__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.recipient-card__line strong {
+  color: var(--plane-text-heading);
+  font-weight: 600;
+}
+
+.recipient-card__line > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recipient-card__summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.recipient-card__actions,
+.recipient-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recipient-card__feedback {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-status-good);
+}
+
+.recipient-card__feedback--error {
+  color: var(--plane-status-danger);
+}
+
+/* Rail form: rule picker */
+.delivery-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.delivery-picker__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--plane-surface-sunken);
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.delivery-picker__item label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.delivery-picker__count {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-helper);
+}
+
+.delivery-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.delivery-fieldset > legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.delivery-preview {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--plane-tint-bg);
+  font-size: 13px;
+  color: var(--plane-text-primary);
+}
+
+/* "Destinatários" column of the rules table */
+.rules-table th.rules-table__recipients,
+.rules-table td.rules-table__recipients {
+  width: 150px;
+}
+
+@media (max-width: 900px) {
+  .rules-table th.rules-table__recipients,
+  .rules-table td.rules-table__recipients {
+    width: auto;
+  }
+
+  .rules-table td.rules-table__recipients {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+}
