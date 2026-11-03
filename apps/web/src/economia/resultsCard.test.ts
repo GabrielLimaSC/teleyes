@@ -150,6 +150,18 @@ describe('results card content', () => {
     expect(svg).not.toContain('R$ 0,00</text>')
   })
 
+  it('adds the goal (aggregates only) when one exists, and nothing when it does not', () => {
+    const goal = { amount_cents: 200_000, deadline: '2026-12-31', saved_cents: 143_000, pct: 71.5, remaining_cents: 57_000, days_left: 58, pace: 'on_track' as const }
+    const withGoal = buildResultsAggregates(savingsReport({ goal }), { showPieces: false, includeStores: false })
+    const without = buildResultsAggregates(savingsReport(), { showPieces: false, includeStores: false })
+
+    expect(Object.keys(withGoal.goal ?? {}).sort()).toEqual(['amount_cents', 'deadline', 'pace', 'pct'])
+    expect(without.goal).toBeUndefined()
+    const svg = plain(buildResultsSvg(withGoal, TEST_PALETTE))
+    expect(svg).toContain('Meta')
+    expect(svg).toContain('72% de R$ 2.000,00')
+  })
+
   it('escapes markup in a piece name', () => {
     const report = savingsReport()
     report.items[0] = { ...report.items[0]!, name: '<script>alert(1)</script> & "x"' }

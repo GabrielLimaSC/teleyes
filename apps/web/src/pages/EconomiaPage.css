@@ -99,33 +99,6 @@
   color: var(--plane-text-helper);
 }
 
-.economia-tile__bf {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.economia-tile__bf input {
-  font: inherit;
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--plane-input-border-color);
-  background: var(--plane-input-bg);
-  color: var(--plane-text-primary);
-}
-
-.economia-tile__bf button {
-  font: inherit;
-  font-size: 12px;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--plane-text-eyebrow);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 .economia-tone--good {
   color: var(--plane-status-good);
 }
@@ -801,4 +774,75 @@
   .economia-table__head {
     padding: 14px 16px;
   }
+}
+
+/* ---- Goal (S21-08) ---- */
+.economia-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.economia-goal__head {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.economia-goal__head .economia-tile__label {
+  margin-bottom: 0;
+}
+
+.economia-goal__edit {
+  font: inherit;
+  font-size: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--plane-text-eyebrow);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.economia-goal__track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--plane-tint-bg);
+  overflow: hidden;
+}
+
+.economia-goal__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--plane-status-good-dot);
+}
+
+.economia-goal__pace--behind,
+.economia-goal__pace--expired {
+  color: var(--plane-status-danger);
+}
+
+.economia-goal__pace--on_track,
+.economia-goal__pace--done {
+  color: var(--plane-status-good);
+}
+
+.economia-goal-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.economia-goal-dialog input {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
 }
