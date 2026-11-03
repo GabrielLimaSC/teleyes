@@ -37,19 +37,19 @@ test('Regras: ações numa fileira só (S18-01), histórico visível e botões c
   const row = page.locator('tr', { has: page.getByText(`Layout ${tag}`, { exact: true }) })
   await expect(row).toBeVisible()
 
-  // S18-01: Editar, Testar and "⋯" in one single row.
-  const actions = row.locator('.rule-actions')
-  await expect(actions.getByRole('button')).toHaveCount(3)
-  const box = await actions.boundingBox()
-  expect(box!.height, 'ações numa linha só').toBeLessThanOrEqual(34)
-
-  const line = row.locator('.rule-sparkline polyline')
+  // S21-02: the closed row has no actions beyond the toggle and the "⋯" menu,
+  // and no sparkline column; the chart lives in the opened row.
+  await expect(row.getByRole('button', { name: /^Mais ações da regra/ })).toBeVisible()
+  await expect(row.locator('.rule-sparkline')).toHaveCount(0)
+  await row.getByRole('button', { name: /^Layout/ }).click()
+  const line = page.locator('.rule-detail .rule-chart__line')
   await expect(line).toHaveCount(1)
   expect(await line.evaluate((el) => getComputedStyle(el).stroke)).not.toBe('none')
-  expect(((await line.getAttribute('points')) ?? '').split(' ')).toHaveLength(2)
+  expect(((await line.getAttribute('points')) ?? '').split(' ').length).toBeGreaterThanOrEqual(2)
 
+  await page.getByRole('button', { name: 'Ajustes de entrega' }).click()
   for (const name of ['Testar', 'Salvar entrega']) {
-    const button = page.locator('.regras-form, .delivery-panel').getByRole('button', { name, exact: true })
+    const button = page.locator('.regras-form, .anchored-popover__panel').getByRole('button', { name, exact: true })
     const box = await button.boundingBox()
     expect(box!.height, `"${name}" com altura de botão`).toBeGreaterThanOrEqual(28)
   }

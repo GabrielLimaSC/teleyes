@@ -1,0 +1,162 @@
+/* S21-02: the expanded row's 30-day chart. Plain tokens only. */
+.rule-chart {
+  margin: 0;
+  min-width: 0;
+}
+
+.rule-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.rule-chart__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rule-chart__key::before {
+  content: '';
+  width: 16px;
+  border-top: 2px dashed currentColor;
+}
+
+.rule-chart__key--ceiling {
+  color: var(--plane-status-warn);
+}
+
+.rule-chart__key--target {
+  color: var(--plane-status-good);
+}
+
+.rule-chart__plot {
+  position: relative;
+  height: 168px;
+  border-radius: 12px;
+  border: 1px solid var(--plane-divider-color);
+  background: var(--plane-surface-sunken);
+}
+
+.rule-chart__plot:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.rule-chart__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.rule-chart__line {
+  fill: none;
+  stroke: var(--product-panel-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.rule-chart__ref {
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.rule-chart__ref--ceiling {
+  stroke: var(--plane-status-warn);
+}
+
+.rule-chart__ref--target {
+  stroke: var(--plane-status-good);
+}
+
+.rule-chart__dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--product-panel-accent);
+  pointer-events: none;
+}
+
+.rule-chart__dot--active {
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  box-shadow:
+    0 0 0 3px var(--plane-surface-sunken),
+    0 0 0 4px var(--product-panel-accent);
+}
+
+.rule-chart__hits {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.rule-chart__hit {
+  flex: 1;
+}
+
+.rule-chart__tooltip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--plane-input-bg);
+  border: var(--plane-pearl-border);
+  box-shadow: var(--popover-shadow);
+  font-size: 12px;
+  color: var(--plane-text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+.rule-chart__tooltip strong {
+  font-size: 13px;
+  color: var(--plane-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.rule-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--plane-text-helper);
+}
+
+.rule-chart__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.rule-chart__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--plane-text-helper);
+}
+
+@media (max-width: 640px) {
+  .rule-chart__plot {
+    height: 140px;
+  }
+}

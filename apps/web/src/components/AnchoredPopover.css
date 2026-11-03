@@ -1,0 +1,49 @@
+/* S21-02: popover anchored to a trigger (help "?", "Ajustes de entrega"). */
+.anchored-popover {
+  position: relative;
+  display: inline-flex;
+}
+
+.anchored-popover__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 40;
+  width: min(320px, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: var(--plane-pearl-radius);
+  background: var(--plane-input-bg);
+  border: var(--plane-pearl-border);
+  box-shadow: var(--popover-shadow);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--plane-text-secondary);
+  text-align: left;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.anchored-popover__panel:focus-visible {
+  outline: none;
+  box-shadow: var(--popover-shadow), var(--plane-focus-ring);
+}
+
+.anchored-popover__panel--wide {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.anchored-popover__panel--left {
+  left: 0;
+}
+
+.anchored-popover__panel--right {
+  right: 0;
+}
+
+.anchored-popover__title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
