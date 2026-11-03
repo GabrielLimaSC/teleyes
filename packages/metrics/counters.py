@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, 
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from models.base import Base
+from packages.metrics.hourly import increment_hourly
 
 
 class MetricReason(StrEnum):
@@ -59,6 +60,8 @@ def increment_counter(
         counter = MetricCounter(source_id=source_id, reason=reason.value, count=0)
         session.add(counter)
     counter.count += 1
+    # S21-09: same transaction, so the hourly bucket and the total never disagree.
+    increment_hourly(session, reason.value, source_id=source_id)
     session.flush()
     return counter
 

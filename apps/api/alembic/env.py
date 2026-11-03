@@ -6,6 +6,11 @@ from sqlalchemy import engine_from_config, pool
 from models import Base
 from models.db import get_database_url
 from packages.metrics.counters import MetricCounter  # noqa: F401  (register on Base.metadata)
+from packages.metrics.hourly import (  # noqa: F401  (register on Base.metadata)
+    MetricHourly,
+    ServiceHeartbeat,
+    SystemEvent,
+)
 
 config = context.config
 
