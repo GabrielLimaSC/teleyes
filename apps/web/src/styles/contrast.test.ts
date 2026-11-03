@@ -180,7 +180,7 @@ const PAIRS: Pair[] = [
   { name: 'primary button', fg: 'plane-action-primary-color', bg: 'plane-action-primary-bg' },
   { name: 'secondary button', fg: 'plane-text-primary', bg: 'plane-action-secondary-bg' },
   { name: 'danger button', fg: 'plane-action-danger-color', bg: 'plane-action-danger-bg' },
-  { name: 'active nav tab', fg: 'nav-tab-active-text', bg: 'nav-tab-active-bg' },
+  { name: 'active nav tab', fg: 'nav-tab-active-text', bg: 'nav-tab-active-bg', onBackdrops: 'nav', under: 'nav-tint' },
   { name: 'nav tab', fg: 'nav-tab-text', bg: 'nav-tint', onBackdrops: 'nav' },
   // Status words on the card
   ...['good', 'warn', 'neutral', 'danger'].map((kind) => ({

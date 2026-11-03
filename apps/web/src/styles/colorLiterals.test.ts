@@ -20,8 +20,6 @@ const ALLOWLIST: Record<string, string> = {
   'src/styles/materials.css': 'defines the --plane-* layer and every S12-01 semantic token: the source of light values',
   'index.html':
     'the pre-paint theme script carries the two browser-chrome (theme-color) colors: it runs before any stylesheet exists, so it cannot read the tokens; theme.test.ts keeps them equal to the tokens',
-  'public/favicon.svg':
-    'standalone static asset; it cannot read the page’s CSS variables, so its own colors live in the file (its dark variant is S12-03/04)',
 }
 
 const SCANNED_DIRS = ['src', 'public']
