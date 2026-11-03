@@ -1248,3 +1248,20 @@ td.wide-table__num {
     justify-content: flex-start;
   }
 }
+
+/* The "?" popover lives in the narrow rail: anchor it to the whole form so it
+   never runs past the viewport edge. */
+.regras-form {
+  position: relative;
+}
+
+.regras-form .anchored-popover {
+  position: static;
+}
+
+.regras-form .anchored-popover__panel {
+  top: 118px;
+  left: 14px;
+  right: 14px;
+  width: auto;
+}

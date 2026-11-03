@@ -79,8 +79,8 @@ for (const theme of ['light', 'dark'] as const) {
       const pausedToggle = row.getByRole('switch', { name: 'pausada' })
       await expect(pausedToggle).toHaveAttribute('aria-checked', 'false')
       await expect(page.locator('.toast')).toContainText('Regra pausada.')
-      await expect(row).toHaveClass(/wide-table__row--paused/)
-      expect(Number(await row.locator('td.crud-table__name').evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(1)
+      await expect(row.locator('xpath=ancestor::tbody[1]')).toHaveClass(/rules-table__group--paused/)
+      expect(Number(await row.locator('td.rules-table__name').evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(1)
       expect(await pausedToggle.evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
       expect(await leftOf(pausedToggle), 'o toggle não muda de posição').toBeCloseTo(activeX, 0)
       expect((await pausedToggle.boundingBox())!.width, 'nem de largura').toBeCloseTo(activeWidth, 0)
@@ -93,7 +93,7 @@ for (const theme of ['light', 'dark'] as const) {
       await trigger.click()
       await expect(trigger).toHaveAttribute('aria-expanded', 'true')
       const menu = page.getByRole('menu')
-      await expect(menu.getByRole('menuitem')).toHaveText(['Duplicar', 'Silenciar', 'Limpar histórico', 'Excluir'])
+      await expect(menu.getByRole('menuitem')).toHaveText(['Editar', 'Testar', 'Duplicar', 'Silenciar', 'Limpar histórico', 'Excluir'])
       const menuBox = (await menu.boundingBox())!
       expect(menuBox.x).toBeGreaterThanOrEqual(0)
       expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(viewport.width)
@@ -107,7 +107,7 @@ for (const theme of ['light', 'dark'] as const) {
       await pausedToggle.click()
       await expect(row.getByRole('switch', { name: 'ativa' })).toHaveAttribute('aria-checked', 'true')
       await expect(page.locator('.toast')).toContainText('Regra reativada.')
-      await expect(row).not.toHaveClass(/wide-table__row--paused/)
+      await expect(row.locator('xpath=ancestor::tbody[1]')).not.toHaveClass(/rules-table__group--paused/)
       expect(await leftOf(row.getByRole('switch', { name: 'ativa' }))).toBeCloseTo(activeX, 0)
 
       // The state is real: it survives a reload.
@@ -127,7 +127,7 @@ test('Regras: o menu ⋯ da última linha não é cortado pelo contêiner da tab
   await apiPost(page, '/rules', csrf, { name: `Última ${tag}`, include_terms: `ultima${tag}` })
   await page.goto('/regras')
 
-  const lastRow = page.locator('.wide-table-wrap').first().locator('tbody tr').last()
+  const lastRow = page.locator('.rules-table-wrap .rules-table__row').last()
   await lastRow.getByRole('button', { name: /^Mais ações da regra/ }).click()
   const lastItem = page.getByRole('menuitem', { name: 'Excluir' })
   await expect(lastItem).toBeVisible()
