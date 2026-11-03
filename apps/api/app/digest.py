@@ -267,9 +267,16 @@ async def run_digest_once(
 
     recipients = list(
         session.scalars(
-            select(Recipient).where(
-                Recipient.active.is_(True), Recipient.allowlisted.is_(True)
-            ).order_by(Recipient.id)
+            select(Recipient)
+            .where(
+                Recipient.active.is_(True),
+                Recipient.allowlisted.is_(True),
+                # S21-06 (F8): the digest only goes to people who still want
+                # common matches; rows already queued for anyone else stay
+                # pending (untouched) and resume if they turn it back on.
+                Recipient.notify_common.is_(True),
+            )
+            .order_by(Recipient.id)
         )
     )
 

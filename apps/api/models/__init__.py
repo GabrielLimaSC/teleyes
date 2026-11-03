@@ -9,7 +9,7 @@ from models.match import Match
 from models.match_correction import MatchCorrection
 from models.processing_cursor import ProcessingCursor
 from models.purchase import Purchase
-from models.recipient import Recipient
+from models.recipient import Recipient, RecipientRule
 from models.rule import Rule
 from models.savings_goal import SavingsGoal
 from models.setup import DialogScan, SecurityEvent, TelegramDialog
@@ -30,6 +30,7 @@ __all__ = [
     "ProcessingCursor",
     "Purchase",
     "Recipient",
+    "RecipientRule",
     "Rule",
     "SavingsGoal",
     "DialogScan",

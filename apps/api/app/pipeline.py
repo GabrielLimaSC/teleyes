@@ -16,6 +16,7 @@ from app.delivery_policy import is_snoozed
 from app.digest_settings import load_digest_settings
 from app.feed_settings import get_group_duplicates
 from app.product_history import posting_identity
+from app.recipient_rules import eligible_recipients
 from app.utc import ensure_utc, format_utc
 from models import Delivery, Match, Recipient, Rule, Source, SuppressedMessage
 from packages.events.broker import EventBroker
@@ -547,6 +548,14 @@ async def process_message(
                 session, ProcessResult(match=db_match, deliveries_sent=0, reason="snoozed")
             )
 
+        # S21-06 (F8): who gets this match, from the *current* database state:
+        # their rule selection and alert-type switches, on top of the listener's
+        # active + allowlisted set. Everything below (grouped bookkeeping, digest
+        # queue, immediate/target send) only ever sees this list.
+        recipients = eligible_recipients(
+            session, recipients, rule_id=rule.id, is_target_hit=is_target
+        )
+
         if not is_target and already_grouped:
             for recipient in recipients:
                 session.add(
@@ -946,6 +955,12 @@ async def process_historical_message(
     if db_match is None:
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
+    recipients = eligible_recipients(
+        session,
+        recipients,
+        rule_id=rule.id,
+        is_target_hit=decide_delivery_kind(rule, evaluation.price_cents) == DELIVERY_KIND_TARGET,
+    )
     for recipient in recipients:
         session.add(
             Delivery(

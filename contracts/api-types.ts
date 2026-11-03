@@ -378,6 +378,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipients/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Recipient
+         * @description S21-06 (F8): "~N alertas/semana" for a recipient form that is still being
+         *     filled in: matches of the last 7 days of the chosen (active) rules, counted
+         *     only for the alert types switched on. A match is a target hit when its
+         *     price reaches its rule's target, same test the pipeline uses.
+         */
+        get: operations["preview_recipient_recipients_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipients/{recipient_id}": {
         parameters: {
             query?: never;
@@ -1499,6 +1522,13 @@ export interface components {
             /** Phone */
             phone: string;
         };
+        /** PreviewRuleCount */
+        PreviewRuleCount: {
+            /** Per Week */
+            per_week: number;
+            /** Rule Id */
+            rule_id: number;
+        };
         /**
          * PricePointResponse
          * @description Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).
@@ -1629,8 +1659,35 @@ export interface components {
             allowlisted: boolean;
             /** Name */
             name: string;
+            /**
+             * Notify Common
+             * @default true
+             */
+            notify_common: boolean;
+            /**
+             * Notify Target
+             * @default true
+             */
+            notify_target: boolean;
+            /**
+             * Rule Ids
+             * @default []
+             */
+            rule_ids: number[];
+            /**
+             * Rules Mode
+             * @default all
+             */
+            rules_mode: string;
             /** Telegram Chat Id */
             telegram_chat_id: string;
+        };
+        /** RecipientPreviewResponse */
+        RecipientPreviewResponse: {
+            /** Alerts Per Week */
+            alerts_per_week: number;
+            /** Per Rule */
+            per_rule: components["schemas"]["PreviewRuleCount"][];
         };
         /** RecipientResponse */
         RecipientResponse: {
@@ -1647,6 +1704,14 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** Notify Common */
+            notify_common: boolean;
+            /** Notify Target */
+            notify_target: boolean;
+            /** Rule Ids */
+            rule_ids: number[];
+            /** Rules Mode */
+            rules_mode: string;
             /** Telegram Chat Id */
             telegram_chat_id: string;
         };
@@ -1656,6 +1721,14 @@ export interface components {
             allowlisted?: boolean | null;
             /** Name */
             name?: string | null;
+            /** Notify Common */
+            notify_common?: boolean | null;
+            /** Notify Target */
+            notify_target?: boolean | null;
+            /** Rule Ids */
+            rule_ids?: number[] | null;
+            /** Rules Mode */
+            rules_mode?: string | null;
             /** Telegram Chat Id */
             telegram_chat_id?: string | null;
         };
@@ -1748,6 +1821,11 @@ export interface components {
             max_price_cents: number | null;
             /** Name */
             name: string;
+            /**
+             * Recipient Ids
+             * @default []
+             */
+            recipient_ids: number[];
             /** Snoozed Until */
             snoozed_until?: string | null;
             /** Target Price Cents */
@@ -2899,6 +2977,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecipientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_recipient_recipients_preview_get: {
+        parameters: {
+            query?: {
+                rules_mode?: string;
+                rule_ids?: string[] | null;
+                notify_target?: boolean;
+                notify_common?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipientPreviewResponse"];
                 };
             };
             /** @description Validation Error */

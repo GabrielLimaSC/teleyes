@@ -380,17 +380,8 @@ def _create_base_rows(session: Session, now: datetime) -> tuple[list[Source], li
         )
         source.created_at = created
         sources.append(source)
-    recipients = []
-    for index, name in enumerate(RECIPIENT_NAMES, start=1):
-        recipient = recipient_repo.create_recipient(
-            session,
-            name=name,
-            telegram_chat_id=f"{DEMO_CHAT_PREFIX}recipient-{index}",
-            allowlisted=True,
-        )
-        recipient.created_at = created
-        recipients.append(recipient)
     session.add(Admin(password_hash=hash_password(DEMO_PASSWORD), created_at=created))
+    rules = []
     for spec in RULE_SPECS:
         rule = rule_repo.create_rule(
             session,
@@ -401,6 +392,23 @@ def _create_base_rows(session: Session, now: datetime) -> tuple[list[Source], li
             target_price_cents=spec.target_reais * 100,
         )
         rule.created_at = created
+        rules.append(rule)
+    recipients = []
+    for index, name in enumerate(RECIPIENT_NAMES, start=1):
+        # S21-06 (F8): the principal gets every rule and both alert types; the
+        # secondary picks two rules and only hears about price targets.
+        selected = index == 2
+        recipient = recipient_repo.create_recipient(
+            session,
+            name=name,
+            telegram_chat_id=f"{DEMO_CHAT_PREFIX}recipient-{index}",
+            allowlisted=True,
+            rules_mode="selected" if selected else "all",
+            rule_ids=[rules[0].id, rules[1].id] if selected else [],
+            notify_common=not selected,
+        )
+        recipient.created_at = created
+        recipients.append(recipient)
     session.commit()
     return sources, recipients
 
@@ -454,8 +462,9 @@ def _finish(session: Session, now: datetime, rng: random.Random) -> None:
 
     aged = [m for m in matches if now - ensure_utc(m.matched_at) > timedelta(days=1)]
     plain = {d.match_id: d for d in deliveries if d.kind == "immediate" and d.status == "sent"}
-    # Failed sends to the secondary recipient (a Bot API hiccup), a few days ago.
-    secondary = session.scalars(select(Recipient).order_by(Recipient.id).offset(1)).first()
+    # Failed sends to the principal recipient (a Bot API hiccup), a few days ago. The
+    # secondary only receives price targets (F8), too few plain sends to fail.
+    secondary = session.scalars(select(Recipient).order_by(Recipient.id)).first()
     assert secondary is not None
     failed_candidates = [
         d
@@ -732,7 +741,20 @@ def seed_demo_database(
 
 CONTENT_TABLES: tuple[tuple[Any, tuple[str, ...]], ...] = (
     (Source, ("id", "name", "telegram_chat_id", "active", "created_at")),
-    (Recipient, ("id", "name", "telegram_chat_id", "allowlisted", "active", "created_at")),
+    (
+        Recipient,
+        (
+            "id",
+            "name",
+            "telegram_chat_id",
+            "allowlisted",
+            "active",
+            "created_at",
+            "rules_mode",
+            "notify_target",
+            "notify_common",
+        ),
+    ),
     (
         Rule,
         (
