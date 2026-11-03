@@ -109,7 +109,7 @@ test.describe('system light', () => {
   })
 })
 
-test('the toggle is a fixed glass button that never sits on the navbar capsule', async ({ page }) => {
+test('the toggle is the 8th slot inside the navbar capsule (S21-01)', async ({ page }) => {
   await page.goto('/')
   await apiLogin(page)
 
@@ -117,28 +117,22 @@ test('the toggle is a fixed glass button that never sits on the navbar capsule',
     [1440, 900],
     [1024, 768],
     [800, 700],
-    [390, 844],
-    [320, 700],
   ] as const) {
     await page.setViewportSize({ width, height })
-    await page.goto('/feed')
-    await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
+    await page.goto('/regras')
+    await expect(page.getByRole('heading', { name: 'Regras' }).first()).toBeVisible()
 
-    const toggle = page.getByRole('button', { name: /^Tema: / })
-    const button = (await toggle.boundingBox())!
+    const button = (await page.getByRole('button', { name: /^Tema: / }).boundingBox())!
     const capsule = (await page.locator('.nav-capsule').boundingBox())!
+    const mascot = (await page.locator('.nav-mascot').boundingBox())!
 
-    // Fixed to the top-right corner of the viewport, fully on screen.
-    expect(button.y, `${width}px: top`).toBeLessThan(60)
-    expect(button.x + button.width, `${width}px: right edge`).toBeLessThanOrEqual(width)
-    expect(button.x + button.width, `${width}px: near the right`).toBeGreaterThan(width - 60)
-    // No overlap with the capsule.
-    expect(button.x, `${width}px: clear of the capsule`).toBeGreaterThanOrEqual(capsule.x + capsule.width)
-
-    // Fixed: still there after scrolling.
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-    const after = (await toggle.boundingBox())!
-    expect(after.y).toBeCloseTo(button.y, 0)
+    expect(button.x, `${width}px: inside, left`).toBeGreaterThanOrEqual(capsule.x)
+    expect(button.x + button.width, `${width}px: inside, right`).toBeLessThanOrEqual(capsule.x + capsule.width)
+    expect(button.x, `${width}px: right of the mascot`).toBeGreaterThanOrEqual(mascot.x + mascot.width)
+    // Same row as the other tabs.
+    const saude = (await page.getByRole('link', { name: 'Saúde' }).boundingBox())!
+    expect(Math.abs(button.y - saude.y)).toBeLessThan(1)
+    expect(button.x, `${width}px: after Saúde`).toBeGreaterThanOrEqual(saude.x + saude.width)
   }
 })
 

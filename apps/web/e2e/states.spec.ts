@@ -235,8 +235,8 @@ test('the nav capsule is fully reachable by keyboard with visible focus', async 
   await apiLogin(page)
   await page.goto('/feed')
 
-  const labels = ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Economia', 'Saúde']
-  const loginLink = page.getByRole('link', { name: 'Login' })
+  const labels = ['Início', 'Feed', 'Histórico', 'Economia', 'Regras', 'Fontes', 'Saúde']
+  const loginLink = page.getByRole('link', { name: 'Início' })
   await loginLink.focus()
   await expect(loginLink).toBeFocused()
   await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')

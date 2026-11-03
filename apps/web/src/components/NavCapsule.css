@@ -397,7 +397,7 @@
      is only the fallback for a page that never sets the variable. */
   :root[data-chrome='compact'] .nav-capsule {
     /* Room left for the docked Feed controls + theme button on the right. */
-    --nav-open-width: min(780px, calc(100vw - 540px));
+    --nav-open-width: min(780px, calc(100vw - 610px));
     --nav-capsule-height: 56px;
     --nav-mascot-size: 56px;
     top: calc(var(--chrome-band-center) - 28px);
@@ -459,7 +459,7 @@
   :root[data-chrome='compact'] .nav-tab-slot {
     width: auto;
     flex: 1 1 0;
-    padding-inline: 6px;
+    padding-inline: 3px;
   }
 
   :root[data-chrome='compact'] .nav-tab {

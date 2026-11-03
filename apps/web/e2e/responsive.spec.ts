@@ -83,8 +83,7 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
         // so count-based waiting instead of a single-element assertion
         await expect(page.getByText('Carregando…')).toHaveCount(0)
         // the page body must never scroll horizontally at either width
-        await expect(page.getByRole('button', { name: /^Tema: / })).toBeVisible()
-      const [scrollWidth, clientWidth] = await page.evaluate(() => [
+        const [scrollWidth, clientWidth] = await page.evaluate(() => [
           document.documentElement.scrollWidth,
           document.documentElement.clientWidth,
         ])

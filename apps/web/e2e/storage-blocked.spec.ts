@@ -46,7 +46,7 @@ test('with web storage blocked the app still opens, signs in, saves and signs ou
   await page.getByRole('button', { name: /^Tema: / }).click()
   await expect(page.getByRole('button', { name: 'Tema: Claro' })).toBeVisible()
 
-  await nav.getByRole('link', { name: 'Login' }).click()
+  await nav.getByRole('link', { name: 'Início' }).click()
   await page.getByRole('button', { name: 'Sair' }).click()
   await expect(page.getByLabel('Senha')).toBeVisible()
 

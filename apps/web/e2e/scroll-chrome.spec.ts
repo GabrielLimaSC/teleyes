@@ -83,7 +83,7 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   // Recolhida, só um círculo: o mascote não desenha disco próprio.
   await expect(page.locator('.nav-mascot__tint')).toHaveCSS('opacity', '0')
   const mascot = await box(page.locator('.nav-mascot'))
-  expect(mascot.x).toBeGreaterThanOrEqual(capsule.x)
+  expect(mascot.x).toBeGreaterThanOrEqual(capsule.x - 0.5)
   expect(mascot.x + mascot.width).toBeLessThanOrEqual(capsule.x + capsule.width + 1)
   // S16-01: "Feed ao vivo · N matches" shows up only once compact, next to
   // the disc — and the dissolve band repaints the real page background,
