@@ -1,10 +1,32 @@
 import { apiRequest, jsonHeaders } from './http'
-import type { Recipient } from './types'
+import type { Recipient, RecipientPreview, RulesMode } from './types'
 
 export interface RecipientInput {
   name: string
   telegram_chat_id: string
   allowlisted?: boolean
+  rules_mode?: RulesMode
+  rule_ids?: number[]
+  notify_target?: boolean
+  notify_common?: boolean
+}
+
+export interface PreviewParams {
+  rules_mode: RulesMode
+  rule_ids: number[]
+  notify_target: boolean
+  notify_common: boolean
+}
+
+/** S21-06: "~N alertas/semana" for settings that are still being edited. */
+export const previewRecipient = (params: PreviewParams): Promise<RecipientPreview> => {
+  const query = new URLSearchParams({
+    rules_mode: params.rules_mode,
+    notify_target: String(params.notify_target),
+    notify_common: String(params.notify_common),
+  })
+  if (params.rule_ids.length > 0) query.set('rule_ids', params.rule_ids.join(','))
+  return apiRequest<RecipientPreview>(`/recipients/preview?${query.toString()}`)
 }
 
 export const listRecipients = (includeInactive = false): Promise<Recipient[]> =>

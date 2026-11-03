@@ -147,25 +147,26 @@ test('creating a source with a duplicate chat id shows the real 409 as feedback'
   await expect(page.getByRole('alert')).toBeVisible()
 })
 
-test('the Regras and Destinatários tables share the same container width and left edge (S7-01)', async ({
+test('the recipient cards share the rules table container width and left edge (S7-01, S21-07)', async ({
   page,
 }) => {
   await page.goto('/')
   await apiLogin(page)
   await page.goto('/regras')
 
-  const wraps = page.locator('.crud-page .rules-table-wrap, .crud-page .crud-table-wrap')
-  await expect(wraps).toHaveCount(2)
+  const rules = page.locator('.crud-page .rules-table-wrap')
+  const cards = page.locator('.crud-page .recipient-cards')
+  await expect(rules).toHaveCount(1)
+  await expect(cards).toHaveCount(1)
 
-  const rulesBox = await wraps.nth(0).boundingBox()
-  const recipientsBox = await wraps.nth(1).boundingBox()
+  const rulesBox = await rules.boundingBox()
+  const cardsBox = await cards.boundingBox()
   expect(rulesBox).not.toBeNull()
-  expect(recipientsBox).not.toBeNull()
+  expect(cardsBox).not.toBeNull()
   // Same left edge and width — the S7-01 bug was DestinatariosSection
-  // rendering outside RegrasPage's 900px-centered `.crud-page` container,
-  // stretching full-width instead of sharing it.
-  expect(recipientsBox!.x).toBeCloseTo(rulesBox!.x, 0)
-  expect(recipientsBox!.width).toBeCloseTo(rulesBox!.width, 0)
+  // rendering outside RegrasPage's centered `.crud-page` container.
+  expect(cardsBox!.x).toBeCloseTo(rulesBox!.x, 0)
+  expect(cardsBox!.width).toBeCloseTo(rulesBox!.width, 0)
 })
 
 test('creates and pauses a recipient from the Regras page', async ({ page }) => {
@@ -180,13 +181,14 @@ test('creates and pauses a recipient from the Regras page', async ({ page }) => 
   await expect(rail.getByRole('heading', { name: 'Novo destinatário' })).toBeVisible()
   await rail.getByLabel('Nome').fill('Destinatário E2E')
   await rail.getByLabel('Chat ID do Telegram').fill('555444')
-  await rail.getByRole('button', { name: 'Salvar' }).click()
+  await rail.getByRole('button', { name: 'Adicionar' }).click()
   await expect(rail.getByRole('heading', { name: 'Nova regra' })).toBeVisible()
 
-  const row = rowByExactName(page, 'Destinatário E2E')
-  await expect(row).toBeVisible()
-  await row.getByRole('switch', { name: 'ativa' }).click()
-  await expect(row.getByRole('switch', { name: 'pausada' })).toBeVisible()
+  // S21-07: recipients are cards now.
+  const card = page.getByRole('article', { name: 'Destinatário Destinatário E2E' })
+  await expect(card).toBeVisible()
+  await card.getByRole('switch', { name: 'ativa' }).click()
+  await expect(card.getByRole('switch', { name: 'pausada' })).toBeVisible()
 })
 
 test('clears a rule\'s match history against the real API, with a confirmation showing the real count (S10-04)', async ({
@@ -265,7 +267,7 @@ test('clearing a rule with no matches shows a toast directly, no confirmation di
 })
 
 for (const width of [1280, 1440]) {
-  test(`the Regras and Destinatários tables show every column and button, no clipping, at ${width}px (S11-05)`, async ({
+  test(`the Regras table and the recipient cards show every column and button, no clipping, at ${width}px (S11-05)`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 })
@@ -284,10 +286,11 @@ for (const width of [1280, 1440]) {
     })
     await page.goto('/regras')
 
-    const wraps = page.locator('.rules-table-wrap, .wide-table-wrap')
-    await expect(wraps).toHaveCount(2)
+    const wraps = page.locator('.rules-table-wrap, .recipient-card')
+    await expect(wraps).not.toHaveCount(0)
+    await expect(page.locator('.rules-table-wrap')).toHaveCount(1)
 
-    for (let index = 0; index < 2; index += 1) {
+    for (let index = 0; index < (await wraps.count()); index += 1) {
       const wrap = wraps.nth(index)
       const wrapBox = await wrap.boundingBox()
       expect(wrapBox).not.toBeNull()
@@ -296,7 +299,6 @@ for (const width of [1280, 1440]) {
       // fully inside the card — `click()` scrolls on its own, so only the
       // boxes can catch a clipped column.
       const targets = [
-        ...(index === 1 ? [wrap.getByRole('columnheader', { name: 'Ações' })] : []),
         ...(await wrap
           .getByRole('button', {
             name: /^(Editar|Testar|Mais ações da regra.*|Duplicar|Silenciar|Reativar|Limpar histórico|Excluir)$/,
