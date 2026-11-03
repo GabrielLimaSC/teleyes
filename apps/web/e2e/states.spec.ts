@@ -156,7 +156,7 @@ test('a real promo message with links and a footer shows only the text before th
   const csrfToken = await apiLogin(page)
 
   const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
-    name: 'CMdias E2E',
+    name: 'Canal Achados E2E',
     telegram_chat_id: '-100783',
   })
   const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
@@ -164,7 +164,7 @@ test('a real promo message with links and a footer shows only the text before th
     include_terms: 'rtx 5070',
   })
   const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
-    name: 'Gabriel E2E CMdias',
+    name: 'Gabriel E2E Canal Achados',
     telegram_chat_id: '995',
     allowlisted: true,
   })

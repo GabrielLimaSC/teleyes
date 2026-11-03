@@ -53,7 +53,7 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
       // product would, not as leftover test data — matters for anyone
       // reviewing these captures as design evidence, not just for the test.
       const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
-        name: 'Urubu das Promoções',
+        name: 'Grupo Ofertas Exemplo',
         telegram_chat_id: `-100${viewport.name === 'desktop' ? 601 : 602}`,
       })
       const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
