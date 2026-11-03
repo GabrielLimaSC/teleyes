@@ -48,6 +48,7 @@ test('capture Login, Feed, Histórico, Regras, Fontes and Saúde from the demo',
 
   await page.goto('/feed')
   await expect(page.getByText('Alvo atingido').first()).toBeVisible()
+  await expect(page.getByText('SSE conectando...')).toHaveCount(0, { timeout: 15_000 })
   await shoot(page, 'feed')
 
   await page.goto('/historico')
@@ -55,7 +56,7 @@ test('capture Login, Feed, Histórico, Regras, Fontes and Saúde from the demo',
   await shoot(page, 'historico')
 
   await page.goto('/regras')
-  await expect(page.locator('.rule-sparkline').first()).toBeVisible()
+  await expect(page.locator('.rules-table__row').first()).toBeVisible()
   await shoot(page, 'regras')
 
   await page.goto('/fontes')
@@ -64,5 +65,7 @@ test('capture Login, Feed, Histórico, Regras, Fontes and Saúde from the demo',
 
   await page.goto('/saude')
   await expect(page.getByText('Ambiente')).toBeVisible()
+  // The SSE card says "conectando" for a few seconds after load; shoot the settled demo verdict.
+  await expect(page.getByText('Operando em demonstração')).toBeVisible({ timeout: 20_000 })
   await shoot(page, 'saude')
 })

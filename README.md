@@ -98,15 +98,19 @@ Two processes share one SQLite file: the **listener** (Telethon session, rules, 
   restart.
 - Rules with include/exclude terms, price ceiling and price target, plus a rule tester.
 - Match history with filters and CSV export.
-- Per-rule sparklines and a per-product price chart.
+- A per-product price chart and per-rule price history (in each rule's expanded row).
+- Per-recipient delivery settings: all rules or a chosen subset, target hits and/or common offers, with an
+  estimated alerts-per-week preview.
 - Snooze for a product, and an optional daily digest instead of immediate alerts (target hits still alert
   immediately).
 - Savings report: register what you actually bought and see an honest estimate against the prices the app itself saw
   (median of the 90 days before the purchase, "no data" when history is thin), plus a shareable results card
-  (PNG + aggregates JSON) that never includes group names, messages or links.
+  (PNG + aggregates JSON) that never includes group names, messages or links. An optional savings goal shows
+  your progress.
+- Overview page, and a Sources page with per-group activity over the last 7 days.
 - Retry of failed alert deliveries (recent failures are resent, never duplicated).
-- Health page: listener, notifier and database state, reporting `not_configured` honestly when credentials
-  are missing.
+- Health page: listener, notifier, event feed and database state, with 24 h uptime history and collector
+  throughput, reporting `not_configured` honestly when credentials are missing.
 - Automatic SQLite backups, with a documented restore.
 - Dark and light themes.
 - Dashboard UI in Brazilian Portuguese (pt-BR). That is the current version's language, not a hard limit:

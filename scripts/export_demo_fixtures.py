@@ -45,6 +45,10 @@ STATIC_PATHS = (
     "/purchases",
     "/savings/report",
     "/listener/status",
+    "/sources/activity?days=7",
+    "/health/history?hours=24",
+    "/health/events?limit=20",
+    "/savings/goal",
 )
 
 
