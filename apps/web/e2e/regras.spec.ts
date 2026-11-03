@@ -13,7 +13,7 @@ import { apiLogin, apiPost, clickRowMenuItem } from './helpers'
  * equal `name` and never match a rule row again.
  */
 function rowByExactName(page: Page, name: string) {
-  return page.locator('tr').filter({ has: page.locator('.crud-table__name, .rules-table__name').getByText(name, { exact: true }) })
+  return page.locator('tr').filter({ has: page.locator('.crud-table__name, .rules-table__name, .fontes-source__name').getByText(name, { exact: true }) })
 }
 
 test('creates, edits, duplicates and pauses a rule against the real API', async ({ page }) => {
