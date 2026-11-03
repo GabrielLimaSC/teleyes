@@ -557,6 +557,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/savings/goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Goal */
+        get: operations["get_goal_savings_goal_get"];
+        /** Put Goal */
+        put: operations["put_goal_savings_goal_put"];
+        post?: never;
+        /** Delete Goal */
+        delete: operations["delete_goal_savings_goal_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/savings/report": {
         parameters: {
             query?: never;
@@ -1098,6 +1117,29 @@ export interface components {
             /** Group Duplicates */
             group_duplicates: boolean;
         };
+        /** GoalReportResponse */
+        GoalReportResponse: {
+            /** Amount Cents */
+            amount_cents: number;
+            /** Days Left */
+            days_left: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            /**
+             * Pace
+             * @enum {string}
+             */
+            pace: "done" | "on_track" | "behind" | "expired";
+            /** Pct */
+            pct: number;
+            /** Remaining Cents */
+            remaining_cents: number;
+            /** Saved Cents */
+            saved_cents: number;
+        };
         /** GroupsResponse */
         GroupsResponse: {
             /** Dialogs */
@@ -1635,6 +1677,8 @@ export interface components {
              */
             purchased_at: string;
             savings: components["schemas"]["ItemSavingsResponse"] | null;
+            /** Share Of Goal */
+            share_of_goal: number | null;
             /** Store */
             store: string | null;
         };
@@ -1788,6 +1832,36 @@ export interface components {
             /** Target Price Cents */
             target_price_cents?: number | null;
         };
+        /** SavingsGoalInput */
+        SavingsGoalInput: {
+            /** Amount Cents */
+            amount_cents: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+        };
+        /** SavingsGoalResponse */
+        SavingsGoalResponse: {
+            /** Amount Cents */
+            amount_cents: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** SavingsReportResponse */
         SavingsReportResponse: {
             black_friday: components["schemas"]["BlackFridaySummaryResponse"];
@@ -1796,6 +1870,7 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
+            goal: components["schemas"]["GoalReportResponse"] | null;
             /** Items */
             items: components["schemas"]["ReportItemResponse"][];
             noise: components["schemas"]["NoiseResponse"];
@@ -3196,6 +3271,101 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_goal_savings_goal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsGoalResponse"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_goal_savings_goal_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavingsGoalInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsGoalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_goal_savings_goal_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

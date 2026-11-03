@@ -50,6 +50,8 @@ export interface ReportItem {
   days_before_black_friday: number
   /** `null` for a purchase with no product/rule link: only the amount paid. */
   savings: ItemSavings | null
+  /** Saving of this purchase / goal amount in % (negative when overpaid); `null` without goal or history. */
+  share_of_goal?: number | null
 }
 
 export interface ReportTotals {
@@ -69,6 +71,32 @@ export interface BlackFridaySummary {
   days_before_max: number | null
 }
 
+export type GoalPace = 'done' | 'on_track' | 'behind' | 'expired'
+
+export interface GoalReport {
+  amount_cents: number
+  deadline: string
+  /** The estimated saving, possibly negative. */
+  saved_cents: number
+  /** Real ratio in %: may be below 0 or above 100 (the UI clamps it for the bar). */
+  pct: number
+  remaining_cents: number
+  days_left: number
+  pace: GoalPace
+}
+
+export interface SavingsGoal {
+  amount_cents: number
+  deadline: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SavingsGoalInput {
+  amount_cents: number
+  deadline: string
+}
+
 export interface ReportNoise {
   period_start: string
   period_end: string
@@ -84,6 +112,7 @@ export interface SavingsReport {
   generated_at: string
   totals: ReportTotals
   black_friday: BlackFridaySummary
+  goal?: GoalReport | null
   items: ReportItem[]
   noise: ReportNoise
 }
@@ -110,9 +139,17 @@ export const deletePurchase = (csrfToken: string, id: number): Promise<void> =>
     headers: { 'X-CSRF-Token': csrfToken },
   })
 
-/** `blackFriday` is a `YYYY-MM-DD` day; omitted, the server picks the default
- * (the day after the 4th Thursday of November of the latest purchase's year). */
-export const fetchSavingsReport = (blackFriday?: string): Promise<SavingsReport> =>
-  apiRequest<SavingsReport>(
-    `/savings/report${blackFriday ? `?black_friday=${encodeURIComponent(blackFriday)}` : ''}`,
-  )
+export const fetchSavingsReport = (): Promise<SavingsReport> => apiRequest<SavingsReport>('/savings/report')
+
+export const saveSavingsGoal = (csrfToken: string, input: SavingsGoalInput): Promise<SavingsGoal> =>
+  apiRequest<SavingsGoal>('/savings/goal', {
+    method: 'PUT',
+    headers: jsonHeaders(csrfToken),
+    body: JSON.stringify(input),
+  })
+
+export const deleteSavingsGoal = (csrfToken: string): Promise<void> =>
+  apiRequest<void>('/savings/goal', {
+    method: 'DELETE',
+    headers: { 'X-CSRF-Token': csrfToken },
+  })

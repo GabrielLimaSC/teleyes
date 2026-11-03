@@ -34,6 +34,7 @@ EXPECTED_PATHS: dict[str, set[str]] = {
     "/snoozes/{snooze_id}": {"delete"},
     "/purchases": {"get", "post"},
     "/purchases/{purchase_id}": {"put", "delete"},
+    "/savings/goal": {"get", "put", "delete"},
     "/savings/report": {"get"},
     "/metrics": {"get"},
     "/notifications/test": {"post"},

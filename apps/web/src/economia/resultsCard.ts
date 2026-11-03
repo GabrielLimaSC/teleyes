@@ -49,6 +49,7 @@ export interface ResultsAggregates {
     days_before_min: number | null
     days_before_max: number | null
   }
+  goal?: { amount_cents: number; deadline: string; pct: number; pace: string }
   noise: {
     messages_analyzed: number
     discarded_total: number
@@ -105,6 +106,14 @@ export function buildResultsAggregates(report: SavingsReport, options: CardOptio
       alerts_matched: noise.alerts_matched,
       alerts_sent: noise.alerts_sent,
     },
+  }
+  if (report.goal) {
+    aggregates.goal = {
+      amount_cents: report.goal.amount_cents,
+      deadline: report.goal.deadline,
+      pct: report.goal.pct,
+      pace: report.goal.pace,
+    }
   }
   if (options.showPieces) {
     aggregates.pieces = report.items.map((item) => pieceOf(item, options.includeStores))
@@ -180,6 +189,11 @@ function bfText(bf: ResultsAggregates['black_friday']): string {
   if (min === null || max === null) return '—'
   if (min === max) return blackFridayLabel(min)
   return `${min}–${max} dias antes`
+}
+
+function goalText(goal: NonNullable<ResultsAggregates['goal']>): string {
+  const shown = Math.round(Math.min(100, Math.max(0, goal.pct)))
+  return `${shown}% de ${formatCurrency(goal.amount_cents)}`
 }
 
 function text(x: number, y: number, content: string, size: number, fill: string, extra = ''): string {
@@ -303,7 +317,9 @@ export function buildResultsSvg(
   parts.push(
     stat(MARGIN, statY, 'Total pago', formatCurrency(totals.total_paid_cents), palette),
     stat(MARGIN + STAT_WIDTH + STAT_GAP, statY, 'Compras', String(totals.purchases), palette),
-    stat(MARGIN + 2 * (STAT_WIDTH + STAT_GAP), statY, 'Black Friday', bfText(aggregates.black_friday), palette),
+    aggregates.goal
+      ? stat(MARGIN + 2 * (STAT_WIDTH + STAT_GAP), statY, 'Meta', goalText(aggregates.goal), palette)
+      : stat(MARGIN + 2 * (STAT_WIDTH + STAT_GAP), statY, 'Black Friday', bfText(aggregates.black_friday), palette),
   )
 
   // Pieces (optional): the list grows down from here; "sem histórico" rows are listed too.

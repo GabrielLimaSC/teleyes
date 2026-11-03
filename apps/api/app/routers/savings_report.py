@@ -26,15 +26,17 @@ from app.product_history import (
 )
 from app.savings import (
     LONG_WINDOW_DAYS,
+    GoalPace,
     Observation,
     PurchaseSavings,
     black_friday,
     days_before,
+    goal_progress,
     purchase_savings,
     totals,
 )
 from app.utc import UtcDatetime, ensure_utc, utc_now
-from models import Delivery, Match, Purchase
+from models import Delivery, Match, Purchase, SavingsGoal
 from packages.metrics.counters import MetricCounter, MetricReason
 
 router = APIRouter(
@@ -74,6 +76,9 @@ class ReportItemResponse(BaseModel):
     days_before_black_friday: int
     # `None` for a purchase with no product/rule link: only the amount paid is shown.
     savings: ItemSavingsResponse | None
+    # Estimated saving of this purchase / goal amount (negative when overpaid); `None`
+    # with no goal or no history for the purchase.
+    share_of_goal: float | None
 
 
 class ReportTotalsResponse(BaseModel):
@@ -113,10 +118,21 @@ class NoiseResponse(BaseModel):
     alerts_sent: int
 
 
+class GoalReportResponse(BaseModel):
+    amount_cents: int
+    deadline: LocalDate
+    saved_cents: int  # the estimated saving, possibly negative; never another metric
+    pct: float  # real ratio in %, may be < 0 or > 100; the UI clamps for display
+    remaining_cents: int
+    days_left: int
+    pace: GoalPace
+
+
 class SavingsReportResponse(BaseModel):
     generated_at: UtcDatetime
     totals: ReportTotalsResponse
     black_friday: BlackFridaySummaryResponse
+    goal: GoalReportResponse | None
     items: list[ReportItemResponse]
     noise: NoiseResponse
 
@@ -153,6 +169,35 @@ def _item_savings(result: PurchaseSavings) -> ItemSavingsResponse:
         saving_vs_median_pct=result.saving_vs_median_pct,
         saving_vs_usual_cents=result.saving_vs_usual_cents,
         saving_vs_usual_pct=result.saving_vs_usual_pct,
+    )
+
+
+def _share_of_goal(goal: SavingsGoal | None, result: PurchaseSavings | None) -> float | None:
+    if goal is None or result is None or result.saving_vs_median_cents is None:
+        return None
+    return round(result.saving_vs_median_cents / goal.amount_cents * 100, 1)
+
+
+def _goal_report(
+    goal: SavingsGoal | None, saved_cents: int, now: datetime, tz: ZoneInfo
+) -> GoalReportResponse | None:
+    if goal is None:
+        return None
+    progress = goal_progress(
+        amount_cents=goal.amount_cents,
+        deadline=goal.deadline,
+        start=ensure_utc(goal.created_at).astimezone(tz).date(),
+        today=now.astimezone(tz).date(),
+        saved_cents=saved_cents,
+    )
+    return GoalReportResponse(
+        amount_cents=goal.amount_cents,
+        deadline=goal.deadline,
+        saved_cents=progress.saved_cents,
+        pct=progress.pct,
+        remaining_cents=progress.remaining_cents,
+        days_left=progress.days_left,
+        pace=progress.pace,
     )
 
 
@@ -227,6 +272,7 @@ def savings_report(
     is_default = black_friday_date is None
     friday = black_friday_date or black_friday(newest.astimezone(tz).year)
 
+    goal = db.get(SavingsGoal, 1)
     items: list[ReportItemResponse] = []
     results: list[PurchaseSavings | None] = []
     day_gaps: list[int] = []
@@ -252,6 +298,7 @@ def savings_report(
                 linked=observations is not None,
                 days_before_black_friday=gap,
                 savings=None if result is None else _item_savings(result),
+                share_of_goal=_share_of_goal(goal, result),
             )
         )
 
@@ -275,6 +322,7 @@ def savings_report(
             days_before_min=min(day_gaps, default=None),
             days_before_max=max(day_gaps, default=None),
         ),
+        goal=_goal_report(goal, summary.estimated_saving_cents, now, tz),
         items=items,
         noise=_noise(db, period_start, now),
     )

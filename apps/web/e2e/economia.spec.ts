@@ -83,6 +83,27 @@ test('registers a purchase, sees the report and exports the results card (S19-04
   await expect(page.getByRole('row', { name: /Placa-mãe E2E B850M/ })).toHaveCount(0)
 })
 
+test('sets, edits and removes the savings goal (S21-08)', async ({ page }) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/economia')
+
+  const summary = page.getByRole('region', { name: 'Resumo' })
+  await summary.getByRole('button', { name: 'Definir meta' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel(/Quanto quer economizar/).fill('2.000,00')
+  await dialog.getByLabel('Até quando').fill('2999-12-31')
+  await dialog.getByRole('button', { name: 'Salvar meta' }).click()
+
+  await expect(summary).toContainText(/\d+% de R\$\s2\.000,00/)
+  await expect(summary).toContainText('até 31/12')
+  await expect(summary).toContainText('ritmo:')
+
+  await summary.getByRole('button', { name: 'editar' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Remover meta' }).click()
+  await expect(summary.getByRole('button', { name: 'Definir meta' })).toBeVisible()
+})
+
 for (const colorScheme of ['light', 'dark'] as const) {
   test(`economia fits a 390px screen without a horizontal scrollbar in the ${colorScheme} theme`, async ({
     browser,

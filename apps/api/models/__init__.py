@@ -11,6 +11,7 @@ from models.processing_cursor import ProcessingCursor
 from models.purchase import Purchase
 from models.recipient import Recipient
 from models.rule import Rule
+from models.savings_goal import SavingsGoal
 from models.setup import DialogScan, SecurityEvent, TelegramDialog
 from models.snooze import Snooze
 from models.source import Source
@@ -30,6 +31,7 @@ __all__ = [
     "Purchase",
     "Recipient",
     "Rule",
+    "SavingsGoal",
     "DialogScan",
     "SecurityEvent",
     "TelegramDialog",

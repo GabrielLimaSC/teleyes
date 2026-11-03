@@ -493,6 +493,56 @@
         "title": "FeedSettingsUpdate",
         "type": "object"
       },
+      "GoalReportResponse": {
+        "properties": {
+          "amount_cents": {
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "deadline": {
+            "format": "date",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "pace": {
+            "enum": [
+              "done",
+              "on_track",
+              "behind",
+              "expired"
+            ],
+            "title": "Pace",
+            "type": "string"
+          },
+          "pct": {
+            "title": "Pct",
+            "type": "number"
+          },
+          "remaining_cents": {
+            "title": "Remaining Cents",
+            "type": "integer"
+          },
+          "saved_cents": {
+            "title": "Saved Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount_cents",
+          "deadline",
+          "saved_cents",
+          "pct",
+          "remaining_cents",
+          "days_left",
+          "pace"
+        ],
+        "title": "GoalReportResponse",
+        "type": "object"
+      },
       "GroupsResponse": {
         "properties": {
           "dialogs": {
@@ -2006,6 +2056,17 @@
               }
             ]
           },
+          "share_of_goal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Of Goal"
+          },
           "store": {
             "anyOf": [
               {
@@ -2026,7 +2087,8 @@
           "purchased_at",
           "linked",
           "days_before_black_friday",
-          "savings"
+          "savings",
+          "share_of_goal"
         ],
         "title": "ReportItemResponse",
         "type": "object"
@@ -2534,6 +2596,58 @@
         "title": "RuleUpdate",
         "type": "object"
       },
+      "SavingsGoalInput": {
+        "properties": {
+          "amount_cents": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000000.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "deadline": {
+            "format": "date",
+            "title": "Deadline",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_cents",
+          "deadline"
+        ],
+        "title": "SavingsGoalInput",
+        "type": "object"
+      },
+      "SavingsGoalResponse": {
+        "properties": {
+          "amount_cents": {
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deadline": {
+            "format": "date",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_cents",
+          "deadline",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SavingsGoalResponse",
+        "type": "object"
+      },
       "SavingsReportResponse": {
         "properties": {
           "black_friday": {
@@ -2543,6 +2657,16 @@
             "format": "date-time",
             "title": "Generated At",
             "type": "string"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoalReportResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "items": {
             "items": {
@@ -2562,6 +2686,7 @@
           "generated_at",
           "totals",
           "black_friday",
+          "goal",
           "items",
           "noise"
         ],
@@ -5317,6 +5442,160 @@
         "summary": "Resume Rule",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/savings/goal": {
+      "delete": {
+        "operationId": "delete_goal_savings_goal_delete",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Goal",
+        "tags": [
+          "savings"
+        ]
+      },
+      "get": {
+        "operationId": "get_goal_savings_goal_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SavingsGoalResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Goal Savings Goal Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Goal",
+        "tags": [
+          "savings"
+        ]
+      },
+      "put": {
+        "operationId": "put_goal_savings_goal_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsGoalInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsGoalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Goal",
+        "tags": [
+          "savings"
         ]
       }
     },

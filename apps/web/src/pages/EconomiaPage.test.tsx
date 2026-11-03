@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Purchase } from '../api/purchases'
+import type { GoalReport, Purchase } from '../api/purchases'
 import { reportItem, savingsNoData, savingsReport } from '../economia/fixtures'
 import { ECONOMIA_PATH } from '../economia/purchaseDraft'
 import type { EconomiaNavState } from '../economia/purchaseDraft'
@@ -39,6 +39,7 @@ function stub(report = savingsReport()) {
       const url = String(input)
       const method = init?.method ?? 'GET'
       calls.push({ url, method, body: typeof init?.body === 'string' ? init.body : undefined })
+      if (url === '/savings/goal' && method === 'PUT') return Promise.resolve(json({}))
       if (method === 'DELETE') return Promise.resolve(json(null, 204))
       if (url.startsWith('/purchases')) {
         return Promise.resolve(json(report.items.map((item) => purchase(item.id, item.name))))
@@ -63,7 +64,7 @@ function renderPage(state?: EconomiaNavState) {
 describe('EconomiaPage', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('lists the purchases with totals, the Black Friday count and the methodology', async () => {
+  it('lists the purchases with totals, the methodology and no Black Friday', async () => {
     stub()
     renderPage()
 
@@ -71,7 +72,7 @@ describe('EconomiaPage', () => {
     const tiles = screen.getByRole('region', { name: 'Resumo' })
     expect(within(tiles).getByText('R$ 3.000,00')).toBeInTheDocument()
     expect(within(tiles).getByText('+R$ 250,00')).toBeInTheDocument()
-    expect(within(tiles).getByText('38–52 dias antes')).toBeInTheDocument()
+    expect(within(tiles).queryByText(/Black Friday/)).toBeNull()
     expect(screen.getByText(/Estimativa baseada só nos preços que o próprio teleyes viu/)).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Ruído evitado' })).toHaveTextContent('20.298')
   })
@@ -225,5 +226,95 @@ describe('EconomiaPage', () => {
     expect(decodeURIComponent(screen.getByRole('img', { name: 'Prévia do cartão de resultados' }).getAttribute('src')!)).not.toContain(
       'Placa-mãe B850M',
     )
+  })
+
+  describe('savings goal (S21-08)', () => {
+    const goal = (overrides: Partial<GoalReport> = {}): GoalReport => ({
+      amount_cents: 200_000,
+      deadline: '2026-12-31',
+      saved_cents: 143_000,
+      pct: 71.5,
+      remaining_cents: 57_000,
+      days_left: 58,
+      pace: 'on_track',
+      ...overrides,
+    })
+
+    it('without a goal shows the empty state and hides the "Parte da meta" column', async () => {
+      stub()
+      renderPage()
+
+      const tiles = await screen.findByRole('region', { name: 'Resumo' })
+      expect(within(tiles).getByText('Meta de economia')).toBeInTheDocument()
+      expect(within(tiles).getByRole('button', { name: 'Definir meta' })).toBeInTheDocument()
+      expect(screen.queryByRole('columnheader', { name: 'Parte da meta' })).toBeNull()
+    })
+
+    it('with a positive goal shows progress, what is missing, the pace and each purchase share', async () => {
+      const base = savingsReport()
+      stub(
+        savingsReport({
+          goal: goal(),
+          items: [reportItem({ share_of_goal: 8.3 }), { ...base.items[1]!, share_of_goal: -2 }, { ...base.items[2]!, share_of_goal: null }],
+        }),
+      )
+      renderPage()
+
+      const tiles = await screen.findByRole('region', { name: 'Resumo' })
+      expect(within(tiles).getByText(/72% de R\$\s2\.000,00/)).toBeInTheDocument()
+      expect(within(tiles).getByText(/Faltam R\$\s570,00 até 31\/12 · 58 dias/)).toBeInTheDocument()
+      expect(within(tiles).getByText(/R\$\s1\.430,00 economizados/)).toBeInTheDocument()
+      expect(within(tiles).getByText('ritmo: no prazo')).toBeInTheDocument()
+      expect(within(tiles).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '72')
+      expect(screen.getByRole('columnheader', { name: 'Parte da meta' })).toBeInTheDocument()
+      expect(screen.getByText('+8,3%')).toBeInTheDocument()
+      expect(screen.getByText('−2,0%')).toBeInTheDocument()
+    })
+
+    it('with a negative estimated saving keeps the bar empty and says so', async () => {
+      stub(savingsReport({ goal: goal({ saved_cents: -10_000, pct: -5, remaining_cents: 210_000, pace: 'behind' }) }))
+      renderPage()
+
+      const tiles = await screen.findByRole('region', { name: 'Resumo' })
+      expect(within(tiles).getByText(/0% de R\$\s2\.000,00/)).toBeInTheDocument()
+      expect(within(tiles).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+      expect(within(tiles).getByText(/Economia estimada negativa até agora/)).toBeInTheDocument()
+      expect(within(tiles).getByText('ritmo: atrasado')).toBeInTheDocument()
+    })
+
+    it('edits the goal with the CSRF token and validates the deadline', async () => {
+      const calls = stub(savingsReport({ goal: goal() }))
+      renderPage()
+      const user = userEvent.setup()
+
+      await user.click(await screen.findByRole('button', { name: 'editar' }))
+      const dialog = await screen.findByRole('dialog')
+      const amount = within(dialog).getByLabelText(/Quanto quer economizar/)
+      await user.clear(amount)
+      await user.type(amount, '2500')
+      fireEvent.change(within(dialog).getByLabelText('Até quando'), { target: { value: '2020-01-01' } })
+      await user.click(within(dialog).getByRole('button', { name: 'Salvar meta' }))
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('O prazo precisa estar no futuro.')
+      expect(calls.some((call) => call.method === 'PUT')).toBe(false)
+
+      fireEvent.change(within(dialog).getByLabelText('Até quando'), { target: { value: '2999-12-31' } })
+      await user.click(within(dialog).getByRole('button', { name: 'Salvar meta' }))
+
+      await waitFor(() => {
+        const put = calls.find((call) => call.method === 'PUT' && call.url === '/savings/goal')
+        expect(put?.body).toBe(JSON.stringify({ amount_cents: 250_000, deadline: '2999-12-31' }))
+      })
+    })
+
+    it('removes the goal from the dialog', async () => {
+      const calls = stub(savingsReport({ goal: goal() }))
+      renderPage()
+      const user = userEvent.setup()
+
+      await user.click(await screen.findByRole('button', { name: 'editar' }))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remover meta' }))
+
+      await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/savings/goal')).toBe(true))
+    })
   })
 })
