@@ -13,6 +13,8 @@ Rules, all checked against the stored data only:
 - an `immediate` alert is re-checked against the snooze and the digest setting
   *now* and left alone if either would hold it back; a `target` alert pierces
   both, as in the original send;
+- S21-06 (F8): the original recipient is kept; changing a person's rule
+  selection or alert types afterwards does not cancel an alert already owed;
 - the target text is rebuilt with `build_target_alert_text`, like the first send;
 - no transaction is held across the network: a short read, the send, then a
   short write that only flips a row that is still `failed`.

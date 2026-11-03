@@ -83,7 +83,7 @@ def _to_response(recipient: Recipient, rule_ids: list[int]) -> RecipientResponse
 
 
 def _invalid(error: InvalidSettingsError) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error))
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error))
 
 
 def _not_found(error: NotFoundError) -> HTTPException:
@@ -114,7 +114,7 @@ def _parse_rule_ids(raw: list[str]) -> list[int]:
         return [int(part) for item in raw for part in item.split(",") if part.strip()]
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="rule_ids inválido."
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="rule_ids inválido."
         ) from error
 
 
