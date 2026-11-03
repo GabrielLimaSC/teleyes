@@ -47,9 +47,9 @@ def _database_ok(session: Session) -> bool:
     return True
 
 
-def _listener_online(session: Session) -> bool:
+def _listener_online(session: Session, now: datetime) -> bool:
     try:
-        return read_snapshot(session).listener_online
+        return read_snapshot(session, now=now).listener_online
     except Exception:
         return False
 
@@ -67,9 +67,9 @@ class HealthSampler:
         self._now = now
         self._last_purge: datetime | None = None
 
-    def collect(self, session: Session) -> dict[ServiceName, bool | None]:
+    def collect(self, session: Session, now: datetime) -> dict[ServiceName, bool | None]:
         """`True`/`False` per service, `None` for "do not sample" (not configured, demo)."""
-        listener_online = _listener_online(session)
+        listener_online = _listener_online(session, now)
         states: dict[ServiceName, bool | None] = {}
 
         telegram = telegram_health(self._app)
@@ -98,7 +98,7 @@ class HealthSampler:
         """One synchronous sample in its own short transaction (call from a thread)."""
         moment = self._now()
         with self._app.state.session_factory() as session:
-            for service, healthy in self.collect(session).items():
+            for service, healthy in self.collect(session, moment).items():
                 if healthy is not None:
                     record_heartbeat_sample(session, service.value, healthy, now=moment)
             if self._last_purge is None or moment - self._last_purge >= PURGE_INTERVAL:

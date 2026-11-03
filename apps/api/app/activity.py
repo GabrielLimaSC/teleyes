@@ -204,18 +204,19 @@ def read_source_activity(
         local_day = ensure_utc(hour).astimezone(zone).date()
         per_source_day[source_id][local_day] += int(total or 0)
 
-    matches_in_window = dict(
-        session.execute(
+    matches_in_window: dict[int, int] = {
+        source_id: int(count)
+        for source_id, count in session.execute(
             select(Match.source_id, func.count())
             .where(Match.matched_at >= window_start)
             .group_by(Match.source_id)
-        ).tuples()
-    )
-    last_match = {
+        )
+    }
+    last_match: dict[int, datetime] = {
         source_id: ensure_utc(last)
         for source_id, last in session.execute(
             select(Match.source_id, func.max(Match.matched_at)).group_by(Match.source_id)
-        ).tuples()
+        )
         if last is not None
     }
 
