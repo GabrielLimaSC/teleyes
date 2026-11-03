@@ -350,6 +350,8 @@ describe('MatchCard', () => {
     expect(link).toHaveAttribute('href', 'https://t.me/c/123456/7')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    // S21-05: icon button — the name lives in aria-label, no visible text.
+    expect(link).toHaveTextContent('')
   })
 
   it('has no "Visto em" line when nothing grouped with it (S7-11)', () => {
@@ -827,9 +829,9 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
       />,
     )
     expect(screen.getByRole('img', { name: /Histórico de preço/ })).toBeInTheDocument()
-    expect(screen.getByText('Regra · 90 dias')).toBeInTheDocument()
+    expect(screen.getByText('90 dias')).toBeInTheDocument()
     expect(screen.getByTitle('Menor preço da regra por dia, últimos 90 dias')).toBeInTheDocument()
-    expect(screen.queryByText('linha = alvo')).not.toBeInTheDocument()
+    expect(screen.queryByText('90 dias · linha = alvo')).not.toBeInTheDocument()
 
     rerender(
       <MatchCard
@@ -845,7 +847,7 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
         recipients={[]}
       />,
     )
-    expect(screen.getByText('linha = alvo')).toBeInTheDocument()
+    expect(screen.getByText('90 dias · linha = alvo')).toBeInTheDocument()
   })
 })
 

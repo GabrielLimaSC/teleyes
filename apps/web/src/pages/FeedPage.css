@@ -212,7 +212,7 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .feed-page__list {
     grid-template-columns: minmax(0, 1fr);
   }
