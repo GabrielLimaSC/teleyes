@@ -1,6 +1,7 @@
-import { Mascot } from '../components/Mascot'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { Mascot } from '../components/Mascot'
 import { useAuth } from '../auth/AuthContext'
 import { isSameLocalDay, parseApiDate } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -28,6 +29,31 @@ interface DashboardStats {
   activeRules: number
   activeSources: number
   matchesToday: number
+}
+
+const DEMO_URL = 'https://gabriellimasc.github.io/teleyes/'
+const REPO_URL = 'https://github.com/GabrielLimaSC/teleyes'
+
+/** Real install: link to the public demo (never a way in without a password).
+ * Static demo build: the mocked app is already open, so it goes straight in. */
+function DemoEntry() {
+  if (import.meta.env.VITE_DEMO_STATIC === '1') {
+    return (
+      <Link className="plane-action plane-action--secondary login-submit" to="/">
+        Explorar a demonstração
+      </Link>
+    )
+  }
+  return (
+    <a
+      className="plane-action plane-action--secondary login-submit"
+      href={DEMO_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Explorar a demonstração
+    </a>
+  )
 }
 
 function Brand() {
@@ -72,6 +98,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [remember, setRemember] = useState(true)
   const [logoutError, setLogoutError] = useState<string | null>(null)
 
   // Anonymous view: only GET /health is reachable pre-login (/rules,
@@ -192,7 +220,7 @@ export function LoginPage() {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
-    login(password)
+    login(password, remember)
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Não foi possível entrar.')
       })
@@ -200,45 +228,64 @@ export function LoginPage() {
   }
 
   return (
-    <main className="login-page">
-      <div className="login-page__grid">
-        <section className="plane-glass login-panel">
-          <Brand />
-          <div className="login-panel__divider" />
-          <div className="login-status">
-            {anonHealth && (
-              <StatusRow label="Bot do Telegram" state={botStateLabel(anonHealth.bot.state)} />
-            )}
-            {anonHealth && (
-              <StatusRow label="Ambiente" state={`${anonHealth.env} · v${anonHealth.version}`} />
-            )}
-          </div>
+    <main className="login-page login-page--v2">
+      <div className="login-v2">
+        <section className="login-v2__brand">
+          <span className="login-v2__mascot-wrap">
+            <Mascot className="login-v2__mascot" />
+          </span>
+          <h1 className="login-v2__wordmark">teleyes</h1>
+          <p className="login-v2__lede">
+            Lê os grupos de promoção do Telegram por você e só chama quando o preço vale a pena.
+          </p>
+          <ul className="login-v2__bullets">
+            <li data-tone="1">Regras por termo, teto e alvo de preço</li>
+            <li data-tone="2">Histórico de 90 dias para cada produto</li>
+            <li data-tone="3">Alerta no Telegram só quando é de verdade</li>
+          </ul>
         </section>
-        <form className="plane-pearl login-panel login-panel--form" onSubmit={handleSubmit}>
+        <form className="plane-glass login-v2__form" onSubmit={handleSubmit}>
           <div className="login-panel__heading">
             <h2>Entrar</h2>
-            <p>Acesso de administrador. A sessão expira ao fechar o navegador.</p>
+            <p>Acesso de administrador desta instalação.</p>
           </div>
           <div className="login-field">
             <label htmlFor="password">Senha</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
+            <div className="login-field__control">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                autoFocus
+                required
+              />
+              <button
+                type="button"
+                className="login-field__toggle"
+                aria-pressed={showPassword}
+                aria-controls="password"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setShowPassword((value) => !value)}
+              >
+                {showPassword ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
             {anonHealth?.demo === true ? (
               <span className="login-field__helper" data-testid="demo-login-hint">
                 Demonstração: use a senha <code>{DEMO_PASSWORD}</code>.
               </span>
             ) : (
               <span className="login-field__helper">
-                Definida com <code>scripts/create_admin.py</code>.
+                Definida em <code>ADMIN_PASSWORD</code> no servidor.
               </span>
             )}
           </div>
+          <label className="login-check">
+            <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
+            <span>Manter conectado neste dispositivo</span>
+          </label>
           <button
             type="submit"
             className="plane-action login-submit fill-button"
@@ -252,7 +299,20 @@ export function LoginPage() {
               {error}
             </p>
           )}
+          <div className="login-v2__or" aria-hidden="true">
+            <span>ou</span>
+          </div>
+          <DemoEntry />
+          <p className="login-v2__demo-note">
+            A demonstração usa dados fictícios e não envia nada. Nenhuma regra é salva.
+          </p>
         </form>
+        <footer className="login-v2__footer">
+          <span>{anonHealth ? `v${anonHealth.version} · ${anonHealth.env}` : ''}</span>
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+            Ver o código no GitHub
+          </a>
+        </footer>
       </div>
     </main>
   )

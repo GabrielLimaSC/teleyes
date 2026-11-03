@@ -41,7 +41,7 @@ type AuthStatus = 'checking' | 'authenticated' | 'anonymous'
 interface AuthContextValue {
   status: AuthStatus
   adminId: number | null
-  login: (password: string) => Promise<void>
+  login: (password: string, remember?: boolean) => Promise<void>
   logout: () => Promise<void>
   /** For mutating calls (rules/sources/recipients CRUD). Recovered from
    * `GET /auth/me` after any reload; null only while anonymous/checking. */
@@ -96,8 +96,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // CSRF token now exists, so both flows resolve any pending write that was
   // waiting on `sessionRecovery.requestReauth()` and tell other tabs about
   // the new token.
-  const login = useCallback(async (password: string) => {
-    const { csrf_token } = await apiLogin(password)
+  const login = useCallback(async (password: string, remember?: boolean) => {
+    const { csrf_token } = await apiLogin(password, remember)
     storeCsrfToken(csrf_token)
     setCsrfToken(csrf_token)
     const me = await fetchCurrentAdmin()

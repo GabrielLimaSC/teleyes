@@ -22,12 +22,13 @@ export interface MeResponse {
   csrf_token: string
 }
 
-export async function login(password: string): Promise<LoginResponse> {
+/** `remember` is ignored by the API until S21-12 (pydantic drops unknown fields); omitted when undefined. */
+export async function login(password: string, remember?: boolean): Promise<LoginResponse> {
   const response = await fetch('/auth/login', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ password, remember }),
   })
   if (!response.ok) {
     throw new ApiError(
