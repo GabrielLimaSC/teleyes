@@ -25,11 +25,12 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
         await expect(page.getByRole('button', { name: 'Recolher navegação' })).toBeVisible()
         await expect(page.locator('.nav-capsule__menu')).toBeVisible()
       } else {
-        await expect(mascot).toBeDisabled()
+        await expect(page.getByRole('button', { name: 'Ir para o início' })).toBeEnabled()
       }
-      for (const label of ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Economia', 'Saúde']) {
+      for (const label of ['Início', 'Feed', 'Histórico', 'Economia', 'Regras', 'Fontes', 'Saúde']) {
         await expect(page.getByRole('link', { name: label })).toBeVisible()
       }
+      await expect(page.getByRole('button', { name: /^Tema: / })).toBeVisible()
       const [scrollWidth, clientWidth] = await page.evaluate(() => [
         document.documentElement.scrollWidth,
         document.documentElement.clientWidth,
@@ -82,7 +83,8 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
         // so count-based waiting instead of a single-element assertion
         await expect(page.getByText('Carregando…')).toHaveCount(0)
         // the page body must never scroll horizontally at either width
-        const [scrollWidth, clientWidth] = await page.evaluate(() => [
+        await expect(page.getByRole('button', { name: /^Tema: / })).toBeVisible()
+      const [scrollWidth, clientWidth] = await page.evaluate(() => [
           document.documentElement.scrollWidth,
           document.documentElement.clientWidth,
         ])

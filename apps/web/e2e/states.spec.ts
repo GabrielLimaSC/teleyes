@@ -265,11 +265,12 @@ test('the mascot badge fits inside the capsule and never overlaps a tab (S9-05)'
   // Proportion: the badge fits inside the capsule's own height, never
   // taller than it — the old fixed 76px badge on a 68px capsule failed
   // exactly this.
-  expect(mascotBox!.height).toBeLessThanOrEqual(capsuleBox!.height)
-  expect(mascotBox!.y).toBeGreaterThanOrEqual(capsuleBox!.y - 0.5)
-  expect(mascotBox!.y + mascotBox!.height).toBeLessThanOrEqual(capsuleBox!.y + capsuleBox!.height + 0.5)
+  // S21-01: the 70px medallion overhangs the 64px capsule by exactly 3px on each side.
+  expect(mascotBox!.height).toBeCloseTo(capsuleBox!.height + 6, 0)
+  expect(mascotBox!.y).toBeCloseTo(capsuleBox!.y - 3, 0)
+  expect(mascotBox!.y + mascotBox!.height).toBeCloseTo(capsuleBox!.y + capsuleBox!.height + 3, 0)
 
-  // Never overlaps any tab — on desktop the seven tabs sit in the wings
+  // Never overlaps any tab — on desktop the eight slots sit in the wings
   // either side of the mascot's reserved middle slot.
   const tabs = page.locator('.nav-tab')
   const tabCount = await tabs.count()
