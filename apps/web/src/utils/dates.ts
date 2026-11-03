@@ -75,6 +75,15 @@ export function formatDayMonth(iso: string): string {
   return parseApiDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
+/** S21-02: "DD/MM HH:MM" in the local zone — the "aplicado 01/11 06:37" note
+ * beside the "Aplicar regras" button. */
+export function formatDayMonthTime(iso: string): string {
+  const date = parseApiDate(iso)
+  const day = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return `${day} ${time}`
+}
+
 /** True when the API timestamp `a` is strictly later than `b` — compares instants, never strings. */
 export function isLater(a: string, b: string): boolean {
   return parseApiDate(a).getTime() > parseApiDate(b).getTime()
