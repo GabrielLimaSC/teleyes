@@ -1,7 +1,7 @@
 """add recipient rules_mode, alert-type flags and recipient_rule
 
 Revision ID: b7d41e9a2c05
-Revises: a3f9d2c8b714
+Revises: d8e2b6a41c93
 Create Date: 2026-11-03 12:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "b7d41e9a2c05"
-down_revision: Union[str, Sequence[str], None] = "a3f9d2c8b714"
+down_revision: Union[str, Sequence[str], None] = "d8e2b6a41c93"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
