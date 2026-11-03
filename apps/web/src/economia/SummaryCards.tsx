@@ -8,7 +8,7 @@ import {
 } from '../utils/savings'
 import { paidShares, purchasePeriod, savingsBars, savingsHeadline } from './summary'
 
-const SEGMENT_COLORS = ['primary', 'violet', 'good', 'warn'] as const
+const SEGMENT_COLORS = ['primary', 'alt', 'good', 'warn'] as const
 
 /** Hero card: estimated saving, honest in both directions (S21-04). */
 export function SavingsCard({ report }: { report: SavingsReport }) {

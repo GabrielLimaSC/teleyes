@@ -230,7 +230,7 @@ export function EconomiaPage() {
             Gerar cartão de resultados
           </button>
           <button type="button" className="plane-action fill-button" onClick={openCreate} onPointerDown={fillOrigin}>
-            <span aria-hidden="true">+ </span>
+            <span aria-hidden="true" className="economia-page__plus">+</span>
             Registrar compra
           </button>
         </div>

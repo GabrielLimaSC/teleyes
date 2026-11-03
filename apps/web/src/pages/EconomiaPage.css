@@ -50,6 +50,10 @@
   padding-inline: 18px;
 }
 
+.economia-page__plus {
+  margin-right: 6px;
+}
+
 .economia-page__error {
   color: var(--plane-status-danger);
 }
@@ -241,8 +245,8 @@
   background: var(--plane-text-eyebrow);
 }
 
-.economia-split__seg--violet {
-  background: #b79cf0;
+.economia-split__seg--alt {
+  background: var(--plane-status-neutral);
 }
 
 .economia-split__seg--good {

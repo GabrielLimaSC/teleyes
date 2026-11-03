@@ -50,9 +50,9 @@ function monthLabel(date: Date): string {
 /** "out 2026", "set–out 2026" or "dez 2025–jan 2026". */
 export function purchasePeriod(items: ReportItem[]): string | null {
   if (items.length === 0) return null
-  const times = items.map((item) => parseApiDate(item.purchased_at))
-  const first = new Date(Math.min(...times.map((date) => date.getTime())))
-  const last = new Date(Math.max(...times.map((date) => date.getTime())))
+  const sorted = items.map((item) => parseApiDate(item.purchased_at)).sort((a, b) => a.getTime() - b.getTime())
+  const first = sorted[0]!
+  const last = sorted[sorted.length - 1]!
   if (first.getFullYear() !== last.getFullYear()) {
     return `${monthLabel(first)} ${first.getFullYear()}–${monthLabel(last)} ${last.getFullYear()}`
   }
