@@ -212,6 +212,111 @@
         "title": "CodeRequest",
         "type": "object"
       },
+      "CollectorHistoryResponse": {
+        "properties": {
+          "coverage_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Since"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/CollectorHourResponse"
+            },
+            "title": "Hours",
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/CollectorTotalsResponse"
+          }
+        },
+        "required": [
+          "coverage_since",
+          "hours",
+          "totals"
+        ],
+        "title": "CollectorHistoryResponse",
+        "type": "object"
+      },
+      "CollectorHourResponse": {
+        "description": "`seen`: positive rule evaluations (the `vista` counter, i.e. matches).\n`evaluated`: seen plus every discarded evaluation. Both `null` when unmeasured.",
+        "properties": {
+          "evaluated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated"
+          },
+          "hour": {
+            "format": "date-time",
+            "title": "Hour",
+            "type": "string"
+          },
+          "seen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen"
+          }
+        },
+        "required": [
+          "hour",
+          "seen",
+          "evaluated"
+        ],
+        "title": "CollectorHourResponse",
+        "type": "object"
+      },
+      "CollectorTotalsResponse": {
+        "properties": {
+          "delivery_failures": {
+            "title": "Delivery Failures",
+            "type": "integer"
+          },
+          "delivery_failures_last_hour": {
+            "title": "Delivery Failures Last Hour",
+            "type": "integer"
+          },
+          "discarded": {
+            "title": "Discarded",
+            "type": "integer"
+          },
+          "evaluated": {
+            "title": "Evaluated",
+            "type": "integer"
+          },
+          "seen": {
+            "title": "Seen",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seen",
+          "discarded",
+          "evaluated",
+          "delivery_failures",
+          "delivery_failures_last_hour"
+        ],
+        "title": "CollectorTotalsResponse",
+        "type": "object"
+      },
       "CredentialsRequest": {
         "properties": {
           "api_hash": {
@@ -229,6 +334,32 @@
           "api_hash"
         ],
         "title": "CredentialsRequest",
+        "type": "object"
+      },
+      "DayActivityResponse": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "evaluated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated"
+          }
+        },
+        "required": [
+          "day",
+          "evaluated"
+        ],
+        "title": "DayActivityResponse",
         "type": "object"
       },
       "DeliveryResponse": {
@@ -597,6 +728,44 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HealthHistoryResponse": {
+        "properties": {
+          "collector": {
+            "$ref": "#/components/schemas/CollectorHistoryResponse"
+          },
+          "coverage_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Since"
+          },
+          "hours": {
+            "title": "Hours",
+            "type": "integer"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceHistoryResponse"
+            },
+            "title": "Services",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hours",
+          "coverage_since",
+          "services",
+          "collector"
+        ],
+        "title": "HealthHistoryResponse",
+        "type": "object"
+      },
       "HealthResponse": {
         "properties": {
           "bot": {
@@ -637,6 +806,45 @@
           "bot"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "HeartbeatBucketResponse": {
+        "description": "One hour of one service. `ok` of `total` samples were healthy; both `null` means\nnothing was measured that hour (\"coletando\"), which is not the same as down or up.",
+        "properties": {
+          "hour": {
+            "format": "date-time",
+            "title": "Hour",
+            "type": "string"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "hour",
+          "ok",
+          "total"
+        ],
+        "title": "HeartbeatBucketResponse",
         "type": "object"
       },
       "ItemSavingsResponse": {
@@ -2904,6 +3112,34 @@
         "title": "SelectGroupsResponse",
         "type": "object"
       },
+      "ServiceHistoryResponse": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/HeartbeatBucketResponse"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "service": {
+            "enum": [
+              "telegram",
+              "bot",
+              "listener",
+              "sse",
+              "db"
+            ],
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "buckets"
+        ],
+        "title": "ServiceHistoryResponse",
+        "type": "object"
+      },
       "SetupStatus": {
         "properties": {
           "bot": {
@@ -3181,6 +3417,55 @@
         "title": "SnoozeResponse",
         "type": "object"
       },
+      "SourceActivityResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DayActivityResponse"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "last_match_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Match At"
+          },
+          "matches": {
+            "title": "Matches",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_id",
+          "name",
+          "active",
+          "daily",
+          "matches",
+          "last_match_at"
+        ],
+        "title": "SourceActivityResponse",
+        "type": "object"
+      },
       "SourceCreate": {
         "properties": {
           "name": {
@@ -3261,6 +3546,40 @@
         "title": "SourceUpdate",
         "type": "object"
       },
+      "SourcesActivityResponse": {
+        "properties": {
+          "coverage_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Since"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceActivityResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days",
+          "coverage_since",
+          "sources"
+        ],
+        "title": "SourcesActivityResponse",
+        "type": "object"
+      },
       "StepsStatus": {
         "properties": {
           "bot": {
@@ -3297,6 +3616,44 @@
           "rule"
         ],
         "title": "StepsStatus",
+        "type": "object"
+      },
+      "SystemEventResponse": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "match_target",
+              "sse_reconnect",
+              "rules_applied",
+              "backup",
+              "test_send",
+              "listener_reconnect",
+              "delivery_failure"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "kind",
+          "summary"
+        ],
+        "title": "SystemEventResponse",
         "type": "object"
       },
       "TelegramHealth": {
@@ -3814,6 +4171,132 @@
           }
         },
         "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/events": {
+      "get": {
+        "operationId": "health_events_health_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SystemEventResponse"
+                  },
+                  "title": "Response Health Events Health Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health Events",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/history": {
+      "get": {
+        "operationId": "health_history_health_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health History",
         "tags": [
           "health"
         ]
@@ -7019,6 +7502,67 @@
           }
         },
         "summary": "Create Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/sources/activity": {
+      "get": {
+        "operationId": "sources_activity_sources_activity_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 30,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcesActivityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sources Activity",
         "tags": [
           "sources"
         ]

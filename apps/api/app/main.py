@@ -43,6 +43,7 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     # S17-03: the listener runs in another process, so the api watches the
     # shared SQLite file and publishes new matches to its in-memory broker.
     from app.demo_runtime import demo_background
+    from app.health_sampler import sample_health
     from app.match_watcher import watch_matches
 
     settings = get_settings()
@@ -56,9 +57,13 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
             await stack.enter_async_context(
                 demo_background(application.state.session_factory, live=settings.teleyes_demo_live)
             )
-        await stack.enter_async_context(
+        watcher = await stack.enter_async_context(
             watch_matches(application.state.session_factory, application.state.event_broker)
         )
+        application.state.match_watcher = watcher
+        # S21-09: per-minute service samples for the Saúde history (off in tests unless enabled).
+        if application.state.health_sampler_enabled:
+            await stack.enter_async_context(sample_health(application))
         try:
             yield
         finally:
@@ -71,6 +76,8 @@ app.state.session_store = SessionStore(app.state.session_factory)
 app.state.rate_limiter = LoginRateLimiter()
 app.state.started_at = time.monotonic()
 app.state.event_broker = EventBroker()
+app.state.match_watcher = None
+app.state.health_sampler_enabled = True
 
 
 # S19-02: the setup wizard (see docs/SECURITY_SETUP.md). The secret store and the login

@@ -27,8 +27,9 @@ import signal
 import time
 from pathlib import Path
 
-from models.db import get_database_url
+from models.db import get_database_url, get_engine, get_sessionmaker
 from packages.backup.sqlite_backup import apply_retention, run_backup_once
+from packages.metrics.hourly import EventKind, log_system_event
 
 BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", "backups"))
 BACKUP_INTERVAL_SECONDS = float(os.environ.get("BACKUP_INTERVAL_SECONDS", 6 * 60 * 60))
@@ -75,6 +76,13 @@ def run_cycle(db_path: Path) -> None:
     if deleted:
         message += f"; removido(s) {len(deleted)} backup(s) antigo(s)"
     print(message)
+    # S21-09: the event log lives in the same database, which the backup container mounts.
+    size_mb = backup_path.stat().st_size / (1024 * 1024)
+    log_system_event(
+        get_sessionmaker(get_engine(f"sqlite:///{db_path}")),
+        EventKind.BACKUP,
+        f"Backup concluído ({size_mb:.1f} MB)".replace(".", ","),
+    )
 
 
 def main() -> None:
