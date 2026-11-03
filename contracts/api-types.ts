@@ -124,6 +124,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health Events */
+        get: operations["health_events_health_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health History */
+        get: operations["health_history_health_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/listener/reload": {
         parameters: {
             query?: never;
@@ -378,6 +412,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recipients/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Recipient
+         * @description S21-06 (F8): "~N alertas/semana" for a recipient form that is still being
+         *     filled in: matches of the last 7 days of the chosen (active) rules, counted
+         *     only for the alert types switched on. A match is a target hit when its
+         *     price reaches its rule's target, same test the pipeline uses.
+         */
+        get: operations["preview_recipient_recipients_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recipients/{recipient_id}": {
         parameters: {
             query?: never;
@@ -552,6 +609,25 @@ export interface paths {
         /** Resume Rule */
         post: operations["resume_rule_rules__rule_id__resume_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Goal */
+        get: operations["get_goal_savings_goal_get"];
+        /** Put Goal */
+        put: operations["put_goal_savings_goal_put"];
+        post?: never;
+        /** Delete Goal */
+        delete: operations["delete_goal_savings_goal_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -880,6 +956,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sources/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sources Activity */
+        get: operations["sources_activity_sources_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sources/{source_id}": {
         parameters: {
             query?: never;
@@ -985,12 +1078,59 @@ export interface components {
             /** Code */
             code: string;
         };
+        /** CollectorHistoryResponse */
+        CollectorHistoryResponse: {
+            /** Coverage Since */
+            coverage_since: string | null;
+            /** Hours */
+            hours: components["schemas"]["CollectorHourResponse"][];
+            totals: components["schemas"]["CollectorTotalsResponse"];
+        };
+        /**
+         * CollectorHourResponse
+         * @description `seen`: positive rule evaluations (the `vista` counter, i.e. matches).
+         *     `evaluated`: seen plus every discarded evaluation. Both `null` when unmeasured.
+         */
+        CollectorHourResponse: {
+            /** Evaluated */
+            evaluated: number | null;
+            /**
+             * Hour
+             * Format: date-time
+             */
+            hour: string;
+            /** Seen */
+            seen: number | null;
+        };
+        /** CollectorTotalsResponse */
+        CollectorTotalsResponse: {
+            /** Delivery Failures */
+            delivery_failures: number;
+            /** Delivery Failures Last Hour */
+            delivery_failures_last_hour: number;
+            /** Discarded */
+            discarded: number;
+            /** Evaluated */
+            evaluated: number;
+            /** Seen */
+            seen: number;
+        };
         /** CredentialsRequest */
         CredentialsRequest: {
             /** Api Hash */
             api_hash: string;
             /** Api Id */
             api_id: number;
+        };
+        /** DayActivityResponse */
+        DayActivityResponse: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Evaluated */
+            evaluated: number | null;
         };
         /** DeliveryResponse */
         DeliveryResponse: {
@@ -1098,6 +1238,29 @@ export interface components {
             /** Group Duplicates */
             group_duplicates: boolean;
         };
+        /** GoalReportResponse */
+        GoalReportResponse: {
+            /** Amount Cents */
+            amount_cents: number;
+            /** Days Left */
+            days_left: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            /**
+             * Pace
+             * @enum {string}
+             */
+            pace: "done" | "on_track" | "behind" | "expired";
+            /** Pct */
+            pct: number;
+            /** Remaining Cents */
+            remaining_cents: number;
+            /** Saved Cents */
+            saved_cents: number;
+        };
         /** GroupsResponse */
         GroupsResponse: {
             /** Dialogs */
@@ -1114,6 +1277,16 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HealthHistoryResponse */
+        HealthHistoryResponse: {
+            collector: components["schemas"]["CollectorHistoryResponse"];
+            /** Coverage Since */
+            coverage_since: string | null;
+            /** Hours */
+            hours: number;
+            /** Services */
+            services: components["schemas"]["ServiceHistoryResponse"][];
         };
         /** HealthResponse */
         HealthResponse: {
@@ -1135,6 +1308,22 @@ export interface components {
             uptime_seconds: number;
             /** Version */
             version: string;
+        };
+        /**
+         * HeartbeatBucketResponse
+         * @description One hour of one service. `ok` of `total` samples were healthy; both `null` means
+         *     nothing was measured that hour ("coletando"), which is not the same as down or up.
+         */
+        HeartbeatBucketResponse: {
+            /**
+             * Hour
+             * Format: date-time
+             */
+            hour: string;
+            /** Ok */
+            ok: number | null;
+            /** Total */
+            total: number | null;
         };
         /** ItemSavingsResponse */
         ItemSavingsResponse: {
@@ -1210,6 +1399,11 @@ export interface components {
         LoginRequest: {
             /** Password */
             password: string;
+            /**
+             * Remember
+             * @default false
+             */
+            remember: boolean;
         };
         /** LoginStatus */
         LoginStatus: {
@@ -1457,6 +1651,13 @@ export interface components {
             /** Phone */
             phone: string;
         };
+        /** PreviewRuleCount */
+        PreviewRuleCount: {
+            /** Per Week */
+            per_week: number;
+            /** Rule Id */
+            rule_id: number;
+        };
         /**
          * PricePointResponse
          * @description Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).
@@ -1587,8 +1788,35 @@ export interface components {
             allowlisted: boolean;
             /** Name */
             name: string;
+            /**
+             * Notify Common
+             * @default true
+             */
+            notify_common: boolean;
+            /**
+             * Notify Target
+             * @default true
+             */
+            notify_target: boolean;
+            /**
+             * Rule Ids
+             * @default []
+             */
+            rule_ids: number[];
+            /**
+             * Rules Mode
+             * @default all
+             */
+            rules_mode: string;
             /** Telegram Chat Id */
             telegram_chat_id: string;
+        };
+        /** RecipientPreviewResponse */
+        RecipientPreviewResponse: {
+            /** Alerts Per Week */
+            alerts_per_week: number;
+            /** Per Rule */
+            per_rule: components["schemas"]["PreviewRuleCount"][];
         };
         /** RecipientResponse */
         RecipientResponse: {
@@ -1605,6 +1833,14 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** Notify Common */
+            notify_common: boolean;
+            /** Notify Target */
+            notify_target: boolean;
+            /** Rule Ids */
+            rule_ids: number[];
+            /** Rules Mode */
+            rules_mode: string;
             /** Telegram Chat Id */
             telegram_chat_id: string;
         };
@@ -1614,6 +1850,14 @@ export interface components {
             allowlisted?: boolean | null;
             /** Name */
             name?: string | null;
+            /** Notify Common */
+            notify_common?: boolean | null;
+            /** Notify Target */
+            notify_target?: boolean | null;
+            /** Rule Ids */
+            rule_ids?: number[] | null;
+            /** Rules Mode */
+            rules_mode?: string | null;
             /** Telegram Chat Id */
             telegram_chat_id?: string | null;
         };
@@ -1635,6 +1879,8 @@ export interface components {
              */
             purchased_at: string;
             savings: components["schemas"]["ItemSavingsResponse"] | null;
+            /** Share Of Goal */
+            share_of_goal: number | null;
             /** Store */
             store: string | null;
         };
@@ -1704,6 +1950,11 @@ export interface components {
             max_price_cents: number | null;
             /** Name */
             name: string;
+            /**
+             * Recipient Ids
+             * @default []
+             */
+            recipient_ids: number[];
             /** Snoozed Until */
             snoozed_until?: string | null;
             /** Target Price Cents */
@@ -1788,6 +2039,36 @@ export interface components {
             /** Target Price Cents */
             target_price_cents?: number | null;
         };
+        /** SavingsGoalInput */
+        SavingsGoalInput: {
+            /** Amount Cents */
+            amount_cents: number;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+        };
+        /** SavingsGoalResponse */
+        SavingsGoalResponse: {
+            /** Amount Cents */
+            amount_cents: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Deadline
+             * Format: date
+             */
+            deadline: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** SavingsReportResponse */
         SavingsReportResponse: {
             black_friday: components["schemas"]["BlackFridaySummaryResponse"];
@@ -1796,6 +2077,7 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
+            goal: components["schemas"]["GoalReportResponse"] | null;
             /** Items */
             items: components["schemas"]["ReportItemResponse"][];
             noise: components["schemas"]["NoiseResponse"];
@@ -1824,6 +2106,16 @@ export interface components {
             already_monitored: number;
             /** Created */
             created: number;
+        };
+        /** ServiceHistoryResponse */
+        ServiceHistoryResponse: {
+            /** Buckets */
+            buckets: components["schemas"]["HeartbeatBucketResponse"][];
+            /**
+             * Service
+             * @enum {string}
+             */
+            service: "telegram" | "bot" | "listener" | "sse" | "db";
         };
         /** SetupStatus */
         SetupStatus: {
@@ -1917,6 +2209,21 @@ export interface components {
              */
             until: string;
         };
+        /** SourceActivityResponse */
+        SourceActivityResponse: {
+            /** Active */
+            active: boolean;
+            /** Daily */
+            daily: components["schemas"]["DayActivityResponse"][];
+            /** Last Match At */
+            last_match_at: string | null;
+            /** Matches */
+            matches: number;
+            /** Name */
+            name: string;
+            /** Source Id */
+            source_id: number;
+        };
         /** SourceCreate */
         SourceCreate: {
             /** Name */
@@ -1947,6 +2254,15 @@ export interface components {
             /** Telegram Chat Id */
             telegram_chat_id?: string | null;
         };
+        /** SourcesActivityResponse */
+        SourcesActivityResponse: {
+            /** Coverage Since */
+            coverage_since: string | null;
+            /** Days */
+            days: number;
+            /** Sources */
+            sources: components["schemas"]["SourceActivityResponse"][];
+        };
         /** StepsStatus */
         StepsStatus: {
             /** Bot */
@@ -1961,6 +2277,23 @@ export interface components {
             recipient: boolean;
             /** Rule */
             rule: boolean;
+        };
+        /** SystemEventResponse */
+        SystemEventResponse: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "match_target" | "sse_reconnect" | "rules_applied" | "backup" | "test_send" | "listener_reconnect" | "delivery_failure";
+            /** Summary */
+            summary: string;
         };
         /** TelegramHealth */
         TelegramHealth: {
@@ -2016,7 +2349,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2260,6 +2595,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    health_events_health_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemEventResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    health_history_health_history_get: {
+        parameters: {
+            query?: {
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2837,6 +3238,42 @@ export interface operations {
             };
         };
     };
+    preview_recipient_recipients_preview_get: {
+        parameters: {
+            query?: {
+                rules_mode?: string;
+                rule_ids?: string[] | null;
+                notify_target?: boolean;
+                notify_common?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipientPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_recipient_recipients__recipient_id__delete: {
         parameters: {
             query?: never;
@@ -3196,6 +3633,101 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RuleResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_goal_savings_goal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsGoalResponse"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_goal_savings_goal_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavingsGoalInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsGoalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_goal_savings_goal_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -3890,6 +4422,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sources_activity_sources_activity_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                teleyes_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcesActivityResponse"];
                 };
             };
             /** @description Validation Error */

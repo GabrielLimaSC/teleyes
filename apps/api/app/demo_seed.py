@@ -24,13 +24,14 @@ import math
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.demo_mode import DEMO_CHAT_PREFIX, DEMO_PASSWORD, DemoNotifier, is_demo_chat_id
+from app.demo_monitoring import seed_monitoring
 from app.listener_control import current_fingerprint
 from app.pipeline import IncomingMessage, process_message
 from app.savings import Observation, median
@@ -47,6 +48,7 @@ from models import (
     Purchase,
     Recipient,
     Rule,
+    SavingsGoal,
     Snooze,
     Source,
 )
@@ -379,17 +381,8 @@ def _create_base_rows(session: Session, now: datetime) -> tuple[list[Source], li
         )
         source.created_at = created
         sources.append(source)
-    recipients = []
-    for index, name in enumerate(RECIPIENT_NAMES, start=1):
-        recipient = recipient_repo.create_recipient(
-            session,
-            name=name,
-            telegram_chat_id=f"{DEMO_CHAT_PREFIX}recipient-{index}",
-            allowlisted=True,
-        )
-        recipient.created_at = created
-        recipients.append(recipient)
     session.add(Admin(password_hash=hash_password(DEMO_PASSWORD), created_at=created))
+    rules = []
     for spec in RULE_SPECS:
         rule = rule_repo.create_rule(
             session,
@@ -400,6 +393,23 @@ def _create_base_rows(session: Session, now: datetime) -> tuple[list[Source], li
             target_price_cents=spec.target_reais * 100,
         )
         rule.created_at = created
+        rules.append(rule)
+    recipients = []
+    for index, name in enumerate(RECIPIENT_NAMES, start=1):
+        # S21-06 (F8): the principal gets every rule and both alert types; the
+        # secondary picks two rules and only hears about price targets.
+        selected = index == 2
+        recipient = recipient_repo.create_recipient(
+            session,
+            name=name,
+            telegram_chat_id=f"{DEMO_CHAT_PREFIX}recipient-{index}",
+            allowlisted=True,
+            rules_mode="selected" if selected else "all",
+            rule_ids=[rules[0].id, rules[1].id] if selected else [],
+            notify_common=not selected,
+        )
+        recipient.created_at = created
+        recipients.append(recipient)
     session.commit()
     return sources, recipients
 
@@ -453,8 +463,9 @@ def _finish(session: Session, now: datetime, rng: random.Random) -> None:
 
     aged = [m for m in matches if now - ensure_utc(m.matched_at) > timedelta(days=1)]
     plain = {d.match_id: d for d in deliveries if d.kind == "immediate" and d.status == "sent"}
-    # Failed sends to the secondary recipient (a Bot API hiccup), a few days ago.
-    secondary = session.scalars(select(Recipient).order_by(Recipient.id).offset(1)).first()
+    # Failed sends to the principal recipient (a Bot API hiccup), a few days ago. The
+    # secondary only receives price targets (F8), too few plain sends to fail.
+    secondary = session.scalars(select(Recipient).order_by(Recipient.id)).first()
     assert secondary is not None
     failed_candidates = [
         d
@@ -556,6 +567,7 @@ def _finish(session: Session, now: datetime, rng: random.Random) -> None:
         )
     )
     _seed_purchases(session, now)
+    seed_monitoring(session, now, random.Random(SEED + 2))
     session.commit()
 
 
@@ -631,6 +643,24 @@ def _seed_purchases(session: Session, now: datetime) -> None:
                 created_at=purchased_at,
             )
         )
+    _seed_savings_goal(session, now)
+
+
+def _seed_savings_goal(session: Session, now: datetime) -> None:
+    """S21-08: a fictional R$ 2.000 goal ending on 31/12, started 60 days before `now`."""
+    deadline = date(now.year, 12, 31)
+    if deadline <= now.date():
+        deadline = date(now.year + 1, 12, 31)
+    started = now - timedelta(days=60)
+    session.add(
+        SavingsGoal(
+            id=1,
+            amount_cents=200_000,
+            deadline=deadline,
+            created_at=started,
+            updated_at=started,
+        )
+    )
 
 
 def _write_counters(
@@ -713,7 +743,20 @@ def seed_demo_database(
 
 CONTENT_TABLES: tuple[tuple[Any, tuple[str, ...]], ...] = (
     (Source, ("id", "name", "telegram_chat_id", "active", "created_at")),
-    (Recipient, ("id", "name", "telegram_chat_id", "allowlisted", "active", "created_at")),
+    (
+        Recipient,
+        (
+            "id",
+            "name",
+            "telegram_chat_id",
+            "allowlisted",
+            "active",
+            "created_at",
+            "rules_mode",
+            "notify_target",
+            "notify_common",
+        ),
+    ),
     (
         Rule,
         (

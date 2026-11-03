@@ -52,7 +52,7 @@ test('rules, sources, history and health load without errors', async ({ page }) 
   const problems = watchErrors(page)
 
   await page.goto('regras')
-  await expect(page.locator('.crud-table__name').getByText('SSD NVMe exemplo', { exact: true })).toBeVisible()
+  await expect(page.locator('.rule-row__title').getByText('SSD NVMe exemplo', { exact: true })).toBeVisible()
 
   await page.goto('fontes')
   await expect(page.getByText('Grupo Demo Ofertas').first()).toBeVisible()
@@ -72,17 +72,17 @@ test('rules, sources, history and health load without errors', async ({ page }) 
 test('a refresh on a deep link works under the subpath', async ({ page }) => {
   await page.goto('regras')
   await page.reload()
-  await expect(page.locator('.crud-table__name').first()).toBeVisible()
-  await expect(page.locator('img[src$="mascot.png"]').first()).toBeVisible()
-  const src = await page.locator('img[src$="mascot.png"]').first().getAttribute('src')
-  expect(src).toBe('/teleyes/mascot.png')
+  await expect(page.locator('.rule-row__title').first()).toBeVisible()
+  await expect(page.locator('img[src*="/mascot/mascote-"]').first()).toBeVisible()
+  const src = await page.locator('img[src*="/mascot/mascote-"]').first().getAttribute('src')
+  expect(src).toMatch(/^\/teleyes\/mascot\/mascote-(inverse|accent)\.png$/)
 })
 
 test('saving something shows the demo message and nothing changes', async ({ page }) => {
   await page.goto('regras')
   const row = page
     .locator('tr')
-    .filter({ has: page.locator('.crud-table__name').getByText('SSD NVMe exemplo', { exact: true }) })
+    .filter({ has: page.locator('.rule-row__title').getByText('SSD NVMe exemplo', { exact: true }) })
 
   await row.getByRole('switch', { name: 'ativa' }).click()
 

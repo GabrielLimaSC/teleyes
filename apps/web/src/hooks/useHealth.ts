@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchHealth } from '../api/health'
 import type { AdapterState, HealthResponse } from '../api/health'
 
@@ -11,6 +11,8 @@ interface UseHealthResult {
   loading: boolean
   error: string | null
   sseState: SseState
+  /** Re-reads GET /health right now (the Reverificar button). */
+  refresh: () => void
 }
 
 /**
@@ -38,6 +40,8 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS, enabled = true): Us
   // to open would be a false alarm, not an honest state.
   const [sseState, setSseState] = useState<SseState>('connecting')
 
+  const pollRef = useRef<() => void>(() => undefined)
+
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
@@ -57,6 +61,7 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS, enabled = true): Us
         })
     }
 
+    pollRef.current = poll
     poll()
     const interval = setInterval(poll, pollIntervalMs)
 
@@ -84,5 +89,7 @@ export function useHealth(pollIntervalMs = POLL_INTERVAL_MS, enabled = true): Us
     }
   }, [pollIntervalMs, enabled])
 
-  return { health, loading, error, sseState }
+  const refresh = useCallback(() => pollRef.current(), [])
+
+  return { health, loading, error, sseState, refresh }
 }

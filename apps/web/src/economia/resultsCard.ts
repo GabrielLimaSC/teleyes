@@ -13,7 +13,7 @@ import { METHODOLOGY, blackFridayLabel, formatCount, formatCurrency, formatPct, 
 
 export const CARD_WIDTH = 1080
 export const CARD_HEIGHT = 1350
-const MAX_PIECES = 5
+const MAX_PIECES = 4
 
 export interface CardOptions {
   /** Show the name of each piece. Off: only totals leave the app. */
@@ -49,6 +49,7 @@ export interface ResultsAggregates {
     days_before_min: number | null
     days_before_max: number | null
   }
+  goal?: { amount_cents: number; deadline: string; pct: number; pace: string }
   noise: {
     messages_analyzed: number
     discarded_total: number
@@ -106,6 +107,14 @@ export function buildResultsAggregates(report: SavingsReport, options: CardOptio
       alerts_sent: noise.alerts_sent,
     },
   }
+  if (report.goal) {
+    aggregates.goal = {
+      amount_cents: report.goal.amount_cents,
+      deadline: report.goal.deadline,
+      pct: report.goal.pct,
+      pace: report.goal.pace,
+    }
+  }
   if (options.showPieces) {
     aggregates.pieces = report.items.map((item) => pieceOf(item, options.includeStores))
   }
@@ -155,8 +164,24 @@ function escapeXml(text: string): string {
     .replaceAll("'", '&apos;')
 }
 
-function truncate(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`
+/** Average glyph width as a fraction of the font size; deliberately on the wide side. */
+const GLYPH_WIDTH = 0.6
+const GLYPH_WIDTH_BOLD = 0.64
+
+/** Conservative width of a line of text, so layout never depends on measuring fonts. */
+export function estimateTextWidth(content: string, size: number, bold = false): number {
+  return content.length * size * (bold ? GLYPH_WIDTH_BOLD : GLYPH_WIDTH)
+}
+
+/** The largest font size (down to `min`) at which `content` fits in `maxWidth`. */
+function fitSize(content: string, maxSize: number, maxWidth: number, bold = false, min = 16): number {
+  const fitted = Math.floor(maxWidth / (content.length * (bold ? GLYPH_WIDTH_BOLD : GLYPH_WIDTH)))
+  return Math.max(min, Math.min(maxSize, fitted))
+}
+
+function truncateToWidth(content: string, size: number, maxWidth: number, bold = false): string {
+  const maxChars = Math.max(4, Math.floor(maxWidth / (size * (bold ? GLYPH_WIDTH_BOLD : GLYPH_WIDTH))))
+  return content.length <= maxChars ? content : `${content.slice(0, maxChars - 1).trimEnd()}…`
 }
 
 function bfText(bf: ResultsAggregates['black_friday']): string {
@@ -166,27 +191,67 @@ function bfText(bf: ResultsAggregates['black_friday']): string {
   return `${min}–${max} dias antes`
 }
 
-function text(
-  x: number,
-  y: number,
-  content: string,
-  size: number,
-  fill: string,
-  extra = '',
-): string {
+function goalText(goal: NonNullable<ResultsAggregates['goal']>): string {
+  const shown = Math.round(Math.min(100, Math.max(0, goal.pct)))
+  return `${shown}% de ${formatCurrency(goal.amount_cents)}`
+}
+
+function text(x: number, y: number, content: string, size: number, fill: string, extra = ''): string {
   return `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" ${extra}>${escapeXml(content)}</text>`
 }
 
-function stat(x: number, label: string, value: string, palette: CardPalette): string {
-  const width = 300
+const FOOTER_NOTE = 'Estimativa com base nos preços que o teleyes viu — não é garantia de mercado.'
+const MARGIN = 60
+const INNER = CARD_WIDTH - 2 * MARGIN // 960
+const PIECE_ROW = 72
+const STAT_WIDTH = 300
+const STAT_GAP = (INNER - 3 * STAT_WIDTH) / 2
+
+function stat(x: number, y: number, label: string, value: string, palette: CardPalette): string {
+  const innerWidth = STAT_WIDTH - 56
   return [
-    `<rect x="${x}" y="566" width="${width}" height="170" rx="28" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
-    text(x + 28, 618, label, 26, palette.muted),
-    text(x + 28, 690, value, value.length > 12 ? 40 : 52, palette.text, 'font-weight="700"'),
+    `<rect x="${x}" y="${y}" width="${STAT_WIDTH}" height="150" rx="28" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
+    text(x + 28, y + 50, label, 26, palette.muted),
+    text(x + 28, y + 116, value, fitSize(value, 52, innerWidth, true, 22), palette.text, 'font-weight="700"'),
   ].join('')
 }
 
-/** 1080x1350 SVG. `mascotDataUri` is optional: without it the card shows a plain dot. */
+function pieceRow(piece: ResultsPiece, y: number, palette: CardPalette): string {
+  const label = piece.store === undefined ? piece.name : `${piece.name} · ${piece.store}`
+  const gain = piece.saving_vs_median_cents
+  const paidText = formatCurrency(piece.paid_cents)
+  const gainText =
+    gain === null
+      ? 'sem histórico'
+      : `${formatSigned(gain)}${piece.saving_vs_median_pct === null ? '' : ` · ${formatPct(Math.abs(piece.saving_vs_median_pct))}`}`
+  // The numbers column is as wide as the longest number; the name gets what is left.
+  const numbersWidth = Math.min(
+    560,
+    Math.max(estimateTextWidth(paidText, 28, true), estimateTextWidth(gainText, 22, true)),
+  )
+  const nameWidth = INNER - numbersWidth - 32
+  const right = CARD_WIDTH - MARGIN
+  return [
+    `<line x1="${MARGIN}" y1="${y}" x2="${right}" y2="${y}" stroke="${palette.border}" stroke-width="2"/>`,
+    text(MARGIN, y + 46, truncateToWidth(label, 30, nameWidth, true), 30, palette.text, 'font-weight="600"'),
+    text(right, y + 36, paidText, 28, palette.text, 'font-weight="700" text-anchor="end"'),
+    text(
+      right,
+      y + 62,
+      gainText,
+      22,
+      gain === null ? palette.muted : gain < 0 ? palette.bad : palette.good,
+      'font-weight="600" text-anchor="end"',
+    ),
+  ].join('')
+}
+
+/**
+ * 1080x1350 SVG, laid out as a vertical flow: every block starts below the end of the
+ * previous one, and every number is sized from the widest value it has to hold, so
+ * long amounts shrink instead of colliding. `mascotDataUri` is optional: without it
+ * the card shows a plain dot.
+ */
 export function buildResultsSvg(
   aggregates: ResultsAggregates,
   palette: CardPalette,
@@ -197,10 +262,16 @@ export function buildResultsSvg(
   const saving = totals.estimated_saving_cents
   const tone = saving < 0 ? palette.bad : palette.good
   const heroLabel = hasSaving && saving < 0 ? 'PAGO ACIMA DA MEDIANA' : 'ECONOMIA ESTIMADA'
-  const heroValue = hasSaving ? formatSigned(saving).replace('+', '') : 'sem dados'
-  const heroSub = hasSaving
-    ? `${totals.estimated_saving_pct === null ? '' : `${formatPct(totals.estimated_saving_pct)} vs. a mediana dos 90 dias · `}${totals.pieces_with_data} de ${totals.purchases} ${totals.purchases === 1 ? 'compra' : 'compras'} com histórico`
-    : 'ainda sem histórico suficiente para estimar'
+  const heroValue = hasSaving ? formatSigned(saving) : 'sem dados'
+  const heroInner = INNER - 80
+  const heroLines = hasSaving
+    ? [
+        totals.estimated_saving_pct === null
+          ? 'comparado à mediana dos 90 dias anteriores'
+          : `${formatPct(Math.abs(totals.estimated_saving_pct))} ${saving < 0 ? 'acima' : 'abaixo'} da mediana dos 90 dias`,
+        `${totals.pieces_with_data} de ${totals.purchases} ${totals.purchases === 1 ? 'compra' : 'compras'} com histórico`,
+      ]
+    : ['ainda sem histórico suficiente para estimar']
 
   const parts: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">`,
@@ -209,86 +280,90 @@ export function buildResultsSvg(
     `<rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="url(#glow)"/>`,
   ]
 
-  // Header: mascot + wordmark.
+  // Header: mascot + wordmark (y 50-170).
   if (mascotDataUri !== null) {
     parts.push(
-      `<clipPath id="mascot-clip"><circle cx="112" cy="112" r="52"/></clipPath>`,
-      `<circle cx="112" cy="112" r="56" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
-      `<image href="${mascotDataUri}" x="60" y="60" width="104" height="104" clip-path="url(#mascot-clip)"/>`,
+      `<clipPath id="mascot-clip"><circle cx="112" cy="110" r="52"/></clipPath>`,
+      `<circle cx="112" cy="110" r="56" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
+      `<image href="${mascotDataUri}" x="60" y="58" width="104" height="104" clip-path="url(#mascot-clip)" preserveAspectRatio="xMidYMid slice"/>`,
     )
   } else {
-    parts.push(`<circle cx="112" cy="112" r="40" fill="${palette.accent}"/>`)
+    parts.push(`<circle cx="112" cy="110" r="40" fill="${palette.accent}"/>`)
   }
   parts.push(
-    text(190, 108, 'teleyes', 46, palette.text, 'font-weight="700"'),
-    text(190, 150, 'Relatório de economia', 28, palette.muted),
+    text(190, 106, 'teleyes', 46, palette.text, 'font-weight="700"'),
+    text(190, 148, 'Relatório de economia', 28, palette.muted),
   )
 
-  // Hero.
+  // Hero (y 200-490).
   parts.push(
-    `<rect x="60" y="230" width="960" height="300" rx="36" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
-    text(100, 296, heroLabel, 26, palette.muted, 'letter-spacing="3"'),
-    text(100, 424, heroValue, hasSaving ? 128 : 96, hasSaving ? tone : palette.muted, 'font-weight="800"'),
-    text(100, 488, heroSub, 26, palette.muted),
+    `<rect x="${MARGIN}" y="200" width="${INNER}" height="290" rx="36" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
+    text(100, 262, heroLabel, 26, palette.muted, 'letter-spacing="3"'),
+    text(
+      100,
+      380,
+      heroValue,
+      fitSize(heroValue, hasSaving ? 128 : 96, heroInner, true, 40),
+      hasSaving ? tone : palette.muted,
+      'font-weight="800"',
+    ),
   )
+  heroLines.forEach((line, index) => {
+    parts.push(text(100, 430 + index * 34, line, fitSize(line, 26, heroInner, false, 18), palette.muted))
+  })
 
-  // Stats.
+  // Stats (y 520-670).
+  const statY = 520
   parts.push(
-    stat(60, 'Total pago', formatCurrency(totals.total_paid_cents), palette),
-    stat(390, 'Compras', String(totals.purchases), palette),
-    stat(720, 'Black Friday', bfText(aggregates.black_friday), palette),
+    stat(MARGIN, statY, 'Total pago', formatCurrency(totals.total_paid_cents), palette),
+    stat(MARGIN + STAT_WIDTH + STAT_GAP, statY, 'Compras', String(totals.purchases), palette),
+    aggregates.goal
+      ? stat(MARGIN + 2 * (STAT_WIDTH + STAT_GAP), statY, 'Meta', goalText(aggregates.goal), palette)
+      : stat(MARGIN + 2 * (STAT_WIDTH + STAT_GAP), statY, 'Black Friday', bfText(aggregates.black_friday), palette),
   )
 
-  // Pieces (optional).
-  let cursor = 800
+  // Pieces (optional): the list grows down from here; "sem histórico" rows are listed too.
+  let cursor = 690
   if (aggregates.pieces !== undefined && aggregates.pieces.length > 0) {
-    parts.push(text(60, cursor, 'Peças', 26, palette.muted, 'letter-spacing="3"'))
+    cursor += 40
+    parts.push(text(MARGIN, cursor, 'PEÇAS', 24, palette.muted, 'letter-spacing="3"'))
     cursor += 20
     const shown = aggregates.pieces.slice(0, MAX_PIECES)
-    shown.forEach((piece, index) => {
-      const y = cursor + index * 76
-      const label = piece.store === undefined ? piece.name : `${piece.name} · ${piece.store}`
-      const gain = piece.saving_vs_median_cents
-      const gainText =
-        gain === null
-          ? 'sem dados'
-          : `${formatSigned(gain)}${piece.saving_vs_median_pct === null ? '' : ` (${formatPct(piece.saving_vs_median_pct)})`}`
-      parts.push(
-        `<line x1="60" y1="${y + 12}" x2="1020" y2="${y + 12}" stroke="${palette.border}" stroke-width="2"/>`,
-        text(60, y + 54, truncate(label, 30), 30, palette.text, 'font-weight="600"'),
-        text(1020, y + 38, formatCurrency(piece.paid_cents), 28, palette.text, 'text-anchor="end"'),
-        text(
-          1020,
-          y + 68,
-          gainText,
-          22,
-          gain === null ? palette.muted : gain < 0 ? palette.bad : palette.good,
-          'text-anchor="end"',
-        ),
-      )
+    shown.forEach((piece) => {
+      parts.push(pieceRow(piece, cursor, palette))
+      cursor += PIECE_ROW
     })
     const hidden = aggregates.pieces.length - shown.length
     if (hidden > 0) {
-      parts.push(text(60, cursor + shown.length * 76 + 44, `+ ${hidden} ${hidden === 1 ? 'peça' : 'peças'}`, 24, palette.muted))
+      parts.push(text(MARGIN, cursor + 30, `+ ${hidden} ${hidden === 1 ? 'peça' : 'peças'}`, 24, palette.muted))
+      cursor += 44
     }
   }
 
-  // Noise avoided.
+  // Noise avoided: starts below whatever came before.
+  const noiseY = cursor + 28
+  const column = INNER / 3
+  const noiseItems: Array<[string, string]> = [
+    [formatCount(noise.messages_analyzed), 'mensagens analisadas'],
+    [formatCount(noise.discarded_total), 'descartadas'],
+    [formatCount(noise.duplicates_grouped), 'repetidos agrupados'],
+  ]
   parts.push(
-    `<rect x="60" y="1100" width="960" height="150" rx="28" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
-    text(92, 1148, 'RUÍDO EVITADO', 22, palette.muted, 'letter-spacing="3"'),
-    text(92, 1210, `${formatCount(noise.messages_analyzed)}`, 46, palette.text, 'font-weight="700"'),
-    text(92, 1238, 'mensagens analisadas', 20, palette.muted),
-    text(420, 1210, `${formatCount(noise.discarded_total)}`, 46, palette.text, 'font-weight="700"'),
-    text(420, 1238, 'descartadas', 20, palette.muted),
-    text(720, 1210, `${formatCount(noise.duplicates_grouped)}`, 46, palette.text, 'font-weight="700"'),
-    text(720, 1238, 'repetidos agrupados', 20, palette.muted),
+    `<rect x="${MARGIN}" y="${noiseY}" width="${INNER}" height="140" rx="28" fill="${palette.surface}" stroke="${palette.border}" stroke-width="2"/>`,
+    text(92, noiseY + 38, 'RUÍDO EVITADO', 22, palette.muted, 'letter-spacing="3"'),
   )
+  noiseItems.forEach(([value, caption], index) => {
+    const x = 92 + index * column
+    parts.push(
+      text(x, noiseY + 92, value, fitSize(value, 44, column - 40, true, 24), palette.text, 'font-weight="700"'),
+      text(x, noiseY + 120, caption, fitSize(caption, 20, column - 40, false, 16), palette.muted),
+    )
+  })
 
-  // Footer.
+  // Footer: pinned to the bottom edge.
   parts.push(
-    text(60, 1296, 'Estimativa com base nos preços que o próprio teleyes viu — não é garantia de mercado.', 21, palette.muted),
-    text(60, 1326, 'teleyes · monitor pessoal de promoções', 20, palette.accent),
+    text(MARGIN, 1286, FOOTER_NOTE, fitSize(FOOTER_NOTE, 21, INNER), palette.muted),
+    text(MARGIN, 1320, 'teleyes · monitor pessoal de promoções', 20, palette.accent),
     '</svg>',
   )
   return parts.join('')
@@ -330,7 +405,7 @@ export function svgToPngBlob(svg: string): Promise<Blob> {
 export async function loadMascotDataUri(url: string): Promise<string | null> {
   try {
     const response = await fetch(url)
-    if (!response.ok) return null
+    if (!response.ok || !(response.headers.get('content-type') ?? '').startsWith('image/')) return null
     const blob = await response.blob()
     return await new Promise<string | null>((resolve) => {
       const reader = new FileReader()

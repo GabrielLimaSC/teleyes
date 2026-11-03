@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Purchase } from '../api/purchases'
+import type { GoalReport, Purchase } from '../api/purchases'
 import { reportItem, savingsNoData, savingsReport } from '../economia/fixtures'
 import { ECONOMIA_PATH } from '../economia/purchaseDraft'
 import type { EconomiaNavState } from '../economia/purchaseDraft'
@@ -39,6 +39,7 @@ function stub(report = savingsReport()) {
       const url = String(input)
       const method = init?.method ?? 'GET'
       calls.push({ url, method, body: typeof init?.body === 'string' ? init.body : undefined })
+      if (url === '/savings/goal' && method === 'PUT') return Promise.resolve(json({}))
       if (method === 'DELETE') return Promise.resolve(json(null, 204))
       if (url.startsWith('/purchases')) {
         return Promise.resolve(json(report.items.map((item) => purchase(item.id, item.name))))
@@ -63,7 +64,7 @@ function renderPage(state?: EconomiaNavState) {
 describe('EconomiaPage', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('lists the purchases with totals, the Black Friday count and the methodology', async () => {
+  it('lists the purchases with totals, the methodology and no Black Friday', async () => {
     stub()
     renderPage()
 
@@ -71,7 +72,7 @@ describe('EconomiaPage', () => {
     const tiles = screen.getByRole('region', { name: 'Resumo' })
     expect(within(tiles).getByText('R$ 3.000,00')).toBeInTheDocument()
     expect(within(tiles).getByText('+R$ 250,00')).toBeInTheDocument()
-    expect(within(tiles).getByText('38–52 dias antes')).toBeInTheDocument()
+    expect(within(tiles).queryByText(/Black Friday/)).toBeNull()
     expect(screen.getByText(/Estimativa baseada só nos preços que o próprio teleyes viu/)).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Ruído evitado' })).toHaveTextContent('20.298')
   })
@@ -95,10 +96,45 @@ describe('EconomiaPage', () => {
     await screen.findByText('SSD NVMe')
 
     const rowOf = (name: string) => screen.getByText(name).closest('tr')!
-    expect(rowOf('SSD NVMe')).toHaveTextContent('−R$ 100,00 (-20,0%)')
-    expect(rowOf('SSD NVMe').querySelector('.economia-tone--bad')).not.toBeNull()
-    expect(rowOf('Fone')).toHaveTextContent('sem dados')
-    expect(rowOf('Cabo HDMI').querySelector('[data-label="Economia estimada"]')).toHaveTextContent('—')
+    expect(rowOf('SSD NVMe')).toHaveTextContent('−R$ 100,00 · 20,0%')
+    expect(rowOf('SSD NVMe').querySelector('.economia-pill--bad')).not.toBeNull()
+    expect(rowOf('Fone')).toHaveTextContent('sem histórico')
+    expect(rowOf('Fone').querySelector('.price-range--empty')).toHaveTextContent('menos de 3 preços vistos — fora da conta')
+    expect(rowOf('Cabo HDMI').querySelector('[data-label="Economia"]')).toHaveTextContent('sem histórico')
+    expect(rowOf('Cabo HDMI').querySelector('.economia-pill--good, .economia-pill--bad')).toBeNull()
+  })
+
+  it('shows the saving card with the percentage badge and keeps the methodology visible', async () => {
+    stub()
+    renderPage()
+    await screen.findByText('Placa-mãe B850M')
+    const tiles = screen.getByRole('region', { name: 'Resumo' })
+    expect(within(tiles).getByText('7,7% abaixo da mediana')).toBeInTheDocument()
+    expect(within(tiles).getByText('Mediana 90d')).toBeInTheDocument()
+    expect(within(tiles).getByText('Você pagou')).toBeInTheDocument()
+    expect(within(tiles).getByText(/numa única peça \(/)).toBeInTheDocument()
+    expect(within(tiles).getByText(/Não é uma garantia de preço de mercado/)).toBeInTheDocument()
+  })
+
+  it('shows a negative total in red with the "acima da mediana" badge', async () => {
+    stub(
+      savingsReport({
+        totals: {
+          purchases: 1,
+          linked_with_data: 1,
+          total_paid_cents: 130_000,
+          estimated_saving_cents: -30_000,
+          reference_total_cents: 100_000,
+          estimated_saving_pct: -30,
+        },
+        items: [reportItem({ price_cents: 130_000, savings: { ...reportItem().savings!, median_90d_cents: 100_000, saving_vs_median_cents: -30_000, saving_vs_median_pct: -30 } })],
+      }),
+    )
+    renderPage()
+    await screen.findByText('Placa-mãe B850M')
+    const tiles = screen.getByRole('region', { name: 'Resumo' })
+    expect(within(tiles).getByText('−R$ 300,00')).toHaveClass('economia-tone--bad')
+    expect(within(tiles).getByText('30,0% acima da mediana')).toBeInTheDocument()
   })
 
   it('says so when there is no purchase yet and keeps the card button off', async () => {
@@ -156,14 +192,16 @@ describe('EconomiaPage', () => {
     const user = userEvent.setup()
     const row = (await screen.findByText('SSD NVMe 2 TB')).closest('tr')!
 
-    await user.click(within(row).getByRole('button', { name: 'Excluir' }))
+    await user.click(within(row).getByRole('button', { name: /Mais ações da compra SSD NVMe 2 TB/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
     await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
 
-    await user.click(within(row).getByRole('button', { name: 'Excluir' }))
+    await user.click(within(row).getByRole('button', { name: /Mais ações da compra SSD NVMe 2 TB/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Excluir compra' }))
 
     await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/purchases/2')).toBe(true))
@@ -188,5 +226,95 @@ describe('EconomiaPage', () => {
     expect(decodeURIComponent(screen.getByRole('img', { name: 'Prévia do cartão de resultados' }).getAttribute('src')!)).not.toContain(
       'Placa-mãe B850M',
     )
+  })
+
+  describe('savings goal (S21-08)', () => {
+    const goal = (overrides: Partial<GoalReport> = {}): GoalReport => ({
+      amount_cents: 200_000,
+      deadline: '2026-12-31',
+      saved_cents: 143_000,
+      pct: 71.5,
+      remaining_cents: 57_000,
+      days_left: 58,
+      pace: 'on_track',
+      ...overrides,
+    })
+
+    it('without a goal shows the empty state and hides the "Parte da meta" column', async () => {
+      stub()
+      renderPage()
+
+      const tiles = await screen.findByRole('region', { name: 'Resumo' })
+      expect(within(tiles).getByText('Meta de economia')).toBeInTheDocument()
+      expect(within(tiles).getByRole('button', { name: 'Definir meta' })).toBeInTheDocument()
+      expect(screen.queryByRole('columnheader', { name: 'Parte da meta' })).toBeNull()
+    })
+
+    it('with a positive goal shows progress, what is missing, the pace and each purchase share', async () => {
+      const base = savingsReport()
+      stub(
+        savingsReport({
+          goal: goal(),
+          items: [reportItem({ share_of_goal: 8.3 }), { ...base.items[1]!, share_of_goal: -2 }, { ...base.items[2]!, share_of_goal: null }],
+        }),
+      )
+      renderPage()
+
+      const tiles = await screen.findByRole('region', { name: 'Resumo' })
+      expect(within(tiles).getByText(/72% de R\$\s2\.000,00/)).toBeInTheDocument()
+      expect(within(tiles).getByText(/Faltam R\$\s570,00 até 31\/12 · 58 dias/)).toBeInTheDocument()
+      expect(within(tiles).getByText(/R\$\s1\.430,00 economizados/)).toBeInTheDocument()
+      expect(within(tiles).getByText('ritmo: no prazo')).toBeInTheDocument()
+      expect(within(tiles).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '72')
+      expect(screen.getByRole('columnheader', { name: 'Parte da meta' })).toBeInTheDocument()
+      expect(screen.getByText('+8,3%')).toBeInTheDocument()
+      expect(screen.getByText('−2,0%')).toBeInTheDocument()
+    })
+
+    it('with a negative estimated saving keeps the bar empty and says so', async () => {
+      stub(savingsReport({ goal: goal({ saved_cents: -10_000, pct: -5, remaining_cents: 210_000, pace: 'behind' }) }))
+      renderPage()
+
+      const tiles = await screen.findByRole('region', { name: 'Resumo' })
+      expect(within(tiles).getByText(/0% de R\$\s2\.000,00/)).toBeInTheDocument()
+      expect(within(tiles).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+      expect(within(tiles).getByText(/Economia estimada negativa até agora/)).toBeInTheDocument()
+      expect(within(tiles).getByText('ritmo: atrasado')).toBeInTheDocument()
+    })
+
+    it('edits the goal with the CSRF token and validates the deadline', async () => {
+      const calls = stub(savingsReport({ goal: goal() }))
+      renderPage()
+      const user = userEvent.setup()
+
+      await user.click(await screen.findByRole('button', { name: 'editar' }))
+      const dialog = await screen.findByRole('dialog')
+      const amount = within(dialog).getByLabelText(/Quanto quer economizar/)
+      await user.clear(amount)
+      await user.type(amount, '2500')
+      fireEvent.change(within(dialog).getByLabelText('Até quando'), { target: { value: '2020-01-01' } })
+      await user.click(within(dialog).getByRole('button', { name: 'Salvar meta' }))
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('O prazo precisa estar no futuro.')
+      expect(calls.some((call) => call.method === 'PUT')).toBe(false)
+
+      fireEvent.change(within(dialog).getByLabelText('Até quando'), { target: { value: '2999-12-31' } })
+      await user.click(within(dialog).getByRole('button', { name: 'Salvar meta' }))
+
+      await waitFor(() => {
+        const put = calls.find((call) => call.method === 'PUT' && call.url === '/savings/goal')
+        expect(put?.body).toBe(JSON.stringify({ amount_cents: 250_000, deadline: '2999-12-31' }))
+      })
+    })
+
+    it('removes the goal from the dialog', async () => {
+      const calls = stub(savingsReport({ goal: goal() }))
+      renderPage()
+      const user = userEvent.setup()
+
+      await user.click(await screen.findByRole('button', { name: 'editar' }))
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remover meta' }))
+
+      await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/savings/goal')).toBe(true))
+    })
   })
 })

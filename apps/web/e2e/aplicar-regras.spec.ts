@@ -41,7 +41,7 @@ test('a real change raises the notice, and the button sends a real request', asy
 
   await page.goto('/regras')
 
-  await expect(page.getByText('Há mudanças ainda não aplicadas')).toBeVisible()
+  await expect(page.locator('.listener-apply')).toContainText('mudanças pendentes')
   const button = page.getByRole('button', { name: 'Aplicar regras' })
   await expect(button).toBeEnabled()
 
@@ -49,8 +49,7 @@ test('a real change raises the notice, and the button sends a real request', asy
 
   // No listener process here, so the request honestly stays pending.
   await expect(page.getByRole('button', { name: 'Aplicando…' })).toBeDisabled()
-  await expect(page.getByText('Aguardando o listener…')).toBeVisible()
-  await expect(page.getByText(/O listener não está respondendo/)).toBeVisible()
+  await expect(page.locator('.listener-apply')).toContainText('aguardando')
 
   const status = await page.evaluate(async () => {
     const response = await fetch('/listener/status', { credentials: 'same-origin' })
@@ -81,15 +80,15 @@ for (const scheme of ['light', 'dark'] as const) {
       await apiLogin(page)
 
       const states = [
-        { key: 'unapplied', status: { ...APPLIED, has_unapplied_changes: true }, text: 'Há mudanças ainda não aplicadas' },
-        { key: 'applying', status: { ...APPLIED, state: 'applying', has_unapplied_changes: true }, text: 'Aplicando…' },
+        { key: 'unapplied', status: { ...APPLIED, has_unapplied_changes: true }, text: 'mudanças pendentes' },
+        { key: 'applying', status: { ...APPLIED, state: 'applying', has_unapplied_changes: true }, text: 'aplicando' },
         {
           key: 'failed',
           status: { ...APPLIED, state: 'failed', error: 'ConnectionError', has_unapplied_changes: true },
-          text: 'Falha ao aplicar',
+          text: 'falha ao aplicar',
         },
-        { key: 'applied', status: APPLIED, text: 'Regras aplicadas' },
-        { key: 'offline', status: { ...APPLIED, listener_online: false }, text: 'Listener sem sinal' },
+        { key: 'applied', status: APPLIED, text: 'aplicado' },
+        { key: 'offline', status: { ...APPLIED, listener_online: false }, text: 'listener sem sinal' },
       ] as const
 
       for (const state of states) {

@@ -82,7 +82,7 @@ def panel() -> Iterator[Panel]:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.state.session_store = SessionStore()
+    app.state.session_store = SessionStore(factory)
     app.state.rate_limiter = LoginRateLimiter()
     with TestClient(app, base_url="https://testserver") as client:
         login = client.post("/auth/login", json={"password": PASSWORD})

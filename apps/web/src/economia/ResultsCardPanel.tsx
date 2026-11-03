@@ -37,9 +37,12 @@ export function ResultsCardPanel({ report, onClose }: { report: SavingsReport; o
 
   useEffect(() => {
     let cancelled = false
-    loadMascotDataUri(`${import.meta.env.BASE_URL}mascot.png`).then((uri) => {
-      if (!cancelled) setMascot(uri)
-    })
+    // The inverse mascot (dark card) when the repo has it; the original otherwise.
+    loadMascotDataUri(`${import.meta.env.BASE_URL}mascot/mascote-inverse.png`)
+      .then((uri) => uri ?? loadMascotDataUri(`${import.meta.env.BASE_URL}mascot.png`))
+      .then((uri) => {
+        if (!cancelled) setMascot(uri)
+      })
     return () => {
       cancelled = true
     }

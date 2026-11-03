@@ -212,6 +212,111 @@
         "title": "CodeRequest",
         "type": "object"
       },
+      "CollectorHistoryResponse": {
+        "properties": {
+          "coverage_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Since"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/CollectorHourResponse"
+            },
+            "title": "Hours",
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/CollectorTotalsResponse"
+          }
+        },
+        "required": [
+          "coverage_since",
+          "hours",
+          "totals"
+        ],
+        "title": "CollectorHistoryResponse",
+        "type": "object"
+      },
+      "CollectorHourResponse": {
+        "description": "`seen`: positive rule evaluations (the `vista` counter, i.e. matches).\n`evaluated`: seen plus every discarded evaluation. Both `null` when unmeasured.",
+        "properties": {
+          "evaluated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated"
+          },
+          "hour": {
+            "format": "date-time",
+            "title": "Hour",
+            "type": "string"
+          },
+          "seen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen"
+          }
+        },
+        "required": [
+          "hour",
+          "seen",
+          "evaluated"
+        ],
+        "title": "CollectorHourResponse",
+        "type": "object"
+      },
+      "CollectorTotalsResponse": {
+        "properties": {
+          "delivery_failures": {
+            "title": "Delivery Failures",
+            "type": "integer"
+          },
+          "delivery_failures_last_hour": {
+            "title": "Delivery Failures Last Hour",
+            "type": "integer"
+          },
+          "discarded": {
+            "title": "Discarded",
+            "type": "integer"
+          },
+          "evaluated": {
+            "title": "Evaluated",
+            "type": "integer"
+          },
+          "seen": {
+            "title": "Seen",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seen",
+          "discarded",
+          "evaluated",
+          "delivery_failures",
+          "delivery_failures_last_hour"
+        ],
+        "title": "CollectorTotalsResponse",
+        "type": "object"
+      },
       "CredentialsRequest": {
         "properties": {
           "api_hash": {
@@ -229,6 +334,32 @@
           "api_hash"
         ],
         "title": "CredentialsRequest",
+        "type": "object"
+      },
+      "DayActivityResponse": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "evaluated": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated"
+          }
+        },
+        "required": [
+          "day",
+          "evaluated"
+        ],
+        "title": "DayActivityResponse",
         "type": "object"
       },
       "DeliveryResponse": {
@@ -493,6 +624,56 @@
         "title": "FeedSettingsUpdate",
         "type": "object"
       },
+      "GoalReportResponse": {
+        "properties": {
+          "amount_cents": {
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "deadline": {
+            "format": "date",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "pace": {
+            "enum": [
+              "done",
+              "on_track",
+              "behind",
+              "expired"
+            ],
+            "title": "Pace",
+            "type": "string"
+          },
+          "pct": {
+            "title": "Pct",
+            "type": "number"
+          },
+          "remaining_cents": {
+            "title": "Remaining Cents",
+            "type": "integer"
+          },
+          "saved_cents": {
+            "title": "Saved Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount_cents",
+          "deadline",
+          "saved_cents",
+          "pct",
+          "remaining_cents",
+          "days_left",
+          "pace"
+        ],
+        "title": "GoalReportResponse",
+        "type": "object"
+      },
       "GroupsResponse": {
         "properties": {
           "dialogs": {
@@ -547,6 +728,44 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HealthHistoryResponse": {
+        "properties": {
+          "collector": {
+            "$ref": "#/components/schemas/CollectorHistoryResponse"
+          },
+          "coverage_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Since"
+          },
+          "hours": {
+            "title": "Hours",
+            "type": "integer"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceHistoryResponse"
+            },
+            "title": "Services",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hours",
+          "coverage_since",
+          "services",
+          "collector"
+        ],
+        "title": "HealthHistoryResponse",
+        "type": "object"
+      },
       "HealthResponse": {
         "properties": {
           "bot": {
@@ -587,6 +806,45 @@
           "bot"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "HeartbeatBucketResponse": {
+        "description": "One hour of one service. `ok` of `total` samples were healthy; both `null` means\nnothing was measured that hour (\"coletando\"), which is not the same as down or up.",
+        "properties": {
+          "hour": {
+            "format": "date-time",
+            "title": "Hour",
+            "type": "string"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "hour",
+          "ok",
+          "total"
+        ],
+        "title": "HeartbeatBucketResponse",
         "type": "object"
       },
       "ItemSavingsResponse": {
@@ -894,6 +1152,11 @@
           "password": {
             "title": "Password",
             "type": "string"
+          },
+          "remember": {
+            "default": false,
+            "title": "Remember",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1506,6 +1769,24 @@
         "title": "PhoneRequest",
         "type": "object"
       },
+      "PreviewRuleCount": {
+        "properties": {
+          "per_week": {
+            "title": "Per Week",
+            "type": "integer"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rule_id",
+          "per_week"
+        ],
+        "title": "PreviewRuleCount",
+        "type": "object"
+      },
       "PricePointResponse": {
         "description": "Lowest price of one local day (`date` is `YYYY-MM-DD` in the display timezone).",
         "properties": {
@@ -1879,6 +2160,29 @@
             "title": "Name",
             "type": "string"
           },
+          "notify_common": {
+            "default": true,
+            "title": "Notify Common",
+            "type": "boolean"
+          },
+          "notify_target": {
+            "default": true,
+            "title": "Notify Target",
+            "type": "boolean"
+          },
+          "rule_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rule Ids",
+            "type": "array"
+          },
+          "rules_mode": {
+            "default": "all",
+            "title": "Rules Mode",
+            "type": "string"
+          },
           "telegram_chat_id": {
             "title": "Telegram Chat Id",
             "type": "string"
@@ -1889,6 +2193,27 @@
           "telegram_chat_id"
         ],
         "title": "RecipientCreate",
+        "type": "object"
+      },
+      "RecipientPreviewResponse": {
+        "properties": {
+          "alerts_per_week": {
+            "title": "Alerts Per Week",
+            "type": "integer"
+          },
+          "per_rule": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewRuleCount"
+            },
+            "title": "Per Rule",
+            "type": "array"
+          }
+        },
+        "required": [
+          "alerts_per_week",
+          "per_rule"
+        ],
+        "title": "RecipientPreviewResponse",
         "type": "object"
       },
       "RecipientResponse": {
@@ -1914,6 +2239,25 @@
             "title": "Name",
             "type": "string"
           },
+          "notify_common": {
+            "title": "Notify Common",
+            "type": "boolean"
+          },
+          "notify_target": {
+            "title": "Notify Target",
+            "type": "boolean"
+          },
+          "rule_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rule Ids",
+            "type": "array"
+          },
+          "rules_mode": {
+            "title": "Rules Mode",
+            "type": "string"
+          },
           "telegram_chat_id": {
             "title": "Telegram Chat Id",
             "type": "string"
@@ -1925,7 +2269,11 @@
           "telegram_chat_id",
           "allowlisted",
           "active",
-          "created_at"
+          "created_at",
+          "rules_mode",
+          "rule_ids",
+          "notify_target",
+          "notify_common"
         ],
         "title": "RecipientResponse",
         "type": "object"
@@ -1953,6 +2301,53 @@
               }
             ],
             "title": "Name"
+          },
+          "notify_common": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Common"
+          },
+          "notify_target": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify Target"
+          },
+          "rule_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Ids"
+          },
+          "rules_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Mode"
           },
           "telegram_chat_id": {
             "anyOf": [
@@ -2006,6 +2401,17 @@
               }
             ]
           },
+          "share_of_goal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Of Goal"
+          },
           "store": {
             "anyOf": [
               {
@@ -2026,7 +2432,8 @@
           "purchased_at",
           "linked",
           "days_before_black_friday",
-          "savings"
+          "savings",
+          "share_of_goal"
         ],
         "title": "ReportItemResponse",
         "type": "object"
@@ -2220,6 +2627,14 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "recipient_ids": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Recipient Ids",
+            "type": "array"
           },
           "snoozed_until": {
             "anyOf": [
@@ -2534,6 +2949,58 @@
         "title": "RuleUpdate",
         "type": "object"
       },
+      "SavingsGoalInput": {
+        "properties": {
+          "amount_cents": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000000.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "deadline": {
+            "format": "date",
+            "title": "Deadline",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_cents",
+          "deadline"
+        ],
+        "title": "SavingsGoalInput",
+        "type": "object"
+      },
+      "SavingsGoalResponse": {
+        "properties": {
+          "amount_cents": {
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deadline": {
+            "format": "date",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_cents",
+          "deadline",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SavingsGoalResponse",
+        "type": "object"
+      },
       "SavingsReportResponse": {
         "properties": {
           "black_friday": {
@@ -2543,6 +3010,16 @@
             "format": "date-time",
             "title": "Generated At",
             "type": "string"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoalReportResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "items": {
             "items": {
@@ -2562,6 +3039,7 @@
           "generated_at",
           "totals",
           "black_friday",
+          "goal",
           "items",
           "noise"
         ],
@@ -2632,6 +3110,34 @@
           "already_monitored"
         ],
         "title": "SelectGroupsResponse",
+        "type": "object"
+      },
+      "ServiceHistoryResponse": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/HeartbeatBucketResponse"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "service": {
+            "enum": [
+              "telegram",
+              "bot",
+              "listener",
+              "sse",
+              "db"
+            ],
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "buckets"
+        ],
+        "title": "ServiceHistoryResponse",
         "type": "object"
       },
       "SetupStatus": {
@@ -2911,6 +3417,55 @@
         "title": "SnoozeResponse",
         "type": "object"
       },
+      "SourceActivityResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DayActivityResponse"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "last_match_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Match At"
+          },
+          "matches": {
+            "title": "Matches",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_id",
+          "name",
+          "active",
+          "daily",
+          "matches",
+          "last_match_at"
+        ],
+        "title": "SourceActivityResponse",
+        "type": "object"
+      },
       "SourceCreate": {
         "properties": {
           "name": {
@@ -2991,6 +3546,40 @@
         "title": "SourceUpdate",
         "type": "object"
       },
+      "SourcesActivityResponse": {
+        "properties": {
+          "coverage_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Since"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceActivityResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "days",
+          "coverage_since",
+          "sources"
+        ],
+        "title": "SourcesActivityResponse",
+        "type": "object"
+      },
       "StepsStatus": {
         "properties": {
           "bot": {
@@ -3027,6 +3616,44 @@
           "rule"
         ],
         "title": "StepsStatus",
+        "type": "object"
+      },
+      "SystemEventResponse": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "match_target",
+              "sse_reconnect",
+              "rules_applied",
+              "backup",
+              "test_send",
+              "listener_reconnect",
+              "delivery_failure"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "kind",
+          "summary"
+        ],
+        "title": "SystemEventResponse",
         "type": "object"
       },
       "TelegramHealth": {
@@ -3147,6 +3774,24 @@
     "/auth/login": {
       "post": {
         "operationId": "login_auth_login_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -3526,6 +4171,132 @@
           }
         },
         "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/events": {
+      "get": {
+        "operationId": "health_events_health_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SystemEventResponse"
+                  },
+                  "title": "Response Health Events Health Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health Events",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/history": {
+      "get": {
+        "operationId": "health_history_health_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health History",
         "tags": [
           "health"
         ]
@@ -4672,6 +5443,105 @@
         ]
       }
     },
+    "/recipients/preview": {
+      "get": {
+        "description": "S21-06 (F8): \"~N alertas/semana\" for a recipient form that is still being\nfilled in: matches of the last 7 days of the chosen (active) rules, counted\nonly for the alert types switched on. A match is a target hit when its\nprice reaches its rule's target, same test the pipeline uses.",
+        "operationId": "preview_recipient_recipients_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "rules_mode",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "title": "Rules Mode",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rule_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rule Ids"
+            }
+          },
+          {
+            "in": "query",
+            "name": "notify_target",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Notify Target",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "notify_common",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Notify Common",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipientPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Recipient",
+        "tags": [
+          "recipients"
+        ]
+      }
+    },
     "/recipients/{recipient_id}": {
       "delete": {
         "operationId": "delete_recipient_recipients__recipient_id__delete",
@@ -5317,6 +6187,160 @@
         "summary": "Resume Rule",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/savings/goal": {
+      "delete": {
+        "operationId": "delete_goal_savings_goal_delete",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Goal",
+        "tags": [
+          "savings"
+        ]
+      },
+      "get": {
+        "operationId": "get_goal_savings_goal_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SavingsGoalResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Goal Savings Goal Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Goal",
+        "tags": [
+          "savings"
+        ]
+      },
+      "put": {
+        "operationId": "put_goal_savings_goal_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingsGoalInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingsGoalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Goal",
+        "tags": [
+          "savings"
         ]
       }
     },
@@ -6478,6 +7502,67 @@
           }
         },
         "summary": "Create Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/sources/activity": {
+      "get": {
+        "operationId": "sources_activity_sources_activity_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 30,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcesActivityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sources Activity",
         "tags": [
           "sources"
         ]

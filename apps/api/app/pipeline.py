@@ -16,16 +16,18 @@ from app.delivery_policy import is_snoozed
 from app.digest_settings import load_digest_settings
 from app.feed_settings import get_group_duplicates
 from app.product_history import posting_identity
+from app.recipient_rules import eligible_recipients
 from app.utc import ensure_utc, format_utc
 from models import Delivery, Match, Recipient, Rule, Source, SuppressedMessage
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
+from packages.metrics.hourly import EventKind, record_system_event
 from packages.notifications.bot import BotNotifier, DeliveryResult
 from packages.notifications.formatting import format_price_cents
 from packages.rules.dedupe import DedupeCache, compute_signature
 from packages.rules.match import MatchRule
 from packages.rules.price import extract_price
-from packages.rules.product import product_key
+from packages.rules.product import product_key, product_title
 from packages.rules.target import target_hit
 from packages.telegram.cursor import (
     MessageFetcherProtocol,
@@ -547,6 +549,14 @@ async def process_message(
                 session, ProcessResult(match=db_match, deliveries_sent=0, reason="snoozed")
             )
 
+        # S21-06 (F8): who gets this match, from the *current* database state:
+        # their rule selection and alert-type switches, on top of the listener's
+        # active + allowlisted set. Everything below (grouped bookkeeping, digest
+        # queue, immediate/target send) only ever sees this list.
+        recipients = eligible_recipients(
+            session, recipients, rule_id=rule.id, is_target_hit=is_target
+        )
+
         if not is_target and already_grouped:
             for recipient in recipients:
                 session.add(
@@ -737,6 +747,16 @@ def _commit_then(session: Session, result: ProcessResult) -> ProcessResult:
     return result
 
 
+def target_event_summary(db_match: Match) -> str:
+    """Event-log line for a target hit. A match is allowed content, so its title may appear;
+    the summary stays short (the log clips at 160 characters)."""
+    title = product_title(db_match.message_text) or "Promoção"
+    price = ""
+    if db_match.price_cents is not None:
+        price = f" ({format_price_cents(db_match.price_cents)})"
+    return f"{title[:100]} — alvo atingido{price}"
+
+
 async def _record_delivery_outcomes(
     session: Session,
     db_match: Match,
@@ -754,8 +774,21 @@ async def _record_delivery_outcomes(
     """
 
     match_id = db_match.id  # read once: a rollback below expires `db_match`
+    target_summary = (
+        target_event_summary(db_match)
+        if kind == DELIVERY_KIND_TARGET and any(status == "sent" for _, status, _, _ in outcomes)
+        else None
+    )
+    # Recipient names are read once for the same reason as `match_id` above.
+    failed_names = [recipient.name for recipient, _, _, failed in outcomes if failed]
 
     def write() -> None:
+        if target_summary is not None:
+            record_system_event(session, EventKind.MATCH_TARGET, target_summary)
+        for name in failed_names:
+            record_system_event(
+                session, EventKind.DELIVERY_FAILURE, f"Falha ao enviar o alerta para {name}"
+            )
         for recipient, status, delivered_at, failed in outcomes:
             if failed:
                 increment_counter(session, MetricReason.DELIVERY_FAILURE, source_id=source_id)
@@ -946,6 +979,12 @@ async def process_historical_message(
     if db_match is None:
         return ProcessResult(match=None, deliveries_sent=0, reason="duplicate")
 
+    recipients = eligible_recipients(
+        session,
+        recipients,
+        rule_id=rule.id,
+        is_target_hit=decide_delivery_kind(rule, evaluation.price_cents) == DELIVERY_KIND_TARGET,
+    )
     for recipient in recipients:
         session.add(
             Delivery(

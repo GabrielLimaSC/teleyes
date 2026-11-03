@@ -7,6 +7,12 @@
   gap: 6px;
 }
 
+.term-chips-field__label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .term-chips-field label {
   font-size: 13px;
   font-weight: 600;

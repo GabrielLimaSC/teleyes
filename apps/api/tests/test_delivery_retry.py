@@ -7,12 +7,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.delivery_retry import resend_failed_deliveries
 from app.pipeline import IncomingMessage, process_message_with_retry
-from models import Delivery, Match, Recipient, Rule, Source
+from models import Delivery, Match, Recipient, RecipientRule, Rule, Source
 from models.db import get_engine, get_sessionmaker
 from packages.notifications.bot import BotNotifier
 from packages.rules.dedupe import DedupeCache
@@ -210,3 +210,25 @@ async def test_resend_respects_a_snooze_set_after_the_failure(
 
     assert await resend_failed_deliveries(factory, _notifier(client)) == 0
     assert [r.status for r in _deliveries(session)] == ["failed"]
+
+
+async def test_resend_keeps_the_original_recipient_after_f8_changes(
+    session: Session, factory: sessionmaker[Session]
+) -> None:
+    """S21-06 (F8): a failed alert was owed when it was created. Dropping the
+    rule from that person's selection afterwards does not cancel the resend."""
+    source, rule, recipient = _seed(session)
+    recipient.rules_mode = "selected"
+    session.add(RecipientRule(recipient_id=recipient.id, rule_id=rule.id))
+    session.commit()
+    client = FlakyClient(failures=100)
+    await _process(factory, source, rule, recipient, _notifier(client))
+    assert [d.status for d in _deliveries(session)] == ["failed"]
+
+    session.execute(delete(RecipientRule))
+    session.commit()
+    client.failures = 0
+    resent = await resend_failed_deliveries(factory, _notifier(client))
+
+    assert resent == 1
+    assert [d.status for d in _deliveries(session)] == ["sent"]

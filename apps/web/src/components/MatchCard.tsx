@@ -74,7 +74,7 @@ const NARROW_ACTIONS_BREAKPOINT = 480
 // line — every card gets one whenever `match.sparkline` has real points, the
 // hero-only distinction from the comp's mockup is not carried over (the
 // same MatchCard renders every position in the 06 grid, see 06b).
-const SPARK_WIDTH = 108
+const SPARK_WIDTH = 120
 const SPARK_HEIGHT = 34
 const SPARK_PAD_Y = 4
 
@@ -146,8 +146,7 @@ function MatchSparkline({ match }: { match: Match }) {
         />
       </svg>
       <div className="match-card__spark-axis">
-        <span>Regra · 90 dias</span>
-        {geometry.targetY !== null && <span>linha = alvo</span>}
+        <span>{geometry.targetY !== null ? '90 dias · linha = alvo' : '90 dias'}</span>
       </div>
     </div>
   )
@@ -408,7 +407,10 @@ export function MatchCard({
               where the amber chip is the first thing the row says. */}
           <div className="match-card__badges">
             {match.target_hit && (
-              <span className="match-card__badge match-card__badge--good">Alvo atingido</span>
+              <span className="match-card__badge match-card__badge--good">
+                <span className="match-card__badge-dot" aria-hidden="true" />
+                Alvo atingido
+              </span>
             )}
             {priceUnidentified && (
               <span className="match-card__badge match-card__badge--warn">
@@ -424,7 +426,10 @@ export function MatchCard({
               {status.label}
             </span>
             {showSeenBadge && (
-              <span className="match-card__badge match-card__badge--neutral">{seenBadgeLabel}</span>
+              <span className="match-card__badge match-card__badge--neutral">
+                <span className="match-card__badge-dot" aria-hidden="true" />
+                {seenBadgeLabel}
+              </span>
             )}
             {manuallyEdited && (
               <span className="match-card__badge match-card__badge--manual">
@@ -556,14 +561,18 @@ export function MatchCard({
           <span className="match-card__links">
             {match.message_link !== null && (
               <a
-                className={'match-card__link' + (isNarrow ? ' match-card__link--icon' : '')}
+                className="match-card__link"
                 href={match.message_link}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Abrir promoção"
+                title="Abrir promoção no Telegram"
               >
-                {!isNarrow && 'Abrir promoção'}
-                <span aria-hidden="true">↗</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M14 4h6v6" />
+                  <path d="M20 4l-9 9" />
+                  <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+                </svg>
               </a>
             )}
             {showMenu && (
@@ -578,7 +587,11 @@ export function MatchCard({
                   aria-label="Mais ações"
                   onClick={() => setMenuOpen((open) => !open)}
                 >
-                  <span aria-hidden="true">⋯</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="5" cy="12" r="1.2" />
+                    <circle cx="12" cy="12" r="1.2" />
+                    <circle cx="19" cy="12" r="1.2" />
+                  </svg>
                 </button>
                 {menuOpen && (
                   <div

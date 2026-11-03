@@ -22,7 +22,18 @@ from app.demo_seed import (
 )
 from app.utc import ensure_utc
 from auth.hashing import verify_password
-from models import Admin, Delivery, Match, Purchase, Recipient, Rule, Snooze, Source
+from models import (
+    Admin,
+    Delivery,
+    Match,
+    Purchase,
+    Recipient,
+    RecipientRule,
+    Rule,
+    SavingsGoal,
+    Snooze,
+    Source,
+)
 from models.db import get_engine, get_sessionmaker
 from packages.metrics.counters import MetricCounter
 from packages.rules.target import target_hit
@@ -259,3 +270,33 @@ def test_seed_registers_fictional_purchases_linked_to_the_seeded_history(
     linked = [purchase for purchase in purchases if purchase.product_key is not None]
     assert linked and all(purchase.product_key in known_keys for purchase in linked)
     assert any(purchase.product_key is None for purchase in purchases)
+
+
+def test_seed_registers_a_fictional_savings_goal(seeded: sessionmaker[Session]) -> None:
+    with seeded() as session:
+        goal = session.get(SavingsGoal, 1)
+
+    assert goal is not None
+    assert goal.amount_cents == 200_000
+    assert goal.deadline.month == 12 and goal.deadline.day == 31
+
+
+def test_demo_recipients_cover_rule_selection(seeded: sessionmaker[Session]) -> None:
+    """S21-06 (F8): one person gets everything, the other two rules, targets only."""
+    with seeded() as session:
+        first, second = session.scalars(select(Recipient).order_by(Recipient.id)).all()
+        selected = list(
+            session.scalars(select(RecipientRule).where(RecipientRule.recipient_id == second.id))
+        )
+        second_deliveries = list(
+            session.scalars(select(Delivery).where(Delivery.recipient_id == second.id))
+        )
+
+    assert (first.rules_mode, first.notify_target, first.notify_common) == ("all", True, True)
+    assert (second.rules_mode, second.notify_target, second.notify_common) == (
+        "selected",
+        True,
+        False,
+    )
+    assert len(selected) == 2
+    assert second_deliveries and all(d.kind == "target" for d in second_deliveries)

@@ -115,6 +115,15 @@ function withEmptyRecipients(
   }
 }
 
+/** Rules list for the S21-02 tests, with no matches for any rule (an open row asks for them). */
+function rulesFetch(rules: unknown[]) {
+  return vi.fn(
+    withEmptyRecipients((input) =>
+      Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [] : rules)),
+    ),
+  )
+}
+
 describe('RegrasPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -147,7 +156,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    expect(await screen.findByText('2 regras · alvo e silêncio por linha')).toBeInTheDocument()
+    expect(await screen.findByText(/^2 regras/)).toBeInTheDocument()
   })
 
   it('the subtitle count uses the singular for exactly one rule (S10-07)', async () => {
@@ -155,7 +164,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    expect(await screen.findByText('1 regra · alvo e silêncio por linha')).toBeInTheDocument()
+    expect(await screen.findByText(/^1 regra/)).toBeInTheDocument()
   })
 
   it('shows the Destinatários section header with its subtitle (S10-07)', async () => {
@@ -307,7 +316,7 @@ describe('RegrasPage', () => {
 
     // S13-07: opening the panel auto-loads the real-history section below —
     // wait for it before counting calls, so that one is accounted for.
-    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', row)
     await screen.findByText(/Nenhuma promoção já capturada e salva bateu/)
     const callsAfterOpen = fetchMock.mock.calls.length
 
@@ -355,7 +364,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', row)
 
     expect(await screen.findByText('Promoção iPhone 15 por R$ 3.899')).toBeInTheDocument()
     expect(screen.getByText(/Grupo Teste/)).toBeInTheDocument()
@@ -388,7 +397,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    await user.click(within(row).getByRole('button', { name: 'Editar' }))
+    await clickMenuItem(user, 'Editar', row)
     await user.type(screen.getByLabelText(/Termos incluídos/), 'iphone 16{Enter}')
 
     let testRequestBody: Record<string, unknown> | null = null
@@ -403,7 +412,7 @@ describe('RegrasPage', () => {
         return Promise.resolve(jsonResponse([baseRule]))
       }),
     )
-    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', row)
 
     await waitFor(() => expect(testRequestBody).not.toBeNull())
     expect(testRequestBody).toMatchObject({ include_terms: 'iphone, iphone 16' })
@@ -469,7 +478,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', row)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Erro inesperado (500).')
   })
@@ -492,7 +501,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', row)
     await screen.findByText(/Nenhuma promoção já capturada e salva bateu/)
     expect(testCalls).toBe(1)
 
@@ -526,9 +535,9 @@ describe('RegrasPage', () => {
     const rowA = (await screen.findByText('Regra A')).closest('tr') as HTMLElement
     const rowB = screen.getByText('Regra B').closest('tr') as HTMLElement
 
-    await user.click(within(rowA).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', rowA)
     await waitFor(() => expect(pendingRequests).toHaveLength(1))
-    await user.click(within(rowB).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', rowB)
     await waitFor(() => expect(pendingRequests).toHaveLength(2))
 
     await act(async () => {
@@ -596,7 +605,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    await user.click(within(row).getByRole('button', { name: 'Testar' }))
+    await clickMenuItem(user, 'Testar', row)
     expect(await screen.findByRole('heading', { name: 'Testar regra: iPhone' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Fechar' }))
 
@@ -653,7 +662,7 @@ describe('RegrasPage', () => {
     const toggle = await screen.findByRole('switch', { name: 'pausada' })
     expect(toggle).toHaveAttribute('aria-checked', 'false')
     expect(toggle).toBeEnabled()
-    expect((toggle.closest('tr') as HTMLElement).className).toContain('wide-table__row--paused')
+    expect((toggle.closest('tbody') as HTMLElement).className).toContain('rules-table__group--paused')
     await user.click(toggle)
 
     expect(await screen.findByRole('switch', { name: 'ativa' })).toHaveAttribute('aria-checked', 'true')
@@ -693,15 +702,14 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    // Visible in the row: Editar and Testar only.
-    expect(within(row).getByRole('button', { name: 'Editar' })).toBeInTheDocument()
-    expect(within(row).getByRole('button', { name: 'Testar' })).toBeInTheDocument()
+    // S21-02: every action is behind the "⋯" menu now (only the toggle is in view).
+    expect(within(row).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
     expect(within(row).queryByRole('button', { name: 'Duplicar' })).not.toBeInTheDocument()
 
     await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
 
     const items = screen.getAllByRole('menuitem').map((item) => item.textContent)
-    expect(items).toEqual(['Duplicar', 'Silenciar', 'Limpar histórico', 'Excluir'])
+    expect(items).toEqual(['Editar', 'Testar', 'Duplicar', 'Silenciar', 'Limpar histórico', 'Excluir'])
     expect(screen.getByRole('menuitem', { name: 'Limpar histórico' }).className).toContain('row-actions__item--danger')
     expect(screen.getByRole('menuitem', { name: 'Excluir' }).className).toContain('row-actions__item--danger')
     expect(screen.getByRole('menu').querySelectorAll('[role="separator"]')).toHaveLength(1)
@@ -720,7 +728,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    expect(within(row).getByText('até 28/09')).toBeInTheDocument()
+    expect(within(row).getByText('silenciada até 28/09')).toBeInTheDocument()
     await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
 
     expect(screen.getByRole('menuitem', { name: 'Reativar' })).toBeInTheDocument()
@@ -795,7 +803,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Editar' }))
+    await clickMenuItem(user, 'Editar')
     await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra atualizada.')
@@ -1023,7 +1031,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Editar' }))
+    await clickMenuItem(user, 'Editar')
     expect(screen.getByRole('heading', { name: 'Editar regra' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Remover termo iphone 15' }))
     await user.click(screen.getByRole('button', { name: 'Salvar alterações' }))
@@ -1059,7 +1067,8 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    const panel = (await screen.findByRole('heading', { name: 'Como uma regra casa' })).closest('section') as HTMLElement
+    await userEvent.click(await screen.findByRole('button', { name: 'Como uma regra casa' }))
+    const panel = await screen.findByRole('dialog', { name: 'Como uma regra casa' })
     await waitFor(() => expect(within(panel).getByText('Casaram').nextElementSibling).toHaveTextContent('3'))
     // Only preco_acima_teto, summed across sources: 4 + 5 — not "vista"/"bloqueado".
     expect(within(panel).getByText('Descartadas por teto').nextElementSibling).toHaveTextContent('9')
@@ -1087,7 +1096,8 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    const panel = (await screen.findByRole('heading', { name: 'Como uma regra casa' })).closest('section') as HTMLElement
+    await userEvent.click(await screen.findByRole('button', { name: 'Como uma regra casa' }))
+    const panel = await screen.findByRole('dialog', { name: 'Como uma regra casa' })
     await waitFor(() => expect(within(panel).getByText('Casaram').nextElementSibling).toHaveTextContent('—'))
     expect(within(panel).getByText('Descartadas por teto').nextElementSibling).toHaveTextContent('—')
   })
@@ -1097,6 +1107,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
+    await userEvent.click(await screen.findByRole('button', { name: 'Como uma regra casa' }))
     expect(await screen.findByText(/Basta um dos termos incluídos/)).toBeInTheDocument()
   })
 
@@ -1125,7 +1136,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'Editar' }))
+    await clickMenuItem(user, 'Editar')
     expect(screen.getByLabelText(/Nome/)).toHaveValue('iPhone')
 
     await user.click(screen.getByRole('button', { name: '+ Nova regra' }))
@@ -1149,7 +1160,36 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     window.history.pushState({}, '', '/')
   })
 
-  it('the Histórico 30d column renders the rule\'s real daily series as an accessible sparkline', async () => {
+  it('the closed table has no history column; the row opens a 30-day chart with teto and alvo lines (S21-02)', async () => {
+    const withHistory = {
+      ...baseRule,
+      target_price_cents: 650_000,
+      history_30d: [
+        { date: '2026-09-01', price_cents: 700_000 },
+        { date: '2026-09-05', price_cents: 650_000 },
+      ],
+    }
+    vi.stubGlobal('fetch', rulesFetch([withHistory]))
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+
+    expect(screen.queryByRole('columnheader', { name: /Histórico/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /Silêncio/ })).not.toBeInTheDocument()
+    const toggle = await screen.findByRole('button', { name: /^iPhone/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const detail = document.getElementById(toggle.getAttribute('aria-controls') as string) as HTMLElement
+    expect(
+      within(detail).getByRole('group', { name: /Histórico real de 2 dias, de R\$\s7\.000,00 a R\$\s6\.500,00/ }),
+    ).toBeInTheDocument()
+    expect(detail.querySelector('.rule-chart__ref--ceiling')).not.toBeNull()
+    expect(detail.querySelector('.rule-chart__ref--target')).not.toBeNull()
+  })
+
+  it('the chart tooltip shows the day and the price on hover and with the arrow keys (S21-02)', async () => {
     const withHistory = {
       ...baseRule,
       history_30d: [
@@ -1157,46 +1197,154 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
         { date: '2026-09-05', price_cents: 650_000 },
       ],
     }
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([withHistory])))),
-    )
+    vi.stubGlobal('fetch', rulesFetch([withHistory]))
+    const user = userEvent.setup()
 
     render(<RegrasPage />)
+    await user.click(await screen.findByRole('button', { name: /^iPhone/ }))
 
-    expect(
-      await screen.findByRole('img', { name: /Histórico real de 2 dias, de R\$\s7\.000,00 a R\$\s6\.500,00/ }),
-    ).toBeInTheDocument()
+    const hit = document.querySelector('[data-day="2026-09-05"]') as HTMLElement
+    await user.hover(hit)
+    const tooltip = await screen.findByTestId('rule-chart-tooltip')
+    expect(tooltip).toHaveTextContent('05/09')
+    expect(tooltip).toHaveTextContent(/R\$\s6\.500,00/)
+
+    await user.unhover(hit)
+    expect(screen.queryByTestId('rule-chart-tooltip')).not.toBeInTheDocument()
+    screen.getByRole('group', { name: /Histórico real/ }).focus()
+    await user.keyboard('{ArrowLeft}')
+    expect(await screen.findByTestId('rule-chart-tooltip')).toHaveTextContent('05/09')
+    await user.keyboard('{ArrowLeft}')
+    expect(await screen.findByTestId('rule-chart-tooltip')).toHaveTextContent('01/09')
   })
 
-  it('a single day of history still draws a visible line, not an empty chart (S15-02)', async () => {
+  it('a single day of history still draws a visible line (S15-02)', async () => {
     const oneDay = { ...baseRule, history_30d: [{ date: '2026-09-29', price_cents: 219_900 }] }
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([oneDay])))),
-    )
+    vi.stubGlobal('fetch', rulesFetch([oneDay]))
+    const user = userEvent.setup()
 
     render(<RegrasPage />)
+    await user.click(await screen.findByRole('button', { name: /^iPhone/ }))
 
-    const chart = await screen.findByRole('img', { name: /Histórico real de 1 dias/ })
+    const chart = await screen.findByRole('group', { name: /Histórico real de 1 dia/ })
     const points = chart.querySelector('polyline')?.getAttribute('points')?.split(' ') ?? []
     expect(points).toHaveLength(2)
     expect(points[0]).not.toBe(points[1])
   })
 
-  it('a rule with no priced history yet shows "Sem preços" instead of an empty chart', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))),
-    )
+  it('a rule with no priced history yet says so in the open row instead of an empty chart', async () => {
+    vi.stubGlobal('fetch', rulesFetch([baseRule]))
+    const user = userEvent.setup()
 
     render(<RegrasPage />)
+    await user.click(await screen.findByRole('button', { name: /^iPhone/ }))
 
-    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    expect(within(row).getByText('Sem preços')).toBeInTheDocument()
+    expect(await screen.findByText('Sem preços nos últimos 30 dias.')).toBeInTheDocument()
   })
 
-  it('an active rule shows "ativo" and "Silenciar", which POSTs a 7-day snooze for that rule', async () => {
+  it('one row open at a time; the URL carries ?regra=<id> and Esc closes it (S21-02)', async () => {
+    const second = { ...baseRule, id: 2, name: 'Notebook', include_terms: 'notebook' }
+    vi.stubGlobal('fetch', rulesFetch([baseRule, second]))
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const first = await screen.findByRole('button', { name: /^iPhone/ })
+    const other = screen.getByRole('button', { name: /^Notebook/ })
+
+    await user.click(first)
+    expect(window.location.search).toBe('?regra=1')
+    await user.click(other)
+    expect(window.location.search).toBe('?regra=2')
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(other).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByRole('region', { name: /Detalhes da regra/ })).toHaveLength(1)
+
+    await user.keyboard('{Escape}')
+    expect(other).toHaveAttribute('aria-expanded', 'false')
+    expect(window.location.search).toBe('')
+  })
+
+  it('opens with the row already expanded when the URL says ?regra=<id>, and drops an unknown id (S21-02)', async () => {
+    window.history.pushState({}, '', '/regras?regra=1')
+    vi.stubGlobal('fetch', rulesFetch([baseRule]))
+
+    const { unmount } = render(<RegrasPage />)
+    expect(await screen.findByRole('region', { name: 'Detalhes da regra iPhone' })).toBeInTheDocument()
+    unmount()
+
+    window.history.pushState({}, '', '/regras?regra=99')
+    render(<RegrasPage />)
+    await screen.findByRole('button', { name: /^iPhone/ })
+    await waitFor(() => expect(window.location.search).toBe(''))
+    expect(screen.queryByRole('region', { name: /Detalhes da regra/ })).not.toBeInTheDocument()
+  })
+
+  it('the open row shows the three latest matches with their link, and Editar/Testar (S21-02)', async () => {
+    window.history.pushState({}, '', '/regras?regra=1')
+    const match = (id: number, price: number, at: string, link: string | null) => ({
+      id,
+      source_id: 1,
+      rule_id: 1,
+      message_text: `Oferta ${id}`,
+      price_cents: price,
+      message_link: link,
+      matched_at: at,
+    })
+    const matches = [
+      match(1, 100_000, '2026-09-01T10:00:00Z', null),
+      match(2, 200_000, '2026-09-04T10:00:00Z', 'https://t.me/c/1/2'),
+      match(3, 300_000, '2026-09-03T10:00:00Z', null),
+      match(4, 400_000, '2026-09-02T10:00:00Z', null),
+    ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.startsWith('/matches') && url.includes('rule_id=1')) return Promise.resolve(jsonResponse(matches))
+        if (url === '/rules/test') {
+          return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+        }
+        return withEmptyRecipients(() => Promise.resolve(jsonResponse([baseRule])))(input, init)
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const detail = await screen.findByRole('region', { name: 'Detalhes da regra iPhone' })
+
+    expect(await within(detail).findByText('Oferta 2')).toBeInTheDocument()
+    expect(within(detail).getByText('Oferta 3')).toBeInTheDocument()
+    expect(within(detail).getByText('Oferta 4')).toBeInTheDocument()
+    expect(within(detail).queryByText('Oferta 1')).not.toBeInTheDocument()
+    expect(within(detail).getByRole('link', { name: 'Abrir mensagem' })).toHaveAttribute('href', 'https://t.me/c/1/2')
+
+    await user.click(within(detail).getByRole('button', { name: 'Testar' }))
+    expect(await screen.findByRole('heading', { name: 'Testar regra: iPhone' })).toBeInTheDocument()
+    await user.click(within(detail).getByRole('button', { name: 'Editar' }))
+    expect(screen.getByRole('heading', { name: 'Editar regra' })).toBeInTheDocument()
+  })
+
+  it('the right rail is the new-rule form by default, turns into the recipient form on demand and back (S21-02)', async () => {
+    vi.stubGlobal('fetch', rulesFetch([baseRule]))
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    expect(await screen.findByRole('heading', { name: 'Nova regra' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '+ Adicionar destinatário' }))
+    expect(screen.getByRole('heading', { name: 'Novo destinatário' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Nova regra' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.getByRole('heading', { name: 'Nova regra' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '+ Adicionar destinatário' }))
+    await clickMenuItem(user, 'Editar')
+    expect(screen.getByRole('heading', { name: 'Editar regra' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Novo destinatário' })).not.toBeInTheDocument()
+  })
+
+  it('an active rule shows the "ativa" switch and "Silenciar", which POSTs a 7-day snooze for that rule', async () => {
     let postedBody: Record<string, unknown> | null = null
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -1224,7 +1372,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    expect(within(row).getByText('ativo')).toBeInTheDocument()
+    expect(within(row).getByRole('switch', { name: 'ativa' })).toBeInTheDocument()
 
     await clickMenuItem(user, 'Silenciar', row)
 
@@ -1232,7 +1380,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Regra silenciada por 7 dias.')
   })
 
-  it('a silenced rule shows "até DD/MM" and "Reativar", which DELETEs the matching snooze (row and rail agree)', async () => {
+  it('a silenced rule shows "silenciada até DD/MM" and "Reativar", which DELETEs the matching snooze', async () => {
     const snoozedRule = { ...baseRule, snoozed_until: '2026-09-28T15:00:00Z' }
     const snooze = {
       id: 55,
@@ -1279,75 +1427,17 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     // Both the row and the "Silenciados agora" rail read the same silence
     // ("iPhone" appears in both — and there are two <table>s on this page,
     // Regras and Destinatários — so the row is picked out by its own <tr>).
-    await screen.findByText('Silenciados agora')
-    const row = screen
-      .getAllByText('iPhone')
-      .map((node) => node.closest('tr'))
-      .find((node): node is HTMLTableRowElement => node !== null) as HTMLElement
-    expect(within(row).getByText('até 28/09')).toBeInTheDocument()
-    const railPanel = screen.getByRole('heading', { name: 'Silenciados agora' }).closest('section') as HTMLElement
-    expect(within(railPanel).getByText('iPhone')).toBeInTheDocument()
-    expect(within(railPanel).getByText(/regra · até 28\/09/)).toBeInTheDocument()
-    expect(within(railPanel).getByText('Corsair 32GB DDR5')).toBeInTheDocument()
-    expect(within(railPanel).getByText(/produto · até 30\/09/)).toBeInTheDocument()
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    expect(within(row).getByText('silenciada até 28/09')).toBeInTheDocument()
 
     await clickMenuItem(user, 'Reativar', row)
 
     await waitFor(() => expect(deleteCalls).toEqual(['/snoozes/55']))
     expect(await screen.findByRole('status')).toHaveTextContent('Regra reativada.')
-    // The rail drops the item that was just reactivated, keeps the other.
-    await waitFor(() => expect(within(railPanel).queryByText('iPhone')).not.toBeInTheDocument())
-    expect(within(railPanel).getByText('Corsair 32GB DDR5')).toBeInTheDocument()
+    await waitFor(() => expect(within(row).queryByText(/silenciada até/)).not.toBeInTheDocument())
   })
 
-  it('reactivating straight from the "Silenciados agora" rail DELETEs that item too', async () => {
-    const productSnooze = {
-      id: 56,
-      scope: 'product',
-      rule_id: null,
-      product_key: 'corsair-32gb-ddr5',
-      until: '2026-09-30T15:00:00Z',
-      label: 'Corsair 32GB DDR5',
-    }
-    const deleteCalls: string[] = []
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input)
-      const method = init?.method ?? 'GET'
-      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
-      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(DEFAULT_DIGEST))
-      if (url.startsWith('/snoozes/') && method === 'DELETE') {
-        deleteCalls.push(url)
-        return Promise.resolve(new Response(null, { status: 204 }))
-      }
-      if (url === '/snoozes' && method === 'GET') {
-        return Promise.resolve(jsonResponse(deleteCalls.length > 0 ? [] : [productSnooze]))
-      }
-      if (url.startsWith('/rules') && method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
-      throw new Error(`unexpected ${method} ${url}`)
-    })
-    vi.stubGlobal('fetch', fetchMock)
-    const user = userEvent.setup()
-
-    render(<RegrasPage />)
-    const railPanel = await screen.findByText('Corsair 32GB DDR5')
-    await user.click(within(railPanel.closest('li') as HTMLElement).getByRole('button', { name: 'Reativar' }))
-
-    await waitFor(() => expect(deleteCalls).toEqual(['/snoozes/56']))
-    expect(await screen.findByRole('status')).toHaveTextContent('Silêncio removido.')
-  })
-
-  it('shows the empty state when nothing is silenced', async () => {
-    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([])))))
-
-    render(<RegrasPage />)
-
-    expect(await screen.findByText('Nenhuma regra ou produto silenciado.')).toBeInTheDocument()
-  })
-
-  it('the "Entrega dos alertas" card shows the real digest settings, states that a hit target fura digest and silence, and saves edits via PUT /digest', async () => {
+  it('the "Ajustes de entrega" popover shows the real digest settings, states that a hit target fura digest and silence, and saves edits via PUT /digest', async () => {
     const digest = {
       enabled: true,
       send_at_local: '09:00',
@@ -1380,6 +1470,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
 
     render(<RegrasPage />)
 
+    await user.click(await screen.findByRole('button', { name: 'Ajustes de entrega' }))
     expect(await screen.findByText(/Próximo envio: 25\/09 09:00/)).toBeInTheDocument()
     expect(screen.getByText(/2 itens na fila/)).toBeInTheDocument()
     expect(screen.getByText(/fura o digest e o silêncio/)).toBeInTheDocument()
@@ -1527,7 +1618,7 @@ describe('RegrasPage — Aplicar regras (S13-06)', () => {
 
     render(<RegrasPage />)
 
-    expect(await screen.findByText('Há mudanças ainda não aplicadas')).toBeInTheDocument()
+    expect(await screen.findByText('mudanças pendentes')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aplicar regras' })).toBeEnabled()
   })
 
@@ -1551,7 +1642,7 @@ describe('RegrasPage — Aplicar regras (S13-06)', () => {
     await vi.advanceTimersByTimeAsync(4000)
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regras aplicadas — 5 matches novos no histórico.')
-    expect(screen.getByText('Regras aplicadas')).toBeInTheDocument()
+    expect(screen.getByText(/^aplicado \d{2}\/\d{2} \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aplicar regras' })).toBeEnabled()
   })
 

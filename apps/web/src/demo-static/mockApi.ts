@@ -132,6 +132,33 @@ function digestSchedule(sendAtLocal: string, now: Date): { local: string; utc: s
   return { local, utc: next.toISOString().replace(/\.\d{3}Z$/, 'Z') }
 }
 
+/** S21-13: the "~N alerts/week" preview, counted from the recorded matches (same rule as the API). */
+function previewRecipient(rules: Row[], matches: Row[], params: URLSearchParams): Row {
+  const chosen = new Set(
+    (params.get('rule_ids') ?? '')
+      .split(',')
+      .filter((id) => id !== '')
+      .map(Number),
+  )
+  const allRules = params.get('rules_mode') !== 'selected'
+  const notifyTarget = params.get('notify_target') !== 'false'
+  const notifyCommon = params.get('notify_common') !== 'false'
+  const counts = new Map<number, number>()
+  for (const rule of rules) {
+    if (rule.active === true && (allRules || chosen.has(rule.id as number))) counts.set(rule.id as number, 0)
+  }
+  for (const match of matches) {
+    const ruleId = match.rule_id as number
+    if (!counts.has(ruleId)) continue
+    const isTarget = match.target_hit === true
+    if ((isTarget && notifyTarget) || (!isTarget && notifyCommon)) counts.set(ruleId, (counts.get(ruleId) ?? 0) + 1)
+  }
+  return {
+    alerts_per_week: [...counts.values()].reduce((sum, n) => sum + n, 0),
+    per_rule: [...counts.entries()].map(([rule_id, per_week]) => ({ rule_id, per_week })),
+  }
+}
+
 export interface MockApi {
   handle: (method: string, url: string, now?: Date) => MockResponse
   /** A new fictional offer "just posted", for the simulated live stream. */
@@ -170,6 +197,12 @@ export function createMockApi(fixtures: DemoFixtures, loadedAt: Date = new Date(
     if (path === '/auth/me') return { status: 200, body: { admin_id: 1, csrf_token: 'demo-csrf-token' } }
     if (path === '/matches') {
       return { status: 200, body: filterMatches([...liveMatches, ...baseMatches], params) }
+    }
+    if (path === '/recipients/preview') {
+      const rules = (routes.get('/rules') ?? []) as Row[]
+      const weekAgo = Date.parse(fixtures.reference_now) - 7 * DAY_MS
+      const recent = baseMatches.filter((match) => Date.parse(String(match.matched_at)) >= weekAgo)
+      return { status: 200, body: previewRecipient(rules, recent, params) }
     }
     if (path === '/digest') {
       const digest = lookup(path, new URLSearchParams()) as Row | undefined

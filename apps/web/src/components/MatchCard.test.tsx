@@ -17,11 +17,12 @@ const rule: Rule = {
   lowest_price_24h_cents: null,
   snoozed_until: null,
   history_30d: [],
+  recipient_ids: [1],
 }
 
 const source: Source = {
   id: 1,
-  name: 'Urubu das Promoções',
+  name: 'Grupo Ofertas Exemplo',
   telegram_chat_id: '-1001',
   active: true,
   created_at: '2026-01-01T00:00:00Z',
@@ -35,6 +36,10 @@ const recipients: Recipient[] = [
     allowlisted: true,
     active: true,
     created_at: '2026-01-01T00:00:00Z',
+    rules_mode: 'all',
+    rule_ids: [],
+    notify_target: true,
+    notify_common: true,
   },
 ]
 
@@ -75,12 +80,12 @@ describe('MatchCard', () => {
     )
 
     // S9-06/S10-02: no blank line (`\n\n`) anywhere in this text, so the
-    // cut never fires — full text stays, same shape as the real CMdias/
+    // cut never fires — full text stays, same shape as the real-world sample/
     // S8-02 case (see the dedicated S9-06/S10-02 tests below for both
     // sides of the gate).
     expect(screen.getByText('Promoção iPhone 15 128GB por R$ 3.899')).toBeInTheDocument()
     expect(screen.getByText('R$ 3.899,00')).toBeInTheDocument()
-    expect(screen.getByText(/Urubu das Promoções/)).toBeInTheDocument()
+    expect(screen.getByText(/Grupo Ofertas Exemplo/)).toBeInTheDocument()
     expect(screen.getByText(/iPhone até R\$ 4\.000/)).toBeInTheDocument()
     expect(screen.getByText(/Gabriel/)).toBeInTheDocument()
     expect(screen.getByText('Entregue')).toBeInTheDocument()
@@ -350,6 +355,8 @@ describe('MatchCard', () => {
     expect(link).toHaveAttribute('href', 'https://t.me/c/123456/7')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    // S21-05: icon button — the name lives in aria-label, no visible text.
+    expect(link).toHaveTextContent('')
   })
 
   it('has no "Visto em" line when nothing grouped with it (S7-11)', () => {
@@ -372,20 +379,20 @@ describe('MatchCard', () => {
         rule={rule}
         source={source}
         recipients={[]}
-        groupedSourceNames={['CMdias', 'Wolf Ofertas']}
+        groupedSourceNames={['Canal Achados', 'Ofertas Alfa']}
       />,
     )
 
-    expect(screen.getByText('Visto em: CMdias, Wolf Ofertas')).toBeInTheDocument()
+    expect(screen.getByText('Visto em: Canal Achados, Ofertas Alfa')).toBeInTheDocument()
   })
 
   it('shows only the text before the first link, dropping URLs and footer (S8-02)', () => {
-    const realCmdiasText =
+    const realSampleText =
       '🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF: ' +
       'https://s.shopee.com.br/abc ⚠️Cupom, preço e estoque por tempo limitado. Anúncio'
     render(
       <MatchCard
-        match={buildMatch({ message_text: realCmdiasText })}
+        match={buildMatch({ message_text: realSampleText })}
         rule={rule}
         source={source}
         recipients={[]}
@@ -438,18 +445,18 @@ describe('MatchCard', () => {
     expect(screen.getByText('RTX5070promocao')).toBeInTheDocument()
   })
 
-  it('cuts the title right after the rule term when a blank line follows it (S10-02, PC DO FAFA real id 91)', () => {
-    // Real production message (match id 91, fonte PC DO FAFA PROMOÇÕES,
-    // regra "RTX 5070 Ti") — the S9-06 position-based heuristic (>= 50%)
+  it('cuts the title right after the rule term when a blank line follows it (S10-02)', () => {
+    // Fictional message that mirrors a real-world shape (rule
+    // "RTX 5070 Ti") — the S9-06 position-based heuristic (>= 50%)
     // never fired on this one (term ends at ~33%), which is what motivated
     // S10-02: recalibrated against 87 real matches, a blank line (`\n\n`)
     // after the term turned out to be the real, consistently-present signal
-    // position never was. Full real text, not a paraphrase.
+    // position never was. Same shape and line breaks as the real case.
     const rtxRule: Rule = { ...rule, name: 'RTX 5070 Ti', include_terms: 'rtx 5070 ti,5070 ti' }
     const realTitle =
       '👌 Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit 3-Dp Hd\n\n' +
       '💲 Valor: R$6.991,08 8% desconto no Pix\n\n👉 Resgate o cupom\n' +
-      '👀 https://pcdofafa.com.br/p/shopee/jb6gwx'
+      '👀 https://loja.example/p/abc123'
     render(
       <MatchCard
         match={buildMatch({ message_text: realTitle })}
@@ -464,21 +471,21 @@ describe('MatchCard', () => {
     ).toBeInTheDocument()
   })
 
-  it('does not cut when no blank line follows the rule term (S9-06, CMdias — no regression on S8-02)', () => {
-    // Same real message the S8-02 tests use (fonte CMdias) — no `\n\n`
-    // anywhere in this specific fixture (unlike real CMdias messages pulled
+  it('does not cut when no blank line follows the rule term (S9-06, sample — no regression on S8-02)', () => {
+    // Same real message the S8-02 tests use (no source name) — no `\n\n`
+    // anywhere in this specific fixture (unlike real-world sample messages pulled
     // from production for S10-02, which do have one — see the dedicated
-    // real-CMdias test below). Cutting here would destroy the S8-02
+    // real-sample test below). Cutting here would destroy the S8-02
     // done_when, so this must stay untouched — reusing the S8-02 fixture/
     // expectation rather than duplicating a new one, per the TASKS.md note.
-    const cmdiasRule: Rule = { ...rule, name: 'RTX 5070', include_terms: 'rtx 5070' }
-    const realCmdiasText =
+    const sampleRule: Rule = { ...rule, name: 'RTX 5070', include_terms: 'rtx 5070' }
+    const realSampleText =
       '🔥 RTX 5070 ... 💵 R$ 4.516 🎫 Resgatem o cupom de R$ 90 OFF: ' +
       'https://s.shopee.com.br/abc ⚠️Cupom, preço e estoque por tempo limitado. Anúncio'
     render(
       <MatchCard
-        match={buildMatch({ message_text: realCmdiasText })}
-        rule={cmdiasRule}
+        match={buildMatch({ message_text: realSampleText })}
+        rule={sampleRule}
         source={source}
         recipients={[]}
       />,
@@ -489,20 +496,20 @@ describe('MatchCard', () => {
     ).toBeInTheDocument()
   })
 
-  it('cuts a real CMdias message once real paragraph structure is present (S10-02)', () => {
-    // Real production message (match id 88, fonte CMdias, regra "RTX
+  it('cuts a real-world sample message once real paragraph structure is present (S10-02)', () => {
+    // Fictional message that mirrors a real-world shape (rule "RTX
     // 5060") — unlike the single-line S8-02 unit-test fixture above, real
-    // CMdias messages do have a `\n\n` separating the product name from the
+    // sample messages do have a `\n\n` separating the product name from the
     // price/coupon block, so this one now cuts too (it didn't under S9-06's
     // position gate either, same ~38% shape as the fixture above it).
-    const cmdiasRule: Rule = { ...rule, name: 'RTX 5060', include_terms: 'rtx5060, rtx 5060' }
-    const realCmdiasText =
+    const sampleRule: Rule = { ...rule, name: 'RTX 5060', include_terms: 'rtx5060, rtx 5060' }
+    const realSampleText =
       '🔥 Placa de Vídeo NVIDIA GeForce MSI RTX5060 8GB GDDR7 128BITS SHADOW 2X\n\n' +
-      '💵 R$ 2.542\n\n🎟 Resgate cupom de 100 OFF:\nhttps://s.shopee.com.br/2gB9kYURhz'
+      '💵 R$ 2.542\n\n🎟 Resgate cupom de 100 OFF:\nhttps://loja.example/p/xyz789'
     render(
       <MatchCard
-        match={buildMatch({ message_text: realCmdiasText })}
-        rule={cmdiasRule}
+        match={buildMatch({ message_text: realSampleText })}
+        rule={sampleRule}
         source={source}
         recipients={[]}
       />,
@@ -528,7 +535,7 @@ describe('MatchCard', () => {
   })
 
   it('never anchors the cut on a blank line that sits before the rule term (S10-02)', () => {
-    // Real production message (match id 62, fonte CMdias) has a banner
+    // A message shaped like a real-world one has a banner
     // line ("ESTOQUE DISPONIVEL!!!") *before* the product name, with its
     // own blank line separating them — cutting at the first `\n\n` in the
     // text (a simpler rule considered and rejected for S10-02) would chop
@@ -827,9 +834,9 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
       />,
     )
     expect(screen.getByRole('img', { name: /Histórico de preço/ })).toBeInTheDocument()
-    expect(screen.getByText('Regra · 90 dias')).toBeInTheDocument()
+    expect(screen.getByText('90 dias')).toBeInTheDocument()
     expect(screen.getByTitle('Menor preço da regra por dia, últimos 90 dias')).toBeInTheDocument()
-    expect(screen.queryByText('linha = alvo')).not.toBeInTheDocument()
+    expect(screen.queryByText('90 dias · linha = alvo')).not.toBeInTheDocument()
 
     rerender(
       <MatchCard
@@ -845,7 +852,7 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
         recipients={[]}
       />,
     )
-    expect(screen.getByText('linha = alvo')).toBeInTheDocument()
+    expect(screen.getByText('90 dias · linha = alvo')).toBeInTheDocument()
   })
 })
 

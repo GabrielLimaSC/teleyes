@@ -19,12 +19,14 @@ import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
-import type { DigestSettings, PricePoint, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
+import type { DigestSettings, Match, Recipient, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
 import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
-import { formatDayMonth, formatMatchedAt } from '../utils/dates'
-import { ListenerApplyPanel } from '../components/ListenerApplyPanel'
+import { formatDayMonth, formatMatchedAt, isLater } from '../utils/dates'
+import { AnchoredPopover } from '../components/AnchoredPopover'
+import { ListenerApplyControl } from '../components/ListenerApplyControl'
+import { RuleHistoryChart } from '../components/RuleHistoryChart'
 import { settledToast } from '../components/listenerState'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
@@ -34,7 +36,12 @@ import { useListenerStatus } from '../hooks/useListenerStatus'
 import { useToast } from '../hooks/useToast'
 import { ruleTargetState } from '../utils/target'
 import { useFillOrigin } from '../utils/useFillOrigin'
+import { DeliveryAdjustments } from './DeliveryAdjustments'
 import { DestinatariosSection } from './DestinatariosSection'
+import { RecipientRailForm } from './RecipientRailForm'
+import type { RecipientFormTarget } from './RecipientRailForm'
+import { Avatar } from './RecipientDeliveryParts'
+import { initial, recipientsLabel, recipientsMissingRule } from './recipientDelivery'
 import '../components/CrudTable.css'
 import '../components/FillButton.css'
 import './RegrasPage.css'
@@ -109,41 +116,28 @@ function priceToInput(cents: number | null): string {
   return cents === null ? '' : String(cents / 100)
 }
 
-/** `digest.next_run_at_local` is already a "YYYY-MM-DD HH:MM" wall-clock
- * string in the display timezone (`app.routers.digest`) — not an instant to
- * reinterpret, so this is plain string slicing, never `new Date(...)` (the
- * S13-01 guard only allows that for `utils/dates.ts`, and this value has no
- * zone to get wrong in the first place). */
-function formatNextDigestRun(value: string): string {
-  const [datePart, timePart] = value.split(' ')
-  const [, month, day] = datePart.split('-')
-  return `${day}/${month} ${timePart}`
+/** S21-02: the expanded row is part of the URL (`?regra=<id>`) so F5 and a
+ * shared link reopen it. Read once on mount; written with `replaceState`
+ * (no history entry per click), keeping the router's own `history.state`. */
+function readExpandedFromUrl(): number | null {
+  const raw = new URLSearchParams(window.location.search).get('regra')
+  const id = raw === null ? Number.NaN : Number(raw)
+  return Number.isInteger(id) && id > 0 ? id : null
 }
 
-function RuleSparkline({ points }: { points: PricePoint[] }) {
-  if (points.length === 0) return <span className="rule-sparkline__empty">Sem preços</span>
-  const values = points.map((point) => point.price_cents)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = Math.max(max - min, 1)
-  // S15-02: a single day (every match so far on the same day) is still a
-  // real price — drawn as a flat line across the chart; a one-point polyline
-  // paints nothing, which left the column blank.
-  const plotted = points.length === 1 ? [points[0], points[0]] : points
-  const polyline = plotted
-    .map((point, index) => `${(index / Math.max(plotted.length - 1, 1)) * 150},${26 - ((point.price_cents - min) / span) * 22}`)
-    .join(' ')
-  return (
-    <svg
-      className="rule-sparkline"
-      viewBox="0 0 150 30"
-      role="img"
-      aria-label={`Histórico real de ${points.length} dias, de ${formatLowestPrice(values[0])} a ${formatLowestPrice(values.at(-1) ?? null)}`}
-      preserveAspectRatio="none"
-    >
-      <polyline points={polyline} />
-    </svg>
-  )
+function writeExpandedToUrl(id: number | null) {
+  const url = new URL(window.location.href)
+  if (id === null) url.searchParams.delete('regra')
+  else url.searchParams.set('regra', String(id))
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+/** Newest first; the API orders by relevance (target hits first), the row
+ * block wants "the latest three". */
+function latestMatches(matches: Match[], count: number): Match[] {
+  return [...matches]
+    .sort((a, b) => (isLater(a.matched_at, b.matched_at) ? -1 : isLater(b.matched_at, a.matched_at) ? 1 : 0))
+    .slice(0, count)
 }
 
 type FormTarget = { kind: 'create' } | { kind: 'edit'; rule: Rule }
@@ -170,6 +164,26 @@ function RuleTargetCell({ rule }: { rule: Rule }) {
         </span>
       )}
     </div>
+  )
+}
+
+/** S21-07: who receives a rule, from the API's resolved `recipient_ids`. */
+function RuleRecipients({ rule, recipients }: { rule: Rule; recipients: Recipient[] | null }) {
+  const ids = rule.recipient_ids ?? []
+  if (recipients === null && ids.length > 0) return <span className="delivery-who">…</span>
+  const known = (recipients ?? []).filter((recipient) => ids.includes(recipient.id))
+  const label = recipientsLabel(known.map((recipient) => recipient.name))
+  return (
+    <span className={label.none ? 'delivery-who delivery-who--none' : 'delivery-who'}>
+      {!label.none && (
+        <span className="delivery-avatars">
+          {known.slice(0, 3).map((recipient) => (
+            <Avatar key={recipient.id} letter={initial(recipient.name)} title={recipient.name} />
+          ))}
+        </span>
+      )}
+      {label.text}
+    </span>
   )
 }
 
@@ -243,6 +257,23 @@ export function RegrasPage() {
   const [matchedCount, setMatchedCount] = useState<number | null>(null)
   const [ceilingDiscards, setCeilingDiscards] = useState<number | null>(null)
 
+  // S21-02: one rule row open at a time (URL `?regra=<id>`), the contextual
+  // right rail (rule form by default, recipient form on demand), the latest
+  // matches of the open rule and a counter that makes the recipients reload.
+  const [expandedId, setExpandedIdState] = useState<number | null>(readExpandedFromUrl)
+  const [recipientTarget, setRecipientTarget] = useState<RecipientFormTarget | null>(null)
+  const [recipientsVersion, setRecipientsVersion] = useState(0)
+  const [recipients, setRecipients] = useState<Recipient[] | null>(null)
+  const recipientCount = recipients === null ? null : recipients.length
+  const [recent, setRecent] = useState<{ ruleId: number; matches: Match[] | null; failed: boolean } | null>(null)
+  const [recentVersion, setRecentVersion] = useState(0)
+  const testerPanelRef = useRef<HTMLDivElement>(null)
+
+  const setExpandedId = (id: number | null) => {
+    setExpandedIdState(id)
+    writeExpandedToUrl(id)
+  }
+
   const reload = () => {
     // S18-01: `loading` starts true and only the first load shows the
     // placeholder; a refetch after pause/resume keeps the table on screen
@@ -293,6 +324,52 @@ export function RegrasPage() {
   useEffect(loadStats, [])
   useEffect(loadSnoozes, [])
   useEffect(loadDigest, [])
+
+  // A deep link to a rule that no longer exists must not leave a dead `?regra=`.
+  useEffect(() => {
+    if (loading || listError !== null || expandedId === null) return
+    if (!rules.some((rule) => rule.id === expandedId)) {
+      setExpandedIdState(null)
+      writeExpandedToUrl(null)
+    }
+  }, [loading, listError, rules, expandedId])
+
+  // The latest three matches of the open rule (`GET /matches?rule_id=`).
+  useEffect(() => {
+    if (expandedId === null) {
+      setRecent(null)
+      return
+    }
+    let cancelled = false
+    setRecent({ ruleId: expandedId, matches: null, failed: false })
+    fetchMatches({ ruleId: expandedId })
+      .then((matches) => {
+        if (!cancelled) setRecent({ ruleId: expandedId, matches: Array.isArray(matches) ? matches : [], failed: false })
+      })
+      .catch(() => {
+        if (!cancelled) setRecent({ ruleId: expandedId, matches: null, failed: true })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [expandedId, recentVersion])
+
+  // Esc closes the open row — unless it was meant for a menu, a popover or a field.
+  useEffect(() => {
+    if (expandedId === null) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      const target = event.target as HTMLElement | null
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
+      if (document.querySelector('.row-actions__menu, .anchored-popover__panel')) return
+      const closing = expandedId
+      setExpandedIdState(null)
+      writeExpandedToUrl(null)
+      document.getElementById(`rule-toggle-${closing}`)?.focus()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [expandedId])
   useEffect(() => {
     const productKey = new URLSearchParams(window.location.search).get('produto')
     if (productKey === null) return
@@ -350,21 +427,6 @@ export function RegrasPage() {
       .finally(() => setSnoozeBusyId(null))
   }
 
-  const handleReactivate = (snooze: Snooze) => {
-    if (csrfToken === null) {
-      setListError(CSRF_MISSING_MESSAGE)
-      return
-    }
-    setSnoozeBusyId(snooze.rule_id ?? -snooze.id)
-    reactivateSnooze(csrfToken, snooze.id)
-      .then(() => {
-        configChanged()
-        showToast('Silêncio removido.')
-      })
-      .catch((error: unknown) => reportFailure(error, 'Não foi possível reativar este item.', setListError))
-      .finally(() => setSnoozeBusyId(null))
-  }
-
   const saveDigest = () => {
     if (csrfToken === null || digest === null) {
       setDigestError(CSRF_MISSING_MESSAGE)
@@ -403,21 +465,48 @@ export function RegrasPage() {
     setTesterId((current) => (target.kind === 'edit' && current === target.rule.id ? current : null))
   }
 
+  // The rail may be showing the recipient form: bring the rule form back first,
+  // then focus its name field once it is on screen.
+  const focusRuleName = () => {
+    if (recipientTarget === null) {
+      nameInputRef.current?.focus()
+      return
+    }
+    setRecipientTarget(null)
+    requestAnimationFrame(() => nameInputRef.current?.focus())
+  }
+
   const openCreate = () => {
     setSuggestion(null)
     setSuggestionError(null)
     loadForm({ kind: 'create' }, EMPTY_FORM)
-    nameInputRef.current?.focus()
+    focusRuleName()
   }
 
   const openEdit = (rule: Rule) => {
     loadForm({ kind: 'edit', rule }, ruleToForm(rule, { asCopy: false }))
-    nameInputRef.current?.focus()
+    focusRuleName()
   }
 
   const openDuplicate = (rule: Rule) => {
     loadForm({ kind: 'create' }, ruleToForm(rule, { asCopy: true }))
-    nameInputRef.current?.focus()
+    focusRuleName()
+  }
+
+  const openRecipientCreate = () => setRecipientTarget({ kind: 'create' })
+  const openRecipientEdit = (recipient: Recipient) => setRecipientTarget({ kind: 'edit', recipient })
+  const closeRecipientForm = () => setRecipientTarget(null)
+  const recipientSaved = () => {
+    setRecipientTarget(null)
+    setRecipientsVersion((version) => version + 1)
+    listener.refresh()
+    reload()
+  }
+  // A card saved new delivery settings: the "Destinatários" column of the rules
+  // table (computed by the API) must follow.
+  const recipientsChanged = () => {
+    listener.refresh()
+    reload()
   }
 
   const resetForm = () => {
@@ -558,6 +647,7 @@ export function RegrasPage() {
       .then(({ deleted }) => {
         reload()
         loadStats()
+        setRecentVersion((version) => version + 1)
         setClearConfirm(null)
         showToast(
           deleted === 1 ? '1 match apagado.' : `${deleted} matches apagados.`,
@@ -686,6 +776,8 @@ export function RegrasPage() {
     setTesterId(rule.id)
     setCreateTesterOpen(false)
     setTesterText('')
+    // The panel sits below the table: a row far from it must still show it.
+    requestAnimationFrame(() => testerPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }))
   }
 
   const toggleCreateTester = () => {
@@ -700,33 +792,62 @@ export function RegrasPage() {
     setTesterText('')
   }
 
+  const matchHelp = (
+    <AnchoredPopover
+      triggerLabel="Como uma regra casa"
+      triggerContent="?"
+      triggerClassName="regras-help-button"
+      title="Como uma regra casa"
+    >
+      <p className="regras-how__text">
+        Basta um dos termos incluídos aparecer na mensagem; qualquer termo bloqueado descarta.
+        Se o preço achado passa do teto da regra, a mensagem também é descartada.
+      </p>
+      <dl className="regras-how__stats">
+        <div className="regras-how__stat">
+          <dt>Casaram</dt>
+          <dd>{matchedCount ?? '—'}</dd>
+        </div>
+        <div className="regras-how__stat">
+          <dt>Descartadas por teto</dt>
+          <dd>{ceilingDiscards ?? '—'}</dd>
+        </div>
+      </dl>
+      <p className="regras-how__caption">
+        Totais acumulados de todas as regras, desde o início — não são do dia.
+      </p>
+    </AnchoredPopover>
+  )
+
+  const subtitleParts = [rules.length === 1 ? '1 regra' : `${rules.length} regras`]
+  if (recipientCount !== null) {
+    subtitleParts.push(recipientCount === 1 ? '1 destinatário' : `${recipientCount} destinatários`)
+  }
+
   return (
     <main className="crud-page regras-page">
       <div className="regras-page__header">
         <div>
           <h1>Regras</h1>
-          {!loading && !listError && (
-            <p className="regras-page__subtitle">
-              {rules.length === 1 ? '1 regra' : `${rules.length} regras`} · alvo e silêncio por linha
-            </p>
-          )}
+          {!loading && !listError && <p className="regras-page__subtitle">{subtitleParts.join(' · ')}</p>}
         </div>
-        <button
-          type="button"
-          className="plane-action fill-button regras-page__new-button"
-          onClick={openCreate}
-          onPointerDown={fillOrigin}
-        >
-          + Nova regra
-        </button>
+        <div className="regras-page__header-actions">
+          <ListenerApplyControl
+            status={listener.status}
+            error={listener.error}
+            requesting={listener.requesting}
+            onApply={listener.apply}
+          />
+          <button
+            type="button"
+            className="plane-action fill-button regras-page__new-button"
+            onClick={openCreate}
+            onPointerDown={fillOrigin}
+          >
+            + Nova regra
+          </button>
+        </div>
       </div>
-
-      <ListenerApplyPanel
-        status={listener.status}
-        error={listener.error}
-        requesting={listener.requesting}
-        onApply={listener.apply}
-      />
 
       <div className="regras-page__grid">
         <div className="regras-page__main">
@@ -738,89 +859,83 @@ export function RegrasPage() {
           )}
 
           {!loading && !listError && (
-            <div className="plane-pearl crud-table-wrap wide-table-wrap">
-              <table className="crud-table wide-table">
+            <div className="plane-pearl rules-table-wrap">
+              <table className="rules-table">
                 <thead>
                   <tr>
                     <th>Regra</th>
-                    <th className="wide-table__status">Status</th>
-                    <th className="wide-table__num">Teto</th>
-                    <th className="wide-table__num">Alvo</th>
-                    <th>Histórico 30d</th>
-                    <th>Silêncio</th>
-                    <th className="wide-table__num">Ações</th>
+                    <th className="rules-table__num">Teto</th>
+                    <th className="rules-table__num">Alvo</th>
+                    <th className="rules-table__recipients">Destinatários</th>
+                    <th className="rules-table__status">Status</th>
+                    <th className="rules-table__actions">
+                      <span className="rules-table__sr">Ações</span>
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {rules.map((rule) => (
-                    <tr
+                {rules.map((rule) => {
+                  const expanded = expandedId === rule.id
+                  const detailId = `rule-detail-${rule.id}`
+                  const editing = formTarget.kind === 'edit' && formTarget.rule.id === rule.id
+                  return (
+                    <tbody
                       key={rule.id}
-                      className={
-                        [
-                          formTarget.kind === 'edit' && formTarget.rule.id === rule.id
-                            ? 'wide-table__row--editing'
-                            : '',
-                          rule.active ? '' : 'wide-table__row--paused',
-                        ]
-                          .filter(Boolean)
-                          .join(' ') || undefined
-                      }
+                      className={['rules-table__group', expanded ? 'rules-table__group--open' : '', editing ? 'rules-table__group--editing' : '', rule.active ? '' : 'rules-table__group--paused']
+                        .filter(Boolean)
+                        .join(' ')}
                     >
-                      <td className="crud-table__name" data-label="Regra">
-                        <span>{rule.name}</span>
-                        <span className="wide-table__terms">{rule.include_terms}</span>
-                      </td>
-                      <td className="wide-table__status" data-label="Status">
-                        <StatusToggle
-                          active={rule.active}
-                          pausing={pausingId === rule.id}
-                          onPause={() => handlePause(rule)}
-                          onResume={() => handleResume(rule)}
-                        />
-                      </td>
-                      <td className="wide-table__num" data-label="Teto">
-                        {formatPriceLimit(rule.max_price_cents)}
-                      </td>
-                      <td className="wide-table__num" data-label="Alvo">
-                        {/* S15-02: one box, so the stacked phone card keeps value and
-                            gap together on the right instead of spreading them. */}
-                        <RuleTargetCell rule={rule} />
-                      </td>
-                      <td data-label="Histórico 30d">
-                        <RuleSparkline points={rule.history_30d ?? []} />
-                      </td>
-                      <td data-label="Silêncio">
-                        {rule.snoozed_until ? (
-                          <span className="rule-silence rule-silence--muted">
-                            <span aria-hidden="true" />até {formatDayMonth(rule.snoozed_until)}
-                          </span>
-                        ) : (
-                          <span className="rule-silence">
-                            <span aria-hidden="true" />ativo
-                          </span>
-                        )}
-                      </td>
-                      <td className="wide-table__actions" data-label="Ações">
-                        {/* S18-01: one row — the everyday actions in view, the
-                            rest behind "⋯". Nothing changed in what each does. */}
-                        <div className="rule-actions">
+                      <tr className="rules-table__row">
+                        <td className="rules-table__name" data-label="Regra">
                           <button
                             type="button"
-                            className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => openEdit(rule)}
+                            id={`rule-toggle-${rule.id}`}
+                            className="rule-row__toggle"
+                            aria-expanded={expanded}
+                            aria-controls={expanded ? detailId : undefined}
+                            onClick={() => setExpandedId(expanded ? null : rule.id)}
                           >
-                            Editar
+                            <svg className="rule-row__chevron" viewBox="0 0 12 12" aria-hidden="true">
+                              <path d="M4 2.5 8 6l-4 3.5" />
+                            </svg>
+                            <span className="rule-row__text">
+                              <span className="rule-row__title">{rule.name}</span>
+                              <span className="wide-table__terms">{rule.include_terms}</span>
+                            </span>
                           </button>
-                          <button
-                            type="button"
-                            className="plane-action plane-action--secondary plane-action--compact"
-                            onClick={() => toggleRowTester(rule)}
-                          >
-                            Testar
-                          </button>
+                        </td>
+                        <td className="rules-table__num" data-label="Teto">
+                          {formatPriceLimit(rule.max_price_cents)}
+                        </td>
+                        <td className="rules-table__num" data-label="Alvo">
+                          {/* S15-02: one box, so the stacked phone card keeps value and
+                              gap together on the right instead of spreading them. */}
+                          <RuleTargetCell rule={rule} />
+                        </td>
+                        <td className="rules-table__recipients" data-label="Destinatários">
+                          <RuleRecipients rule={rule} recipients={recipients} />
+                        </td>
+                        <td className="rules-table__status" data-label="Status">
+                          <div className="rule-status">
+                            <StatusToggle
+                              active={rule.active}
+                              pausing={pausingId === rule.id}
+                              onPause={() => handlePause(rule)}
+                              onResume={() => handleResume(rule)}
+                            />
+                            {rule.snoozed_until && (
+                              <span className="rule-silence rule-silence--muted">
+                                <span aria-hidden="true" />
+                                silenciada até {formatDayMonth(rule.snoozed_until)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="rules-table__actions">
                           <RowActionsMenu
                             label={`Mais ações da regra ${rule.name}`}
                             items={[
+                              { key: 'edit', label: 'Editar', onSelect: () => openEdit(rule) },
+                              { key: 'test', label: 'Testar', onSelect: () => toggleRowTester(rule) },
                               { key: 'duplicate', label: 'Duplicar', onSelect: () => openDuplicate(rule) },
                               {
                                 key: 'snooze',
@@ -850,24 +965,95 @@ export function RegrasPage() {
                               },
                             ]}
                           />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {rules.length === 0 && (
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr id={detailId} className="rules-table__detail">
+                          <td colSpan={6}>
+                            <div className="rule-detail" role="region" aria-label={`Detalhes da regra ${rule.name}`}>
+                              <RuleHistoryChart
+                                points={rule.history_30d ?? []}
+                                ceilingCents={rule.max_price_cents}
+                                targetCents={rule.target_price_cents}
+                              />
+                              <div className="rule-detail__side">
+                                {recipients !== null && recipientsMissingRule(recipients, rule).length > 0 && (
+                                  <p className="delivery-warn" role="status">
+                                    {recipientsMissingRule(recipients, rule).length === 1
+                                      ? '1 destinatário não recebe esta regra'
+                                      : `${recipientsMissingRule(recipients, rule).length} destinatários não recebem esta regra`}
+                                  </p>
+                                )}
+                                <h3 className="rule-detail__heading">Últimos matches</h3>
+                                {(recent === null || recent.ruleId !== rule.id || (recent.matches === null && !recent.failed)) && (
+                                  <p role="status" className="rule-detail__muted">Carregando matches…</p>
+                                )}
+                                {recent?.ruleId === rule.id && recent.failed && (
+                                  <p role="alert" className="rule-detail__muted">Não foi possível carregar os matches.</p>
+                                )}
+                                {recent?.ruleId === rule.id && recent.matches !== null && recent.matches.length === 0 && (
+                                  <p className="rule-detail__muted">Nenhum match ainda para esta regra.</p>
+                                )}
+                                {recent?.ruleId === rule.id && recent.matches !== null && recent.matches.length > 0 && (
+                                  <ul className="rule-detail__matches">
+                                    {latestMatches(recent.matches, 3).map((match) => (
+                                      <li key={match.id}>
+                                        <span className="rule-detail__match-price">{formatLowestPrice(match.price_cents)}</span>
+                                        <span className="rule-detail__match-text">{match.message_text}</span>
+                                        <span className="rule-detail__match-meta">
+                                          {formatMatchedAt(match.matched_at)}
+                                          {match.message_link !== null && (
+                                            <>
+                                              {' · '}
+                                              <a href={match.message_link} target="_blank" rel="noopener noreferrer">
+                                                Abrir mensagem
+                                              </a>
+                                            </>
+                                          )}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                                <div className="rule-detail__actions">
+                                  <button
+                                    type="button"
+                                    className="plane-action plane-action--secondary plane-action--compact"
+                                    onClick={() => openEdit(rule)}
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="plane-action plane-action--secondary plane-action--compact"
+                                    onClick={() => toggleRowTester(rule)}
+                                  >
+                                    Testar
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  )
+                })}
+                {rules.length === 0 && (
+                  <tbody>
                     <tr>
-                      <td colSpan={7} className="regras-page__empty">
+                      <td colSpan={5} className="regras-page__empty">
                         Nenhuma regra cadastrada. Use “Nova regra” para começar com termos específicos.
                       </td>
                     </tr>
-                  )}
-                </tbody>
+                  </tbody>
+                )}
               </table>
             </div>
           )}
 
           {testerContext !== null && currentTesterTerms !== null && (
-            <div className="plane-pearl regras-panel">
+            <div ref={testerPanelRef} className="plane-pearl regras-panel">
               <div className="regras-panel__heading">
                 <h2>
                   {testerContext.kind === 'create'
@@ -1010,87 +1196,38 @@ export function RegrasPage() {
             </div>
           )}
 
-          <section className="plane-pearl delivery-panel" aria-labelledby="delivery-heading">
-            <div className="delivery-panel__heading">
-              <div>
-                <h2 id="delivery-heading">Entrega dos alertas</h2>
-                <p>Uma decisão por tipo de evento — o restante pode ir no digest.</p>
-              </div>
-              {digest && (
-                <button
-                  type="button"
-                  className="plane-action plane-action--secondary plane-action--compact"
-                  onClick={saveDigest}
-                  disabled={digestSaving}
-                >
-                  {digestSaving ? 'Salvando…' : 'Salvar entrega'}
-                </button>
-              )}
-            </div>
-            {digestError && <p role="alert" className="regras-panel__error">{digestError}</p>}
-            {!digest && !digestError && <p role="status">Carregando configuração…</p>}
-            {digest && (
-              <div className="delivery-panel__grid">
-                <div className="delivery-card">
-                  <strong>Alvo atingido</strong>
-                  <span>Ping imediato — fura o digest e o silêncio da regra ou do produto.</span>
-                  <span className="delivery-card__state"><i /> prioritário</span>
-                </div>
-                <div className="delivery-card delivery-card--controls">
-                  <strong>Match comum</strong>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={digest.enabled}
-                      onChange={(event) => setDigest({ ...digest, enabled: event.target.checked })}
-                    />
-                    Digest diário
-                  </label>
-                  <label>
-                    Horário
-                    <input
-                      type="time"
-                      value={digest.send_at_local}
-                      onChange={(event) => setDigest({ ...digest, send_at_local: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Máximo de itens
-                    <input
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={digest.top_n}
-                      onChange={(event) => setDigest({ ...digest, top_n: Number(event.target.value) })}
-                    />
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={digest.mute_individual}
-                      onChange={(event) => setDigest({ ...digest, mute_individual: event.target.checked })}
-                    />
-                    Não enviar matches comuns individualmente
-                  </label>
-                  <span>
-                    Próximo envio: {formatNextDigestRun(digest.next_run_at_local)} · {digest.queue_count}{' '}
-                    {digest.queue_count === 1 ? 'item' : 'itens'} na fila
-                  </span>
-                </div>
-                <div className="delivery-card">
-                  <strong>Repetição da mesma oferta</strong>
-                  <span>Agrupa no card e não dispara outra entrega.</span>
-                  <span className="delivery-card__state delivery-card__state--neutral"><i /> silencioso</span>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <DestinatariosSection onChanged={listener.refresh} />
+          <DestinatariosSection
+            onChanged={recipientsChanged}
+            rules={rules}
+            digest={digest}
+            version={recipientsVersion}
+            editingId={recipientTarget?.kind === 'edit' ? recipientTarget.recipient.id : null}
+            onAdd={openRecipientCreate}
+            onEdit={openRecipientEdit}
+            onLoaded={setRecipients}
+            headerExtra={
+              <DeliveryAdjustments
+                digest={digest}
+                error={digestError}
+                saving={digestSaving}
+                onChange={setDigest}
+                onSave={saveDigest}
+              />
+            }
+          />
         </div>
 
         <aside className="regras-page__rail">
-          <form className="plane-glass regras-form" onSubmit={submitForm}>
+          {recipientTarget !== null ? (
+            <RecipientRailForm
+              key={recipientTarget.kind === 'edit' ? `edit-${recipientTarget.recipient.id}` : 'create'}
+              target={recipientTarget}
+              rules={rules}
+              onSaved={recipientSaved}
+              onCancel={closeRecipientForm}
+            />
+          ) : (
+            <form className="plane-glass regras-form" onSubmit={submitForm}>
             <div className="regras-form__title-row">
               <h2 className="regras-rail__eyebrow">{isEditing ? 'Editar regra' : 'Nova regra'}</h2>
               {suggestion && !isEditing && <span className="regras-form__badge">pré-preenchida do produto</span>}
@@ -1111,6 +1248,7 @@ export function RegrasPage() {
               key={formVersion}
               id="rule-include-terms"
               label="Termos incluídos"
+              labelAction={matchHelp}
               value={form.includeTerms}
               onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
               helper="Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb."
@@ -1192,54 +1330,8 @@ export function RegrasPage() {
                 {formError}
               </p>
             )}
-          </form>
-
-          <section className="plane-pearl snoozed-panel" aria-labelledby="snoozed-heading">
-            <h2 id="snoozed-heading" className="regras-rail__eyebrow">Silenciados agora</h2>
-            {snoozes.length === 0 ? (
-              <p className="snoozed-panel__empty">Nenhuma regra ou produto silenciado.</p>
-            ) : (
-              <ul>
-                {snoozes.map((item) => (
-                  <li key={item.id}>
-                    <div>
-                      <strong>{item.label}</strong>
-                      <span>{item.scope === 'rule' ? 'regra' : 'produto'} · até {formatDayMonth(item.until)}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="plane-action plane-action--secondary plane-action--compact"
-                      onClick={() => handleReactivate(item)}
-                      disabled={snoozeBusyId === (item.rule_id ?? -item.id)}
-                    >
-                      Reativar
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="plane-pearl regras-how">
-            <h2 className="regras-rail__eyebrow">Como uma regra casa</h2>
-            <p className="regras-how__text">
-              Basta um dos termos incluídos aparecer na mensagem; qualquer termo bloqueado descarta.
-              Se o preço achado passa do teto da regra, a mensagem também é descartada.
-            </p>
-            <dl className="regras-how__stats">
-              <div className="regras-how__stat">
-                <dt>Casaram</dt>
-                <dd>{matchedCount ?? '—'}</dd>
-              </div>
-              <div className="regras-how__stat">
-                <dt>Descartadas por teto</dt>
-                <dd>{ceilingDiscards ?? '—'}</dd>
-              </div>
-            </dl>
-            <p className="regras-how__caption">
-              Totais acumulados de todas as regras, desde o início — não são do dia.
-            </p>
-          </section>
+            </form>
+          )}
         </aside>
       </div>
       <Toast toast={toast} onDismiss={dismiss} />

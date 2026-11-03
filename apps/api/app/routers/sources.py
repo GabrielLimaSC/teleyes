@@ -1,10 +1,15 @@
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from datetime import date, datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from app.activity import read_source_activity
+from app.config import get_settings
 from app.main import get_current_session, get_db, require_csrf
-from app.utc import UtcDatetime
+from app.utc import UtcDatetime, utc_now
 from models import Source
 from repositories import source_repo
 from repositories.errors import NotFoundError, ValidationError
@@ -36,6 +41,28 @@ class SourceResponse(BaseModel):
     created_at: UtcDatetime
 
 
+class DayActivityResponse(BaseModel):
+    day: date
+    # Messages evaluated that (local) day: positive plus discarded rule evaluations.
+    # `null` = before measurement started ("coletando"), never a fake zero.
+    evaluated: int | None
+
+
+class SourceActivityResponse(BaseModel):
+    source_id: int
+    name: str
+    active: bool
+    daily: list[DayActivityResponse]
+    matches: int
+    last_match_at: UtcDatetime | None
+
+
+class SourcesActivityResponse(BaseModel):
+    days: int
+    coverage_since: UtcDatetime | None
+    sources: list[SourceActivityResponse]
+
+
 def _not_found(error: NotFoundError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
 
@@ -50,6 +77,30 @@ def list_sources(
     db: Session = Depends(get_db),
 ) -> list[Source]:
     return list(source_repo.list_sources(db, include_inactive=include_inactive))
+
+
+@router.get("/activity", response_model=SourcesActivityResponse)
+def sources_activity(
+    days: Annotated[int, Query(ge=1, le=30)] = 7,
+    db: Session = Depends(get_db),
+    now: datetime = Depends(utc_now),
+) -> SourcesActivityResponse:
+    snapshot = read_source_activity(db, now, days, get_settings().display_timezone)
+    return SourcesActivityResponse(
+        days=snapshot.days,
+        coverage_since=snapshot.coverage_since,
+        sources=[
+            SourceActivityResponse(
+                source_id=row.source_id,
+                name=row.name,
+                active=row.active,
+                daily=[DayActivityResponse(day=d.day, evaluated=d.evaluated) for d in row.daily],
+                matches=row.matches,
+                last_match_at=row.last_match_at,
+            )
+            for row in snapshot.sources
+        ],
+    )
 
 
 @router.post(

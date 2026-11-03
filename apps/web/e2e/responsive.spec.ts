@@ -25,11 +25,12 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
         await expect(page.getByRole('button', { name: 'Recolher navegação' })).toBeVisible()
         await expect(page.locator('.nav-capsule__menu')).toBeVisible()
       } else {
-        await expect(mascot).toBeDisabled()
+        await expect(page.getByRole('button', { name: 'Ir para o início' })).toBeEnabled()
       }
-      for (const label of ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Economia', 'Saúde']) {
+      for (const label of ['Início', 'Feed', 'Histórico', 'Economia', 'Regras', 'Fontes', 'Saúde']) {
         await expect(page.getByRole('link', { name: label })).toBeVisible()
       }
+      await expect(page.getByRole('button', { name: /^Tema: / })).toBeVisible()
       const [scrollWidth, clientWidth] = await page.evaluate(() => [
         document.documentElement.scrollWidth,
         document.documentElement.clientWidth,
@@ -53,7 +54,7 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
       // product would, not as leftover test data — matters for anyone
       // reviewing these captures as design evidence, not just for the test.
       const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
-        name: 'Urubu das Promoções',
+        name: 'Grupo Ofertas Exemplo',
         telegram_chat_id: `-100${viewport.name === 'desktop' ? 601 : 602}`,
       })
       const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {

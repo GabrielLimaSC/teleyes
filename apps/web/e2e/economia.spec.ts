@@ -31,11 +31,12 @@ test('registers a purchase, sees the report and exports the results card (S19-04
   await expect(row).toBeVisible()
   await expect(row).toContainText('1.199,90')
   // No link to a product: only the amount paid is reported, never an invented saving.
-  await expect(row.locator('[data-label="Economia estimada"]')).toHaveText('—')
+  await expect(row.locator('[data-label="Economia"]')).toHaveText('sem histórico')
   await expect(page.getByRole('region', { name: 'Resumo' })).toContainText('sem dados')
 
   // Editing goes through the same form.
-  await row.getByRole('button', { name: 'Editar' }).click()
+  await row.getByRole('button', { name: /Mais ações da compra/ }).click()
+  await page.getByRole('menuitem', { name: 'Editar' }).click()
   const editForm = page.getByRole('form', { name: 'Editar compra' })
   await editForm.getByLabel('Preço pago (R$)').fill('1100')
   await editForm.getByRole('button', { name: 'Salvar compra' }).click()
@@ -76,9 +77,31 @@ test('registers a purchase, sees the report and exports the results card (S19-04
   expect(readFileSync(await hiddenDownload.path(), 'utf8')).not.toContain('Placa-mãe E2E B850M')
 
   // Deleting needs a confirmation.
-  await page.getByRole('row', { name: /Placa-mãe E2E B850M/ }).getByRole('button', { name: 'Excluir' }).click()
+  await page.getByRole('row', { name: /Placa-mãe E2E B850M/ }).getByRole('button', { name: /Mais ações da compra/ }).click()
+  await page.getByRole('menuitem', { name: 'Excluir' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir compra' }).click()
   await expect(page.getByRole('row', { name: /Placa-mãe E2E B850M/ })).toHaveCount(0)
+})
+
+test('sets, edits and removes the savings goal (S21-08)', async ({ page }) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/economia')
+
+  const summary = page.getByRole('region', { name: 'Resumo' })
+  await summary.getByRole('button', { name: 'Definir meta' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel(/Quanto quer economizar/).fill('2.000,00')
+  await dialog.getByLabel('Até quando').fill('2999-12-31')
+  await dialog.getByRole('button', { name: 'Salvar meta' }).click()
+
+  await expect(summary).toContainText(/\d+% de R\$\s2\.000,00/)
+  await expect(summary).toContainText('até 31/12')
+  await expect(summary).toContainText('ritmo:')
+
+  await summary.getByRole('button', { name: 'editar' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Remover meta' }).click()
+  await expect(summary.getByRole('button', { name: 'Definir meta' })).toBeVisible()
 })
 
 for (const colorScheme of ['light', 'dark'] as const) {

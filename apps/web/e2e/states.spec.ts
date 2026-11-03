@@ -156,7 +156,7 @@ test('a real promo message with links and a footer shows only the text before th
   const csrfToken = await apiLogin(page)
 
   const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
-    name: 'CMdias E2E',
+    name: 'Canal Achados E2E',
     telegram_chat_id: '-100783',
   })
   const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {
@@ -164,7 +164,7 @@ test('a real promo message with links and a footer shows only the text before th
     include_terms: 'rtx 5070',
   })
   const recipient = await apiPost<{ id: number }>(page, '/recipients', csrfToken, {
-    name: 'Gabriel E2E CMdias',
+    name: 'Gabriel E2E Canal Achados',
     telegram_chat_id: '995',
     allowlisted: true,
   })
@@ -235,8 +235,8 @@ test('the nav capsule is fully reachable by keyboard with visible focus', async 
   await apiLogin(page)
   await page.goto('/feed')
 
-  const labels = ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Economia', 'Saúde']
-  const loginLink = page.getByRole('link', { name: 'Login' })
+  const labels = ['Início', 'Feed', 'Histórico', 'Economia', 'Regras', 'Fontes', 'Saúde']
+  const loginLink = page.getByRole('link', { name: 'Início' })
   await loginLink.focus()
   await expect(loginLink).toBeFocused()
   await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
@@ -265,11 +265,12 @@ test('the mascot badge fits inside the capsule and never overlaps a tab (S9-05)'
   // Proportion: the badge fits inside the capsule's own height, never
   // taller than it — the old fixed 76px badge on a 68px capsule failed
   // exactly this.
-  expect(mascotBox!.height).toBeLessThanOrEqual(capsuleBox!.height)
-  expect(mascotBox!.y).toBeGreaterThanOrEqual(capsuleBox!.y - 0.5)
-  expect(mascotBox!.y + mascotBox!.height).toBeLessThanOrEqual(capsuleBox!.y + capsuleBox!.height + 0.5)
+  // S21-01: the 70px medallion overhangs the 64px capsule by exactly 3px on each side.
+  expect(mascotBox!.height).toBeCloseTo(capsuleBox!.height + 6, 0)
+  expect(mascotBox!.y).toBeCloseTo(capsuleBox!.y - 3, 0)
+  expect(mascotBox!.y + mascotBox!.height).toBeCloseTo(capsuleBox!.y + capsuleBox!.height + 3, 0)
 
-  // Never overlaps any tab — on desktop the seven tabs sit in the wings
+  // Never overlaps any tab — on desktop the eight slots sit in the wings
   // either side of the mascot's reserved middle slot.
   const tabs = page.locator('.nav-tab')
   const tabCount = await tabs.count()

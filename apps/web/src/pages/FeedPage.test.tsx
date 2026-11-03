@@ -136,8 +136,8 @@ describe('FeedPage', () => {
       grouped_source_ids: [2, 3],
     }
     const sources = [
-      { id: 1, name: 'Wolf Ofertas', telegram_chat_id: '-1001', active: true, created_at: '2026-01-01T00:00:00Z' },
-      { id: 2, name: 'CMdias', telegram_chat_id: '-1002', active: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 1, name: 'Ofertas Alfa', telegram_chat_id: '-1001', active: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 2, name: 'Canal Achados', telegram_chat_id: '-1002', active: true, created_at: '2026-01-01T00:00:00Z' },
       { id: 3, name: 'Menor Preço', telegram_chat_id: '-1003', active: true, created_at: '2026-01-01T00:00:00Z' },
     ]
     vi.stubGlobal(
@@ -152,7 +152,7 @@ describe('FeedPage', () => {
 
     renderFeedPage()
 
-    expect(await screen.findByText('Visto em: CMdias, Menor Preço')).toBeInTheDocument()
+    expect(await screen.findByText('Visto em: Canal Achados, Menor Preço')).toBeInTheDocument()
   })
 
   it('shows real numbers in the Resumo rail (S11-03)', async () => {

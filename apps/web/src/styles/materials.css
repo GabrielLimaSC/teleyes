@@ -72,6 +72,7 @@
   --plane-action-danger-color: #a32a24;
   --plane-action-danger-border: 1px solid #e3c4c1;
   --plane-focus-color: #315ea8;
+  --login-bullet-2: #7c5cc4;
   --plane-focus-ring: 0 0 0 3px rgba(49, 94, 168, 0.16);
 
   /* ---- Shared text colors (all 3 planes use the same ones) ---- */
@@ -211,14 +212,15 @@
   --nav-tab-text: #4b4b52;
   --nav-tab-hover-text: #171717;
   --nav-tab-hover-bg: rgba(255, 255, 255, 0.62);
-  --nav-tab-active-text: #ffffff;
-  --nav-tab-active-bg: #171717;
-  --nav-tab-active-shadow: 0 4px 10px rgba(23, 23, 23, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  --nav-focus-ring-color: #3f3fb0;
+  /* S21-01: the active tab is a raised white glass pill, not a solid block. */
+  --nav-tab-active-text: #0a0a0a;
+  --nav-tab-active-bg: #ffffff;
+  --nav-tab-active-shadow:
+    inset 0 1px 0 #ffffff, 0 0 0 1px rgba(70, 74, 83, 0.08), 0 4px 12px rgba(23, 23, 23, 0.12);
+  --nav-focus-ring-color: #315ea8;
   --nav-brand-text: #171717;
   --nav-mascot-shadow: 0 12px 28px rgba(8, 6, 13, 0.28), 0 0 22px rgba(255, 255, 255, 0.32);
   --nav-mascot-shadow-hover: 0 14px 32px rgba(8, 6, 13, 0.3), 0 0 28px rgba(255, 255, 255, 0.44);
-  --nav-mascot-image-shadow: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.26));
   --nav-menu-border-color: rgba(255, 255, 255, 0.88);
   --nav-menu-bg: rgba(237, 238, 242, 0.77);
   --nav-menu-shadow:
@@ -232,6 +234,13 @@
   --plane-status-warn-dot: #8b5a08;
   --plane-status-neutral-dot: #47566e;
   --plane-status-danger-dot: #a32a24;
+  /* S21-11: source avatar / last-bar hues (Fontes), and the ink drawn on them. */
+  --source-hue-1: #8db4f8;
+  --source-hue-2: #c3b1ee;
+  --source-hue-3: #f2c56f;
+  --source-hue-4: #7fdba5;
+  --source-hue-5: #f0a3b8;
+  --source-hue-ink: #14171c;
   /* Adapter / SSE state word and its dot (Saúde, Login's bot row). */
   --state-neutral-text: #8a8a92;
   --state-neutral-dot: #8a8a92;
@@ -409,6 +418,7 @@
   --plane-action-danger-color: #ff9b91;
   --plane-action-danger-border: 1px solid #57332f;
   --plane-focus-color: #7aa6f7;
+  --login-bullet-2: #b79cf2;
   --plane-focus-ring: 0 0 0 3px rgba(122, 166, 247, 0.28);
 
   /* ---- Texto ---- */
@@ -427,6 +437,12 @@
   /* ---- Estado (ponto + palavra) ---- */
   --plane-status-good: #5ee08f;
   --plane-status-good-dot: #22c55e;
+  --source-hue-1: #7aa6f7;
+  --source-hue-2: #b9a6e8;
+  --source-hue-3: #f5c26b;
+  --source-hue-4: #6fd99b;
+  --source-hue-5: #ec93ac;
+  --source-hue-ink: #0f1116;
   --plane-status-warn: #f5c26b;
   --plane-status-warn-dot: #f5b544;
   --plane-status-warn-bg: #3a2c12;
@@ -575,9 +591,11 @@
   --nav-tab-text: #c4cbd8;
   --nav-tab-hover-text: #ffffff;
   --nav-tab-hover-bg: rgba(255, 255, 255, 0.08);
-  --nav-tab-active-text: #14171c;
-  --nav-tab-active-bg: #f2f4f8;
-  --nav-tab-active-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --nav-tab-active-text: #ffffff;
+  --nav-tab-active-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  --nav-tab-active-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34), inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.35);
   --nav-focus-ring-color: #7aa6f7;
   --nav-brand-text: #e9edf4;
   --nav-mascot-shine-border-color: rgba(255, 255, 255, 0.18);
@@ -585,10 +603,6 @@
   --nav-mascot-shine-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.24), inset 0 -2px 3px rgba(0, 0, 0, 0.55);
   --nav-mascot-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 22px rgba(120, 150, 220, 0.16);
   --nav-mascot-shadow-hover: 0 14px 32px rgba(0, 0, 0, 0.6), 0 0 28px rgba(120, 150, 220, 0.24);
-  /* The cat is black: a hairline light rim keeps its outline on the dark disc
-     (the PNG itself is untouched). */
-  --nav-mascot-image-shadow: drop-shadow(0 0 1px rgba(255, 255, 255, 0.55))
-    drop-shadow(0 0 6px rgba(255, 255, 255, 0.18));
   --nav-menu-border-color: rgba(255, 255, 255, 0.16);
   --nav-menu-bg: rgba(26, 29, 36, 0.86);
   --nav-menu-shadow:

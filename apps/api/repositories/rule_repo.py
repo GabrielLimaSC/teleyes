@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from models import Delivery, Match, MatchCorrection, Rule
+from models import Delivery, Match, MatchCorrection, RecipientRule, Rule
 from packages.rules.match import terms_error
 from repositories.errors import NotFoundError, ValidationError
 
@@ -107,6 +107,9 @@ def resume_rule(session: Session, rule_id: int) -> Rule:
 
 def delete_rule(session: Session, rule_id: int) -> None:
     rule = _get_rule(session, rule_id)
+    # S21-06 (F8): drop the rule from every "selected" recipient. SQLite does not
+    # enforce the declared ON DELETE CASCADE here (no PRAGMA foreign_keys).
+    session.execute(delete(RecipientRule).where(RecipientRule.rule_id == rule_id))
     session.delete(rule)
     session.flush()
 

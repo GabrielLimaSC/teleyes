@@ -20,6 +20,15 @@ describe('ThemeToggle', () => {
     expect(button).toHaveAttribute('aria-describedby', screen.getByRole('tooltip').id)
   })
 
+  it('wears the tab look: half-circle glyph plus the visible word Tema', () => {
+    render(<ThemeToggle />)
+
+    const button = screen.getByRole('button', { name: 'Tema: Sistema' })
+    expect(button).toHaveClass('nav-tab')
+    expect(button).toHaveTextContent('Tema')
+    expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('one click cycles Sistema → Claro → Escuro → Sistema, and applies and stores each', async () => {
     const user = userEvent.setup()
     render(<ThemeToggle />)

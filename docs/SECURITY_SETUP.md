@@ -130,6 +130,19 @@ demo hides the wizard. A public demo must never be able to attach an account.
 0600, entrypoints re-tighten them on boot. Tests: `test_concurrent_updates_never_lose_one_another`,
 `test_store_creates_a_private_directory_and_a_0600_file`.
 
+**T12. Persistent dashboard sessions ("Manter conectado", S21-12).** Sessions live in the `admin_session`
+table, so they survive a restart. *Stolen cookie:* HttpOnly, SameSite=strict and Secure (unless
+self-hosting over plain http) limit theft; a stolen cookie is still a login, so the Telegram-account
+controls above (T2, T3) apply to it, a remembered session is capped at 30 days from login with no
+sliding extension, logout deletes the row (the old cookie then gets 401) and `scripts/create_admin.py`
+deleting every session is the "sign everyone out" button. *Leaked database/backup:* the table holds only
+`sha256(token)`; the cookie token (`secrets.token_urlsafe(32)`) and the CSRF token (an HMAC keyed by that
+token) cannot be recomputed from it, so a copied backup does not hand out working sessions. *Fixation:*
+the token is always minted server-side at login, a cookie the browser already held is deleted when the
+login succeeds, and the CSRF token is bound to the session. Without "remember" the cookie has no
+Max-Age and the session keeps the 24h sliding inactivity window. `last_seen_at` is written at most once
+a minute per session; expired rows are swept at every login. Tests: `apps/api/tests/test_auth_session.py`.
+
 ## Residual risks and what the wizard cannot do
 
 * **Disconnecting deletes the local session; it does not end it at Telegram.** Only the account owner can

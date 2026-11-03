@@ -18,7 +18,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-.venv/
+.venv
 dist/
 *.egg-info/
 
@@ -45,3 +45,8 @@ backups/
 # Local design-tool state (not part of the project)
 .impeccable/
 apps/web/dist-demo-static/
+
+# Local-only Playwright copies (per-Dev ports, screenshots)
+*.local.config.ts
+*.local.sh
+*.local.spec.ts

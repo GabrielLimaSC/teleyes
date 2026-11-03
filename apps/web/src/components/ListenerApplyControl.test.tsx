@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { listenerStatus } from '../test/listenerFixtures'
-import { ListenerApplyPanel } from './ListenerApplyPanel'
+import { ListenerApplyControl } from './ListenerApplyControl'
 
 function renderPanel(
   status: ReturnType<typeof listenerStatus> | null,
@@ -10,7 +10,7 @@ function renderPanel(
 ) {
   const onApply = vi.fn()
   render(
-    <ListenerApplyPanel
+    <ListenerApplyControl
       status={status}
       error={overrides.error ?? null}
       requesting={overrides.requesting ?? false}
@@ -20,10 +20,10 @@ function renderPanel(
   return onApply
 }
 
-describe('ListenerApplyPanel', () => {
+describe('ListenerApplyControl', () => {
   it('shows nothing before the first answer, and the error if the first read failed', () => {
     const { container } = render(
-      <ListenerApplyPanel status={null} error={null} requesting={false} onApply={vi.fn()} />,
+      <ListenerApplyControl status={null} error={null} requesting={false} onApply={vi.fn()} />,
     )
     expect(container).toBeEmptyDOMElement()
   })
@@ -38,7 +38,7 @@ describe('ListenerApplyPanel', () => {
     const onApply = renderPanel(listenerStatus({ has_unapplied_changes: true }))
     const user = userEvent.setup()
 
-    expect(screen.getByText('Há mudanças ainda não aplicadas')).toBeInTheDocument()
+    expect(screen.getByText('mudanças pendentes')).toBeInTheDocument()
     const button = screen.getByRole('button', { name: 'Aplicar regras' })
     expect(button).not.toHaveClass('plane-action--secondary')
     await user.click(button)
@@ -49,7 +49,7 @@ describe('ListenerApplyPanel', () => {
   it('nothing to apply: the button stays available but is secondary', () => {
     renderPanel(listenerStatus())
 
-    expect(screen.getByText('Regras aplicadas')).toBeInTheDocument()
+    expect(screen.getByText(/^aplicado \d{2}\/\d{2} \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aplicar regras' })).toHaveClass('plane-action--secondary')
   })
 

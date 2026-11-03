@@ -1,5 +1,5 @@
 import { apiRequest, jsonHeaders } from './http'
-import type { Source } from './types'
+import type { Source, SourcesActivity } from './types'
 
 export interface SourceInput {
   name: string
@@ -32,3 +32,7 @@ export const pauseSource = (csrfToken: string, id: number): Promise<Source> =>
 
 export const deleteSource = (csrfToken: string, id: number): Promise<void> =>
   apiRequest<void>(`/sources/${id}`, { method: 'DELETE', headers: jsonHeaders(csrfToken) })
+
+/** S21-09: per-source evaluations per day, matches and last match. */
+export const fetchSourcesActivity = (days = 7): Promise<SourcesActivity> =>
+  apiRequest<SourcesActivity>(`/sources/activity?days=${days}`)

@@ -24,7 +24,7 @@ from app.setup_runtime import (
 from auth.csrf import verify_csrf_token
 from auth.hashing import verify_password
 from auth.rate_limit import LoginRateLimiter
-from auth.session import SessionRecord, SessionStore
+from auth.session import REMEMBER_TTL_SECONDS, SessionRecord, SessionStore
 from models import Admin
 from models.db import get_engine, get_sessionmaker
 from packages.events.broker import EventBroker
@@ -43,6 +43,7 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     # S17-03: the listener runs in another process, so the api watches the
     # shared SQLite file and publishes new matches to its in-memory broker.
     from app.demo_runtime import demo_background
+    from app.health_sampler import sample_health
     from app.match_watcher import watch_matches
 
     settings = get_settings()
@@ -56,9 +57,13 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
             await stack.enter_async_context(
                 demo_background(application.state.session_factory, live=settings.teleyes_demo_live)
             )
-        await stack.enter_async_context(
+        watcher = await stack.enter_async_context(
             watch_matches(application.state.session_factory, application.state.event_broker)
         )
+        application.state.match_watcher = watcher
+        # S21-09: per-minute service samples for the Saúde history (off in tests unless enabled).
+        if application.state.health_sampler_enabled:
+            await stack.enter_async_context(sample_health(application))
         try:
             yield
         finally:
@@ -66,11 +71,13 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="teleyes", version="0.1.0", lifespan=_lifespan)
-app.state.session_store = SessionStore()
-app.state.rate_limiter = LoginRateLimiter()
 app.state.session_factory = get_sessionmaker(get_engine())
+app.state.session_store = SessionStore(app.state.session_factory)
+app.state.rate_limiter = LoginRateLimiter()
 app.state.started_at = time.monotonic()
 app.state.event_broker = EventBroker()
+app.state.match_watcher = None
+app.state.health_sampler_enabled = True
 
 
 # S19-02: the setup wizard (see docs/SECURITY_SETUP.md). The secret store and the login
@@ -175,6 +182,9 @@ def _session_cookie_secure() -> bool:
 
 class LoginRequest(BaseModel):
     password: str
+    # S21-12: "Manter conectado". Off: browser-session cookie, sliding 24h inactivity.
+    # On: the cookie and the server-side session both last 30 days from login.
+    remember: bool = False
 
 
 @app.post("/auth/login")
@@ -183,6 +193,7 @@ def login(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    previous_session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
 ) -> dict[str, str]:
     rate_limiter: LoginRateLimiter = request.app.state.rate_limiter
     client_key = request.client.host if request.client else "unknown"
@@ -197,10 +208,16 @@ def login(
 
     rate_limiter.record_success(client_key)
     store: SessionStore = request.app.state.session_store
-    record = store.create_session(admin.id)
+    # Session fixation: the token is always minted here, never taken from the client,
+    # and a session the browser was already holding does not outlive the new login.
+    if previous_session_id is not None:
+        store.delete_session(previous_session_id)
+    record = store.create_session(admin.id, remember=payload.remember)
     response.set_cookie(
         SESSION_COOKIE_NAME,
         record.session_id,
+        # No Max-Age without "remember": a browser-session cookie.
+        max_age=int(REMEMBER_TTL_SECONDS) if payload.remember else None,
         httponly=True,
         # S19-03: the public demo is reached over plain http://localhost by
         # strangers, and Safari drops Secure cookies there. Real deployments
@@ -246,6 +263,7 @@ def _register_routers() -> None:
     from app.routers.purchases import router as purchases_router
     from app.routers.recipients import router as recipients_router
     from app.routers.rules import router as rules_router
+    from app.routers.savings_goal import router as savings_goal_router
     from app.routers.savings_report import router as savings_report_router
     from app.routers.settings import router as settings_router
     from app.routers.setup import router as setup_router
@@ -260,6 +278,7 @@ def _register_routers() -> None:
     app.include_router(products_router)
     app.include_router(snoozes_router)
     app.include_router(purchases_router)
+    app.include_router(savings_goal_router)
     app.include_router(savings_report_router)
     app.include_router(metrics_router)
     app.include_router(notifications_router)

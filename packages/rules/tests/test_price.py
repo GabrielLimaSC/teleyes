@@ -137,7 +137,7 @@ def test_identical_value_anchored_as_both_cash_and_card_does_not_split() -> None
     assert result.price_card_cents is None
 
 
-def test_real_cmdias_message_extracts_the_product_price_not_the_coupon() -> None:
+def test_real_sample_message_extracts_the_product_price_not_the_coupon() -> None:
     """S8-01: the exact real message from the homologation bug — the panel
     showed R$ 90,00 (the coupon) instead of R$ 4.516 (the real product
     price), and even flagged it "menor preço já visto".
@@ -215,8 +215,8 @@ def test_coupon_noise_never_leaks_into_a_real_cash_and_card_split() -> None:
     assert result.price_cents == 10000
 
 
-def test_real_pc_do_fafa_message_keeps_the_price_despite_a_percent_discount_mention() -> None:
-    """S10-01: production match id 91 — a regression from S8-01. "desconto"
+def test_real_sample_store_message_keeps_the_price_despite_a_percent_discount_mention() -> None:
+    """S10-01: fictional message shaped like a real-world case — a regression from S8-01. "desconto"
     sits right after the price itself ("R$6.991,08 8% desconto no Pix"),
     describing a percentage discount *on* that price, not a coupon value —
     only 4 characters away from the price, closer than the confirmed "cupom
@@ -227,8 +227,8 @@ def test_real_pc_do_fafa_message_keeps_the_price_despite_a_percent_discount_ment
     result = extract_price(
         "👌 Placa de Video Geforce Nvidia Palit Rtx 5070 Ti 16Gb Gamingpro-S Gdr7 256Bit "
         "3-Dp Hd\n\n💲 Valor: R$6.991,08 8% desconto no Pix\n\n👉 Resgate o cupom\n"
-        "👀 https://pcdofafa.com.br/p/shopee/jb6gwx\n\n👀 https://pcdofafa.com.br/p/shopee/4bfbpd\n\n"
-        "✅BOT DE DESCONTOS: @FafaPromobot\n\n_________________________\n"
+        "👀 https://loja.example/p/abc123\n\n👀 https://loja.example/p/def456\n\n"
+        "✅BOT DE DESCONTOS: @LojaExemploBot\n\n_________________________\n"
         "__✅ Oferta verificada: conferimos manualmente o preço e cupom__"
     )
 
@@ -236,8 +236,8 @@ def test_real_pc_do_fafa_message_keeps_the_price_despite_a_percent_discount_ment
     assert result.ambiguous is False
 
 
-def test_real_pc_do_fafa_message_id93_keeps_the_price_with_an_unrelated_coupon_code() -> None:
-    """S10-01: production match id 93 — "Cupom:" is immediately followed by
+def test_real_sample_store_message_id93_keeps_the_price_with_an_unrelated_coupon_code() -> None:
+    """S10-01: fictional message shaped like a real-world case — "Cupom:" is immediately followed by
     a coupon *code* (not a price value), and the two "desconto" mentions are
     each a full sentence away from the price ("Link App com desconto em
     moedas", pure navigation text). Neither anchor has a real coupon value
@@ -247,8 +247,8 @@ def test_real_pc_do_fafa_message_id93_keeps_the_price_with_an_unrelated_coupon_c
         "👌Air Cooler METALFISH ZH-1400, 4 Heatpipes, 1700 1200 1150 1155 1156 1366 2011 "
         "AM5 AM4 AM3 x99 x79\n\n💲Valor: R$85,70\n\n-Cupom: `PGXMHWY67VTZ` +671  Moedas no APP\n\n"
         "✅ Link App com desconto em moedas:\n👀 https://a.aliexpress.com/_c4Wr0VO5\n\n"
-        "✅ Link para PC / sem super desconto moedas:\n👀 https://pcdofafa.com.br/p/aliexpress/3uad1x\n\n"
-        "✅BOT DE DESCONTOS: @FafaPromobot\n\n-Somente no APP, vai abrir na página de moedas e "
+        "✅ Link para PC / sem super desconto moedas:\n👀 https://loja.example/p/ghi789\n\n"
+        "✅BOT DE DESCONTOS: @LojaExemploBot\n\n-Somente no APP, vai abrir na página de moedas e "
         "clique no primeiro anúncio\n\n_________________________\n"
         "__✅ Oferta verificada: conferimos manualmente o preço e cupon__"
     )
@@ -257,8 +257,8 @@ def test_real_pc_do_fafa_message_id93_keeps_the_price_with_an_unrelated_coupon_c
     assert result.ambiguous is False
 
 
-def test_real_cmdias_message_keeps_price_when_coupon_amount_has_no_currency_marker() -> None:
-    """S10-01: production matches id 88/89 — "100 OFF" has no `R$`/comma, so
+def test_real_sample_message_keeps_price_when_coupon_amount_has_no_currency_marker() -> None:
+    """S10-01: fictional messages shaped like real-world cases — "100 OFF" has no `R$`/comma, so
     "100" never becomes a candidate at all (by design, see `extract_price`'s
     own docstring on bare numbers). The old code let "OFF" reach straight
     past it to the real price 25 characters earlier instead of leaving the
@@ -266,7 +266,7 @@ def test_real_cmdias_message_keeps_price_when_coupon_amount_has_no_currency_mark
     """
     result = extract_price(
         "🔥 Placa de Vídeo NVIDIA GeForce MSI RTX5060 8GB GDDR7 128BITS SHADOW 2X\n\n"
-        "💵 R$ 2.542\n\n🎟 Resgate cupom de 100 OFF:\nhttps://s.shopee.com.br/2gB9kYURhz\n\n"
+        "💵 R$ 2.542\n\n🎟 Resgate cupom de 100 OFF:\nhttps://loja.example/p/xyz789\n\n"
         "🔗 LINK: https://s.shopee.com.br/2BEt9df9Gx?lp=aff\n\n"
         "⚠️Cupom, preço e estoque por tempo limitado. \n\n"
         "TEM ALGUMA DÚVIDA? ACESSE ESSE LINK ABAIXO E FAÇA SUA PERGUNTA, \n"

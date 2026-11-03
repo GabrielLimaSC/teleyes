@@ -111,7 +111,7 @@ test('all tabs remain responsive during rapid page-fade navigation', async ({ pa
   await page.goto('/feed')
 
   const routeSequence = [
-    ['Login', '/'],
+    ['Início', '/'],
     ['Feed', '/feed'],
     ['Regras', '/regras'],
     ['Fontes', '/fontes'],
@@ -127,7 +127,7 @@ test('all tabs remain responsive during rapid page-fade navigation', async ({ pa
   // Exercise interruption: each new click arrives before the 180ms fade can
   // finish. The live navigation must accept every real pointer click and
   // settle on the final requested route with no animation left hanging.
-  for (const label of ['Login', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Saúde']) {
+  for (const label of ['Início', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Saúde']) {
     await page.getByRole('link', { name: label }).click()
     await page.waitForTimeout(35)
   }

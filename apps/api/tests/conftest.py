@@ -51,3 +51,13 @@ def instant_notify_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     from app import pipeline
 
     monkeypatch.setattr(pipeline, "NOTIFY_BASE_DELAY", 0.0)
+
+
+@pytest.fixture(autouse=True)
+def no_health_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S21-09: the per-minute service sampler must not run (or write) during tests unless
+    a test turns it on explicitly."""
+    from app.main import app
+
+    # `State` keeps values in `_state`; pytest 9.2 `setattr` undo would delete the attribute.
+    monkeypatch.setitem(app.state._state, "health_sampler_enabled", False)

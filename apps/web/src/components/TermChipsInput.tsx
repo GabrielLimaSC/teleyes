@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { ChangeEvent, KeyboardEvent } from 'react'
+import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react'
 import { addTerms, parseTermList, removeTerm } from '../utils/termList'
 import './TermChipsInput.css'
 
@@ -10,6 +10,8 @@ interface TermChipsInputProps {
   value: string
   onChange: (value: string) => void
   helper?: string
+  /** S21-02: a control beside the label (the "?" help), outside the <label>. */
+  labelAction?: ReactNode
 }
 
 /**
@@ -19,7 +21,7 @@ interface TermChipsInputProps {
  * last term never loses it. The value stays the API's comma-separated string
  * — chips are only how it is edited.
  */
-export function TermChipsInput({ id, label, value, onChange, helper }: TermChipsInputProps) {
+export function TermChipsInput({ id, label, value, onChange, helper, labelAction }: TermChipsInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState('')
   const terms = parseTermList(value)
@@ -61,7 +63,10 @@ export function TermChipsInput({ id, label, value, onChange, helper }: TermChips
 
   return (
     <div className="term-chips-field">
-      <label htmlFor={id}>{label}</label>
+      <div className="term-chips-field__label-row">
+        <label htmlFor={id}>{label}</label>
+        {labelAction}
+      </div>
       {/* Clicking the empty area of the box focuses the field, like a
           plain input — the box is the visual input, the <input> inside is
           the real one. */}

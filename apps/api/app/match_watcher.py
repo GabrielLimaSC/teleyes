@@ -55,6 +55,8 @@ GRACE_SECONDS = 8.0
 MAX_PENDING = 500
 MAX_TRACKED = 500
 BATCH_LIMIT = 200
+# S21-09: a feed loop silent for this long counts as unhealthy (~15 missed ticks).
+HEALTHY_MAX_AGE_SECONDS = 30.0
 
 
 def read_max_match_id(session: Session) -> int:
@@ -129,6 +131,12 @@ class MatchWatcher:
         self._last_seen_id: int | None = None
         self._pending: dict[int, float] = {}
         self._published: OrderedDict[int, Signature] = OrderedDict()
+        # S21-09: when a poll last succeeded, for the health sampler's "sse" service.
+        self._last_ok_at = clock()
+
+    def is_healthy(self, max_age_seconds: float = HEALTHY_MAX_AGE_SECONDS) -> bool:
+        """Whether the live-feed loop polled the database successfully recently."""
+        return self._clock() - self._last_ok_at <= max_age_seconds
 
     def _remember(self, match_id: int, signature: Signature) -> None:
         self._published[match_id] = signature
@@ -203,6 +211,7 @@ class MatchWatcher:
         while True:
             try:
                 await self.poll_once()
+                self._last_ok_at = self._clock()
             except asyncio.CancelledError:
                 raise
             except OperationalError as error:

@@ -8,30 +8,27 @@ import { fetchProduct } from '../api/products'
 import {
   createPurchase,
   deletePurchase,
+  deleteSavingsGoal,
   fetchSavingsReport,
   listPurchases,
+  saveSavingsGoal,
   updatePurchase,
 } from '../api/purchases'
-import type { Purchase, PurchaseInput, ReportItem, SavingsReport } from '../api/purchases'
+import type { Purchase, PurchaseInput, SavingsGoalInput, SavingsReport } from '../api/purchases'
 import { listRules } from '../api/rules'
 import type { Rule } from '../api/types'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { RowActionsMenu } from '../components/RowActionsMenu'
 import { cardTitle } from '../components/matchTitle'
 import { EMPTY_DRAFT, valuesFromDraft } from '../economia/purchaseDraft'
 import type { EconomiaNavState, LinkOption, PurchaseDraft } from '../economia/purchaseDraft'
 import { PurchaseForm } from '../economia/PurchaseForm'
+import { PriceRangeBar } from '../economia/PriceRangeBar'
 import { ResultsCardPanel } from '../economia/ResultsCardPanel'
+import { GoalCard, GoalDialog } from '../economia/GoalCard'
+import { PaidCard, SavingsCard } from '../economia/SummaryCards'
 import { apiDateToInput, parseApiDate, toDateInputValue } from '../utils/dates'
-import {
-  METHODOLOGY,
-  blackFridayLabel,
-  formatCount,
-  formatCurrency,
-  formatPct,
-  formatSigned,
-  savingLabel,
-  savingTone,
-} from '../utils/savings'
+import { formatCount, formatCurrency, savingPill, savingTone } from '../utils/savings'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../styles/materials.css'
 import '../components/FillButton.css'
@@ -44,15 +41,14 @@ function normalize(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 }
 
-function dayOf(iso: string): string {
-  return parseApiDate(iso).toLocaleDateString('pt-BR')
+function dayMonth(iso: string): string {
+  return parseApiDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
-function priceRange(item: ReportItem): string {
-  const savings = item.savings
-  if (savings === null || savings.status !== 'ok') return '—'
-  if (savings.lowest_seen_cents === null || savings.highest_seen_cents === null) return '—'
-  return `${formatCurrency(savings.lowest_seen_cents)} – ${formatCurrency(savings.highest_seen_cents)}`
+/** "+8,3%" / "−2,0%" of the goal; the sign matters (an overpayment subtracts). */
+function shareLabel(share: number): string {
+  const text = `${Math.abs(share).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+  return share > 0 ? `+${text}` : share < 0 ? `−${text}` : text
 }
 
 export function EconomiaPage() {
@@ -63,7 +59,9 @@ export function EconomiaPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [report, setReport] = useState<SavingsReport | null>(null)
   const [rules, setRules] = useState<Rule[]>([])
-  const [blackFriday, setBlackFriday] = useState('')
+  const [goalDialog, setGoalDialog] = useState(false)
+  const [goalSaving, setGoalSaving] = useState(false)
+  const [goalError, setGoalError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
@@ -74,7 +72,7 @@ export function EconomiaPage() {
   const [showCard, setShowCard] = useState(false)
 
   const reload = useCallback(() => {
-    Promise.all([listPurchases(), fetchSavingsReport(blackFriday || undefined)])
+    Promise.all([listPurchases(), fetchSavingsReport()])
       .then(([purchaseRows, reportData]) => {
         setPurchases(purchaseRows)
         setReport(reportData)
@@ -82,7 +80,7 @@ export function EconomiaPage() {
       })
       .catch(() => setListError('Não foi possível carregar o relatório de economia.'))
       .finally(() => setLoading(false))
-  }, [blackFriday])
+  }, [])
 
   useEffect(reload, [reload])
 
@@ -201,6 +199,48 @@ export function EconomiaPage() {
       .finally(() => setDeleting(false))
   }
 
+  const closeGoal = () => {
+    setGoalDialog(false)
+    setGoalError(null)
+  }
+
+  const submitGoal = (input: SavingsGoalInput) => {
+    if (csrfToken === null) {
+      setGoalError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    setGoalSaving(true)
+    setGoalError(null)
+    saveSavingsGoal(csrfToken, input)
+      .then(() => {
+        closeGoal()
+        reload()
+      })
+      .catch((error: unknown) =>
+        reportFailure(
+          error,
+          error instanceof ApiError ? error.message : 'Não foi possível salvar a meta.',
+          setGoalError,
+        ),
+      )
+      .finally(() => setGoalSaving(false))
+  }
+
+  const removeGoal = () => {
+    if (csrfToken === null) {
+      setGoalError(CSRF_MISSING_MESSAGE)
+      return
+    }
+    setGoalSaving(true)
+    deleteSavingsGoal(csrfToken)
+      .then(() => {
+        closeGoal()
+        reload()
+      })
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível remover a meta.', setGoalError))
+      .finally(() => setGoalSaving(false))
+  }
+
   const purchaseById = useMemo(() => new Map(purchases.map((purchase) => [purchase.id, purchase])), [purchases])
   const formInitial = useMemo(() => {
     if (formTarget === null) return null
@@ -222,8 +262,7 @@ export function EconomiaPage() {
   }, [formTarget])
 
   const totals = report?.totals
-  const bf = report?.black_friday
-  const tone = totals && totals.linked_with_data > 0 ? (totals.estimated_saving_cents < 0 ? 'bad' : 'good') : 'none'
+  const goal = report?.goal ?? null
 
   return (
     <main className="economia-page">
@@ -235,9 +274,6 @@ export function EconomiaPage() {
           </p>
         </div>
         <div className="economia-page__header-actions">
-          <button type="button" className="plane-action fill-button" onClick={openCreate} onPointerDown={fillOrigin}>
-            Registrar compra
-          </button>
           <button
             type="button"
             className="plane-action plane-action--secondary"
@@ -245,6 +281,10 @@ export function EconomiaPage() {
             disabled={report === null || report.totals.purchases === 0}
           >
             Gerar cartão de resultados
+          </button>
+          <button type="button" className="plane-action fill-button" onClick={openCreate} onPointerDown={fillOrigin}>
+            <span aria-hidden="true" className="economia-page__plus">+</span>
+            Registrar compra
           </button>
         </div>
       </div>
@@ -269,110 +309,93 @@ export function EconomiaPage() {
         </p>
       )}
 
-      {report && totals && bf && (
+      {report && totals && (
         <>
           <section className="economia-tiles" aria-label="Resumo">
-            <div className="plane-pearl economia-tile">
-              <div className="economia-tile__label">Total pago</div>
-              <div className="economia-tile__value">{formatCurrency(totals.total_paid_cents)}</div>
-              <div className="economia-tile__detail">
-                {totals.purchases} {totals.purchases === 1 ? 'compra' : 'compras'}
-              </div>
-            </div>
-            <div className="plane-pearl economia-tile">
-              <div className="economia-tile__label">Economia estimada</div>
-              <div className={`economia-tile__value economia-tone--${tone}`}>
-                {totals.linked_with_data > 0 ? formatSigned(totals.estimated_saving_cents) : 'sem dados'}
-              </div>
-              <div className="economia-tile__detail">
-                {totals.linked_with_data > 0
-                  ? `${totals.estimated_saving_pct === null ? '' : `${formatPct(totals.estimated_saving_pct)} vs. mediana · `}${totals.linked_with_data} de ${totals.purchases} com histórico`
-                  : 'Vincule compras a produtos para estimar'}
-              </div>
-            </div>
-            <div className="plane-pearl economia-tile">
-              <div className="economia-tile__label">Antes da Black Friday</div>
-              <div className="economia-tile__value">
-                {bf.days_before_min === null || bf.days_before_max === null
-                  ? '—'
-                  : bf.days_before_min === bf.days_before_max
-                    ? blackFridayLabel(bf.days_before_min)
-                    : `${bf.days_before_min}–${bf.days_before_max} dias antes`}
-              </div>
-              <label className="economia-tile__detail economia-tile__bf">
-                Black Friday
-                <input
-                  type="date"
-                  aria-label="Data da Black Friday"
-                  value={blackFriday || bf.date}
-                  onChange={(event) => setBlackFriday(event.target.value)}
-                />
-                {blackFriday !== '' && (
-                  <button type="button" onClick={() => setBlackFriday('')}>
-                    Usar padrão
-                  </button>
-                )}
-              </label>
-            </div>
+            <SavingsCard report={report} />
+            <PaidCard report={report} />
+            <GoalCard
+              goal={goal}
+              onDefine={() => setGoalDialog(true)}
+              onEdit={() => setGoalDialog(true)}
+            />
           </section>
 
-          <p className="economia-page__method">{METHODOLOGY}</p>
-
           <section className="plane-pearl economia-table-wrap" aria-label="Compras">
-            <table className="crud-table">
+            <div className="economia-table__head">
+              <h2>Compras</h2>
+              <ul className="economia-legend" aria-label="Legenda">
+                <li>
+                  <span className="economia-legend__range" aria-hidden="true" />
+                  menor–maior visto 90d
+                </li>
+                <li>
+                  <span className="economia-legend__median" aria-hidden="true" />
+                  mediana
+                </li>
+                <li>
+                  <span className="economia-legend__paid" aria-hidden="true" />
+                  você pagou
+                </li>
+              </ul>
+            </div>
+            <table className="economia-table">
               <thead>
                 <tr>
                   <th>Peça</th>
-                  <th>Pago</th>
-                  <th>Mediana 90d</th>
-                  <th>Economia estimada</th>
-                  <th>Menor – maior visto</th>
-                  <th>Data</th>
-                  <th>Black Friday</th>
-                  <th>Ações</th>
+                  <th className="economia-table__num">Pago</th>
+                  <th>Onde o preço caiu na faixa vista</th>
+                  <th>Economia</th>
+                  {goal && <th className="economia-table__num">Parte da meta</th>}
+                  <th>
+                    <span className="sr-only">Ações</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {report.items.map((item) => {
                   const purchase = purchaseById.get(item.id)
-                  const toneClass = `economia-tone--${savingTone(item.savings)}`
+                  const tone = savingTone(item.savings)
+                  const pill = savingPill(item.savings)
                   return (
                     <tr key={item.id}>
-                      <td className="crud-table__name" data-label="Peça">
-                        {item.name}
-                        {item.store && <div className="economia-table__store">{item.store}</div>}
+                      <td className="economia-table__piece" data-label="Peça">
+                        <div className="economia-table__name">{item.name}</div>
+                        <div className="economia-table__store">
+                          {[item.store, dayMonth(item.purchased_at)].filter(Boolean).join(' · ')}
+                        </div>
                       </td>
-                      <td data-label="Pago">{formatCurrency(item.price_cents)}</td>
-                      <td data-label="Mediana 90d">
-                        {item.savings?.status === 'ok' && item.savings.median_90d_cents !== null
-                          ? formatCurrency(item.savings.median_90d_cents)
-                          : '—'}
+                      <td className="economia-table__num" data-label="Pago">
+                        {formatCurrency(item.price_cents)}
                       </td>
-                      <td data-label="Economia estimada" className={toneClass}>
-                        {savingLabel(item.savings)}
+                      <td className="economia-table__range" data-label="Faixa vista">
+                        <PriceRangeBar item={item} />
                       </td>
-                      <td data-label="Menor – maior visto">{priceRange(item)}</td>
-                      <td data-label="Data">{dayOf(item.purchased_at)}</td>
-                      <td data-label="Black Friday">{blackFridayLabel(item.days_before_black_friday)}</td>
-                      <td className="crud-table__actions" data-label="Ações">
-                        <button type="button" onClick={() => purchase && openEdit(purchase)} disabled={!purchase}>
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="crud-table__actions--danger"
-                          onClick={() => purchase && setPendingDelete(purchase)}
-                          disabled={!purchase}
-                        >
-                          Excluir
-                        </button>
+                      <td data-label="Economia">
+                        <span className={`economia-pill economia-pill--${tone}`}>{pill}</span>
+                      </td>
+                      {goal && (
+                        <td className="economia-table__num" data-label="Parte da meta">
+                          {item.share_of_goal == null ? '—' : shareLabel(item.share_of_goal)}
+                        </td>
+                      )}
+                      <td className="economia-table__actions">
+                        {purchase && (
+                          <RowActionsMenu
+                            label={`Mais ações da compra ${item.name}`}
+                            items={[
+                              { key: 'edit', label: 'Editar', onSelect: () => openEdit(purchase) },
+                              { key: 'delete', label: 'Excluir', danger: true, onSelect: () => setPendingDelete(purchase) },
+                            ]}
+                          />
+                        )}
                       </td>
                     </tr>
                   )
                 })}
                 {report.items.length === 0 && (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={goal ? 6 : 5} className="economia-table__empty">
                       Nenhuma compra registrada ainda. Use “Registrar compra” ou “Marcar como comprado” em um card
                       do Feed.
                     </td>
@@ -422,6 +445,17 @@ export function EconomiaPage() {
 
           {showCard && <ResultsCardPanel report={report} onClose={() => setShowCard(false)} />}
         </>
+      )}
+
+      {goalDialog && (
+        <GoalDialog
+          current={goal}
+          submitting={goalSaving}
+          error={goalError}
+          onSubmit={submitGoal}
+          onRemove={removeGoal}
+          onCancel={closeGoal}
+        />
       )}
 
       {pendingDelete && (
