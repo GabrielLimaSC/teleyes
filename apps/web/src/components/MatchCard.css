@@ -54,14 +54,14 @@
   align-items: center;
   gap: 6px;
   margin-bottom: 4px;
-  min-height: 22px;
+  min-height: 24px;
 }
 
 .match-card__badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 22px;
+  height: 24px;
   padding: 0 9px;
   border-radius: 999px;
   font-size: 11.5px;
@@ -108,7 +108,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 22px;
+  height: 24px;
   padding: 0 9px;
   border-radius: 999px;
   font-size: 11.5px;
@@ -129,6 +129,7 @@
   font-weight: 700;
   color: var(--text-strong);
   overflow-wrap: break-word;
+  text-wrap: pretty;
   /* S8-02 safety net, not the main strategy (that's cutting before the first
      link in JS): the rare case of a long product description with no link
      at all still gets capped, wrapping normally otherwise (no S7-02
@@ -328,7 +329,7 @@
 }
 
 .match-card__action {
-  height: 30px;
+  height: 32px;
   padding: 0 11px;
   font-size: 12px;
 }
@@ -363,45 +364,30 @@
 .match-card__links {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   margin-left: auto;
 }
 
-/* S16-03 (01): "Abrir promoção ↗" — text + icon on a wide card. The icon
-   span is a plain character, not a separate `.product-open-trigger`-style
-   button, so it keeps sitting inline with the underline like before. */
+/* S21-05: icon button (text lives in aria-label/title), same square as "⋯". */
 .match-card__link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-body);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  white-space: nowrap;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid var(--plane-action-secondary-border);
+  background: var(--plane-action-secondary-bg);
+  color: var(--plane-text-primary);
+}
+
+.match-card__link:hover {
+  background: var(--plane-tint-bg);
 }
 
 .match-card__link:focus-visible {
   outline: none;
-  border-radius: 4px;
   box-shadow: var(--plane-focus-ring);
-}
-
-/* S16-03 (01): narrow card — same link, same accessible name ("Abrir
-   promoção", set via `aria-label` regardless of width in MatchCard.tsx),
-   just the icon on its own inside a 30px square so it lines up with the
-   other actions ("altura da barra de ações = altura de um botão"). */
-.match-card__link--icon {
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  text-decoration: none;
-}
-
-.match-card__link--icon:hover {
-  background: var(--plane-tint-bg);
 }
 
 /* S16-03 (01/05): the "⋯" menu — "Criar regra disso" always, plus
@@ -416,8 +402,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border-radius: 9px;
   border: 1px solid var(--plane-action-secondary-border);

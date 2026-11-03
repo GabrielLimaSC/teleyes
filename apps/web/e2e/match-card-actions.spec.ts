@@ -156,13 +156,13 @@ test.describe('MatchCard — ações em uma linha (S16-03 01/05)', () => {
     await scrollIntoWideCards(page)
     const wideCard = page.locator('.match-card', { hasText: seed.title })
     await expect(wideCard).toBeVisible()
-    await expect(wideCard.getByRole('link', { name: 'Abrir promoção' })).toHaveText(/Abrir promoção/)
+    await expect(wideCard.getByRole('link', { name: 'Abrir promoção' })).not.toHaveText(/Abrir promoção/)
     const wideBox = await wideCard.locator('.match-card__actions').boundingBox()
     if (!wideBox) throw new Error('bounding box missing')
     expect(wideBox.height).toBeLessThan(55)
   })
 
-  test('card largo: "Silenciar" e "Abrir promoção" por extenso ficam na barra, fora do menu', async ({ page }) => {
+  test('card largo: "Silenciar" e o ícone "Abrir promoção" ficam na barra, fora do menu', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     const seed = await seedProduct(page, 'largo', 'Placa de vídeo Ações Largo', '2.899')
     await seedFiller(page, seed.csrfToken, 'largo', 16)
@@ -175,7 +175,7 @@ test.describe('MatchCard — ações em uma linha (S16-03 01/05)', () => {
     await scrollIntoWideCards(page)
 
     await expect(card.getByRole('button', { name: 'Silenciar 7 dias' })).toBeVisible()
-    await expect(card.getByRole('link', { name: 'Abrir promoção' })).toHaveText(/Abrir promoção/)
+    await expect(card.getByRole('link', { name: 'Abrir promoção' })).toBeVisible()
     // "Criar regra disso" stays behind "⋯" even on a wide card.
     await expect(card.getByRole('button', { name: 'Criar regra disso' })).not.toBeVisible()
     await card.getByRole('button', { name: 'Mais ações' }).click()
