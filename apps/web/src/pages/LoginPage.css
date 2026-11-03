@@ -235,3 +235,242 @@
   text-align: center;
 }
 
+
+/* ---- S21-03: login v2 — marca à esquerda, formulário de vidro à direita ---- */
+.login-page--v2 {
+  min-height: 100dvh;
+  align-items: center;
+  padding: 32px 16px;
+}
+
+.login-v2 {
+  width: 100%;
+  max-width: 1120px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  gap: 48px;
+  align-items: center;
+}
+
+.login-v2__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-v2__mascot-wrap {
+  width: 128px;
+  height: 128px;
+  display: block;
+}
+
+.login-v2__mascot {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.login-v2__mascot--dark {
+  display: none;
+}
+
+[data-theme='dark'] .login-v2__mascot--light {
+  display: none;
+}
+
+[data-theme='dark'] .login-v2__mascot--dark {
+  display: block;
+}
+
+.login-v2__wordmark {
+  margin: 0;
+  font-size: clamp(44px, 7vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text-strong);
+}
+
+.login-v2__lede {
+  margin: 0;
+  max-width: 30em;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--plane-text-secondary);
+}
+
+.login-v2__bullets {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--plane-text-primary);
+}
+
+.login-v2__bullets li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-v2__bullets li::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--plane-focus-color);
+}
+
+.login-v2__bullets li[data-tone='2']::before {
+  background: var(--login-bullet-2);
+}
+
+.login-v2__bullets li[data-tone='3']::before {
+  background: var(--plane-status-good-dot);
+}
+
+.login-v2__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 32px;
+  border-radius: 20px;
+}
+
+.login-field__control {
+  position: relative;
+  display: flex;
+}
+
+.login-field__control input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 84px;
+}
+
+.login-field__toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--plane-focus-color);
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.login-field__toggle:focus-visible {
+  outline: 2px solid var(--plane-focus-color);
+  outline-offset: -2px;
+}
+
+.login-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+}
+
+.login-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--plane-focus-color);
+}
+
+.login-v2__or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.login-v2__or::before,
+.login-v2__or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--glass-divider-bg);
+}
+
+.login-v2__form a.login-submit {
+  text-decoration: none;
+  height: 44px;
+}
+
+.login-v2__demo-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--plane-text-helper);
+}
+
+.login-v2__footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.login-v2__footer a {
+  font-weight: 600;
+  color: var(--plane-focus-color);
+  text-decoration: none;
+}
+
+.login-v2__footer a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 860px) {
+  .login-page--v2 {
+    align-items: flex-start;
+  }
+
+  .login-v2 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .login-v2__brand {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 16px;
+    row-gap: 8px;
+    align-items: center;
+  }
+
+  .login-v2__mascot-wrap {
+    width: 64px;
+    height: 64px;
+    grid-row: 1;
+  }
+
+  .login-v2__lede,
+  .login-v2__bullets {
+    grid-column: 1 / -1;
+  }
+
+  .login-v2__lede {
+    font-size: 15px;
+  }
+
+  .login-v2__form {
+    padding: 24px;
+  }
+}

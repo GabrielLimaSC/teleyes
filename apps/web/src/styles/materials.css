@@ -72,6 +72,7 @@
   --plane-action-danger-color: #a32a24;
   --plane-action-danger-border: 1px solid #e3c4c1;
   --plane-focus-color: #315ea8;
+  --login-bullet-2: #7c5cc4;
   --plane-focus-ring: 0 0 0 3px rgba(49, 94, 168, 0.16);
 
   /* ---- Shared text colors (all 3 planes use the same ones) ---- */
@@ -410,6 +411,7 @@
   --plane-action-danger-color: #ff9b91;
   --plane-action-danger-border: 1px solid #57332f;
   --plane-focus-color: #7aa6f7;
+  --login-bullet-2: #b79cf2;
   --plane-focus-ring: 0 0 0 3px rgba(122, 166, 247, 0.28);
 
   /* ---- Texto ---- */

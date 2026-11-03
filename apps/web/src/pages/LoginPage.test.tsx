@@ -134,7 +134,7 @@ describe('LoginPage', () => {
     expect(await screen.findByTestId('demo-login-hint')).toHaveTextContent('demo-teleyes')
   })
 
-  it('keeps the create_admin hint outside demo mode (S19-03)', async () => {
+  it('keeps the ADMIN_PASSWORD hint outside demo mode (S19-03)', async () => {
     mockFetch({})
 
     render(
@@ -143,7 +143,7 @@ describe('LoginPage', () => {
       </AuthProvider>,
     )
 
-    expect(await screen.findByText(/create_admin\.py/)).toBeInTheDocument()
+    expect(await screen.findByText(/ADMIN_PASSWORD/)).toBeInTheDocument()
     expect(screen.queryByTestId('demo-login-hint')).not.toBeInTheDocument()
   })
 
@@ -173,12 +173,60 @@ describe('LoginPage', () => {
     // Decorative — the "teleyes" heading right next to it already names the
     // brand for screen readers, so an empty alt avoids redundant noise
     // rather than announcing "imagem" or repeating the name.
-    const mascot = document.querySelector('.login-card__mascot')
-    expect(mascot).toBeInTheDocument()
-    expect(mascot).toHaveAttribute('alt', '')
+    const mascots = document.querySelectorAll('.login-v2__mascot')
+    expect(mascots).toHaveLength(2)
+    mascots.forEach((mascot) => expect(mascot).toHaveAttribute('alt', ''))
   })
 
-  it('shows only the public health facts (Bot, Ambiente) pre-login, never private stats', async () => {
+  it('toggles password visibility without losing the typed value (S21-03)', async () => {
+    mockFetch({})
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+    const input = await screen.findByLabelText('Senha')
+    await userEvent.type(input, 'segredo')
+    const toggle = screen.getByRole('button', { name: 'Mostrar' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(input).toHaveAttribute('type', 'password')
+    await userEvent.click(toggle)
+    expect(input).toHaveAttribute('type', 'text')
+    expect(input).toHaveValue('segredo')
+    expect(screen.getByRole('button', { name: 'Ocultar' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('links to the public demo in a new tab, never into the app (S21-03)', async () => {
+    mockFetch({})
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+    await screen.findByLabelText('Senha')
+    const demo = screen.getByRole('link', { name: 'Explorar a demonstração' })
+    expect(demo).toHaveAttribute('href', 'https://gabriellimasc.github.io/teleyes/')
+    expect(demo).toHaveAttribute('target', '_blank')
+    expect(demo).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
+  it('sends the "manter conectado" choice with the login request (S21-03)', async () => {
+    const fetchMock = mockFetch({})
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+    const checkbox = await screen.findByLabelText('Manter conectado neste dispositivo')
+    expect(checkbox).toBeChecked()
+    await userEvent.click(checkbox)
+    await userEvent.type(screen.getByLabelText('Senha'), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+    const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/auth/login'))
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ password: 'x', remember: false })
+  })
+
+  it('shows the public health facts (version and environment) in the footer pre-login, never private stats', async () => {
     mockFetch({})
 
     render(
@@ -188,8 +236,7 @@ describe('LoginPage', () => {
     )
 
     await screen.findByLabelText('Senha')
-    expect(await screen.findByText('Configurado')).toBeInTheDocument()
-    expect(await screen.findByText('development · v0.1.0')).toBeInTheDocument()
+    expect(await screen.findByText('v0.1.0 · development')).toBeInTheDocument()
     // /rules, /sources e /matches exigem sessão — não devem ser chamados
     // antes do login.
     expect(screen.queryByText('Regras ativas')).not.toBeInTheDocument()
