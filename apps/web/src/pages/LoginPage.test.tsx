@@ -174,7 +174,7 @@ describe('LoginPage', () => {
     // brand for screen readers, so an empty alt avoids redundant noise
     // rather than announcing "imagem" or repeating the name.
     const mascots = document.querySelectorAll('.login-v2__mascot')
-    expect(mascots).toHaveLength(2)
+    expect(mascots).toHaveLength(1)
     mascots.forEach((mascot) => expect(mascot).toHaveAttribute('alt', ''))
   })
 

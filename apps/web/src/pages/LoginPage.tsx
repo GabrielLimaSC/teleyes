@@ -1,7 +1,7 @@
-import { Mascot } from '../components/Mascot'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Mascot } from '../components/Mascot'
 import { useAuth } from '../auth/AuthContext'
 import { isSameLocalDay, parseApiDate } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -33,10 +33,6 @@ interface DashboardStats {
 
 const DEMO_URL = 'https://gabriellimasc.github.io/teleyes/'
 const REPO_URL = 'https://github.com/GabrielLimaSC/teleyes'
-
-function mascotSrc(name: string): string {
-  return `${import.meta.env.BASE_URL}mascot/${name}.png`
-}
 
 /** Real install: link to the public demo (never a way in without a password).
  * Static demo build: the mocked app is already open, so it goes straight in. */
@@ -236,8 +232,7 @@ export function LoginPage() {
       <div className="login-v2">
         <section className="login-v2__brand">
           <span className="login-v2__mascot-wrap">
-            <img className="login-v2__mascot login-v2__mascot--light" src={mascotSrc('mascote-accent')} alt="" />
-            <img className="login-v2__mascot login-v2__mascot--dark" src={mascotSrc('mascote-inverse')} alt="" />
+            <Mascot className="login-v2__mascot" />
           </span>
           <h1 className="login-v2__wordmark">teleyes</h1>
           <p className="login-v2__lede">
