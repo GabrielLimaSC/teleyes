@@ -47,6 +47,20 @@ const health = {
   bot: { configured: false, state: 'not_configured' },
 }
 
+function historyFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    hours: 24,
+    coverage_since: '2020-01-01T00:00:00Z',
+    services: [],
+    collector: {
+      coverage_since: '2020-01-01T00:00:00Z',
+      hours: [],
+      totals: { seen: 0, evaluated: 0, discarded: 0, delivery_failures: 0, delivery_failures_last_hour: 0 },
+    },
+    ...overrides,
+  }
+}
+
 // S11-06: the summary panel also reads /sources and /matches.
 // Empty by default; a test that cares passes its own.
 function summaryEndpoints(url: string, overrides: Record<string, () => Response> = {}): Response | null {
@@ -57,6 +71,8 @@ function summaryEndpoints(url: string, overrides: Record<string, () => Response>
     return jsonResponse([])
   }
   if (url.startsWith('/listener/status')) return jsonResponse(listenerStatus())
+  if (url.startsWith('/health/history')) return jsonResponse(historyFixture())
+  if (url.startsWith('/health/events')) return jsonResponse([])
   return null
 }
 
@@ -84,8 +100,8 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    expect(await screen.findByText('Conectando…')).toBeInTheDocument()
-    expect(screen.queryByText('Desconectado')).not.toBeInTheDocument()
+    expect(await screen.findByText('conectando')).toBeInTheDocument()
+    expect(screen.queryByText('fora')).not.toBeInTheDocument()
   })
 
   it('shows the not_configured state for Telegram, bot and the test result honestly', async () => {
@@ -108,8 +124,8 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    // both Telegram and Bot rows show "Não configurado" — one per real field.
-    await waitFor(() => expect(screen.getAllByText('Não configurado')).toHaveLength(2))
+    // Telegram and Bot both read "desligado" — one per real field, never a faked "ativo".
+    await waitFor(() => expect(screen.getAllByText('desligado')).toHaveLength(2))
 
     await user.selectOptions(await screen.findByLabelText('Destinatário'), '1')
     await user.click(screen.getByRole('button', { name: 'Enviar teste' }))
@@ -145,7 +161,7 @@ describe('SaudePage', () => {
     )
   })
 
-  it('shows the four status tiles with real details and the real env var names (S11-06)', async () => {
+  it('shows the five service cards with real details and the real env var names (S11-06)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
@@ -159,10 +175,11 @@ describe('SaudePage', () => {
     render(<SaudePage />)
 
     // health.uptime_seconds is 90 → "1min 30s"
-    expect(await screen.findByText('v0.1.0 · tempo ativo 1min 30s')).toBeInTheDocument()
+    expect(await screen.findByText('1min 30s')).toBeInTheDocument()
+    expect(screen.getByText('v0.1.0')).toBeInTheDocument()
     expect(screen.getByText('development')).toBeInTheDocument()
-    for (const label of ['Telegram', 'Bot', 'Feed em tempo real (SSE)', 'Ambiente']) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+    for (const label of ['Telegram', 'Bot', 'Listener', 'Feed (SSE)', 'Banco']) {
+      expect(screen.getByRole('heading', { name: label })).toBeInTheDocument()
     }
     // The names the backend actually reads (config.py), not the concept's "API_ID".
     expect(screen.getByText('TG_API_ID')).toBeInTheDocument()
@@ -193,18 +210,14 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    const panel = (await screen.findByRole('heading', { name: 'Resumo do coletor' })).closest('section') as HTMLElement
+    const panel = (await screen.findByRole('heading', { name: 'Coletor' })).closest('section') as HTMLElement
     await waitFor(() => expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('2'))
     expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('4')
-    // cumulative, not "hoje", and none of the concept's uninstrumented numbers.
-    expect(within(panel).getByText(/Contagens de agora/)).toBeInTheDocument()
     // No label claims a per-message count nor any number the app does not track.
     for (const invented of [
       'Mensagens lidas',
       'Mensagens vistas',
-      'Última reconexão',
       'Fila de envio',
-      'Erros na última hora',
       'Atividade do coletor',
     ]) {
       expect(screen.queryByText(invented)).not.toBeInTheDocument()
@@ -236,7 +249,7 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    const panel = (await screen.findByRole('heading', { name: 'Resumo do coletor' })).closest('section') as HTMLElement
+    const panel = (await screen.findByRole('heading', { name: 'Coletor' })).closest('section') as HTMLElement
     await waitFor(() => expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('4'))
   })
 
@@ -253,7 +266,7 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    const panel = (await screen.findByRole('heading', { name: 'Resumo do coletor' })).closest('section') as HTMLElement
+    const panel = (await screen.findByRole('heading', { name: 'Coletor' })).closest('section') as HTMLElement
     await waitFor(() => expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('—'))
     expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('—')
   })
@@ -281,6 +294,132 @@ describe('SaudePage', () => {
     expect(screen.getByText(/O bot está sem token/)).toBeInTheDocument()
   })
 
+  it('shows the verdict, bars and availability from the history, and the event list (S21-10)', async () => {
+    class OpenEventSource extends InertEventSource {
+      constructor() {
+        super()
+        setTimeout(() => this.onopen?.(), 0)
+      }
+    }
+    vi.stubGlobal('EventSource', OpenEventSource)
+    const bucket = (h: number, ok: number | null, total: number | null) => ({
+      hour: `2026-11-03T${String(h).padStart(2, '0')}:00:00Z`,
+      ok,
+      total,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse({ ...health, demo: true }))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        if (url.startsWith('/health/history')) {
+          return Promise.resolve(
+            jsonResponse(
+              historyFixture({
+                services: [
+                  {
+                    service: 'db',
+                    buckets: [bucket(1, 60, 60), bucket(2, 30, 60), bucket(3, 0, 60), bucket(4, null, null)],
+                  },
+                  { service: 'telegram', buckets: [bucket(1, null, null)] },
+                ],
+              }),
+            ),
+          )
+        }
+        if (url.startsWith('/health/events')) {
+          return Promise.resolve(
+            jsonResponse([
+              { id: 2, at: '2026-11-03T12:00:00Z', kind: 'delivery_failure', summary: 'Envio falhou para Alex' },
+              { id: 1, at: '2026-11-03T11:00:00Z', kind: 'rules_applied', summary: 'Regras aplicadas' },
+            ]),
+          )
+        }
+        return Promise.resolve(summaryEndpoints(url) ?? jsonResponse([]))
+      }),
+    )
+
+    render(<SaudePage />)
+
+    expect(await screen.findByRole('heading', { name: 'Operando em demonstração' })).toBeInTheDocument()
+    // 90 of 180 samples across the three hours that have data; the null hour does not count.
+    await waitFor(() => expect(screen.getByTestId('availability-db')).toHaveTextContent('50%'))
+    // Telegram only has an unmeasured hour: no availability to claim.
+    expect(screen.getByTestId('availability-telegram')).toHaveTextContent('—')
+    const bars = screen.getByRole('img', { name: /^Banco/ }).querySelectorAll('.saude-bar')
+    expect(bars).toHaveLength(24)
+    expect(bars[20]).toHaveClass('saude-bar--ok')
+    expect(bars[21]).toHaveClass('saude-bar--partial')
+    expect(bars[22]).toHaveClass('saude-bar--down')
+    expect(bars[23]).toHaveClass('saude-bar--none')
+    expect(bars[21]).toHaveAttribute('title', expect.stringContaining('30/60'))
+    expect(bars[0]).toHaveAttribute('title', 'coletando')
+    expect(await screen.findByText('Envio falhou para Alex')).toBeInTheDocument()
+    expect(screen.getByText('falha')).toBeInTheDocument()
+    expect(screen.getByText('regras')).toBeInTheDocument()
+  })
+
+  it('shows a danger verdict when the SSE connection is down (S21-10)', async () => {
+    class FailingEventSource extends InertEventSource {
+      constructor() {
+        super()
+        setTimeout(() => this.onerror?.(), 0)
+      }
+    }
+    vi.stubGlobal('EventSource', FailingEventSource)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse(health))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        return Promise.resolve(summaryEndpoints(url) ?? jsonResponse([]))
+      }),
+    )
+
+    render(<SaudePage />)
+
+    expect(await screen.findByRole('heading', { name: 'Atenção: Feed (SSE) fora' })).toBeInTheDocument()
+  })
+
+  it('reflects the typed message in the Telegram preview (S21-10)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse(health))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        return Promise.resolve(summaryEndpoints(url) ?? jsonResponse([]))
+      }),
+    )
+    const user = userEvent.setup()
+    render(<SaudePage />)
+
+    const input = await screen.findByLabelText('Mensagem')
+    await user.clear(input)
+    await user.type(input, 'Olá bolha')
+    const preview = screen.getByLabelText('Prévia no Telegram')
+    expect(within(preview).getByText('Olá bolha')).toBeInTheDocument()
+    expect(within(preview).getByText('teleyes')).toBeInTheDocument()
+  })
+
+  it('omits the last-reconnect KPI when no such event exists (S21-10)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/health') return Promise.resolve(jsonResponse(health))
+        if (url === '/recipients') return Promise.resolve(jsonResponse([]))
+        return Promise.resolve(summaryEndpoints(url) ?? jsonResponse([]))
+      }),
+    )
+    render(<SaudePage />)
+    await screen.findByText('Descartadas · 24h')
+    expect(screen.queryByText('Última reconexão')).not.toBeInTheDocument()
+    expect(screen.getByText('Erros · 1h')).toBeInTheDocument()
+  })
+
   it('shows what the listener is running with, in its own tile (S13-06)', async () => {
     vi.stubGlobal(
       'fetch',
@@ -294,9 +433,10 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    const tile = (await screen.findByText('Listener')).closest('.saude-tile') as HTMLElement
-    await waitFor(() => expect(within(tile).getByText('Aplicado')).toBeInTheDocument())
+    const tile = (await screen.findByRole('heading', { name: 'Listener' })).closest('.saude-service') as HTMLElement
+    await waitFor(() => expect(within(tile).getByText('ativo')).toBeInTheDocument())
     expect(tile).toHaveTextContent('2 fontes · 6 regras · 1 destinatário')
+    expect(within(tile).getByText('ativo')).toBeInTheDocument()
   })
 
   it('tells where to apply when there are unapplied changes (S13-06)', async () => {
@@ -315,8 +455,7 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    const tile = (await screen.findByText('Listener')).closest('.saude-tile') as HTMLElement
-    await waitFor(() => expect(within(tile).getByText('Mudanças pendentes')).toBeInTheDocument())
-    expect(tile).toHaveTextContent('Aplique na página Regras.')
+    const tile = (await screen.findByRole('heading', { name: 'Listener' })).closest('.saude-service') as HTMLElement
+    await waitFor(() => expect(tile).toHaveTextContent('Aplique na página Regras.'))
   })
 })

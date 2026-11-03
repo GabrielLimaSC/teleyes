@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
 import { useHealth } from '../hooks/useHealth'
@@ -9,32 +9,24 @@ import { fetchSources } from '../api/lookups'
 import { fetchMatches } from '../api/matches'
 import { testNotification } from '../api/notifications'
 import { ApiError } from '../api/auth'
-import type { AdapterState } from '../api/health'
+import { fetchHealthEvents, fetchHealthHistory } from '../api/healthHistory'
+import type { HealthHistory, ServiceKey, SystemEvent } from '../api/healthHistory'
+import type { AdapterState, HealthResponse } from '../api/health'
 import type { ListenerStatus } from '../api/listener'
 import type { Recipient } from '../api/types'
-import { botStateLabel, telegramStateLabel } from '../components/adapterStateLabel'
-import type { StateLabel } from '../components/adapterStateLabel'
 import { describeLoaded, describeListener } from '../components/listenerState'
+import { formatClockMoment } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { SetupBanner, SetupReopenLink } from '../components/SetupBanner'
+import { CollectorCard, EventsCard, ServiceCard, TelegramPreview, UpdatedAgo, VerdictStrip } from './SaudeParts'
+import type { CollectorKpi } from './SaudeParts'
+import { SERVICE_ORDER, buildVerdict, formatUptime } from './saudeModel'
+import type { ServiceView, Tone } from './saudeModel'
 import '../styles/materials.css'
 import '../components/FillButton.css'
 import './SaudePage.css'
 
-function formatUptime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = Math.floor(seconds % 60)
-  if (hours > 0) return `${hours}h ${minutes}min`
-  if (minutes > 0) return `${minutes}min ${secs}s`
-  return `${secs}s`
-}
-
-const SSE_STATE_LABELS: Record<SseState, StateLabel> = {
-  connecting: { label: 'Conectando…', color: 'var(--state-warn-text)', dot: 'var(--state-warn-dot)' },
-  open: { label: 'Conectado', color: 'var(--state-good-text)', dot: 'var(--state-good-dot)' },
-  error: { label: 'Desconectado', color: 'var(--state-danger-text)', dot: 'var(--state-danger-dot)' },
-}
+const REFRESH_MS = 60_000
 
 // Only what each state really means (`packages/telegram/adapter.py`,
 // `useHealth.ts`) — no attempt counters or timings the app never tracks.
@@ -47,7 +39,7 @@ const SSE_DETAILS: Record<SseState, string> = {
 const TELEGRAM_DETAILS: Record<AdapterState, ReactNode> = {
   not_configured: (
     <>
-      Falta <code>TG_API_ID</code> / <code>TG_API_HASH</code>
+      Sem <code>TG_API_ID</code> / <code>TG_API_HASH</code>
     </>
   ),
   connecting: 'Abrindo a sessão de leitura',
@@ -57,53 +49,106 @@ const TELEGRAM_DETAILS: Record<AdapterState, ReactNode> = {
   demo: 'Sem Telegram: os dados são fictícios',
 }
 
-function StatusTile({ label, state, detail }: { label: string; state: StateLabel; detail: ReactNode }) {
-  return (
-    <div className="plane-pearl saude-tile">
-      <div className="saude-tile__label">{label}</div>
-      <div className="saude-tile__state">
-        <span className="saude-tile__dot" style={{ background: state.dot }} />
-        <span>{state.label}</span>
-      </div>
-      <div className="saude-tile__detail">{detail}</div>
-    </div>
-  )
+function telegramView(state: AdapterState): Pick<ServiceView, 'pill' | 'tone'> {
+  switch (state) {
+    case 'connected':
+      return { pill: 'ativo', tone: 'good' }
+    case 'connecting':
+    case 'reconnecting':
+      return { pill: 'reconectando', tone: 'warn' }
+    case 'blocked':
+      return { pill: 'fora', tone: 'danger' }
+    default:
+      return { pill: 'desligado', tone: 'neutral' }
+  }
 }
 
-/**
- * S13-06: what the listener process is running with. The button that applies
- * changes lives on Regras; here Gabriel only sees the state and is pointed there.
- */
-function ListenerTile({ status }: { status: ListenerStatus }) {
+function botView(state: HealthResponse['bot']['state']): Pick<ServiceView, 'pill' | 'tone'> {
+  return state === 'configured' ? { pill: 'ativo', tone: 'good' } : { pill: 'desligado', tone: 'neutral' }
+}
+
+function listenerView(status: ListenerStatus | null): Pick<ServiceView, 'pill' | 'tone'> | null {
+  if (status === null) return null
+  const view = describeListener(status)
+  if (view.failed) return { pill: 'falha', tone: 'warn' }
+  if (view.busy) return { pill: view.shortLabel.replace('…', ''), tone: 'warn' }
+  // Never heard from yet (fresh install): not "fora", just nothing to report.
+  if (!status.listener_online) return { pill: 'sem sinal', tone: status.listener_seen_at === null ? 'neutral' : 'danger' }
+  return { pill: 'ativo', tone: 'good' }
+}
+
+function sseView(state: SseState): Pick<ServiceView, 'pill' | 'tone'> {
+  if (state === 'open') return { pill: 'ativo', tone: 'good' }
+  if (state === 'connecting') return { pill: 'conectando', tone: 'warn' }
+  return { pill: 'fora', tone: 'danger' }
+}
+
+function listenerDetail(status: ListenerStatus): ReactNode {
   const view = describeListener(status)
   const loaded = describeLoaded(status)
+  if (status.state === 'idle' && !status.has_unapplied_changes && status.listener_online && loaded !== null) {
+    return loaded
+  }
   return (
-    <StatusTile
-      label="Listener"
-      state={{ ...view, label: view.shortLabel }}
-      detail={
-        <>
-          {view.detail}
-          {loaded !== null && status.state === 'idle' && !status.has_unapplied_changes && (
-            <> {loaded}.</>
-          )}
-          {view.needsApply && !view.busy && !view.failed && <> Aplique na página Regras.</>}
-        </>
-      }
-    />
+    <>
+      {view.detail}
+      {view.needsApply && !view.busy && !view.failed && <> Aplique na página Regras.</>}
+    </>
   )
 }
 
 /** `null` while unknown or failed to load: shown as "—", never a made-up 0. */
 function formatCount(value: number | null): string {
-  return value === null ? '—' : String(value)
+  return value === null ? '—' : value.toLocaleString('pt-BR')
+}
+
+/**
+ * Heartbeat history, collector series and event log. Refetched every minute
+ * and on demand; a request that is still in flight is never doubled, and a
+ * failed refresh keeps the last good data on screen.
+ */
+function useSaudeHistory() {
+  const [history, setHistory] = useState<HealthHistory | null>(null)
+  const [events, setEvents] = useState<SystemEvent[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
+  const inFlight = useRef(false)
+
+  const refresh = useCallback(() => {
+    if (inFlight.current) return
+    inFlight.current = true
+    setLoading(true)
+    Promise.allSettled([fetchHealthHistory(24), fetchHealthEvents(20)])
+      .then(([historyResult, eventsResult]) => {
+        if (historyResult.status === 'fulfilled') setHistory(historyResult.value)
+        if (eventsResult.status === 'fulfilled') setEvents(eventsResult.value)
+        setFailed(historyResult.status === 'rejected' || eventsResult.status === 'rejected')
+        if (historyResult.status === 'fulfilled' || eventsResult.status === 'fulfilled') {
+          setUpdatedAt(Date.now())
+        }
+      })
+      .finally(() => {
+        inFlight.current = false
+        setLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    refresh()
+    const id = setInterval(refresh, REFRESH_MS)
+    return () => clearInterval(id)
+  }, [refresh])
+
+  return { history, events, failed, loading, updatedAt, refresh }
 }
 
 export function SaudePage() {
   const { csrfToken } = useAuth()
-  const { health, loading, error, sseState } = useHealth()
+  const { health, loading, error, sseState, refresh: refreshHealth } = useHealth()
   const fillOrigin = useFillOrigin()
   const listener = useListenerStatus()
+  const saude = useSaudeHistory()
 
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [recipientId, setRecipientId] = useState('')
@@ -117,25 +162,26 @@ export function SaudePage() {
 
   useEffect(() => {
     listRecipients().then(setRecipients).catch(() => setRecipients([]))
-    // S11-06: only what existing endpoints really return. There is no
-    // "mensagens lidas" number: the `vista` metric counts persisted matches
-    // per (message, rule) pair, not messages, so it stays out until a real
-    // per-message counter exists (Fase 2).
+    // Only what existing endpoints really return. There is no "mensagens
+    // lidas" number: the `vista` metric counts persisted matches per
+    // (message, rule) pair, not messages.
     fetchSources()
       .then((sources) => setActiveSources(sources.filter((source) => source.active).length))
       .catch(() => setActiveSources(null))
-    // S14-07: `fetchMatches().length` used to count CARDS, not matches — once
-    // duplicate grouping (S14-05) folds several real matches into one card,
-    // that undercounts. `grouped_match_ids` is every match id a card stands
-    // for (representative included, always at least `[id]`), so summing its
-    // length gives the real total regardless of how the "Agrupar
-    // duplicatas" toggle currently folds the list.
+    // S14-07: `grouped_match_ids` is every match id a card stands for, so
+    // summing its length gives the real total regardless of duplicate grouping.
     fetchMatches()
       .then((matches) =>
         setMatchCount(matches.reduce((sum, match) => sum + (match.grouped_match_ids?.length ?? 1), 0)),
       )
       .catch(() => setMatchCount(null))
   }, [])
+
+  const reverify = () => {
+    refreshHealth()
+    listener.refresh()
+    saude.refresh()
+  }
 
   const sendTest = () => {
     const recipient = recipients.find((candidate) => String(candidate.id) === recipientId)
@@ -152,6 +198,7 @@ export function SaudePage() {
         setTestResult(
           result.delivered ? 'Entregue com sucesso.' : `Não entregue — status: ${result.status}.`,
         )
+        saude.refresh()
       })
       .catch((err: unknown) => {
         setTestError(err instanceof ApiError ? err.message : 'Não foi possível testar a notificação.')
@@ -167,11 +214,61 @@ export function SaudePage() {
         ? 'O bot está sem token: o envio volta como not_configured, sem fingir entrega.'
         : null
 
+  const views = buildViews(health, listener.status, sseState)
+  const verdict = health ? buildVerdict(views, health.demo === true) : null
+  const bucketsOf = (key: ServiceKey) =>
+    saude.history?.services.find((service) => service.service === key)?.buckets ?? []
+
+  const detail = (key: ServiceKey): ReactNode => {
+    if (health === null) return ''
+    switch (key) {
+      case 'telegram':
+        return TELEGRAM_DETAILS[health.telegram.state]
+      case 'bot':
+        return health.bot.state === 'configured' ? (
+          'Alertas saem por este bot'
+        ) : health.bot.state === 'demo' ? (
+          'Sem bot: nenhum alerta sai da demonstração'
+        ) : (
+          <>
+            Sem <code>BOT_TOKEN</code>: nenhum alerta sai
+          </>
+        )
+      case 'listener':
+        return listener.status ? listenerDetail(listener.status) : 'Lendo o estado do listener…'
+      case 'sse':
+        return SSE_DETAILS[sseState]
+      case 'db':
+        return 'SQLite respondendo'
+    }
+  }
+
+  const lastReconnect = saude.events?.find((event) => event.kind === 'listener_reconnect')
+  const totals = saude.history?.collector.totals
+  const kpis: CollectorKpi[] = [
+    { label: 'Matches gerados', value: formatCount(matchCount) },
+    { label: 'Fontes ativas', value: formatCount(activeSources) },
+  ]
+  if (totals) {
+    kpis.push({ label: 'Descartadas · 24h', value: formatCount(totals.discarded) })
+    kpis.push({ label: 'Erros · 1h', value: formatCount(totals.delivery_failures_last_hour) })
+  }
+  if (lastReconnect) {
+    kpis.push({ label: 'Última reconexão', value: formatClockMoment(lastReconnect.at).replace(/^às /, '') })
+  }
+
   return (
     <main className="saude-page">
       <div className="saude-page__header">
-        <h1>Saúde</h1>
-        <p className="saude-page__subtitle">Estado dos serviços e teste de entrega.</p>
+        <div>
+          <h1>Saúde</h1>
+          <p className="saude-page__subtitle">
+            Estado dos serviços e teste de entrega · <UpdatedAgo at={saude.updatedAt} />
+          </p>
+        </div>
+        <button type="button" className="saude-reverify" onClick={reverify} disabled={saude.loading}>
+          {saude.loading ? 'Verificando…' : 'Reverificar'}
+        </button>
       </div>
 
       <SetupBanner />
@@ -184,63 +281,30 @@ export function SaudePage() {
         </p>
       )}
 
-      {health && (
-        <div className="saude-tiles">
-          <StatusTile
-            label="Telegram"
-            state={telegramStateLabel(health.telegram.state)}
-            detail={TELEGRAM_DETAILS[health.telegram.state]}
+      {health && verdict && (
+        <>
+          <VerdictStrip
+            verdict={verdict}
+            uptime={formatUptime(health.uptime_seconds)}
+            env={health.env}
+            version={health.version}
           />
-          <StatusTile
-            label="Bot"
-            state={botStateLabel(health.bot.state)}
-            detail={
-              health.bot.state === 'configured' ? (
-                'Alertas saem por este bot'
-              ) : health.bot.state === 'demo' ? (
-                'Sem bot: nenhum alerta sai da demonstração'
-              ) : (
-                <>
-                  Sem <code>BOT_TOKEN</code>, nada é enviado
-                </>
-              )
-            }
-          />
-          {listener.status && <ListenerTile status={listener.status} />}
-          <StatusTile
-            label="Feed em tempo real (SSE)"
-            state={SSE_STATE_LABELS[sseState]}
-            detail={SSE_DETAILS[sseState]}
-          />
-          <StatusTile
-            label="Ambiente"
-            state={{
-              label: health.env,
-              color: 'var(--plane-status-good)',
-              dot: 'var(--plane-status-good-dot)',
-            }}
-            detail={`v${health.version} · tempo ativo ${formatUptime(health.uptime_seconds)}`}
-          />
-        </div>
+          <div className="saude-tiles">
+            {SERVICE_ORDER.map(({ key, name }) => {
+              const view = views.find((candidate) => candidate.key === key) ?? {
+                key,
+                name,
+                pill: '…',
+                tone: 'neutral' as Tone,
+              }
+              return <ServiceCard key={key} view={view} detail={detail(key)} buckets={bucketsOf(key)} />
+            })}
+          </div>
+        </>
       )}
 
       <div className="saude-page__grid">
-        <section className="plane-pearl saude-panel">
-          <div>
-            <h2>Resumo do coletor</h2>
-            <p className="saude-panel__sub">Contagens de agora — não são do dia.</p>
-          </div>
-          <dl className="saude-stats">
-            <div className="saude-stats__item">
-              <dt>Fontes ativas</dt>
-              <dd>{formatCount(activeSources)}</dd>
-            </div>
-            <div className="saude-stats__item">
-              <dt>Matches gerados</dt>
-              <dd>{formatCount(matchCount)}</dd>
-            </div>
-          </dl>
-        </section>
+        <CollectorCard collector={saude.history?.collector ?? null} kpis={kpis} />
 
         <section className="plane-pearl saude-panel">
           <div>
@@ -271,6 +335,7 @@ export function SaudePage() {
             Mensagem
             <input value={text} onChange={(event) => setText(event.target.value)} />
           </label>
+          <TelegramPreview text={text} />
           <button
             type="button"
             className="plane-action fill-button saude-panel__send"
@@ -289,6 +354,27 @@ export function SaudePage() {
           )}
         </section>
       </div>
+
+      <EventsCard events={saude.events} failed={saude.failed} />
     </main>
   )
+}
+
+function buildViews(
+  health: HealthResponse | null,
+  listener: ListenerStatus | null,
+  sseState: SseState,
+): ServiceView[] {
+  if (health === null) return []
+  const name = (key: ServiceKey) => SERVICE_ORDER.find((service) => service.key === key)?.name ?? key
+  const views: ServiceView[] = [
+    { key: 'telegram', name: name('telegram'), ...telegramView(health.telegram.state) },
+    { key: 'bot', name: name('bot'), ...botView(health.bot.state) },
+  ]
+  const listenerState = listenerView(listener)
+  if (listenerState) views.push({ key: 'listener', name: name('listener'), ...listenerState })
+  views.push({ key: 'sse', name: name('sse'), ...sseView(sseState) })
+  // The API answered this very request, so the database is up.
+  views.push({ key: 'db', name: name('db'), pill: 'ativo', tone: 'good' })
+  return views
 }
