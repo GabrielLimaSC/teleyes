@@ -1,4 +1,5 @@
 import threading
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -37,9 +38,9 @@ def engine() -> Engine:
 
 
 @pytest.fixture
-def session(engine: Engine) -> Session:
+def session(engine: Engine) -> Iterator[Session]:
     with sessionmaker(bind=engine)() as session:
-        yield session  # type: ignore[misc]
+        yield session
 
 
 def _rows(session: Session) -> list[tuple[datetime, int | None, str, int]]:
