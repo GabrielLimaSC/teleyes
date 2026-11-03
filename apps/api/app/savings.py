@@ -208,3 +208,47 @@ def totals(paid: Sequence[int], savings: Sequence[PurchaseSavings | None]) -> Sa
         reference_total_cents=reference,
         estimated_saving_pct=_pct(saving, reference) if counted else None,
     )
+
+
+GoalPace = Literal["done", "on_track", "behind", "expired"]
+
+
+@dataclass(frozen=True)
+class GoalProgress:
+    saved_cents: int
+    pct: float
+    remaining_cents: int
+    days_left: int
+    pace: GoalPace
+
+
+def goal_progress(
+    *, amount_cents: int, deadline: date, start: date, today: date, saved_cents: int
+) -> GoalProgress:
+    """Progress towards a savings goal. Pure; `start`/`today` are local calendar days.
+
+    `saved_cents` is the estimated saving as computed (it may be negative and is never
+    replaced by another metric). `pct` is the real ratio (callers clamp it for display).
+    Pace: `done` once saved >= amount; `expired` past the deadline unmet; otherwise
+    `on_track` when the saved share is at least the elapsed share of the time between
+    `start` and `deadline`, else `behind`.
+    """
+    ratio = saved_cents / amount_cents
+    total_days = (deadline - start).days
+    elapsed = 1.0 if total_days <= 0 else min(max((today - start).days / total_days, 0.0), 1.0)
+    pace: GoalPace
+    if saved_cents >= amount_cents:
+        pace = "done"
+    elif today > deadline:
+        pace = "expired"
+    elif ratio >= elapsed:
+        pace = "on_track"
+    else:
+        pace = "behind"
+    return GoalProgress(
+        saved_cents=saved_cents,
+        pct=round(ratio * 100, 1),
+        remaining_cents=max(amount_cents - saved_cents, 0),
+        days_left=max((deadline - today).days, 0),
+        pace=pace,
+    )

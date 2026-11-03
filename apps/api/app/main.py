@@ -246,6 +246,7 @@ def _register_routers() -> None:
     from app.routers.purchases import router as purchases_router
     from app.routers.recipients import router as recipients_router
     from app.routers.rules import router as rules_router
+    from app.routers.savings_goal import router as savings_goal_router
     from app.routers.savings_report import router as savings_report_router
     from app.routers.settings import router as settings_router
     from app.routers.setup import router as setup_router
@@ -260,6 +261,7 @@ def _register_routers() -> None:
     app.include_router(products_router)
     app.include_router(snoozes_router)
     app.include_router(purchases_router)
+    app.include_router(savings_goal_router)
     app.include_router(savings_report_router)
     app.include_router(metrics_router)
     app.include_router(notifications_router)

@@ -24,7 +24,7 @@ import math
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select, update
@@ -47,6 +47,7 @@ from models import (
     Purchase,
     Recipient,
     Rule,
+    SavingsGoal,
     Snooze,
     Source,
 )
@@ -631,6 +632,24 @@ def _seed_purchases(session: Session, now: datetime) -> None:
                 created_at=purchased_at,
             )
         )
+    _seed_savings_goal(session, now)
+
+
+def _seed_savings_goal(session: Session, now: datetime) -> None:
+    """S21-08: a fictional R$ 2.000 goal ending on 31/12, started 60 days before `now`."""
+    deadline = date(now.year, 12, 31)
+    if deadline <= now.date():
+        deadline = date(now.year + 1, 12, 31)
+    started = now - timedelta(days=60)
+    session.add(
+        SavingsGoal(
+            id=1,
+            amount_cents=200_000,
+            deadline=deadline,
+            created_at=started,
+            updated_at=started,
+        )
+    )
 
 
 def _write_counters(

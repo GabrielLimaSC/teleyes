@@ -140,6 +140,8 @@ def _login(client: TestClient) -> str:
         ("POST", "/purchases"),
         ("PUT", "/purchases/1"),
         ("DELETE", "/purchases/1"),
+        ("PUT", "/savings/goal"),
+        ("DELETE", "/savings/goal"),
         ("PATCH", "/matches/1"),
         ("POST", "/notifications/test"),
         ("POST", "/demo/messages"),
