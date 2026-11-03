@@ -944,6 +944,11 @@
           "password": {
             "title": "Password",
             "type": "string"
+          },
+          "remember": {
+            "default": false,
+            "title": "Remember",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3412,6 +3417,24 @@
     "/auth/login": {
       "post": {
         "operationId": "login_auth_login_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "teleyes_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teleyes Session"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {

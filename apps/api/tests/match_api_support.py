@@ -102,7 +102,7 @@ def api() -> Iterator[ApiContext]:
     previous_overrides = app.dependency_overrides.copy()
     try:
         app.state.session_factory = test_sessionmaker
-        app.state.session_store = SessionStore()
+        app.state.session_store = SessionStore(test_sessionmaker)
         app.state.rate_limiter = LoginRateLimiter()
         app.dependency_overrides.clear()
         app.dependency_overrides[utc_now] = lambda: NOW

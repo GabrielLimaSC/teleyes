@@ -83,7 +83,7 @@ def api() -> Iterator[ApiContext]:
     previous_overrides = app.dependency_overrides.copy()
     try:
         app.state.session_factory = test_sessionmaker
-        app.state.session_store = SessionStore()
+        app.state.session_store = SessionStore(test_sessionmaker)
         app.state.rate_limiter = LoginRateLimiter()
         app.state.started_at = time.monotonic() - 5.0
         app.state.telegram_adapter = TelegramAdapter(

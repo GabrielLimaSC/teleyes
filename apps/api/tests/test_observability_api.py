@@ -61,7 +61,7 @@ def api() -> Iterator[ApiContext]:
 
     try:
         app.state.session_factory = test_sessionmaker
-        app.state.session_store = SessionStore()
+        app.state.session_store = SessionStore(test_sessionmaker)
         app.state.rate_limiter = LoginRateLimiter()
         app.state.started_at = time.monotonic() - 5.0
         app.state.telegram_adapter = TelegramAdapter(
@@ -216,7 +216,9 @@ def test_matches_list_includes_deliveries_without_n_plus_one(api: ApiContext) ->
         context: object,
         executemany: bool,
     ) -> None:
-        statements.append(statement)
+        # The session lookup (S21-12) is auth bookkeeping, not part of the feed's queries.
+        if "admin_session" not in statement:
+            statements.append(statement)
 
     event.listen(api.engine, "before_cursor_execute", capture_statement)
     try:

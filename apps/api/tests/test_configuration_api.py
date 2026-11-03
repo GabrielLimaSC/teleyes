@@ -35,7 +35,7 @@ def client() -> Iterator[TestClient]:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.state.session_store = SessionStore()
+    app.state.session_store = SessionStore(test_sessionmaker)
     app.state.rate_limiter = LoginRateLimiter()
 
     with TestClient(app, base_url="https://testserver") as test_client:
