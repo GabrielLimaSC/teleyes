@@ -1,122 +1,92 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import type { FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
-import { createSource, deleteSource, listSources, pauseSource, updateSource } from '../api/sources'
-import type { SourceInput } from '../api/sources'
-import { fetchMatches } from '../api/matches'
+import { deleteSource, fetchSourcesActivity, listSources, pauseSource } from '../api/sources'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
-import type { Source } from '../api/types'
+import type { Source, SourceActivity, SourcesActivity } from '../api/types'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
-import { formatDateTime, isLater } from '../utils/dates'
+import { useSetupStatus } from '../hooks/useSetupStatus'
+import { formatDayMonthClock, formatRelativeAgo } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
-import '../components/GlassCard.css'
-import '../components/CrudTable.css'
+import { FontesRail } from './FontesRail'
+import { barScale, buildBars, buildKpis, sourceHue, sourceInitial } from './sourceStats'
+import type { Bar } from './sourceStats'
 import '../components/FillButton.css'
+import './FontesPage.css'
 
-interface SourceForm {
-  name: string
-  telegramChatId: string
+const NOW_TICK_MS = 30_000
+
+function useNow(): Date {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), NOW_TICK_MS)
+    return () => clearInterval(timer)
+  }, [])
+  return now
 }
 
-const EMPTY_FORM: SourceForm = { name: '', telegramChatId: '' }
-
-function sourceToForm(source: Source): SourceForm {
-  return { name: source.name, telegramChatId: source.telegram_chat_id }
+function formatDay(day: string): string {
+  const [, month, date] = day.split('-')
+  return `${date}/${month}`
 }
 
-function formToInput(form: SourceForm): SourceInput {
-  return { name: form.name, telegram_chat_id: form.telegramChatId }
+function barsLabel(bars: Bar[]): string {
+  if (bars.length === 0) return 'Sem dados de atividade'
+  return `Avaliações por dia: ${bars
+    .map((bar) => `${formatDay(bar.day)} ${bar.value === null ? 'coletando' : bar.value}`)
+    .join(', ')}`
 }
 
-function formatLastMatch(iso: string | undefined): string {
-  if (iso === undefined) return 'Nenhum match ainda'
-  return formatDateTime(iso)
+function MiniBars({ bars, hue }: { bars: Bar[]; hue: number }) {
+  if (bars.length === 0) {
+    return <span className="fontes-bars fontes-bars--empty" aria-label="Sem dados de atividade">—</span>
+  }
+  return (
+    <span className="fontes-bars" role="img" aria-label={barsLabel(bars)}>
+      {bars.map((bar, index) => (
+        <span
+          key={bar.day}
+          className={`fontes-bars__bar${bar.value === null ? ' fontes-bars__bar--pending' : ''}${index === bars.length - 1 ? ` fontes-bars__bar--last fontes-hue-${hue}` : ''}`}
+          style={bar.value === null ? undefined : { height: `${Math.max(12, Math.round(bar.ratio * 100))}%` }}
+        />
+      ))}
+    </span>
+  )
 }
-
-type FormTarget = { kind: 'create' } | { kind: 'edit'; source: Source }
 
 export function FontesPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const now = useNow()
+  const { status: setupStatus } = useSetupStatus()
   const [sources, setSources] = useState<Source[]>([])
-  const [lastMatchBySource, setLastMatchBySource] = useState<Map<number, string>>(new Map())
+  const [activity, setActivity] = useState<SourcesActivity | null>(null)
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
 
-  const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
-  const [form, setForm] = useState<SourceForm>(EMPTY_FORM)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [editTarget, setEditTarget] = useState<Source | null>(null)
+  const [focusSignal, setFocusSignal] = useState(0)
   const [pausingId, setPausingId] = useState<number | null>(null)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Source | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
-  const reload = () => {
+  const reload = useCallback(() => {
     setLoading(true)
-    Promise.all([listSources(true), fetchMatches()])
-      .then(([sourcesData, matches]) => {
+    // Activity is decoration: if it fails the table still works, with "—" where it would be.
+    const activityRequest = fetchSourcesActivity(7).catch(() => null)
+    Promise.all([listSources(true), activityRequest])
+      .then(([sourcesData, activityData]) => {
         setSources(sourcesData)
-        // GET /sources/GET /matches have no "last event" field — this is derived
-        // client-side from real match data, never invented.
-        const lastMatch = new Map<number, string>()
-        for (const match of matches) {
-          const current = lastMatch.get(match.source_id)
-          if (current === undefined || isLater(match.matched_at, current)) {
-            lastMatch.set(match.source_id, match.matched_at)
-          }
-        }
-        setLastMatchBySource(lastMatch)
+        setActivity(activityData)
         setListError(null)
       })
       .catch(() => setListError('Não foi possível carregar as fontes.'))
       .finally(() => setLoading(false))
-  }
+  }, [])
 
-  useEffect(reload, [])
-
-  const openCreate = () => {
-    setFormTarget({ kind: 'create' })
-    setForm(EMPTY_FORM)
-    setFormError(null)
-  }
-
-  const openEdit = (source: Source) => {
-    setFormTarget({ kind: 'edit', source })
-    setForm(sourceToForm(source))
-    setFormError(null)
-  }
-
-  const closeForm = () => {
-    setFormTarget(null)
-    setFormError(null)
-  }
-
-  const submitForm = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (formTarget === null) return
-    if (csrfToken === null) {
-      setFormError(CSRF_MISSING_MESSAGE)
-      return
-    }
-    setSubmitting(true)
-    setFormError(null)
-    const input = formToInput(form)
-    const request =
-      formTarget.kind === 'create'
-        ? createSource(csrfToken, input)
-        : updateSource(csrfToken, formTarget.source.id, input)
-
-    request
-      .then(() => {
-        closeForm()
-        reload()
-      })
-      .catch((error: unknown) => {
-        setFormError(error instanceof ApiError ? error.message : 'Não foi possível salvar a fonte.')
-      })
-      .finally(() => setSubmitting(false))
-  }
+  useEffect(reload, [reload])
 
   const handlePause = (source: Source) => {
     if (csrfToken === null) {
@@ -130,139 +100,203 @@ export function FontesPage() {
       .finally(() => setPausingId(null))
   }
 
-  const handleDelete = (source: Source) => {
+  const confirmDelete = () => {
+    if (deleteTarget === null) return
     if (csrfToken === null) {
+      setDeleteTarget(null)
       setListError(CSRF_MISSING_MESSAGE)
       return
     }
-    setDeletingId(source.id)
-    deleteSource(csrfToken, source.id)
-      .then(reload)
+    setDeleting(true)
+    deleteSource(csrfToken, deleteTarget.id)
+      .then(() => {
+        if (editTarget?.id === deleteTarget.id) setEditTarget(null)
+        reload()
+      })
       .catch((error: unknown) => {
         reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir a fonte.', setListError)
       })
-      .finally(() => setDeletingId(null))
+      .finally(() => {
+        setDeleting(false)
+        setDeleteTarget(null)
+      })
   }
 
+  const kpis = buildKpis(sources, activity, (iso) => formatDayMonthClock(iso))
+  const scale = barScale(activity)
+  const activityById = new Map<number, SourceActivity>((activity?.sources ?? []).map((row) => [row.source_id, row]))
+
+  const kpiCards: { label: string; value: string; sub: string }[] = [
+    { label: 'Fontes ativas', ...kpis.active },
+    { label: 'Avaliações · hoje', ...kpis.evaluated },
+    { label: 'Matches · 7d', ...kpis.matches },
+    {
+      label: 'Último match',
+      value: kpis.lastMatch.at === null ? '—' : formatRelativeAgo(kpis.lastMatch.at, now),
+      sub: kpis.lastMatch.at === null ? (activity === null ? 'coletando' : 'nenhum ainda') : (kpis.lastMatch.source ?? ''),
+    },
+  ]
+
   return (
-    <main className="crud-page">
-      <div className="crud-page__header">
-        <h1>Fontes</h1>
+    <main className="crud-page fontes-page">
+      <div className="fontes-page__header">
+        <div>
+          <h1>Fontes</h1>
+          <p className="fontes-page__subtitle">Grupos e canais do Telegram que o teleyes escuta.</p>
+        </div>
         <button
           type="button"
-          className="crud-page__new-button fill-button"
-          onClick={openCreate}
+          className="plane-action fill-button fontes-page__new"
+          onClick={() => {
+            setEditTarget(null)
+            setFocusSignal((value) => value + 1)
+          }}
           onPointerDown={fillOrigin}
         >
           + Nova fonte
         </button>
       </div>
-      <p style={{ marginTop: -12, marginBottom: 20, fontSize: 13, color: 'var(--text-muted)' }}>
-        Cadastro manual pelo chat_id do grupo. Para escolher numa lista dos grupos que a conta já acessa, use o{' '}
-        <Link to="/configuracao">assistente de configuração</Link>.
-      </p>
 
-      {formTarget && (
-        <form className="glass-card crud-form" onSubmit={submitForm}>
-          <h2>{formTarget.kind === 'create' ? 'Nova fonte' : 'Editar fonte'}</h2>
-          <div className="crud-form__grid">
-            <label>
-              Nome
-              <input
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                required
-              />
-            </label>
-            <label>
-              Chat ID do Telegram
-              <input
-                value={form.telegramChatId}
-                onChange={(event) => setForm({ ...form, telegramChatId: event.target.value })}
-                required
-              />
-            </label>
+      <dl className="fontes-kpis">
+        {kpiCards.map((card) => (
+          <div key={card.label} className="plane-pearl fontes-kpi">
+            <dt>{card.label}</dt>
+            <dd>{card.value}</dd>
+            <dd className="fontes-kpi__sub">{card.sub}</dd>
           </div>
-          <div className="crud-form__actions">
-            <button
-              type="submit"
-              className="crud-form__submit fill-button"
-              disabled={submitting}
-              onPointerDown={fillOrigin}
-            >
-              {submitting ? 'Salvando…' : 'Salvar'}
-            </button>
-            <button type="button" className="crud-form__cancel" onClick={closeForm}>
-              Cancelar
-            </button>
-          </div>
-          {formError && (
-            <p role="alert" className="crud-form__error">
-              {formError}
+        ))}
+      </dl>
+
+      <div className="fontes-page__grid">
+        <div className="fontes-page__main">
+          {loading && <p>Carregando…</p>}
+          {listError && (
+            <p role="alert" className="fontes-error">
+              {listError}
             </p>
           )}
-        </form>
-      )}
-
-      {loading && <p>Carregando…</p>}
-      {listError && (
-        <p role="alert" className="crud-page__error">
-          {listError}
-        </p>
-      )}
-
-      {!loading && !listError && (
-        <div className="glass-card crud-table-wrap">
-          <table className="crud-table">
-            <thead>
-              <tr>
-                <th>Fonte</th>
-                <th>Chat ID</th>
-                <th>Último match</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map((source) => (
-                <tr key={source.id}>
-                  <td className="crud-table__name" data-label="Fonte">
-                    {source.name}
-                  </td>
-                  <td data-label="Chat ID">{source.telegram_chat_id}</td>
-                  <td data-label="Último match">
-                    {formatLastMatch(lastMatchBySource.get(source.id))}
-                  </td>
-                  <td data-label="Status">
-                    <StatusToggle
-                      active={source.active}
-                      pausing={pausingId === source.id}
-                      onPause={() => handlePause(source)}
-                    />
-                  </td>
-                  <td className="crud-table__actions" data-label="Ações">
-                    <button type="button" onClick={() => openEdit(source)}>
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="crud-table__actions--danger"
-                      onClick={() => handleDelete(source)}
-                      disabled={deletingId === source.id}
-                    >
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {sources.length === 0 && (
-                <tr>
-                  <td colSpan={5}>Nenhuma fonte cadastrada ainda.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {!loading && !listError && (
+            <div className="plane-pearl fontes-table-wrap">
+              <table className="fontes-table">
+                <thead>
+                  <tr>
+                    <th>Fonte</th>
+                    <th>Avaliações · 7d</th>
+                    <th className="fontes-table__num">Matches · 7d</th>
+                    <th>Último match</th>
+                    <th>Status</th>
+                    <th>
+                      <span className="fontes-visually-hidden">Ações</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sources.map((source) => {
+                    const row = activityById.get(source.id)
+                    const hue = sourceHue(source.id)
+                    return (
+                      <tr key={source.id} className={source.active ? '' : 'fontes-table__row--paused'}>
+                        <td data-label="Fonte">
+                          <div className="fontes-source">
+                            <span className={`fontes-avatar fontes-hue-${hue}`} aria-hidden="true">
+                              {sourceInitial(source.name)}
+                            </span>
+                            <span className="fontes-source__text">
+                              <span className="fontes-source__name">{source.name}</span>
+                              <span className="fontes-source__id">{source.telegram_chat_id}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td data-label="Avaliações · 7d">
+                          <MiniBars bars={buildBars(row, scale)} hue={hue} />
+                        </td>
+                        <td className="fontes-table__num" data-label="Matches · 7d">
+                          {row === undefined ? '—' : row.matches}
+                        </td>
+                        <td data-label="Último match">
+                          {row?.last_match_at != null ? (
+                            <>
+                              <span className="fontes-when">{formatRelativeAgo(row.last_match_at, now)}</span>
+                              <span className="fontes-when__date">{formatDayMonthClock(row.last_match_at)}</span>
+                            </>
+                          ) : (
+                            <span className="fontes-when__date">
+                              {row === undefined ? '—' : 'Nenhum match ainda'}
+                            </span>
+                          )}
+                        </td>
+                        <td data-label="Status">
+                          <StatusToggle
+                            active={source.active}
+                            pausing={pausingId === source.id}
+                            onPause={() => handlePause(source)}
+                          />
+                        </td>
+                        <td className="fontes-table__actions" data-label="Ações">
+                          <RowActionsMenu
+                            label={`Mais ações da fonte ${source.name}`}
+                            items={[
+                              {
+                                key: 'edit',
+                                label: 'Editar',
+                                onSelect: () => {
+                                  setEditTarget(source)
+                                  setFocusSignal((value) => value + 1)
+                                },
+                              },
+                              {
+                                key: 'delete',
+                                label: 'Excluir',
+                                onSelect: () => setDeleteTarget(source),
+                                danger: true,
+                                separatorBefore: true,
+                              },
+                            ]}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {sources.length === 0 && (
+                    <tr className="fontes-table__empty">
+                      <td colSpan={6}>Nenhuma fonte cadastrada ainda. Adicione a primeira ao lado.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+
+        <div className="fontes-page__side">
+          <FontesRail
+            csrfToken={csrfToken}
+            setupStatus={setupStatus}
+            sources={sources}
+            editTarget={editTarget}
+            focusSignal={focusSignal}
+            onChanged={reload}
+            onCancelEdit={() => setEditTarget(null)}
+          />
+          <section className="plane-pearl fontes-help">
+            <h2>Não aparece na lista?</h2>
+            <p>
+              A conta precisa estar no grupo. Para canais privados, use “Por chat_id” — o id começa com{' '}
+              <code>-100</code>.
+            </p>
+          </section>
+        </div>
+      </div>
+
+      {deleteTarget !== null && (
+        <ConfirmDialog
+          title="Excluir fonte?"
+          message={`“${deleteTarget.name}” deixa de ser monitorada. Esta ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          busy={deleting}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </main>
   )

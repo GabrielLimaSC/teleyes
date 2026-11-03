@@ -130,3 +130,24 @@ export function inputDateToApi(day: string): string {
   const [year, month, date] = day.split('-').map(Number)
   return new Date(year ?? 1970, (month ?? 1) - 1, date ?? 1, 12, 0, 0).toISOString()
 }
+
+/** "DD/MM, HH:MM" in the local zone — the secondary line under a relative time. */
+export function formatDayMonthClock(iso: string): string {
+  const date = parseApiDate(iso)
+  const day = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return `${day}, ${time}`
+}
+
+/** "há 21s", "há 5 min", "há 4h", "há 2 dias" relative to `now`; a future instant reads as "agora". */
+export function formatRelativeAgo(iso: string, now: Date = new Date()): string {
+  const seconds = Math.floor((now.getTime() - parseApiDate(iso).getTime()) / 1000)
+  if (seconds < 5) return 'agora'
+  if (seconds < 60) return `há ${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `há ${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `há ${hours}h`
+  const days = Math.floor(hours / 24)
+  return days === 1 ? 'há 1 dia' : `há ${days} dias`
+}

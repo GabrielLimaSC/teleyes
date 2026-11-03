@@ -234,6 +234,13 @@
   --plane-status-warn-dot: #8b5a08;
   --plane-status-neutral-dot: #47566e;
   --plane-status-danger-dot: #a32a24;
+  /* S21-11: source avatar / last-bar hues (Fontes), and the ink drawn on them. */
+  --source-hue-1: #8db4f8;
+  --source-hue-2: #c3b1ee;
+  --source-hue-3: #f2c56f;
+  --source-hue-4: #7fdba5;
+  --source-hue-5: #f0a3b8;
+  --source-hue-ink: #14171c;
   /* Adapter / SSE state word and its dot (Saúde, Login's bot row). */
   --state-neutral-text: #8a8a92;
   --state-neutral-dot: #8a8a92;
@@ -430,6 +437,12 @@
   /* ---- Estado (ponto + palavra) ---- */
   --plane-status-good: #5ee08f;
   --plane-status-good-dot: #22c55e;
+  --source-hue-1: #7aa6f7;
+  --source-hue-2: #b9a6e8;
+  --source-hue-3: #f5c26b;
+  --source-hue-4: #6fd99b;
+  --source-hue-5: #ec93ac;
+  --source-hue-ink: #0f1116;
   --plane-status-warn: #f5c26b;
   --plane-status-warn-dot: #f5b544;
   --plane-status-warn-bg: #3a2c12;
