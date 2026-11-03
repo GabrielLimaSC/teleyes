@@ -50,6 +50,10 @@
   padding-inline: 18px;
 }
 
+.economia-page__plus {
+  margin-right: 6px;
+}
+
 .economia-page__error {
   color: var(--plane-status-danger);
 }
@@ -135,28 +139,229 @@
   color: inherit;
 }
 
+/* ---- Hero card, bars and split (S21-04) ---- */
+.economia-tile--hero {
+  border-color: color-mix(in srgb, var(--plane-text-eyebrow) 35%, transparent);
+}
+
+.economia-tile__value--hero {
+  font-size: clamp(30px, 4vw, 44px);
+  white-space: nowrap;
+}
+
+.economia-hero__line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.economia-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.economia-badge--good {
+  color: var(--plane-status-good);
+}
+
+.economia-badge--bad {
+  color: var(--plane-status-danger);
+}
+
+.economia-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-bars__row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.economia-bars__track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--plane-tint-bg);
+  overflow: hidden;
+}
+
+.economia-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.economia-bars__fill--median {
+  background: var(--plane-status-neutral);
+}
+
+.economia-bars__fill--good {
+  background: var(--plane-status-good-dot);
+}
+
+.economia-bars__fill--bad {
+  background: var(--plane-status-danger-dot);
+}
+
+.economia-bars__value {
+  font-weight: 600;
+  color: var(--plane-text-heading);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.economia-hero__method {
+  line-height: 1.5;
+}
+
+.economia-split {
+  margin-top: 18px;
+}
+
+.economia-split__bar {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+}
+
+.economia-split__seg {
+  flex-basis: 0;
+  min-width: 4px;
+  border-radius: 999px;
+}
+
+.economia-split__seg--primary {
+  background: var(--plane-text-eyebrow);
+}
+
+.economia-split__seg--alt {
+  background: var(--plane-status-neutral);
+}
+
+.economia-split__seg--good {
+  background: var(--plane-status-good-dot);
+}
+
+.economia-split__seg--warn {
+  background: var(--plane-status-warn-dot);
+}
+
 /* ---- Table ---- */
 .economia-table-wrap {
-  padding: 8px 12px;
-  overflow-x: auto;
+  padding: 0;
+  overflow: hidden;
 }
 
-.economia-table-wrap .crud-table {
+.economia-table__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--plane-divider-color);
+}
+
+.economia-table__head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.economia-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.economia-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.economia-legend__range {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--plane-status-neutral-dot);
+}
+
+.economia-legend__median {
+  width: 2px;
+  height: 12px;
+  background: var(--plane-text-secondary);
+}
+
+.economia-legend__paid {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--plane-status-good-dot);
+}
+
+.economia-table {
+  width: 100%;
+  border-collapse: collapse;
   color: var(--plane-text-primary);
+  font-size: 14px;
 }
 
-.economia-table-wrap .crud-table th {
+.economia-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 12px;
   color: var(--plane-text-secondary);
-  border-bottom-color: var(--plane-divider-color);
+  border-bottom: 1px solid var(--plane-divider-color);
+  background: var(--plane-surface-sunken);
 }
 
-.economia-table-wrap .crud-table td,
-.economia-table-wrap .crud-table tr {
-  border-color: var(--plane-divider-color);
+.economia-table td {
+  padding: 14px 12px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--plane-divider-color);
 }
 
-.economia-table-wrap .crud-table__name {
+.economia-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.economia-table th:first-child,
+.economia-table td:first-child {
+  padding-left: 20px;
+}
+
+.economia-table th:last-child,
+.economia-table td:last-child {
+  padding-right: 20px;
+  width: 1%;
+}
+
+.economia-table__piece {
+  min-width: 0;
+  max-width: 260px;
+}
+
+.economia-table__name {
+  font-weight: 600;
   color: var(--plane-text-heading);
+  overflow-wrap: anywhere;
 }
 
 .economia-table__store {
@@ -165,14 +370,130 @@
   color: var(--plane-text-helper);
 }
 
-.economia-table-wrap .crud-table__actions button {
-  background: var(--plane-action-secondary-bg);
-  border: var(--plane-action-secondary-border);
-  color: var(--plane-text-primary);
+.economia-table .economia-table__num {
+  text-align: right;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-heading);
 }
 
-.economia-table-wrap .crud-table__actions button.crud-table__actions--danger {
+.economia-table th.economia-table__num {
+  color: var(--plane-text-secondary);
+}
+
+.economia-table__range {
+  min-width: 260px;
+  width: 42%;
+}
+
+.economia-table__empty {
+  padding: 24px 20px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-page .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- Price range bar ---- */
+.price-range {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.price-range__track {
+  position: relative;
+  height: 14px;
+  margin: 0 7px;
+}
+
+.price-range__track::before {
+  content: '';
+  position: absolute;
+  inset: 5px -7px;
+  border-radius: 999px;
+  background: var(--plane-status-neutral-dot);
+  opacity: 0.55;
+}
+
+.price-range__track--dashed::before {
+  inset: 6px -7px;
+  height: 0;
+  background: none;
+  opacity: 1;
+  border-top: 2px dashed var(--plane-divider-color);
+  border-radius: 0;
+}
+
+.price-range__median {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--plane-text-primary);
+}
+
+.price-range__paid {
+  position: absolute;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+}
+
+.price-range__paid--good {
+  background: var(--plane-status-good-dot);
+}
+
+.price-range__paid--bad {
+  background: var(--plane-status-danger-dot);
+}
+
+.price-range__labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--plane-text-helper);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-range__note {
+  font-size: 11px;
+  color: var(--plane-text-helper);
+}
+
+/* ---- Pill ---- */
+.economia-pill {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--plane-tint-bg);
+  color: var(--plane-text-secondary);
+}
+
+.economia-pill--good {
+  color: var(--plane-status-good);
+  background: color-mix(in srgb, var(--plane-status-good-dot) 16%, transparent);
+}
+
+.economia-pill--bad {
   color: var(--plane-status-danger);
+  background: color-mix(in srgb, var(--plane-status-danger-dot) 16%, transparent);
 }
 
 /* ---- Noise ---- */
@@ -410,15 +731,74 @@
 }
 
 @media (max-width: 640px) {
-  .economia-table-wrap {
-    overflow-x: visible;
+  .economia-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
   }
 
-  .economia-table-wrap .crud-table tr {
+  .economia-table,
+  .economia-table tbody {
+    display: block;
+  }
+
+  .economia-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'piece paid actions'
+      'range range range'
+      'saving saving saving';
+    gap: 10px 12px;
+    align-items: center;
+    padding: 16px;
     border-bottom: 1px solid var(--plane-divider-color);
   }
 
-  .economia-table-wrap .crud-table td[data-label]::before {
-    color: var(--plane-text-helper);
+  .economia-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .economia-table td,
+  .economia-table th:first-child,
+  .economia-table td:first-child,
+  .economia-table td:last-child {
+    display: block;
+    padding: 0;
+    border: none;
+    width: auto;
+  }
+
+  .economia-table__piece {
+    grid-area: piece;
+    max-width: none;
+  }
+
+  .economia-table td[data-label='Pago'] {
+    grid-area: paid;
+  }
+
+  .economia-table__range {
+    grid-area: range;
+    width: auto;
+    min-width: 0;
+  }
+
+  .economia-table td[data-label='Economia'] {
+    grid-area: saving;
+  }
+
+  .economia-table__actions {
+    grid-area: actions;
+  }
+
+  .economia-table tr:has(.economia-table__empty) {
+    display: block;
+  }
+
+  .economia-table__head {
+    padding: 14px 16px;
   }
 }

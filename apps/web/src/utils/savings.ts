@@ -47,3 +47,11 @@ export function blackFridayLabel(days: number): string {
   const after = Math.abs(days)
   return `${after} ${after === 1 ? 'dia' : 'dias'} depois`
 }
+
+/** Pill text of the Economia column: "+R$ 30,00 · 11,1%", "−R$ 30,00 · 6,5%" or "sem histórico". */
+export function savingPill(savings: ItemSavings | null): string {
+  if (savings === null || savings.status !== 'ok' || savings.saving_vs_median_cents === null) return 'sem histórico'
+  const amount = formatSigned(savings.saving_vs_median_cents)
+  if (savings.saving_vs_median_pct === null) return amount
+  return `${amount} · ${formatPct(Math.abs(savings.saving_vs_median_pct))}`
+}
