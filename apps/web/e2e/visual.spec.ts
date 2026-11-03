@@ -78,15 +78,13 @@ const DYNAMIC_TEXT: Array<[selector: string, text: string]> = [
   ['.match-card__timestamp', 'Hoje, 00:00'],
   ['.historico-table__time', 'Hoje, 00:00'],
   ['td[data-label="Último match"]', '01/01/2026, 00:00:00'],
-  ['.saude-tile__detail', 'v0.1.0 · tempo ativo 1h 1min'],
+  ['.saude-verdict__meta div:first-child dd', '1h 1min'],
 ]
 
 async function freezeDynamicText(page: Page) {
   await page.evaluate((entries) => {
     for (const [selector, text] of entries) {
       for (const el of document.querySelectorAll(selector)) {
-        // Only the uptime line of Saúde's Ambiente tile, not its sibling tiles.
-        if (selector === '.saude-tile__detail' && !(el.textContent ?? '').includes('tempo ativo')) continue
         el.textContent = text
       }
     }

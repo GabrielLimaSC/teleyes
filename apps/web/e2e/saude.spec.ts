@@ -15,10 +15,10 @@ test('saude page reflects the real not_configured state and tests a notification
 
   await page.goto('/saude')
 
-  await expect(page.getByText('Ambiente')).toBeVisible()
+  await expect(page.getByText('Ambiente', { exact: true })).toBeVisible()
   // this E2E backend runs with no TG_API_ID/BOT_TOKEN (e2e/start-backend.sh) —
   // both real health fields must say so, never a faked "connected"/"configured".
-  await expect(page.getByText('Não configurado')).toHaveCount(2)
+  await expect(page.locator('.saude-pill', { hasText: 'desligado' })).toHaveCount(2)
 
   await page.getByLabel('Destinatário').selectOption({ label: 'Gabriel Saude E2E' })
   await page.getByRole('button', { name: 'Enviar teste' }).click()
@@ -62,5 +62,41 @@ test('saude summary shows the real totals from the API (S11-06)', async ({ page 
   expect(shownMatches).toBeGreaterThanOrEqual(before.matches)
   expect(shownMatches).toBeLessThanOrEqual(after.matches)
   await expect(page.getByText('Mensagens lidas')).toHaveCount(0)
-  await expect(page.getByText(/Contagens de agora/)).toBeVisible()
+})
+
+test('saude v2 shows the verdict, five service cards with 24 bars and the collector (S21-10)', async ({ page }) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/saude')
+
+  await expect(page.getByRole('heading', { name: 'Saúde' })).toBeVisible()
+  await expect(page.getByText(/atualizado há \d+s/)).toBeVisible()
+  // Telegram and bot are off in this backend: never "Tudo funcionando".
+  await expect(page.locator('.saude-verdict h2')).not.toHaveText('Tudo funcionando')
+  await expect(page.locator('.saude-verdict')).toContainText(/\d de 5 serviços ativos/)
+
+  const cards = page.locator('.saude-service')
+  await expect(cards).toHaveCount(5)
+  for (const name of ['Telegram', 'Bot', 'Listener', 'Feed (SSE)', 'Banco']) {
+    await expect(cards.filter({ has: page.getByRole('heading', { name, exact: true }) })).toHaveCount(1)
+    await expect(cards.filter({ has: page.getByRole('heading', { name, exact: true }) }).locator('.saude-bar')).toHaveCount(24)
+  }
+  await expect(page.getByRole('heading', { name: 'Coletor' })).toBeVisible()
+  await expect(page.getByText(/Avaliações por hora · últimas 24h/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Eventos recentes' })).toBeVisible()
+})
+
+test('saude Reverificar refetches the history and the preview follows the message (S21-10)', async ({ page }) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/saude')
+  await expect(page.locator('.saude-service')).toHaveCount(5)
+
+  const refetch = page.waitForResponse((response) => response.url().includes('/health/history'))
+  await page.getByRole('button', { name: 'Reverificar' }).click()
+  expect((await refetch).ok()).toBe(true)
+
+  await page.getByLabel('Mensagem').fill('Mensagem na bolha E2E')
+  await expect(page.getByLabel('Prévia no Telegram')).toContainText('Mensagem na bolha E2E')
+  await expect(page.getByLabel('Prévia no Telegram')).toContainText('teleyes')
 })
