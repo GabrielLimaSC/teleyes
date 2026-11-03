@@ -65,5 +65,7 @@ test('capture Login, Feed, Histórico, Regras, Fontes and Saúde from the demo',
 
   await page.goto('/saude')
   await expect(page.getByText('Ambiente')).toBeVisible()
+  // The SSE card says "conectando" for a few seconds after load; shoot the settled demo verdict.
+  await expect(page.getByText('Operando em demonstração')).toBeVisible({ timeout: 20_000 })
   await shoot(page, 'saude')
 })
