@@ -232,8 +232,8 @@ test('seeded data across every screen', async ({ page }) => {
   await page.goto('/')
   const csrf = await apiLogin(page)
 
-  const sourceA = await apiPost<{ id: number }>(page, '/sources', csrf, { name: 'Urubu das Promoções', telegram_chat_id: '-100101' })
-  const sourceB = await apiPost<{ id: number }>(page, '/sources', csrf, { name: 'CMdias', telegram_chat_id: '-100102' })
+  const sourceA = await apiPost<{ id: number }>(page, '/sources', csrf, { name: 'Grupo Ofertas Exemplo', telegram_chat_id: '-100101' })
+  const sourceB = await apiPost<{ id: number }>(page, '/sources', csrf, { name: 'Canal Achados', telegram_chat_id: '-100102' })
   await apiPost(page, '/sources', csrf, { name: 'Grupo Sem Uso', telegram_chat_id: '-100103' })
 
   const rules = {
@@ -370,7 +370,7 @@ test('seeded data across every screen', async ({ page }) => {
 
   // ---- Fontes ----
   await page.goto('/fontes')
-  await expect(page.getByText('Urubu das Promoções').first()).toBeVisible()
+  await expect(page.getByText('Grupo Ofertas Exemplo').first()).toBeVisible()
   await page.waitForTimeout(400)
   await eachViewport(page, (v) => shoot(page, 'fontes', v))
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -403,7 +403,7 @@ test('Saúde: adapter and SSE states, notification result', async ({ page }) => 
   await page.goto('/')
   const csrf = await apiLogin(page)
   await apiPost(page, '/recipients', csrf, { name: 'Gabriel', telegram_chat_id: '901', allowlisted: true })
-  await apiPost(page, '/sources', csrf, { name: 'Urubu das Promoções', telegram_chat_id: '-100101' })
+  await apiPost(page, '/sources', csrf, { name: 'Grupo Ofertas Exemplo', telegram_chat_id: '-100101' })
 
   const health = (telegram: string, bot: string) => ({
     status: 'ok',

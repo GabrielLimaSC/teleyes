@@ -83,9 +83,9 @@ function ruleTermEndIndex(text: string, includeTerms: string): number | null {
 /**
  * S10-02: S9-06 originally gated this cut on the term's relative position
  * (>= 50% of the text) — validated against only 2 examples at the time
- * (PC DO FAFA ~53%, the CMdias/S8-02 fixture ~16%), which broke on a third
- * real example (PC DO FAFA id 91, ~33%) once more real production data
- * became available. Pulled 87 real matches from PC DO FAFA/CMdias to
+ * (Loja Exemplo ~53%, the sample/S8-02 fixture ~16%), which broke on a third
+ * real example (~33%) once more real production data
+ * became available. Pulled 87 real matches from Loja Exemplo/sample to
  * recalibrate: almost every real message puts the rule term's own line at
  * 20-45% (the "$ Valor .../💵 R$..." block after it is longer than the S9-06
  * mockup assumed), so a 50% floor almost never fired in practice — position
@@ -94,10 +94,10 @@ function ruleTermEndIndex(text: string, includeTerms: string): number | null {
  * What every one of those 87 messages *does* share: the rule term's own
  * line is followed, somewhere before the link, by a blank line (`\n\n`)
  * separating the product name from the price/coupon/footer block — present
- * even in real CMdias messages, despite the original S8-02 unit-test
+ * even in real-world sample messages, despite the original S8-02 unit-test
  * fixture (single-line, no `\n\n` at all) not having one. Gating on real
  * paragraph structure instead of position: fires correctly on all 87 real
- * examples (including PC DO FAFA id 91), and the S8-02 fixture still falls
+ * examples (including a third real example), and the S8-02 fixture still falls
  * through unchanged (no `\n\n` anywhere in it) — same result as before,
  * confirmed against the exact fixture text, not just reasoned about.
  *

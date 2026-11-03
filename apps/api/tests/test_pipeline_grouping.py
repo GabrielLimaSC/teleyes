@@ -16,8 +16,8 @@ from packages.rules.dedupe import DedupeCache
 
 
 def _seed_two_sources(session: Session) -> tuple[Source, Source, Rule, Recipient]:
-    source_a = Source(name="Wolf Ofertas", telegram_chat_id="-1001")
-    source_b = Source(name="CMdias", telegram_chat_id="-1002")
+    source_a = Source(name="Ofertas Alfa", telegram_chat_id="-1001")
+    source_b = Source(name="Canal Achados", telegram_chat_id="-1002")
     rule = Rule(name="RTX 5070", include_terms="rtx 5070")
     recipient = Recipient(name="Gabriel", telegram_chat_id="999", allowlisted=True)
     session.add_all([source_a, source_b, rule, recipient])

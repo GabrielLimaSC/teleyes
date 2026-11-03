@@ -23,7 +23,7 @@ async function seed(page: Page): Promise<string> {
   await apiPut(page, '/settings/feed', csrfToken, { group_duplicates: false })
   const title = `GPU PNY NVIDIA GeForce RTX 5070 OC ${tag}`
   const source = await apiPost<{ id: number }>(page, '/sources', csrfToken, {
-    name: `CAÇA PREÇO DO ROCHA ${tag}`,
+    name: `GRUPO OFERTAS EXEMPLO ${tag}`,
     telegram_chat_id: `demo-layout-${tag}`,
   })
   const rule = await apiPost<{ id: number }>(page, '/rules', csrfToken, {

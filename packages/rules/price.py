@@ -43,7 +43,7 @@ _COMMA_THOUSANDS_RE = re.compile(r"^\d{1,3}(?:,\d{3})+$")
 _CASH_ANCHOR_RE = re.compile(r"\b(?:a\s*vista|à\s*vista|pix)\b", re.IGNORECASE)
 _CARD_ANCHOR_RE = re.compile(r"\b(?:cart[aã]o|parcelado)\b", re.IGNORECASE)
 
-# S8-01: coupon/discount keywords from the real CMdias message ("cupom de R$
+# S8-01: coupon/discount keywords from the real-world sample message ("cupom de R$
 # 90 OFF") plus the task's own confirmed wording variations ("R$X de
 # desconto", "cupom: R$X") — anchored on confirmed keywords, not an inferred
 # pattern (CLAUDE.md). Split by which side of the anchor the value falls on
@@ -188,7 +188,7 @@ def _detect_cash_and_card(text: str, candidates: list[_Candidate]) -> tuple[int,
 
 def _drop_coupon_candidates(text: str, candidates: list[_Candidate]) -> list[_Candidate]:
     """S8-01: a price value anchored to a coupon/discount keyword ("cupom de
-    R$ 90 OFF" in the real CMdias message that exposed this) is never the
+    R$ 90 OFF" in the real-world sample message that exposed this) is never the
     product price — not as the main candidate, not as a last-resort fallback
     either (unlike an installment amount, which legitimately can be the price
     when it's the only candidate in the message).
