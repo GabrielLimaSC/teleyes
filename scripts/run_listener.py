@@ -384,10 +384,14 @@ async def _serve(api_id: int, api_hash: str, bot_token: str, stop_event: asyncio
             # True. Only started once boot is done — before that, the first
             # connection would look like a "reconnect" and run the notifying
             # catch-up on sources that have no cursor yet (S6-04).
+            async def recover_after_silent_drop() -> None:
+                lifecycle.note_reconnect()
+                await lifecycle.catch_up()
+
             watchdog = asyncio.create_task(
                 supervise_reconnects(
                     client.is_connected,
-                    lifecycle.catch_up,
+                    recover_after_silent_drop,
                     poll_seconds=RECONNECT_POLL_SECONDS,
                     sleep=asyncio.sleep,
                 )

@@ -64,7 +64,13 @@ def demo_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
         check=True,
         capture_output=True,
     )
-    seed_demo_database(get_sessionmaker(get_engine(url)), now=NOW)
+    engine = get_engine(url)
+    seed_demo_database(get_sessionmaker(engine), now=NOW)
+    # The tests copy only the .db file. In WAL mode the tail of the seed can still sit in the
+    # -wal file, so without this checkpoint a copy may be missing the last writes.
+    with engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)")
+    engine.dispose()
     return path
 
 

@@ -31,6 +31,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.demo_mode import DEMO_CHAT_PREFIX, DEMO_PASSWORD, DemoNotifier, is_demo_chat_id
+from app.demo_monitoring import seed_monitoring
 from app.listener_control import current_fingerprint
 from app.pipeline import IncomingMessage, process_message
 from app.savings import Observation, median
@@ -566,6 +567,7 @@ def _finish(session: Session, now: datetime, rng: random.Random) -> None:
         )
     )
     _seed_purchases(session, now)
+    seed_monitoring(session, now, random.Random(SEED + 2))
     session.commit()
 
 

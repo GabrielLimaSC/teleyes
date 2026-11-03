@@ -30,6 +30,7 @@ from app.listener_control import (
     touch_listener_seen,
 )
 from app.listener_lifecycle import ListenerLifecycle, build_listener_sources
+from packages.metrics.hourly import EventKind, record_system_event
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +91,8 @@ class ReloadWorker:
             len(recipients),
             outcome.new_matches,
         )
-        self._record(
-            lambda session: record_applied(
+        def write(session: Session) -> None:
+            record_applied(
                 session,
                 sources_loaded=len(sources),
                 rules_loaded=len(rules),
@@ -101,7 +102,18 @@ class ReloadWorker:
                 scan_failures=outcome.scan_failures,
                 now=self._now(),
             )
-        )
+            # S21-09: counts only, never message text. A failed log write must not
+            # undo the status above (it is already committed).
+            record_system_event(
+                session,
+                EventKind.RULES_APPLIED,
+                f"Regras aplicadas — {len(rules)} regras, {len(sources)} fontes, "
+                f"{outcome.new_matches} matches novos no histórico",
+                at=self._now(),
+            )
+            session.commit()
+
+        self._record(write)
 
     def _record(self, write: Callable[[Session], None]) -> None:
         """The outcome write must not take the loop down (e.g. a locked file)."""

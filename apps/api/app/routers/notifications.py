@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.main import get_current_session, get_db, require_csrf
 from models import Recipient
+from packages.metrics.hourly import EventKind, log_system_event
 from packages.notifications.bot import BotNotifier
 
 BotNotifierFactory = Callable[[set[str]], BotNotifier]
@@ -85,6 +87,15 @@ async def test_notification(
             status_code=status.HTTP_409_CONFLICT,
             detail="notification test already sent",
         )
+
+    # S21-09: recipient name and outcome only — never the test text.
+    sent_status = "sent" if result.delivered else (result.reason or "failed")
+    summary = (
+        f"Envio simulado para {recipient.name} — modo demonstração"
+        if get_settings().teleyes_demo
+        else f"Envio de teste para {recipient.name} — {sent_status}"
+    )
+    log_system_event(request.app.state.session_factory, EventKind.TEST_SEND, summary)
 
     return TestNotificationResponse(
         delivered=result.delivered,

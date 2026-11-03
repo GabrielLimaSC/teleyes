@@ -48,6 +48,7 @@ from app.pipeline import (
     run_historical_scan,
 )
 from models import Recipient, Rule, Source
+from packages.metrics.hourly import EventKind, log_system_event
 from packages.notifications.bot import BotNotifier
 from packages.rules.dedupe import DedupeCache
 from packages.telegram.connection_supervisor import describe_error, is_transient_connection_error
@@ -222,6 +223,7 @@ class ListenerLifecycle:
             self.boot_scan = await self._startup()
             self.started = True
             return
+        self.note_reconnect()
         try:
             await self.catch_up()
         except Exception as error:
@@ -233,6 +235,16 @@ class ListenerLifecycle:
             logger.error("event=catch_up_failed %s", describe_error(error))
         if self._historical_pending:
             await self._run_historical_scan(self._historical_pending)
+
+    def note_reconnect(self) -> None:
+        """S21-09: one event-log line per reconnect. The supervisor and the silent-drop
+        watchdog can both notice the same drop, so lines inside a minute collapse."""
+        log_system_event(
+            self._session_factory,
+            EventKind.LISTENER_RECONNECT,
+            "Listener reconectou ao Telegram e recuperou as mensagens do intervalo",
+            dedupe_within=timedelta(minutes=1),
+        )
 
     async def catch_up(self) -> None:
         """Real reconnect recovery: notifying, cursor-based, bounded (S5-02).
