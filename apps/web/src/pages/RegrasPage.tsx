@@ -445,6 +445,10 @@ export function RegrasPage() {
   // The rail may be showing the recipient form: bring the rule form back first,
   // then focus its name field once it is on screen.
   const focusRuleName = () => {
+    if (recipientTarget === null) {
+      nameInputRef.current?.focus()
+      return
+    }
     setRecipientTarget(null)
     requestAnimationFrame(() => nameInputRef.current?.focus())
   }
