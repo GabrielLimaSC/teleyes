@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 from app.main import get_current_session, get_db, require_csrf
 from app.pipeline import HISTORICAL_WINDOW, evaluate_rule, parse_terms
 from app.product_history import daily_lowest, get_display_timezone
+from app.recipient_rules import load_selected_rule_ids, recipient_gets_rule
 from app.target_window import target_window_start
 from app.utc import UtcDatetime, ensure_utc, utc_now
-from models import Match, Rule, Snooze, Source
+from models import Match, Recipient, Rule, Snooze, Source
 from packages.rules.match import MatchRule, terms_error
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
@@ -69,6 +70,9 @@ class RuleResponse(BaseModel):
     # when it is not silenced. Computed fresh on every read, never stored.
     snoozed_until: UtcDatetime | None = None
     history_30d: list[RuleHistoryPointResponse] = []
+    # S21-06 (F8): ids of the recipients that currently receive this rule
+    # (active + allowlisted, rule in scope, at least one alert type on).
+    recipient_ids: list[int] = []
 
 
 class ClearMatchesResponse(BaseModel):
@@ -119,6 +123,23 @@ def _first_matching_term(include_terms: str, text: str) -> str:
 
 def _not_found(error: NotFoundError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
+def _recipient_ids_by_rule(db: Session, rule_ids: list[int]) -> dict[int, list[int]]:
+    selected = load_selected_rule_ids(db)
+    receiving = db.scalars(
+        select(Recipient)
+        .where(Recipient.active.is_(True), Recipient.allowlisted.is_(True))
+        .order_by(Recipient.id)
+    )
+    result: dict[int, list[int]] = {rule_id: [] for rule_id in rule_ids}
+    for recipient in receiving:
+        if not (recipient.notify_target or recipient.notify_common):
+            continue
+        for rule_id in rule_ids:
+            if recipient_gets_rule(recipient, rule_id, selected.get(recipient.id, ())):
+                result[rule_id].append(recipient.id)
+    return result
 
 
 @router.get("", response_model=list[RuleResponse])
@@ -179,9 +200,11 @@ def list_rules(
         ]
         for rule_id, priced in priced_by_rule.items()
     }
+    recipients_by_rule = _recipient_ids_by_rule(db, [rule.id for rule in rules])
     return [
         RuleResponse.model_validate(rule).model_copy(
             update={
+                "recipient_ids": recipients_by_rule.get(rule.id, []),
                 "lowest_price_cents": lowest_by_rule.get(rule.id),
                 "lowest_price_24h_cents": lowest_24h_by_rule.get(rule.id),
                 "snoozed_until": snoozed_until_by_rule.get(rule.id),
