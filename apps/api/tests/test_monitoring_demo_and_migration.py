@@ -26,7 +26,7 @@ from packages.metrics.hourly import (
 NOW = datetime(2026, 6, 1, 15, 30, tzinfo=UTC)
 AlembicRunner = Callable[..., CompletedProcess[str]]
 NEW_TABLES = {"metric_hourly", "service_heartbeat", "system_event"}
-PREVIOUS_HEAD = "b7d41e9a2c05"
+PREVIOUS_HEAD = "c9e2a4f6b813"
 
 
 @pytest.fixture(scope="module")
@@ -144,7 +144,7 @@ def test_migration_up_and_down_is_symmetric(db_path: Path, alembic_runner: Alemb
     down = alembic_runner("downgrade", PREVIOUS_HEAD, database_url=url)
     assert down.returncode == 0, down.stderr
     assert not (NEW_TABLES & _tables(url))
-    assert "recipient_rule" in _tables(url)  # the previous revision is untouched
+    assert "admin_session" in _tables(url)  # the previous revision is untouched
 
     again = alembic_runner("upgrade", "head", database_url=url)
     assert again.returncode == 0, again.stderr

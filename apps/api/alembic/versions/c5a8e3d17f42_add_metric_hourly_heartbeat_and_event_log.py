@@ -1,7 +1,7 @@
 """add metric_hourly, service_heartbeat and system_event
 
 Revision ID: c5a8e3d17f42
-Revises: b7d41e9a2c05
+Revises: c9e2a4f6b813
 Create Date: 2026-11-04 09:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "c5a8e3d17f42"
-down_revision: Union[str, Sequence[str], None] = "b7d41e9a2c05"
+down_revision: Union[str, Sequence[str], None] = "c9e2a4f6b813"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
