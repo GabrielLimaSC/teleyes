@@ -4,8 +4,13 @@
 # image serves all of them; docker-compose.prod.yml picks which process runs
 # by overriding `entrypoint:` per service (docker-compose.demo.yml, S19-03, runs it
 # with /demo-entrypoint.sh: a fictional database and no listener). No --reload, no bind-mounted
-# source, unlike Dockerfile.dev (root).
+# source, unlike Dockerfile.dev (root). Runs as the unprivileged `teleyes` user (S23-01).
 FROM python:3.12-slim
+
+# S23-01: pick up Debian security fixes published after the base image was built.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -29,7 +34,12 @@ COPY docker/api-entrypoint.sh /api-entrypoint.sh
 COPY docker/listener-entrypoint.sh /listener-entrypoint.sh
 COPY docker/backup-entrypoint.sh /backup-entrypoint.sh
 COPY docker/demo-entrypoint.sh /demo-entrypoint.sh
-RUN chmod +x /api-entrypoint.sh /listener-entrypoint.sh /backup-entrypoint.sh /demo-entrypoint.sh
+COPY docker/as-teleyes.sh /as-teleyes.sh
+RUN chmod +x /api-entrypoint.sh /listener-entrypoint.sh /backup-entrypoint.sh /demo-entrypoint.sh /as-teleyes.sh
+
+# S23-01: nothing of ours runs as root. The entrypoints start as root only to hand the
+# volumes to this user (docker/as-teleyes.sh) and then drop to it.
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin teleyes
 
 EXPOSE 8000
 ENTRYPOINT ["/api-entrypoint.sh"]

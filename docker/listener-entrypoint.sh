@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# S23-01: starts as root only to fix volume ownership, then re-runs itself as `teleyes`.
+[ "$(id -u)" = "0" ] && exec /as-teleyes.sh "$0" "$@"
+
 # Same permission tightening as docker/api-entrypoint.sh, and just as
 # idempotent/safe to repeat here — see that file for why a named volume
 # instead of a bind mount. No `alembic upgrade head` here on purpose:
