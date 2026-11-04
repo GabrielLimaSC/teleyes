@@ -335,6 +335,30 @@ describe('LoginPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Senha incorreta.')
   })
 
+  it('tells how long to wait when the server locks the login (S23-01)', async () => {
+    mockFetch({
+      login: () =>
+        new Response(JSON.stringify({ detail: 'x' }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+        }),
+    })
+    const user = userEvent.setup()
+
+    render(
+      <AuthProvider>
+        <LoginPage />
+      </AuthProvider>,
+    )
+
+    await user.type(await screen.findByLabelText('Senha'), 'wrong-password')
+    await user.click(screen.getByRole('button', { name: 'Entrar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Muitas tentativas de entrada. Tente de novo em 60 segundos.',
+    )
+  })
+
   it('logs out and returns to the login form', async () => {
     let loggedIn = true
     mockFetch({
