@@ -847,3 +847,69 @@
   background: var(--plane-input-bg);
   color: var(--plane-text-primary);
 }
+
+/* ---- S22-01: link action, origin and user-typed reference ---- */
+.economia-table__origin {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--plane-text-helper);
+}
+
+button.economia-pill--action {
+  border: 1px dashed var(--plane-divider-color);
+  background: transparent;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.economia-pill--action:hover,
+button.economia-pill--action:focus-visible {
+  background: var(--plane-tint-bg);
+}
+
+.economia-pill--reference {
+  background: transparent;
+  border: 1px solid var(--plane-divider-color);
+  color: var(--plane-text-secondary);
+}
+
+.economia-pill__tag {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--plane-text-helper);
+}
+
+.price-range__reference {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 0;
+  margin-left: -1px;
+  border-left: 2px dashed var(--plane-text-secondary);
+}
+
+.price-range__note--reference {
+  color: var(--plane-text-secondary);
+}
+
+.economia-hero__reference {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-form__reference {
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.economia-form__reference legend {
+  padding: 0 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}

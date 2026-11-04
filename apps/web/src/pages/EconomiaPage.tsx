@@ -24,18 +24,28 @@ import { EMPTY_DRAFT, valuesFromDraft } from '../economia/purchaseDraft'
 import type { EconomiaNavState, LinkOption, PurchaseDraft } from '../economia/purchaseDraft'
 import { PurchaseForm } from '../economia/PurchaseForm'
 import { PriceRangeBar } from '../economia/PriceRangeBar'
+import { ReferenceMarker } from '../economia/ReferenceMarker'
 import { ResultsCardPanel } from '../economia/ResultsCardPanel'
 import { GoalCard, GoalDialog } from '../economia/GoalCard'
 import { PaidCard, SavingsCard } from '../economia/SummaryCards'
 import { apiDateToInput, parseApiDate, toDateInputValue } from '../utils/dates'
-import { formatCount, formatCurrency, savingPill, savingTone } from '../utils/savings'
+import {
+  formatCount,
+  formatCurrency,
+  historyOrigin,
+  referencePill,
+  savingPill,
+  savingTone,
+} from '../utils/savings'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../styles/materials.css'
 import '../components/FillButton.css'
 import '../components/CrudTable.css'
 import './EconomiaPage.css'
 
-type FormTarget = { kind: 'create'; draft: PurchaseDraft } | { kind: 'edit'; purchase: Purchase; label: string | null }
+type FormTarget =
+  | { kind: 'create'; draft: PurchaseDraft }
+  | { kind: 'edit'; purchase: Purchase; label: string | null; focusLink?: boolean }
 
 function normalize(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
@@ -128,8 +138,8 @@ export function EconomiaPage() {
     setFormError(null)
   }
 
-  const openEdit = (purchase: Purchase) => {
-    setFormTarget({ kind: 'edit', purchase, label: null })
+  const openEdit = (purchase: Purchase, focusLink = false) => {
+    setFormTarget({ kind: 'edit', purchase, label: null, focusLink })
     setFormError(null)
     const rule = rules.find((candidate) => candidate.id === purchase.rule_id)
     if (purchase.product_key !== null) {
@@ -143,7 +153,7 @@ export function EconomiaPage() {
         )
         .catch(() => undefined)
     } else if (rule) {
-      setFormTarget({ kind: 'edit', purchase, label: rule.name })
+      setFormTarget({ kind: 'edit', purchase, label: rule.name, focusLink })
     }
   }
 
@@ -258,6 +268,7 @@ export function EconomiaPage() {
       },
       apiDateToInput(purchase.purchased_at),
       purchase.store ?? '',
+      { cents: purchase.reference_price_cents, note: purchase.reference_note },
     )
   }, [formTarget])
 
@@ -299,6 +310,7 @@ export function EconomiaPage() {
           onSearch={search}
           onSubmit={submitForm}
           onCancel={closeForm}
+          focusLink={formTarget.kind === 'edit' && formTarget.focusLink === true}
         />
       )}
 
@@ -357,6 +369,9 @@ export function EconomiaPage() {
                   const purchase = purchaseById.get(item.id)
                   const tone = savingTone(item.savings)
                   const pill = savingPill(item.savings)
+                  const origin = historyOrigin(item)
+                  const reference = item.reference ?? null
+                  const noHistory = pill === 'sem histórico'
                   return (
                     <tr key={item.id}>
                       <td className="economia-table__piece" data-label="Peça">
@@ -364,15 +379,31 @@ export function EconomiaPage() {
                         <div className="economia-table__store">
                           {[item.store, dayMonth(item.purchased_at)].filter(Boolean).join(' · ')}
                         </div>
+                        {origin && <div className="economia-table__origin">{origin}</div>}
                       </td>
                       <td className="economia-table__num" data-label="Pago">
                         {formatCurrency(item.price_cents)}
                       </td>
                       <td className="economia-table__range" data-label="Faixa vista">
-                        <PriceRangeBar item={item} />
+                        {reference ? <ReferenceMarker item={item} /> : <PriceRangeBar item={item} />}
                       </td>
                       <td data-label="Economia">
-                        <span className={`economia-pill economia-pill--${tone}`}>{pill}</span>
+                        {reference ? (
+                          <span className="economia-pill economia-pill--reference">
+                            {referencePill(reference)}
+                            <span className="economia-pill__tag">pela sua referência</span>
+                          </span>
+                        ) : noHistory && purchase && item.link_kind == null ? (
+                          <button
+                            type="button"
+                            className="economia-pill economia-pill--action"
+                            onClick={() => openEdit(purchase, true)}
+                          >
+                            Vincular regra
+                          </button>
+                        ) : (
+                          <span className={`economia-pill economia-pill--${tone}`}>{pill}</span>
+                        )}
                       </td>
                       {goal && (
                         <td className="economia-table__num" data-label="Parte da meta">

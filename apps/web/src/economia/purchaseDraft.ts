@@ -57,9 +57,17 @@ export interface PurchaseFormValues {
   productKey: string | null
   ruleId: number | null
   linkLabel: string | null
+  /** S22-01: reference typed by the user, in the same text format as `price`. */
+  referencePrice: string
+  referenceNote: string
 }
 
-export function valuesFromDraft(draft: PurchaseDraft, day: string, store = ''): PurchaseFormValues {
+export function valuesFromDraft(
+  draft: PurchaseDraft,
+  day: string,
+  store = '',
+  reference: { cents: number | null; note: string | null } = { cents: null, note: null },
+): PurchaseFormValues {
   return {
     name: draft.name,
     price: draft.priceCents === null ? '' : (draft.priceCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
@@ -68,5 +76,8 @@ export function valuesFromDraft(draft: PurchaseDraft, day: string, store = ''): 
     productKey: draft.productKey,
     ruleId: draft.ruleId,
     linkLabel: draft.linkLabel,
+    referencePrice:
+      reference.cents === null ? '' : (reference.cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    referenceNote: reference.note ?? '',
   }
 }
