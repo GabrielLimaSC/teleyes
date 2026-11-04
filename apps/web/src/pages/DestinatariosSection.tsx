@@ -1,3 +1,4 @@
+import { HelpTip } from '../components/HelpTip'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
@@ -99,7 +100,12 @@ export function DestinatariosSection({
     <section className="regras-section">
       <div className="regras-section-row">
         <div>
-          <h2>Destinatários</h2>
+          <span className="help-inline">
+            <h2>Destinatários</h2>
+            <HelpTip term="Destinatário">
+              Quem recebe os alertas no Telegram. Cada pessoa precisa mandar /start para o bot antes de receber.
+            </HelpTip>
+          </span>
           <p>Quem recebe os alertas</p>
         </div>
         <div className="regras-section-row__actions">

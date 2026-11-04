@@ -6,7 +6,7 @@ import { apiLogin, apiPost, clickRuleFilter } from './helpers'
  * S16-02: conteúdo dos trilhos do Feed no novo design — real backend, tag
  * aleatória. O backend é compartilhado (outros specs rodando em paralelo, e
  * as próprias repetições de `--repeat-each` acumulam na mesma sessão), então
- * nada aqui assume contagens globais fixas: "Ver todas"/"Alvos de preço" leem
+ * nada aqui assume contagens globais fixas: "Ver todas"/"Preços-alvo" leem
  * o total real via `GET /rules` antes de comparar, e os tiles do "Resumo"
  * são sempre lidos com um filtro de regra aplicado (escopados a um número
  * conhecido, nunca ao feed inteiro).
@@ -150,7 +150,7 @@ test('trilho recolhido: badge só com número > 0, tooltip no hover e no foco, s
   // menor preço real (R$ 200,00) — nunca um outlier, já que nenhum preço
   // aqui fica abaixo de 20% da mediana da própria regra.
   const resumo = page.locator('.feed-summary')
-  const matchesTile = resumo.locator('.feed-summary__tile', { hasText: 'Matches' })
+  const matchesTile = resumo.locator('.feed-summary__tile', { hasText: 'Ofertas' })
   await expect(matchesTile).toContainText('8')
   const sentTile = resumo.locator('.feed-summary__tile', { hasText: 'Enviados' })
   await expect(sentTile).toContainText('0')
@@ -174,9 +174,9 @@ test('trilho recolhido: badge só com número > 0, tooltip no hover e no foco, s
   await expect(page.locator('.feed-page__grid')).toHaveAttribute('data-right-rail', 'collapsed')
   await page.waitForTimeout(900)
 
-  // "Alvos de preço": badge com o total real de regras com alvo (nunca
+  // "Preços-alvo": badge com o total real de regras com alvo (nunca
   // hardcoded — outras rodadas/specs podem ter deixado mais de uma).
-  const targetButton = page.getByRole('button', { name: new RegExp(`^Alvos de preço · ${withTarget}$`) })
+  const targetButton = page.getByRole('button', { name: new RegExp(`^Preços-alvo · ${withTarget}$`) })
   await expect(targetButton).toBeVisible()
   await expect(targetButton.locator('.rail-strip__badge')).toHaveText(String(withTarget))
 
@@ -197,7 +197,7 @@ test('trilho recolhido: badge só com número > 0, tooltip no hover e no foco, s
   // — é um portal com `position: fixed`, RailStrip.tsx).
   const viewport = page.viewportSize()!
   await targetButton.hover()
-  const tooltip = page.getByRole('tooltip', { name: /^Alvos de preço ·/ })
+  const tooltip = page.getByRole('tooltip', { name: /^Preços-alvo ·/ })
   await expect(tooltip).toBeVisible()
   await expect(tooltip).toContainText(`${withTarget} ${countWord(withTarget)}`)
   const tooltipBox = await viewportBox(tooltip)

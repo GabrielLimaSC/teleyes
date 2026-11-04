@@ -109,8 +109,8 @@ describe('ProductPanel', () => {
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
 
     expect(await screen.findByRole('heading', { name: product.title })).toBeInTheDocument()
-    // 14 registros desde 24/06 (America/Sao_Paulo local day for the UTC instant) · 2 fontes.
-    expect(screen.getByText(/14 registros desde 24\/06 · 2 fontes/)).toBeInTheDocument()
+    // 14 registros desde 24/06 (America/Sao_Paulo local day for the UTC instant) · 2 grupos.
+    expect(screen.getByText(/14 registros desde 24\/06 · 2 grupos/)).toBeInTheDocument()
     expect(screen.getByText('Preço atual').parentElement).toHaveTextContent('R$ 5.749,00')
     expect(screen.getByText('Menor 90d').closest('.product-panel__stat')).toHaveTextContent('R$ 5.749,00')
     expect(screen.getByText('Média 30d').closest('.product-panel__stat')).toHaveTextContent('R$ 6.512,00')
@@ -219,7 +219,7 @@ describe('ProductPanel', () => {
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
     await screen.findByRole('heading', { name: product.title })
 
-    expect(screen.queryByText('Alvo de preço')).not.toBeInTheDocument()
+    expect(screen.queryByText('Preço-alvo')).not.toBeInTheDocument()
     expect(screen.queryByText('Criar regra disso')).not.toBeInTheDocument()
     expect(screen.queryByText('Silenciar 7 dias')).not.toBeInTheDocument()
     expect(screen.getByText('Editar dados')).toBeInTheDocument()
@@ -265,13 +265,13 @@ describe('ProductPanel', () => {
     )
     await screen.findByRole('heading', { name: product.title })
 
-    expect(screen.getByText('Alvo de preço')).toBeInTheDocument()
+    expect(screen.getByText('Preço-alvo')).toBeInTheDocument()
     expect(screen.getByText('Criar regra disso')).toBeInTheDocument()
     expect(screen.getByText('Silenciar 7 dias')).toBeInTheDocument()
     expect(screen.getByText('Editar dados')).toBeInTheDocument()
   })
 
-  it('"Salvar alvo" parses the pt-BR thousands dot and calls onSaveTarget with cents', async () => {
+  it('"Salvar preço-alvo" parses the pt-BR thousands dot and calls onSaveTarget with cents', async () => {
     const product = buildProduct()
     const onSaveTarget = vi.fn()
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
@@ -292,7 +292,7 @@ describe('ProductPanel', () => {
     const input = screen.getByRole('textbox', { name: 'Avise-me abaixo de' })
     await user.clear(input)
     await user.type(input, '5.749')
-    await user.click(screen.getByRole('button', { name: 'Salvar alvo' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar preço-alvo' }))
 
     expect(onSaveTarget).toHaveBeenCalledWith(574_900)
   })
@@ -317,7 +317,7 @@ describe('ProductPanel', () => {
 
     await user.clear(input)
     await user.type(input, 'abc')
-    await user.click(screen.getByRole('button', { name: 'Salvar alvo' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar preço-alvo' }))
 
     expect(
       screen.getByRole('alert'),
@@ -414,7 +414,7 @@ describe('ProductPanel', () => {
     expect(await screen.findByRole('textbox', { name: 'Nome exibido' })).toHaveValue(product.title)
     expect(screen.getByRole('textbox', { name: 'Preço' })).toHaveValue('6.991,00')
     expect(screen.getByTestId('original-message').querySelectorAll('mark')).toHaveLength(2)
-    expect(screen.getByRole('switch', { name: 'Aplicar o nome a todos os matches deste produto' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Aplicar o nome a todas as ofertas deste produto' })).toBeInTheDocument()
   })
 
   it('validates a short name and malformed price in the fields before saving', async () => {

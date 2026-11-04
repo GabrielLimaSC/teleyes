@@ -114,7 +114,7 @@ describe('useListenerStatus', () => {
 
     const { result } = renderHook(() => useListenerStatus())
 
-    await waitFor(() => expect(result.current.error).toBe('Não foi possível consultar o estado do listener.'))
+    await waitFor(() => expect(result.current.error).toBe('Não foi possível consultar o estado do leitor do Telegram.'))
     expect(result.current.status).toBeNull()
   })
 })

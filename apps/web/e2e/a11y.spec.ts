@@ -117,7 +117,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.getByRole('button', { name: 'Placa de vídeo' }).click()
         await expect(page.getByLabel(/Até quanto você paga/)).toBeFocused()
         await page.getByRole('button', { name: 'Mais opções' }).click()
-        await expect(page.getByLabel('Termos bloqueados')).toBeVisible()
+        await expect(page.getByLabel('Termos bloqueados', { exact: true })).toBeVisible()
         await scan(page, 'Regras (formulário avançado)')
       })
 
@@ -153,7 +153,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         for (const [route, text] of [
           ['/feed', 'Nenhuma regra ainda'],
           ['/regras', 'Nenhuma regra ainda'],
-          ['/fontes', 'Nenhuma fonte ainda'],
+          ['/fontes', 'Nenhum grupo ainda'],
           ['/historico', 'O histórico ainda está vazio'],
           ['/economia', 'Nenhuma compra registrada'],
         ] as const) {
@@ -169,7 +169,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.getByRole('row', { name: new RegExp(sourceName) }).first()).toBeVisible()
         await scan(page, 'Fontes (aba manual)')
         const row = page.getByRole('row', { name: new RegExp(sourceName) }).first()
-        await row.getByRole('button', { name: /Mais ações da fonte/ }).click()
+        await row.getByRole('button', { name: /Mais ações do grupo/ }).click()
         await scan(page, 'Fontes (menu ⋯)')
         await page.getByRole('menuitem', { name: 'Excluir' }).click()
         await expect(page.getByRole('alertdialog')).toBeVisible()

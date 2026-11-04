@@ -235,7 +235,7 @@ export function SaudePage() {
           </>
         )
       case 'listener':
-        return listener.status ? listenerDetail(listener.status) : 'Lendo o estado do listener…'
+        return listener.status ? listenerDetail(listener.status) : 'Lendo o estado do leitor do Telegram…'
       case 'sse':
         return SSE_DETAILS[sseState]
       case 'db':
@@ -246,8 +246,8 @@ export function SaudePage() {
   const lastReconnect = saude.events?.find((event) => event.kind === 'listener_reconnect')
   const totals = saude.history?.collector.totals
   const kpis: CollectorKpi[] = [
-    { label: 'Matches gerados', value: formatCount(matchCount) },
-    { label: 'Fontes ativas', value: formatCount(activeSources) },
+    { label: 'Ofertas encontradas', value: formatCount(matchCount) },
+    { label: 'Grupos ativos', value: formatCount(activeSources) },
   ]
   if (totals) {
     kpis.push({ label: 'Descartadas · 24h', value: formatCount(totals.discarded) })

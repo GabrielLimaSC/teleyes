@@ -28,7 +28,7 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   await page.getByLabel(/O que você procura/).press('Enter')
   await page.getByLabel(/O que você procura/).fill('rtx 5070 super,')
   await page.getByRole('button', { name: 'Mais opções' }).click()
-  await page.getByLabel('Termos bloqueados').fill('usada')
+  await page.getByLabel('Termos bloqueados', { exact: true }).fill('usada')
   await page.getByLabel(/Até quanto você paga/).fill('5500')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
@@ -123,7 +123,7 @@ test('the "Como uma regra casa" numbers are the real totals from the API (S11-05
   await page.getByRole('button', { name: 'Como uma regra casa' }).click()
   const panel = page.getByRole('dialog', { name: 'Como uma regra casa' })
   await expect(panel.locator('.regras-how__stat', { hasText: 'Casaram' })).toContainText(String(real.matches))
-  await expect(panel.locator('.regras-how__stat', { hasText: 'Descartadas por teto' })).toContainText(
+  await expect(panel.locator('.regras-how__stat', { hasText: 'Descartadas por preço máximo' })).toContainText(
     String(real.ceiling),
   )
   await expect(panel).toContainText('acumulados')
@@ -134,13 +134,13 @@ test('creating a source with a duplicate chat id shows the real 409 as feedback'
   await apiLogin(page)
   await page.goto('/fontes')
 
-  await page.getByRole('button', { name: '+ Nova fonte' }).click()
+  await page.getByRole('button', { name: '+ Novo grupo' }).click()
   await page.getByLabel('Nome').fill('Grupo E2E Conflito')
   await page.getByLabel('Chat ID do Telegram').fill('-100555')
   await page.getByRole('button', { name: 'Salvar' }).click()
   await expect(rowByExactName(page, 'Grupo E2E Conflito')).toBeVisible()
 
-  await page.getByRole('button', { name: '+ Nova fonte' }).click()
+  await page.getByRole('button', { name: '+ Novo grupo' }).click()
   await page.getByLabel('Nome').fill('Outro grupo')
   await page.getByLabel('Chat ID do Telegram').fill('-100555')
   await page.getByRole('button', { name: 'Salvar' }).click()
@@ -228,13 +228,13 @@ test('clears a rule\'s match history against the real API, with a confirmation s
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
   ).toBeVisible()
-  await expect(page.getByText('Isso apaga 1 match desta')).toBeVisible()
+  await expect(page.getByText('Isso apaga 1 oferta desta')).toBeVisible()
 
   await page.getByRole('button', { name: 'Apagar histórico' }).click()
 
   // `.toast`, not the bare `role="status"`: reload()'s own "Carregando
   // regras…" status paragraph is briefly on screen at the same time.
-  await expect(page.locator('.toast')).toHaveText('1 match apagado.×')
+  await expect(page.locator('.toast')).toHaveText('1 oferta apagada.×')
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
   ).not.toBeVisible()
@@ -261,7 +261,7 @@ test('clearing a rule with no matches shows a toast directly, no confirmation di
   const row = rowByExactName(page, 'Regra Sem Match E2E')
   await clickRowMenuItem(page, row, 'Limpar histórico')
 
-  await expect(page.getByRole('status').filter({ hasText: 'Nenhum match' })).toContainText('Nenhum match encontrado')
+  await expect(page.getByRole('status').filter({ hasText: 'Nenhuma oferta' })).toContainText('Nenhuma oferta encontrada')
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: Regra Sem Match E2E' }),
   ).not.toBeVisible()
@@ -438,7 +438,7 @@ test('the "Ajustes de entrega" popover shows real digest settings and "Próximo 
   await page.getByRole('button', { name: 'Ajustes de entrega' }).click()
   const panel = page.getByRole('dialog', { name: 'Entrega dos alertas' })
   await expect(panel).toContainText('Próximo envio:')
-  await expect(panel).toContainText('fura o digest e o silêncio')
+  await expect(panel).toContainText('fura o resumo diário e o silêncio')
 
   const topN = panel.getByLabel('Máximo de itens')
   await topN.fill('9')

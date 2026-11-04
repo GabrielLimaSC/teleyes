@@ -36,13 +36,13 @@ interface RailProps {
   setupStatus: SetupStatus | null
   sources: Source[]
   editTarget: Source | null
-  /** Bumped by "+ Nova fonte": scrolls the rail into view and focuses its first field. */
+  /** Bumped by "+ Novo grupo": scrolls the rail into view and focuses its first field. */
   focusSignal: number
   onChanged: () => void
   onCancelEdit: () => void
 }
 
-/** S21-11: "Adicionar fonte" rail — pick from the account's groups, or register by chat_id. */
+/** S21-11: "Adicionar grupo" rail — pick from the account's groups, or register by chat_id. */
 export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusSignal, onChanged, onCancelEdit }: RailProps) {
   const configured = setupStatus?.configured === true
   const [chosenTab, setChosenTab] = useState<RailTab | null>(null)
@@ -61,8 +61,8 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
   }
 
   return (
-    <aside className="plane-glass fontes-rail" aria-label="Adicionar fonte" ref={railRef} id="fontes-rail">
-      <h2 className="fontes-rail__eyebrow">{editTarget !== null ? 'Editar fonte' : 'Adicionar fonte'}</h2>
+    <aside className="plane-glass fontes-rail" aria-label="Adicionar grupo" ref={railRef} id="fontes-rail">
+      <h2 className="fontes-rail__eyebrow">{editTarget !== null ? 'Editar grupo' : 'Adicionar grupo'}</h2>
       <div className="fontes-tabs" role="tablist" aria-label="Como adicionar">
         {(
           [
@@ -192,13 +192,13 @@ function AccountTab({
         setSelected(new Set())
         setNotice(
           result.created > 0
-            ? `${result.created} fonte(s) adicionada(s). O monitor aplica a mudança em alguns segundos.`
-            : 'Essas fontes já estavam cadastradas.',
+            ? `${result.created} grupo(s) adicionado(s). O monitor aplica a mudança em alguns segundos.`
+            : 'Esses grupos já estavam cadastrados.',
         )
         load()
         onAdded()
       })
-      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível adicionar as fontes.')))
+      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível adicionar os grupos.')))
       .finally(() => setBusy(false))
   }
 
@@ -280,7 +280,7 @@ function AccountTab({
         onClick={add}
         disabled={count === 0 || busy}
       >
-        {busy ? 'Adicionando…' : count === 0 ? 'Adicionar fontes' : `Adicionar ${count} ${count === 1 ? 'fonte' : 'fontes'}`}
+        {busy ? 'Adicionando…' : count === 0 ? 'Adicionar grupos' : `Adicionar ${count} ${count === 1 ? 'grupo' : 'grupos'}`}
       </button>
       <button
         type="button"
@@ -328,7 +328,7 @@ function ChatIdForm({
         if (editTarget !== null) onCancelEdit()
         onSaved()
       })
-      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível salvar a fonte.')))
+      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível salvar o grupo.')))
       .finally(() => setSubmitting(false))
   }
 

@@ -38,7 +38,7 @@ describe('DemoBanner', () => {
 
     const banner = await screen.findByRole('note', { name: 'Aviso de modo demonstração' })
     expect(banner).toHaveTextContent('Modo demonstração — dados fictícios')
-    expect(document.documentElement.dataset.demo).toBe('true')
+    await waitFor(() => expect(document.documentElement.dataset.demo).toBe('true'))
   })
 
   it('renders nothing outside demo mode', async () => {

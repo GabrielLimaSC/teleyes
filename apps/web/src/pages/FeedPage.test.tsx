@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FeedPage } from './FeedPage'
 
 // S14-07: FeedPage now reads `csrfToken` from `useAuth()` (the card's
-// "Silenciar 7 dias"/"Definir alvo" actions and the sidebar's digest/
+// "Silenciar 7 dias"/"Definir preço-alvo" actions and the sidebar's digest/
 // grouping toggles) — same stub every other authenticated-page suite
 // already uses (SaudePage.test.tsx), preserving every other real export
 // (`CSRF_MISSING_MESSAGE`) instead of replacing the whole module.
@@ -58,7 +58,7 @@ describe('FeedPage', () => {
     renderFeedPage()
 
     expect(await screen.findByText('Nenhuma regra ainda')).toBeInTheDocument()
-    expect(screen.getByText('Feed ao vivo')).toBeInTheDocument()
+    expect(screen.getByText('Ofertas ao vivo')).toBeInTheDocument()
   })
 
   it('the "Atualizar" button reloads matches on demand (S7-02)', async () => {
@@ -214,7 +214,7 @@ describe('FeedPage', () => {
     // S14-07: scoped to the "Resumo" aside — the new "Resumo de hoje" tile
     // (barra lateral) also has a "Matches" label, for a different number.
     const resumoRail = document.querySelector('.feed-summary') as HTMLElement
-    const matchesTile = within(resumoRail).getByText('Matches').closest('.feed-summary__tile')
+    const matchesTile = within(resumoRail).getByText('Ofertas').closest('.feed-summary__tile')
     expect(matchesTile).toHaveTextContent('3')
     const sentTile = within(resumoRail).getByText('Enviados').closest('.feed-summary__tile')
     expect(sentTile).toHaveTextContent('1')
@@ -279,7 +279,7 @@ describe('FeedPage', () => {
     expect(screen.getByText('Produto A1')).toBeInTheDocument()
     expect(screen.queryByText('Produto B1')).not.toBeInTheDocument()
     const resumoRail = document.querySelector('.feed-summary') as HTMLElement
-    const matchesTile = within(resumoRail).getByText('Matches').closest('.feed-summary__tile')
+    const matchesTile = within(resumoRail).getByText('Ofertas').closest('.feed-summary__tile')
     expect(matchesTile).toHaveTextContent('1')
   })
 
@@ -378,7 +378,7 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
       target_price_cents: 5_800_00,
       active: true,
       created_at: '2026-01-01T00:00:00Z',
-      // S17-10: "Alvos de preço" reads the last-24 h low, never the all-time
+      // S17-10: "Preços-alvo" reads the last-24 h low, never the all-time
       // low (`lowest_price_cents`) nor an older `history_30d` day.
       lowest_price_cents: 5_000_00,
       lowest_price_24h_cents: 5_749_00,
@@ -454,7 +454,7 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     stubSidebarFetch()
     renderFeedPage()
 
-    await screen.findByText('Alvos de preço')
+    await screen.findByText('Preços-alvo')
     // Scoped to `.feed-target` rows specifically — "RTX 5070 Ti" is also a
     // rule name in the unrelated "Filtrar por regra" list further down.
     const targetRows = document.querySelectorAll('.feed-target')
@@ -492,7 +492,7 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     stubSidebarFetch({ '/rules': () => jsonResponse(emptyHistoryRules) })
     renderFeedPage()
 
-    await screen.findByText('Alvos de preço')
+    await screen.findByText('Preços-alvo')
     const targetRows = document.querySelectorAll('.feed-target')
     const row = [...targetRows].find((item) => item.textContent?.includes('Placa-mãe B650M')) as HTMLElement
         expect(within(row).getByText('sem oferta')).toBeInTheDocument()
@@ -555,7 +555,7 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     const user = userEvent.setup()
     renderFeedPage()
 
-    await screen.findByText('Digest diário')
+    await screen.findByText('Resumo diário')
     expect(screen.getByLabelText('Horário')).toHaveValue('09:00')
     expect(screen.getByLabelText('Itens')).toHaveValue('5')
     // S16-02: "Próximo envio DD/MM, HH:MM" (or "hoje, HH:MM" on the real

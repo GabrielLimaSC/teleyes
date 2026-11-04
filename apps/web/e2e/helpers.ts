@@ -104,7 +104,7 @@ export async function clickRowMenuItem(page: Page, row: Locator, name: string): 
 /**
  * S23-02: deletes the matches whose source name contains `sourceFragment`, so a
  * spec that seeds matches (a11y, keyboard) leaves the shared e2e backend's feed
- * as empty as it found it: feed.spec/states.spec assume "Nenhum match ainda.".
+ * as empty as it found it: feed.spec/states.spec assume "Nenhuma oferta ainda.".
  */
 export async function deleteMatchesFrom(page: Page, sourceFragment: string): Promise<void> {
   await page.goto('/')

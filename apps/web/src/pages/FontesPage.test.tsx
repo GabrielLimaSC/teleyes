@@ -85,10 +85,10 @@ describe('FontesPage KPIs (S21-11)', () => {
     stubApi({ sources: [source(1, 'Fonte Alfa', '-1001'), source(2, 'Fonte Beta', '-1002')], activity: FULL_ACTIVITY })
     renderPage()
 
-    const kpis = (await screen.findByText('Fontes ativas')).closest('dl') as HTMLElement
+    const kpis = (await screen.findByText('Grupos ativos')).closest('dl') as HTMLElement
     expect(within(kpis).getByText('2 de 2')).toBeInTheDocument()
     expect(within(kpis).getByText('nenhuma pausada')).toBeInTheDocument()
-    expect(within(kpis).getByText('Avaliações · hoje')).toBeInTheDocument()
+    expect(within(kpis).getByText('Mensagens analisadas · hoje')).toBeInTheDocument()
     expect(within(kpis).getByText('103')).toBeInTheDocument() // 100 + 3
     expect(within(kpis).getByText('70')).toBeInTheDocument() // 52 + 18
     expect(within(kpis).getByText('Fonte Alfa lidera')).toBeInTheDocument()
@@ -106,7 +106,7 @@ describe('FontesPage KPIs (S21-11)', () => {
     })
     renderPage()
 
-    const kpis = (await screen.findByText('Fontes ativas')).closest('dl') as HTMLElement
+    const kpis = (await screen.findByText('Grupos ativos')).closest('dl') as HTMLElement
     await within(kpis).findByText('0 de 1')
     expect(within(kpis).getByText('1 pausada')).toBeInTheDocument()
     expect(within(kpis).getByText(/coletando desde/)).toBeInTheDocument()
@@ -151,12 +151,12 @@ describe('FontesPage table (S21-11)', () => {
     expect(cell).toHaveTextContent('22:43')
   })
 
-  it('reads "Nenhum match ainda" for a source without matches', async () => {
+  it('reads "Nenhuma oferta ainda" for a source without matches', async () => {
     stubApi({ sources: [source(2, 'Fonte Beta', '-1002')], activity: FULL_ACTIVITY })
     renderPage()
 
     const cell = (await screen.findByRole('row', { name: /Fonte Beta/ })).querySelector('[data-label="Último match"]')
-    expect(cell).toHaveTextContent('Nenhum match ainda')
+    expect(cell).toHaveTextContent('Nenhuma oferta ainda')
   })
 
   it('offers Editar and Excluir in the overflow menu, and Excluir asks for confirmation', async () => {
@@ -164,7 +164,7 @@ describe('FontesPage table (S21-11)', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Mais ações da fonte Fonte Alfa' }))
+    await user.click(await screen.findByRole('button', { name: 'Mais ações do grupo Fonte Alfa' }))
     expect(screen.getByRole('menuitem', { name: 'Editar' })).toBeInTheDocument()
     await user.click(screen.getByRole('menuitem', { name: 'Excluir' }))
 
@@ -215,12 +215,12 @@ describe('FontesPage rail (S21-11)', () => {
     expect(await screen.findByRole('tab', { name: 'Da minha conta', selected: true })).toBeInTheDocument()
     const gamer = await screen.findByRole('checkbox', { name: /Ofertas Gamer BR/ })
     const hardware = screen.getByRole('checkbox', { name: /Hardware Barato/ })
-    expect(screen.getByRole('button', { name: 'Adicionar fontes' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Adicionar grupos' })).toBeDisabled()
 
     await user.click(gamer)
-    expect(screen.getByRole('button', { name: 'Adicionar 1 fonte' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Adicionar 1 grupo' })).toBeEnabled()
     await user.click(hardware)
-    await user.click(screen.getByRole('button', { name: 'Adicionar 2 fontes' }))
+    await user.click(screen.getByRole('button', { name: 'Adicionar 2 grupos' }))
 
     await vi.waitFor(() => expect(calls).toContain('POST /setup/groups/select'))
   })
@@ -265,13 +265,13 @@ describe('FontesPage rail (S21-11)', () => {
     expect(screen.getByText('Não aparece na lista?')).toBeInTheDocument()
   })
 
-  it('"+ Nova fonte" focuses the rail', async () => {
+  it('"+ Novo grupo" focuses the rail', async () => {
     stubApi({ sources: [], activity: FULL_ACTIVITY, setupConfigured: true, groups: GROUPS })
     const user = userEvent.setup()
     renderPage()
 
     await screen.findByRole('checkbox', { name: /Ofertas Gamer BR/ })
-    await user.click(screen.getByRole('button', { name: '+ Nova fonte' }))
+    await user.click(screen.getByRole('button', { name: '+ Novo grupo' }))
     expect(screen.getByRole('searchbox', { name: 'Buscar grupo' })).toHaveFocus()
   })
 })
@@ -285,7 +285,7 @@ describe('FontesPage empty state (S23-04)', () => {
     stubApi({ sources: [], activity: FULL_ACTIVITY, setupConfigured: true, groups: { state: 'done', error: null, dialogs: [{ chat_id: '-2001', title: 'Ofertas Gamer BR', kind: 'group', monitored: false }] } })
     const user = userEvent.setup()
     renderPage()
-    expect(await screen.findByText('Nenhuma fonte ainda')).toBeInTheDocument()
+    expect(await screen.findByText('Nenhum grupo ainda')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Adicionar da minha conta' }))
     expect(screen.getByRole('searchbox', { name: 'Buscar grupo' })).toHaveFocus()
   })

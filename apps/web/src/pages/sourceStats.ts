@@ -53,7 +53,7 @@ export function buildKpis(
     evaluated:
       evaluated === null
         ? { value: '—', sub: since }
-        : { value: formatCount(evaluated), sub: 'avaliações por regra, hoje' },
+        : { value: formatCount(evaluated), sub: 'mensagens analisadas por regra, hoje' },
     matches:
       activity === null
         ? { value: '—', sub: since }

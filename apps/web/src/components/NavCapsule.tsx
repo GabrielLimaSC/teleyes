@@ -12,11 +12,11 @@ import './NavCapsule.css'
 const TABS = [
   // Left wing: follow what happens. Right wing: configure (Tema is its 4th slot).
   { to: '/', label: 'Início', stagger: 3, order: 0 },
-  { to: '/feed', label: 'Feed', stagger: 2, order: 1 },
+  { to: '/feed', label: 'Ofertas', stagger: 2, order: 1 },
   { to: '/historico', label: 'Histórico', stagger: 1, order: 2 },
   { to: '/economia', label: 'Economia', stagger: 0, order: 3 },
   { to: '/regras', label: 'Regras', stagger: 0, order: 4 },
-  { to: '/fontes', label: 'Fontes', stagger: 1, order: 5 },
+  { to: '/fontes', label: 'Grupos', stagger: 1, order: 5 },
   { to: '/saude', label: 'Saúde', stagger: 2, order: 6 },
 ]
 

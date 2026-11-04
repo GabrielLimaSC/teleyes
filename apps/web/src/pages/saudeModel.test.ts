@@ -53,8 +53,8 @@ describe('saudeModel', () => {
     expect(demoVerdict.title).toBe('Operando em demonstração')
     expect(demoVerdict.detail).toContain('3 de 5 serviços ativos')
     expect(buildVerdict(demo, false).title).toBe('Configuração incompleta')
-    const down = [...all.slice(0, 3), view('sse', 'danger', 'Feed (SSE)'), all[4]]
-    expect(buildVerdict(down, false).title).toBe('Atenção: Feed (SSE) fora')
+    const down = [...all.slice(0, 3), view('sse', 'danger', 'Atualização ao vivo'), all[4]]
+    expect(buildVerdict(down, false).title).toBe('Atenção: Atualização ao vivo fora')
   })
 
   it('shows the coverage note only while the window is not full', () => {

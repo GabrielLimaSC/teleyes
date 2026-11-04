@@ -27,7 +27,7 @@ test.describe('responsive capture (desktop + mobile, one review round)', () => {
       } else {
         await expect(page.getByRole('button', { name: 'Ir para o início' })).toBeEnabled()
       }
-      for (const label of ['Início', 'Feed', 'Histórico', 'Economia', 'Regras', 'Fontes', 'Saúde']) {
+      for (const label of ['Início', 'Ofertas', 'Histórico', 'Economia', 'Regras', 'Grupos', 'Saúde']) {
         await expect(page.getByRole('link', { name: label })).toBeVisible()
       }
       await expect(page.getByRole('button', { name: /^Tema: / })).toBeVisible()

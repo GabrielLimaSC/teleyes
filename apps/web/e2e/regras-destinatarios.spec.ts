@@ -33,7 +33,7 @@ test('Regras: coluna Destinatários, card com regras escolhidas e aviso de quem 
   const card = page.getByRole('article', { name: `Destinatário Alex ${tag}` })
   await expect(card.getByRole('button', { name: `Alfa ${tag}`, pressed: true })).toBeVisible()
   await expect(card.getByRole('button', { name: `Beta ${tag}`, pressed: false })).toBeVisible()
-  await expect(card).toContainText(/1 de \d+ regras? · só alvos atingidos/)
+  await expect(card).toContainText(/1 de \d+ regras? · só preços-alvo atingidos/)
 
   // Uma regra a mais para o card e a coluna seguirem a mudança.
   await card.getByRole('button', { name: `Beta ${tag}` }).click()

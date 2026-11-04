@@ -1,3 +1,4 @@
+import { HelpTip } from './HelpTip'
 import type { ListenerStatus } from '../api/listener'
 import { formatDayMonthTime } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -11,7 +12,7 @@ function stateNote(view: ListenerView, status: ListenerStatus): string {
   if (view.busy) return view.shortLabel.toLowerCase()
   if (view.failed) return 'falha ao aplicar'
   if (view.needsApply) return 'mudanças pendentes'
-  if (view.shortLabel === 'Sem sinal') return 'listener sem sinal'
+  if (view.shortLabel === 'Sem sinal') return 'leitor do Telegram sem sinal'
   return status.reload_applied_at === null
     ? 'configuração em uso'
     : `aplicado ${formatDayMonthTime(status.reload_applied_at)}`
@@ -52,7 +53,10 @@ export function ListenerApplyControl({
   const busy = view.busy || requesting
 
   return (
-    <div className="listener-apply" aria-label="Aplicar regras ao listener" role="group">
+    <div className="listener-apply" aria-label="Aplicar regras ao leitor do Telegram" role="group">
+      <HelpTip term="Aplicar regras" align="right">
+        Depois de mudar regras, grupos ou destinatários, clique aqui para o teleyes passar a usar as mudanças.
+      </HelpTip>
       <span className="listener-apply__state" title={view.detail}>
         <span className="listener-apply__dot" style={{ background: view.dot }} aria-hidden="true" />
         <span className="listener-apply__note" aria-live="polite">

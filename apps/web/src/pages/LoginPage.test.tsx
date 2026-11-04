@@ -276,13 +276,13 @@ describe('LoginPage', () => {
 
     const rulesTile = (await screen.findByText('Regras ativas')).closest('.login-stats__tile')
     expect(rulesTile).toHaveTextContent('1')
-    const sourcesTile = screen.getByText('Fontes ouvindo').closest('.login-stats__tile')
+    const sourcesTile = screen.getByText('Grupos acompanhados').closest('.login-stats__tile')
     expect(sourcesTile).toHaveTextContent('1')
-    const matchesTile = screen.getByText('Matches hoje').closest('.login-stats__tile')
+    const matchesTile = screen.getByText('Ofertas hoje').closest('.login-stats__tile')
     expect(matchesTile).toHaveTextContent('2')
   })
 
-  it('counts "Matches hoje" by the local day of each instant, near UTC midnight (S13-01)', async () => {
+  it('counts "Ofertas hoje" by the local day of each instant, near UTC midnight (S13-01)', async () => {
     // Local now: 19 Sep 23:30 in America/Sao_Paulo = 02:30 UTC on the 20th.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 8, 19, 23, 30, 0))
@@ -315,7 +315,7 @@ describe('LoginPage', () => {
     await user.type(await screen.findByLabelText('Senha'), 'correct horse battery staple')
     await user.click(screen.getByRole('button', { name: 'Entrar' }))
 
-    const matchesTile = (await screen.findByText('Matches hoje')).closest('.login-stats__tile')
+    const matchesTile = (await screen.findByText('Ofertas hoje')).closest('.login-stats__tile')
     expect(matchesTile).toHaveTextContent('3')
   })
 

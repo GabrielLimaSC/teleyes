@@ -15,9 +15,9 @@ import { EconomiaPage } from './pages/EconomiaPage'
 import { ConfiguracaoPage } from './pages/ConfiguracaoPage'
 
 const ROUTE_TITLES: Record<string, string> = {
-  '/feed': 'Feed ao vivo',
+  '/feed': 'Ofertas ao vivo',
   '/regras': 'Regras',
-  '/fontes': 'Fontes',
+  '/fontes': 'Grupos',
   '/historico': 'Histórico',
   '/economia': 'Economia',
   '/saude': 'Saúde',

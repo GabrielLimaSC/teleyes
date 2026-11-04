@@ -41,7 +41,7 @@ export function useLiveMatches(): LiveMatchesResult {
         setError(null)
       })
       .catch(() => {
-        if (!cancelledRef.current) setError('Não foi possível carregar o feed.')
+        if (!cancelledRef.current) setError('Não foi possível carregar as ofertas.')
       })
       .finally(() => {
         if (!cancelledRef.current) setLoading(false)

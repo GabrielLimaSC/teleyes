@@ -75,8 +75,8 @@ test('Histórico filters survive navigating to Feed and back via the navbar, and
   // The flow Gabriel described: to the Feed, then back, both via the navbar
   // (never the URL bar) — NavCapsule links `/feed` and `/historico` bare.
   const nav = page.getByRole('navigation', { name: 'Navegação principal' })
-  await nav.getByRole('link', { name: 'Feed' }).click()
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
+  await nav.getByRole('link', { name: 'Ofertas' }).click()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
 
   await nav.getByRole('link', { name: 'Histórico' }).click()
   // Wait for the Histórico page (and its filter form) to actually be back
@@ -106,8 +106,8 @@ test('Histórico filters survive navigating to Feed and back via the navbar, and
   await expect(filterForm.getByLabel('Preço mínimo (R$)')).toHaveValue('')
   await expect(page.getByText(cheapText)).toBeVisible()
 
-  await nav.getByRole('link', { name: 'Feed' }).click()
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
+  await nav.getByRole('link', { name: 'Ofertas' }).click()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
   await nav.getByRole('link', { name: 'Histórico' }).click()
   await expect(historicoHeading).toBeVisible()
   await expect(filterForm.getByLabel('Regra')).toHaveValue('')

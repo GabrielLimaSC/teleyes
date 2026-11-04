@@ -12,7 +12,7 @@ import './GlassCard.css'
  *
  * S16-02: each button can also carry a numeric badge (only shown above 0,
  * e.g. "2 alvos ativos") and a glass tooltip with a label + live context
- * (e.g. "Alvos de preço · 2 ativos, o mais perto falta 7%") — the rail keeps
+ * (e.g. "Preços-alvo · 2 ativos, o mais perto falta 7%") — the rail keeps
  * informing even collapsed to a 64px strip.
  */
 
