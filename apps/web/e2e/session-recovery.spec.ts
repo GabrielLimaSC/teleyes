@@ -65,7 +65,7 @@ test('an expired session during a write shows a clear prompt, keeps the form, an
   // The exact same "Criar regra" click's request is retried automatically
   // — the rule ends up created without the admin doing anything else.
   await expect(
-    page.locator('tr').filter({ has: page.locator('.crud-table__name', { hasText: 'Sessão Expirada E2E' }) }),
+    page.locator('tr').filter({ has: page.locator('.crud-table__name, .rules-table__name, .fontes-source__name', { hasText: 'Sessão Expirada E2E' }) }),
   ).toBeVisible()
 })
 
@@ -93,7 +93,7 @@ test('a wrong password in the reauth modal shows an inline error and lets the ad
 
   await expect(dialog).toBeHidden()
   await expect(
-    page.locator('tr').filter({ has: page.locator('.crud-table__name', { hasText: 'Senha Errada E2E' }) }),
+    page.locator('tr').filter({ has: page.locator('.crud-table__name, .rules-table__name, .fontes-source__name', { hasText: 'Senha Errada E2E' }) }),
   ).toBeVisible()
 })
 
@@ -142,7 +142,7 @@ test('reauthenticating in one tab clears the expired-session prompt in another t
   await otherDialog.getByRole('button', { name: 'Entrar e continuar' }).click()
   await expect(otherDialog).toBeHidden()
   await expect(
-    otherPage.locator('tr').filter({ has: otherPage.locator('.crud-table__name', { hasText: 'Multi Aba Outra E2E' }) }),
+    otherPage.locator('tr').filter({ has: otherPage.locator('.crud-table__name, .rules-table__name, .fontes-source__name', { hasText: 'Multi Aba Outra E2E' }) }),
   ).toBeVisible()
 
   // Back in the first tab: its modal clears on its own (the other tab's
@@ -154,7 +154,7 @@ test('reauthenticating in one tab clears the expired-session prompt in another t
   // The original write that triggered the first tab's prompt is retried
   // with the adopted token and succeeds too.
   await expect(
-    page.locator('tr').filter({ has: page.locator('.crud-table__name', { hasText: 'Multi Aba E2E' }) }),
+    page.locator('tr').filter({ has: page.locator('.crud-table__name, .rules-table__name, .fontes-source__name', { hasText: 'Multi Aba E2E' }) }),
   ).toBeVisible()
 
   await otherPage.close()

@@ -47,10 +47,10 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${TELEYES_DEMO_PORT:-18080}:80"
+      - "127.0.0.1:${TELEYES_DEMO_PORT:-18080}:8080"
     healthcheck:
       # 127.0.0.1, not localhost: nginx only listens on IPv4 (see docker-compose.prod.yml).
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
       interval: 10s
       timeout: 5s
       retries: 3

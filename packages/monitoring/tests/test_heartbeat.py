@@ -37,6 +37,15 @@ def test_load_config_disables_heartbeat_without_url(environment: dict[str, str])
     assert config.interval_seconds == DEFAULT_INTERVAL_SECONDS
 
 
+@pytest.mark.parametrize(
+    "url", ["file:///etc/passwd", "ftp://host/x", "javascript:alert(1)", "//host/x"]
+)
+def test_load_config_ignores_urls_that_are_not_http(url: str) -> None:
+    config = load_heartbeat_config({"HEARTBEAT_URL": url})
+
+    assert config.enabled is False
+
+
 def test_load_config_accepts_custom_interval() -> None:
     config = load_heartbeat_config(
         {"HEARTBEAT_URL": SECRET_URL, "HEARTBEAT_INTERVAL_SECONDS": "12.5"}
