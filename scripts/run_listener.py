@@ -5,8 +5,7 @@ Uso:
 
 Sem argumentos: toda configuração vem do banco, cadastrada pelo painel web
 (S4-06) — fontes, regras e destinatários ativos (destinatário também precisa
-estar allowlisted). Diferente de scripts/run_pipeline_demo.py, que recebe
-uma única fonte/regra/destinatário via CLI pensado pra teste manual pontual.
+estar allowlisted).
 
 O schema não tem relação estática regra<->fonte nem regra<->destinatário
 (conferido em apps/api/models/*.py e nos routers de CRUD antes de escrever
