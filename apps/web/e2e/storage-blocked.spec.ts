@@ -32,8 +32,8 @@ test('with web storage blocked the app still opens, signs in, saves and signs ou
   const nav = page.getByRole('navigation', { name: 'Navegação principal' })
   await nav.getByRole('link', { name: 'Regras' }).click()
   await page.getByLabel(/^Nome/).fill('Regra sem armazenamento')
-  await page.getByLabel(/Termos incluídos/).fill('semarmazenamento')
-  await page.getByLabel(/Termos incluídos/).press('Enter')
+  await page.getByLabel(/O que você procura/).fill('semarmazenamento')
+  await page.getByLabel(/O que você procura/).press('Enter')
   await page.getByRole('button', { name: 'Criar regra' }).click()
   // Strict mode: "Carregando regras…" (a `role="status"` on the still-in-
   // flight reload) and the "Regra criada." toast (also `role="status"`) can
