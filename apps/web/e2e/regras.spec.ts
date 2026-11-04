@@ -260,7 +260,7 @@ test('clearing a rule with no matches shows a toast directly, no confirmation di
   const row = rowByExactName(page, 'Regra Sem Match E2E')
   await clickRowMenuItem(page, row, 'Limpar histórico')
 
-  await expect(page.getByRole('status')).toContainText('Nenhum match encontrado')
+  await expect(page.getByRole('status').filter({ hasText: 'Nenhum match' })).toContainText('Nenhum match encontrado')
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: Regra Sem Match E2E' }),
   ).not.toBeVisible()

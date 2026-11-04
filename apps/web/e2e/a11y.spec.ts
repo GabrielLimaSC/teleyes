@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { apiLogin, apiPost, apiPut } from './helpers'
+import { apiLogin, apiPost, apiPut, deleteMatchesFrom } from './helpers'
 
 /**
  * S23-02: axe-core on every screen, light and dark, at 1440 and 390. Fails on
@@ -48,6 +48,8 @@ async function seed(page: Page) {
     name: `Dest A11y ${tag}`,
     telegram_chat_id: `a11y-${tag}`,
     allowlisted: true,
+    rules_mode: 'selected',
+    rule_ids: [rule.id],
   })
   for (const [i, price] of ['5.999', '5.749'].entries()) {
     const source = await apiPost<{ id: number }>(page, '/sources', csrf, {
@@ -63,6 +65,12 @@ async function seed(page: Page) {
   }
   return csrf
 }
+
+test.afterAll(async ({ browser }) => {
+  const page = await browser.newPage()
+  await deleteMatchesFrom(page, `Loja A11y ${tag}`)
+  await page.close()
+})
 
 for (const colorScheme of ['light', 'dark'] as const) {
   for (const size of SIZES) {

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { E2E_PASSWORD, apiLogin, apiPost, apiPut } from './helpers'
+import { E2E_PASSWORD, apiLogin, apiPost, apiPut, deleteMatchesFrom } from './helpers'
 
 /**
  * S23-02: the main flows driven by the keyboard only (focus placement aside),
@@ -122,6 +122,8 @@ test('product panel opens and closes with the keyboard, focus returns to the car
     name: `Dest Teclado ${tag}`,
     telegram_chat_id: `kb-r-${tag}`,
     allowlisted: true,
+    rules_mode: 'selected',
+    rule_ids: [rule.id],
   })
   await apiPost(page, '/demo/messages', csrf, {
     source_id: source.id,
@@ -177,6 +179,12 @@ test('purchase: register by keyboard; confirmation dialog traps focus and return
   await page.keyboard.press('Escape')
   await expect(dialog).toHaveCount(0)
   await expect(trigger).toBeFocused()
+})
+
+test.afterAll(async ({ browser }) => {
+  const page = await browser.newPage()
+  await deleteMatchesFrom(page, `Loja Teclado ${tag}`)
+  await page.close()
 })
 
 test('toast and new-alert announcements live in persistent polite regions', async ({ page }) => {
