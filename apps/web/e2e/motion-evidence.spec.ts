@@ -66,7 +66,7 @@ test('page fade advances through intermediate frames without stalling', async ({
   await apiLogin(page)
   await page.goto('/feed')
 
-  const feedHeading = page.getByRole('heading', { name: 'Feed ao vivo' })
+  const feedHeading = page.getByRole('heading', { name: 'Ofertas ao vivo' })
   const saudeHeading = page.getByRole('heading', { name: 'Saúde' })
 
   await page.addStyleTag({
@@ -112,9 +112,9 @@ test('all tabs remain responsive during rapid page-fade navigation', async ({ pa
 
   const routeSequence = [
     ['Início', '/'],
-    ['Feed', '/feed'],
+    ['Ofertas', '/feed'],
     ['Regras', '/regras'],
-    ['Fontes', '/fontes'],
+    ['Grupos', '/fontes'],
     ['Histórico', '/historico'],
     ['Saúde', '/saude'],
   ] as const
@@ -127,7 +127,7 @@ test('all tabs remain responsive during rapid page-fade navigation', async ({ pa
   // Exercise interruption: each new click arrives before the 180ms fade can
   // finish. The live navigation must accept every real pointer click and
   // settle on the final requested route with no animation left hanging.
-  for (const label of ['Início', 'Feed', 'Regras', 'Fontes', 'Histórico', 'Saúde']) {
+  for (const label of ['Início', 'Ofertas', 'Regras', 'Grupos', 'Histórico', 'Saúde']) {
     await page.getByRole('link', { name: label }).click()
     await page.waitForTimeout(35)
   }

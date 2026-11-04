@@ -1,3 +1,4 @@
+import { HelpTip } from '../components/HelpTip'
 import type { DigestSettings } from '../api/types'
 import { AnchoredPopover } from '../components/AnchoredPopover'
 import './RegrasPage.css'
@@ -17,7 +18,7 @@ function formatNextDigestRun(value: string): string {
  * S21-02: "Entrega dos alertas" (S14-09), absorbed from its own panel into a
  * popover opened by the "Ajustes de entrega" button in the Destinatários
  * header. Same content and same `PUT /digest` as before — digest time and
- * size, "alvo atingido" (always an immediate ping), the common-match rule,
+ * size, "preço-alvo atingido" (always an immediate ping), the common-match rule,
  * and how a repeated offer is handled.
  */
 export function DeliveryAdjustments({
@@ -42,7 +43,7 @@ export function DeliveryAdjustments({
       align="right"
       wide
     >
-      <p className="delivery-panel__intro">Uma decisão por tipo de evento — o restante pode ir no digest.</p>
+      <p className="delivery-panel__intro">Uma decisão por tipo de evento — o restante pode ir no resumo diário.</p>
       {error && (
         <p role="alert" className="regras-panel__error">
           {error}
@@ -52,22 +53,25 @@ export function DeliveryAdjustments({
       {digest && (
         <div className="delivery-panel__grid">
           <div className="delivery-card">
-            <strong>Alvo atingido</strong>
-            <span>Ping imediato — fura o digest e o silêncio da regra ou do produto.</span>
+            <strong>Preço-alvo atingido</strong>
+            <span>Ping imediato — fura o resumo diário e o silêncio da regra ou do produto.</span>
             <span className="delivery-card__state">
               <i /> prioritário
             </span>
           </div>
           <div className="delivery-card delivery-card--controls">
-            <strong>Match comum</strong>
+            <strong>Oferta comum</strong>
             <label>
               <input
                 type="checkbox"
                 checked={digest.enabled}
                 onChange={(event) => onChange({ ...digest, enabled: event.target.checked })}
               />
-              Digest diário
+              Resumo diário
             </label>
+            <HelpTip term="Resumo diário" align="right">
+              Em vez de vários avisos, você recebe uma mensagem por dia com as melhores ofertas.
+            </HelpTip>
             <label>
               Horário
               <input
@@ -92,7 +96,7 @@ export function DeliveryAdjustments({
                 checked={digest.mute_individual}
                 onChange={(event) => onChange({ ...digest, mute_individual: event.target.checked })}
               />
-              Não enviar matches comuns individualmente
+              Não enviar ofertas comuns individualmente
             </label>
             <span>
               Próximo envio: {formatNextDigestRun(digest.next_run_at_local)} · {digest.queue_count}{' '}

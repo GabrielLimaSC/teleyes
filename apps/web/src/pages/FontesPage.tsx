@@ -35,7 +35,7 @@ function formatDay(day: string): string {
 
 function barsLabel(bars: Bar[]): string {
   if (bars.length === 0) return 'Sem dados de atividade'
-  return `Avaliações por dia: ${bars
+  return `Mensagens analisadas por dia: ${bars
     .map((bar) => `${formatDay(bar.day)} ${bar.value === null ? 'coletando' : bar.value}`)
     .join(', ')}`
 }
@@ -83,7 +83,7 @@ export function FontesPage() {
         setActivity(activityData)
         setListError(null)
       })
-      .catch(() => setListError('Não foi possível carregar as fontes.'))
+      .catch(() => setListError('Não foi possível carregar os grupos.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -97,7 +97,7 @@ export function FontesPage() {
     setPausingId(source.id)
     pauseSource(csrfToken, source.id)
       .then(reload)
-      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar a fonte.', setListError))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar o grupo.', setListError))
       .finally(() => setPausingId(null))
   }
 
@@ -115,7 +115,7 @@ export function FontesPage() {
         reload()
       })
       .catch((error: unknown) => {
-        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir a fonte.', setListError)
+        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir o grupo.', setListError)
       })
       .finally(() => {
         setDeleting(false)
@@ -128,9 +128,9 @@ export function FontesPage() {
   const activityById = new Map<number, SourceActivity>((activity?.sources ?? []).map((row) => [row.source_id, row]))
 
   const kpiCards: { label: string; value: string; sub: string }[] = [
-    { label: 'Fontes ativas', ...kpis.active },
-    { label: 'Avaliações · hoje', ...kpis.evaluated },
-    { label: 'Matches · 7d', ...kpis.matches },
+    { label: 'Grupos ativos', ...kpis.active },
+    { label: 'Mensagens analisadas · hoje', ...kpis.evaluated },
+    { label: 'Ofertas · 7d', ...kpis.matches },
     {
       label: 'Último match',
       value: kpis.lastMatch.at === null ? '—' : formatRelativeAgo(kpis.lastMatch.at, now),
@@ -142,7 +142,7 @@ export function FontesPage() {
     <main className="crud-page fontes-page">
       <div className="fontes-page__header">
         <div>
-          <h1>Fontes</h1>
+          <h1>Grupos</h1>
           <p className="fontes-page__subtitle">Grupos e canais do Telegram que o teleyes escuta.</p>
         </div>
         <button
@@ -154,7 +154,7 @@ export function FontesPage() {
           }}
           onPointerDown={fillOrigin}
         >
-          + Nova fonte
+          + Novo grupo
         </button>
       </div>
 
@@ -182,8 +182,8 @@ export function FontesPage() {
                 <thead>
                   <tr>
                     <th>Fonte</th>
-                    <th>Avaliações · 7d</th>
-                    <th className="fontes-table__num">Matches · 7d</th>
+                    <th>Mensagens analisadas · 7d</th>
+                    <th className="fontes-table__num">Ofertas · 7d</th>
                     <th>Último match</th>
                     <th>Status</th>
                     <th>
@@ -208,10 +208,10 @@ export function FontesPage() {
                             </span>
                           </div>
                         </td>
-                        <td data-label="Avaliações · 7d">
+                        <td data-label="Mensagens analisadas · 7d">
                           <MiniBars bars={buildBars(row, scale)} hue={hue} />
                         </td>
-                        <td className="fontes-table__num" data-label="Matches · 7d">
+                        <td className="fontes-table__num" data-label="Ofertas · 7d">
                           {row === undefined ? '—' : row.matches}
                         </td>
                         <td data-label="Último match">
@@ -222,7 +222,7 @@ export function FontesPage() {
                             </>
                           ) : (
                             <span className="fontes-when__date">
-                              {row === undefined ? '—' : 'Nenhum match ainda'}
+                              {row === undefined ? '—' : 'Nenhuma oferta ainda'}
                             </span>
                           )}
                         </td>
@@ -235,7 +235,7 @@ export function FontesPage() {
                         </td>
                         <td className="fontes-table__actions" data-label="Ações">
                           <RowActionsMenu
-                            label={`Mais ações da fonte ${source.name}`}
+                            label={`Mais ações do grupo ${source.name}`}
                             items={[
                               {
                                 key: 'edit',
@@ -262,8 +262,8 @@ export function FontesPage() {
                     <tr className="fontes-table__empty">
                       <td colSpan={6}>
                         <EmptyState
-                          title="Nenhuma fonte ainda"
-                          text="Fontes são os grupos e canais do Telegram que o teleyes lê. Sem fonte, nada é monitorado."
+                          title="Nenhum grupo ainda"
+                          text="Grupos são as conversas e canais do Telegram que o teleyes acompanha. Sem grupo, nada é monitorado."
                           action={{
                             label: setupStatus?.configured === true ? 'Adicionar da minha conta' : 'Adicionar por chat_id',
                             onClick: () => {
@@ -303,7 +303,7 @@ export function FontesPage() {
 
       {deleteTarget !== null && (
         <ConfirmDialog
-          title="Excluir fonte?"
+          title="Excluir grupo?"
           message={`“${deleteTarget.name}” deixa de ser monitorada. Esta ação não pode ser desfeita.`}
           confirmLabel="Excluir"
           busy={deleting}

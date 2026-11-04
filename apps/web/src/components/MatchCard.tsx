@@ -146,7 +146,7 @@ function MatchSparkline({ match }: { match: Match }) {
         />
       </svg>
       <div className="match-card__spark-axis">
-        <span>{geometry.targetY !== null ? '90 dias · linha = alvo' : '90 dias'}</span>
+        <span>{geometry.targetY !== null ? '90 dias · linha = preço-alvo' : '90 dias'}</span>
       </div>
     </div>
   )
@@ -195,7 +195,7 @@ export function MatchCard({
    * the page owns the actual `POST`/`DELETE /snoozes` (scope `'product'`);
    * only rendered with a `product_key`. */
   onSnooze?: (match: Match) => void
-  /** S14-07: "Definir alvo" — cents already parsed from the inline field;
+  /** S14-07: "Definir preço-alvo" — cents already parsed from the inline field;
    * the page owns the actual `PATCH /rules/{id}`. */
   onSetTarget?: (ruleId: number, targetCents: number) => void
   /** S20-01: "Excluir anúncio" in the ⋯ menu — the page owns the
@@ -329,12 +329,12 @@ export function MatchCard({
   // S14-05 (F5) — "+N fonte(s)" pill, a different mechanism from the S7-11
   // "Visto em: <names>" line below (same rule/price chained over time vs.
   // same product/price across sources): both can render at once. S16-03
-  // (03): the comp counts the OTHER sources, not this one — "+1 fonte" for
-  // seen_count 2, never "Visto em 2 fontes" again.
+  // (03): the comp counts the OTHER sources, not this one — "+1 grupo" for
+  // seen_count 2, never "Visto em 2 grupos" again.
   const seenCount = match.seen_count ?? 1
   const otherSourcesCount = seenCount - 1
   const showSeenBadge = otherSourcesCount > 0
-  const seenBadgeLabel = `+${otherSourcesCount} ${otherSourcesCount === 1 ? 'fonte' : 'fontes'}`
+  const seenBadgeLabel = `+${otherSourcesCount} ${otherSourcesCount === 1 ? 'grupo' : 'grupos'}`
   // S14-06 (F7) manual-edit fields.
   const priceUnidentified = match.price_cents === null
   const manuallyEdited = match.price_source === 'manual'
@@ -357,7 +357,7 @@ export function MatchCard({
 
   const canCreateRule = productKey !== null && onCreateRule !== undefined
   const canSnooze = productKey !== null && onSnooze !== undefined
-  // S16-03 (02): "Corrigir"/"Corrigir preço" replaces "Definir alvo" outright
+  // S16-03 (02): "Corrigir"/"Corrigir preço" replaces "Definir preço-alvo" outright
   // when the price needs a manual fix — never both at once.
   const canCorrect = productKey !== null && priceUnidentified && onOpenProduct !== undefined
   const canSetTarget = onSetTarget !== undefined && !canCorrect
@@ -409,7 +409,7 @@ export function MatchCard({
             {match.target_hit && (
               <span className="match-card__badge match-card__badge--good">
                 <span className="match-card__badge-dot" aria-hidden="true" />
-                Alvo atingido
+                Preço-alvo atingido
               </span>
             )}
             {priceUnidentified && (
@@ -484,7 +484,7 @@ export function MatchCard({
           )}
           {showTargetGapLine && (
             <span className="match-card__price-sub">
-              falta {match.target_gap_pct}% para o alvo {formatCurrency(match.target_price_cents as number)}
+              falta {match.target_gap_pct}% para o preço-alvo {formatCurrency(match.target_price_cents as number)}
             </span>
           )}
           {averageDelta30d !== null && (
@@ -538,7 +538,7 @@ export function MatchCard({
               setShowTargetForm((current) => !current)
             }}
           >
-            Definir alvo
+            Definir preço-alvo
           </button>
         )}
         {showSnoozeButton && (
@@ -664,7 +664,7 @@ export function MatchCard({
       {showTargetForm && canSetTarget && (
         <form className="match-card__target-form" onSubmit={submitTarget}>
           <label className="match-card__target-label">
-            Alvo (R$)
+            Preço-alvo (R$)
             <input
               type="text"
               inputMode="decimal"

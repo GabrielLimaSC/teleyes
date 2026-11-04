@@ -226,7 +226,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
           autoFocus={match.price_cents !== null}
           style={fieldStyle}
         />
-        <span id="product-name-help" style={helperStyle}>Substitui o título bruto no feed, no histórico e no digest.</span>
+        <span id="product-name-help" style={helperStyle}>Substitui o título bruto nas ofertas, no histórico e no resumo diário.</span>
         {(nameTouched && nameError) || nameServerError ? (
           <span id="product-name-error" role="alert" style={errorStyle}>{nameServerError ?? nameError}</span>
         ) : null}
@@ -278,12 +278,12 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
           fontWeight: 600,
         }}
       >
-        <span>Aplicar o nome a todos os matches deste produto</span>
+        <span>Aplicar o nome a todas as ofertas deste produto</span>
         <button
           type="button"
           className="plane-action"
           role="switch"
-          aria-label="Aplicar o nome a todos os matches deste produto"
+          aria-label="Aplicar o nome a todas as ofertas deste produto"
           aria-checked={applyNameToProduct}
           onClick={() => setApplyNameToProduct((current) => !current)}
           style={{
@@ -335,15 +335,15 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
 
 interface TargetEditorProps {
   /** `null` with no target yet — starts the field empty, same as
-   * MatchCard's "Definir alvo". */
+   * MatchCard's "Definir preço-alvo". */
   targetPriceCents: number | null
   ruleName?: string
   onSave: (targetCents: number) => void
 }
 
-/** S14-08 parte 2 (rodada 2) / tela 07 "Alvo de preço": the panel's own
- * "Avise-me abaixo de" field + "Salvar alvo" — same inline-parse-on-submit
- * shape as MatchCard's "Definir alvo" (`utils/priceInput.ts`'s `{cents,
+/** S14-08 parte 2 (rodada 2) / tela 07 "Preço-alvo": the panel's own
+ * "Avise-me abaixo de" field + "Salvar preço-alvo" — same inline-parse-on-submit
+ * shape as MatchCard's "Definir preço-alvo" (`utils/priceInput.ts`'s `{cents,
  * error}`, no full-form validation state needed for a single field). The
  * page (`onSave`) owns the actual `PATCH /rules/{id}` and its own success/
  * failure toast; this only ever blocks on a malformed value it can catch
@@ -415,7 +415,7 @@ function TargetEditor({ targetPriceCents, ruleName, onSave }: TargetEditorProps)
           </span>
         </label>
         <button type="submit" className="plane-action" style={{ minHeight: 42 }}>
-          Salvar alvo
+          Salvar preço-alvo
         </button>
       </div>
       {error !== null && (
@@ -751,7 +751,7 @@ export function ProductPanel({
         matches.find((match) => match.product_key === product.product_key)
       if (!selected) {
         setEditableMatch(null)
-        setEditLoadError('Não foi possível localizar o match mais recente deste produto para edição.')
+        setEditLoadError('Não foi possível localizar a oferta mais recente deste produto para edição.')
         return
       }
       setEditableMatch(selected)
@@ -858,7 +858,7 @@ export function ProductPanel({
               <p className="product-panel__subtitle">
                 {product.total_count} {product.total_count === 1 ? 'registro' : 'registros'} desde{' '}
                 {formatDayMonth(product.first_seen_at)} · {product.sources.length}{' '}
-                {product.sources.length === 1 ? 'fonte' : 'fontes'}
+                {product.sources.length === 1 ? 'grupo' : 'grupos'}
               </p>
             )}
           </div>
@@ -997,7 +997,7 @@ export function ProductPanel({
 
             {onSaveTarget && (
               <div className="product-panel__well product-panel__target">
-                <div className="product-panel__label">Alvo de preço</div>
+                <div className="product-panel__label">Preço-alvo</div>
                 <TargetEditor targetPriceCents={targetPriceCents} ruleName={targetRuleName} onSave={onSaveTarget} />
               </div>
             )}

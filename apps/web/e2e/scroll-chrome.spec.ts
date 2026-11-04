@@ -49,7 +49,7 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   const html = page.locator('html')
 
   await expect(html).toHaveAttribute('data-chrome', 'rest')
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
 
   await page.mouse.move(720, 600)
   await page.mouse.wheel(0, 200)
@@ -85,13 +85,13 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   const mascot = await box(page.locator('.nav-mascot'))
   expect(mascot.x).toBeGreaterThanOrEqual(capsule.x - 0.5)
   expect(mascot.x + mascot.width).toBeLessThanOrEqual(capsule.x + capsule.width + 1)
-  // S16-01: "Feed ao vivo · N matches" shows up only once compact, next to
+  // S16-01: "Ofertas ao vivo · N matches" shows up only once compact, next to
   // the disc — and the dissolve band repaints the real page background,
   // never a dark overlay of its own.
   const contextCapsule = page.locator('.feed-page__context-capsule')
   await expect(contextCapsule).toBeVisible()
-  await expect(contextCapsule).toContainText('Feed ao vivo')
-  await expect(contextCapsule).toContainText('matches')
+  await expect(contextCapsule).toContainText('Ofertas ao vivo')
+  await expect(contextCapsule).toContainText('ofertas')
   const [scrimBg, bodyBg] = await Promise.all([
     page.locator('.feed-chrome-scrim').evaluate((el) => getComputedStyle(el).backgroundColor),
     page.locator('body').evaluate((el) => getComputedStyle(el).backgroundColor),
@@ -159,7 +159,7 @@ test('o Feed entra e sai do modo compacto com o scroll, sem nada fixo sobre os c
   // De volta ao topo: tudo volta ao layout normal. S15-08/S16-02: Digest se
   // desdobra com o MESMO tamanho em todo frame visível (antes ficava mais
   // largo durante a mola e re-quebrava o texto ao fim dela) — "Resumo de
-  // hoje" saiu do design (S16-02), só "Digest diário" segue em
+  // hoje" saiu do design (S16-02), só "Resumo diário" segue em
   // `.feed-side__more`.
   await page.evaluate(() => {
     const w = window as unknown as { __sizes: string[] }

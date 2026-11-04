@@ -145,7 +145,7 @@ describe('RegrasPage', () => {
     // cells (e.g. "Termos bloqueados" for a null exclude_terms elsewhere)
     // could also render a bare "—".
     const row = screen.getByText('iPhone').closest('tr') as HTMLElement
-    expect(row.querySelector('[data-label="Alvo"]')).toHaveTextContent('—')
+    expect(row.querySelector('[data-label="Preço-alvo"]')).toHaveTextContent('—')
   })
 
   it('shows the real rule count as the page subtitle (S10-07, reworded for alvo/silêncio in S14-09)', async () => {
@@ -191,7 +191,7 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
+    const alvoCell = row.querySelector('[data-label="Preço-alvo"]') as HTMLElement
     expect(alvoCell).toHaveTextContent('R$ 200,00')
     expect(alvoCell).toHaveTextContent('atingido')
   })
@@ -211,7 +211,7 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
+    const alvoCell = row.querySelector('[data-label="Preço-alvo"]') as HTMLElement
     expect(alvoCell).toHaveTextContent('R$ 200,00')
     // 25% above the target: floor((250 - 200) * 100 / 200).
     expect(alvoCell).toHaveTextContent('falta 25%')
@@ -234,7 +234,7 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    const alvoCell = row.querySelector('[data-label="Alvo"]') as HTMLElement
+    const alvoCell = row.querySelector('[data-label="Preço-alvo"]') as HTMLElement
     expect(alvoCell).toHaveTextContent('sem oferta 24 h')
     expect(alvoCell).not.toHaveTextContent('atingido')
     expect(alvoCell.querySelector('.rule-target--hit')).toBeNull()
@@ -853,7 +853,7 @@ describe('RegrasPage', () => {
     await clickMenuItem(user, 'Limpar histórico')
 
     expect(await screen.findByRole('heading', { name: 'Limpar histórico: iPhone' })).toBeInTheDocument()
-    expect(screen.getByText(/apaga 3 matches desta/)).toBeInTheDocument()
+    expect(screen.getByText(/apaga 3 ofertas desta/)).toBeInTheDocument()
     // Only checked the count so far — never called the destructive endpoint.
     expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
   })
@@ -881,7 +881,7 @@ describe('RegrasPage', () => {
     await clickMenuItem(user, 'Limpar histórico')
     await user.click(await screen.findByRole('button', { name: 'Apagar histórico' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent('3 matches apagados.')
+    expect(await screen.findByRole('status')).toHaveTextContent('3 ofertas apagadas.')
     expect(screen.queryByRole('heading', { name: 'Limpar histórico: iPhone' })).not.toBeInTheDocument()
   })
 
@@ -902,7 +902,7 @@ describe('RegrasPage', () => {
 
     await clickMenuItem(user, 'Limpar histórico')
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Nenhum match encontrado')
+    expect(await screen.findByRole('status')).toHaveTextContent('Nenhuma oferta encontrada')
     expect(screen.queryByRole('heading', { name: 'Limpar histórico: iPhone' })).not.toBeInTheDocument()
   })
 
@@ -969,7 +969,7 @@ describe('RegrasPage', () => {
   it('parses the pt-BR thousands dot in "Teto"/"Alvo" — "5.749" is R$ 5.749, never R$ 5,75 (S14-13)', async () => {
     // Regression: `Math.round(Number(form.maxPriceReais) * 100)` read the
     // dot as a decimal point, turning "5.749" into 575 cents instead of
-    // 574900 — same bug MatchCard's "Definir alvo" already had (S14-07).
+    // 574900 — same bug MatchCard's "Definir preço-alvo" already had (S14-07).
     let postedBody: Record<string, unknown> | null = null
     const fetchMock = vi.fn(
       withEmptyRecipients((_input, init) => {
@@ -1072,7 +1072,7 @@ describe('RegrasPage', () => {
     const panel = await screen.findByRole('dialog', { name: 'Como uma regra casa' })
     await waitFor(() => expect(within(panel).getByText('Casaram').nextElementSibling).toHaveTextContent('3'))
     // Only preco_acima_teto, summed across sources: 4 + 5 — not "vista"/"bloqueado".
-    expect(within(panel).getByText('Descartadas por teto').nextElementSibling).toHaveTextContent('9')
+    expect(within(panel).getByText('Descartadas por preço máximo').nextElementSibling).toHaveTextContent('9')
     // Honest label: cumulative, not "hoje".
     expect(within(panel).getByText(/acumulados.*não são do dia/)).toBeInTheDocument()
     expect(within(panel).queryByText(/hoje/i)).not.toBeInTheDocument()
@@ -1100,7 +1100,7 @@ describe('RegrasPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Como uma regra casa' }))
     const panel = await screen.findByRole('dialog', { name: 'Como uma regra casa' })
     await waitFor(() => expect(within(panel).getByText('Casaram').nextElementSibling).toHaveTextContent('—'))
-    expect(within(panel).getByText('Descartadas por teto').nextElementSibling).toHaveTextContent('—')
+    expect(within(panel).getByText('Descartadas por preço máximo').nextElementSibling).toHaveTextContent('—')
   })
 
   it('explains matching the way the backend really works: any include term, not all (S11-05)', async () => {
@@ -1474,7 +1474,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     await user.click(await screen.findByRole('button', { name: 'Ajustes de entrega' }))
     expect(await screen.findByText(/Próximo envio: 25\/09 09:00/)).toBeInTheDocument()
     expect(screen.getByText(/2 itens na fila/)).toBeInTheDocument()
-    expect(screen.getByText(/fura o digest e o silêncio/)).toBeInTheDocument()
+    expect(screen.getByText(/fura o resumo diário e o silêncio/)).toBeInTheDocument()
 
     await user.clear(screen.getByLabelText('Máximo de itens'))
     await user.type(screen.getByLabelText('Máximo de itens'), '8')
@@ -1642,7 +1642,7 @@ describe('RegrasPage — Aplicar regras (S13-06)', () => {
 
     await vi.advanceTimersByTimeAsync(4000)
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Regras aplicadas — 5 matches novos no histórico.')
+    expect(await screen.findByRole('status')).toHaveTextContent('Regras aplicadas — 5 ofertas novas no histórico.')
     expect(screen.getByText(/^aplicado \d{2}\/\d{2} \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aplicar regras' })).toBeEnabled()
   })

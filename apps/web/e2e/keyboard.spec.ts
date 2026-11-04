@@ -54,9 +54,9 @@ test('login by keyboard, skip link and page titles', async ({ page }) => {
   await expect(page.locator('main')).toBeFocused()
 
   for (const [route, title] of [
-    ['/feed', 'Feed ao vivo'],
+    ['/feed', 'Ofertas ao vivo'],
     ['/regras', 'Regras'],
-    ['/fontes', 'Fontes'],
+    ['/fontes', 'Grupos'],
     ['/historico', 'Histórico'],
     ['/economia', 'Economia'],
     ['/saude', 'Saúde'],

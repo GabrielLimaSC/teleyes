@@ -83,7 +83,7 @@ export function DoneStep({ status }: { status: SetupStatus }) {
       {status.complete && (
         <div className="setup-actions">
           <Link className="plane-action setup-button setup-link-button" to="/feed">
-            Ir para o Feed
+            Ir para as Ofertas
           </Link>
           <Link className="plane-action plane-action--secondary setup-button setup-link-button" to="/regras">
             Ver as regras

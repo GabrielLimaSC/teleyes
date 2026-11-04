@@ -435,7 +435,7 @@ export function EconomiaPage() {
                     <td colSpan={goal ? 6 : 5} className="economia-table__empty">
                       <EmptyState
                         title="Nenhuma compra registrada"
-                        text="Aqui você vê quanto pagou a menos que o preço visto pelo teleyes. Registre uma compra aqui ou use “Marcar como comprado” num card do Feed."
+                        text="Aqui você vê quanto pagou a menos que o preço visto pelo teleyes. Registre uma compra aqui ou use “Marcar como comprado” num card das Ofertas."
                         action={{ label: 'Registrar primeira compra', onClick: openCreate }}
                       />
                     </td>
@@ -468,7 +468,7 @@ export function EconomiaPage() {
                 <dd className="economia-noise__detail">
                   {formatCount(report.noise.discarded.sem_termo)} sem termo ·{' '}
                   {formatCount(report.noise.discarded.bloqueado)} bloqueadas ·{' '}
-                  {formatCount(report.noise.discarded.preco_acima_teto)} acima do teto
+                  {formatCount(report.noise.discarded.preco_acima_teto)} acima do preço máximo
                 </dd>
               </div>
               <div>

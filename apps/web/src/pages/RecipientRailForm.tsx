@@ -50,9 +50,9 @@ function initialForm(target: RecipientFormTarget): RecipientForm {
 }
 
 function typesPhrase(target: boolean, common: boolean): string {
-  if (target && common) return 'em alvos atingidos e matches comuns'
-  if (target) return 'só quando o alvo for atingido'
-  if (common) return 'só em matches comuns'
+  if (target && common) return 'em preços-alvo atingidos e ofertas comuns'
+  if (target) return 'só quando o preço-alvo for atingido'
+  if (common) return 'só em ofertas comuns'
   return 'sem nenhum tipo de alerta'
 }
 
@@ -229,18 +229,18 @@ export function RecipientRailForm({
           <fieldset className="delivery-fieldset">
             <legend>Tipos de alerta</legend>
             <div className="recipient-card__line">
-              <span>Alvo atingido</span>
+              <span>Preço-alvo atingido</span>
               <DeliverySwitch
                 checked={form.notifyTarget}
-                label="Alvo atingido"
+                label="Preço-alvo atingido"
                 onChange={(notifyTarget) => setForm({ ...form, notifyTarget })}
               />
             </div>
             <div className="recipient-card__line">
-              <span>Match comum</span>
+              <span>Oferta comum</span>
               <DeliverySwitch
                 checked={form.notifyCommon}
-                label="Match comum"
+                label="Oferta comum"
                 onChange={(notifyCommon) => setForm({ ...form, notifyCommon })}
               />
             </div>

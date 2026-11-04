@@ -97,7 +97,7 @@ test.describe('product panel — abrir/fechar (07b)', () => {
     const seed = await seedProduct(page, 'x3', 'Placa de vídeo Palit RTX 5070 Ti GamingPro-S 16GB', '5.749')
     await openPanel(page, seed)
 
-    await page.getByRole('heading', { name: 'Feed ao vivo' }).click()
+    await page.getByRole('heading', { name: 'Ofertas ao vivo' }).click()
     await expect(page.getByRole('heading', { name: seed.title })).not.toBeVisible()
   })
 
@@ -252,7 +252,7 @@ for (const scenario of [
     const correctedName = `Monitor Dell U2725QE Corrigido ${scenario.tag}`
     await nameInput.fill(correctedName)
     await priceInput.fill('5.749')
-    await page.getByRole('switch', { name: 'Aplicar o nome a todos os matches deste produto' }).click()
+    await page.getByRole('switch', { name: 'Aplicar o nome a todas as ofertas deste produto' }).click()
     await page.getByRole('button', { name: 'Salvar correção' }).click()
 
     await expect(page.getByRole('heading', { name: correctedName })).toBeVisible()

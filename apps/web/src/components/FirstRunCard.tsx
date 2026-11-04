@@ -33,7 +33,7 @@ export function buildFirstRunSteps(setup: SetupStatus | null, counts: Counts): F
       title: 'Conectar o Telegram',
       doneText:
         counts.sources > 0
-          ? `Telegram conectado, ${counts.sources} ${counts.sources === 1 ? 'fonte' : 'fontes'} em monitoramento.`
+          ? `Telegram conectado, ${counts.sources} ${counts.sources === 1 ? 'grupo' : 'grupos'} em monitoramento.`
           : 'Conta do Telegram conectada.',
       todoText: 'Entre com a conta do Telegram que já está nos grupos de promoção.',
       cta: 'Conectar o Telegram',

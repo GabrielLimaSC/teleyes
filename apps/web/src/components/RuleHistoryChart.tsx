@@ -76,10 +76,10 @@ export function RuleHistoryChart({
       <figcaption className="rule-chart__legend">
         <span>Menor preço por dia · {points.length === 1 ? '1 dia' : `${points.length} dias`}</span>
         {ceilingCents !== null && (
-          <span className="rule-chart__key rule-chart__key--ceiling">teto {formatBrl(ceilingCents)}</span>
+          <span className="rule-chart__key rule-chart__key--ceiling">preço máximo {formatBrl(ceilingCents)}</span>
         )}
         {targetCents !== null && (
-          <span className="rule-chart__key rule-chart__key--target">alvo {formatBrl(targetCents)}</span>
+          <span className="rule-chart__key rule-chart__key--target">preço-alvo {formatBrl(targetCents)}</span>
         )}
       </figcaption>
       <div

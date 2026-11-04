@@ -1,3 +1,4 @@
+import { HelpTip } from '../components/HelpTip'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { CollectorHistory, HeartbeatBucket, SystemEvent } from '../api/healthHistory'
@@ -65,6 +66,11 @@ export function ServiceCard({
     <article className="plane-pearl saude-service" data-service={view.key}>
       <header className="saude-service__head">
         <h3>{view.name}</h3>
+        {view.key === 'listener' && (
+          <HelpTip term="Leitor do Telegram">
+            A parte do teleyes que acompanha os seus grupos e procura as ofertas. Se parar, nada novo chega.
+          </HelpTip>
+        )}
         <span className={`saude-pill saude-tone-${view.tone}`}>{view.pill}</span>
       </header>
       <p className="saude-service__detail">{detail}</p>
@@ -111,7 +117,7 @@ export function CollectorCard({
         <div>
           <h2>Coletor</h2>
           <p className="saude-panel__sub">
-            Avaliações por hora · últimas 24h{note !== null && <> · {note}</>}
+            Mensagens analisadas por hora · últimas 24h{note !== null && <> · {note}</>}
           </p>
         </div>
         {collector !== null && (
@@ -121,7 +127,7 @@ export function CollectorCard({
           </div>
         )}
       </div>
-      <div className="saude-chart" role="img" aria-label="Avaliações por hora nas últimas 24 horas">
+      <div className="saude-chart" role="img" aria-label="Mensagens analisadas por hora nas últimas 24 horas">
         {hours.map((hour, index) => {
           const value = hour?.evaluated ?? null
           const last = index === hours.length - 1
@@ -133,7 +139,7 @@ export function CollectorCard({
               title={
                 hour === null || value === null
                   ? 'coletando'
-                  : `${hourLabel(hour.hour)} · ${value.toLocaleString('pt-BR')} avaliações`
+                  : `${hourLabel(hour.hour)} · ${value.toLocaleString('pt-BR')} mensagens analisadas`
               }
             />
           )

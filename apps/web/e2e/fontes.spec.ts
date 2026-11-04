@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { apiLogin, apiPost } from './helpers'
 
-// S21-11: Fontes v2 — KPIs, table with 7-day bars, "Adicionar fonte" rail.
+// S21-11: Fontes v2 — KPIs, table with 7-day bars, "Adicionar grupo" rail.
 // The e2e backend has no Telegram configured, so the "Da minha conta" tab
 // shows its empty state; the group list itself is covered by the vitest suite.
 
@@ -36,16 +36,16 @@ test('shows the KPI strip, the 7-day bars and a real last match', async ({ page 
   await page.goto('/fontes')
 
   const kpis = page.locator('.fontes-kpis')
-  await expect(kpis.getByText('Fontes ativas')).toBeVisible()
-  await expect(kpis.getByText('Avaliações · hoje')).toBeVisible()
-  await expect(kpis.getByText('Matches · 7d')).toBeVisible()
+  await expect(kpis.getByText('Grupos ativos')).toBeVisible()
+  await expect(kpis.getByText('Mensagens analisadas · hoje')).toBeVisible()
+  await expect(kpis.getByText('Ofertas · 7d')).toBeVisible()
   await expect(kpis.getByText('Último match')).toBeVisible()
 
   const row = page.getByRole('row', { name: /Grupo Kpis/ })
   await expect(row).toBeVisible()
   await expect(row.locator('.fontes-bars__bar')).toHaveCount(7)
   await expect(row.locator('[data-label="Último match"]')).toContainText(/agora|há /)
-  await expect(row.locator('[data-label="Matches · 7d"]')).toHaveText('1')
+  await expect(row.locator('[data-label="Ofertas · 7d"]')).toHaveText('1')
 })
 
 test('adds a source by chat_id through the rail, then edits and deletes it with confirmation', async ({ page }) => {
@@ -53,22 +53,22 @@ test('adds a source by chat_id through the rail, then edits and deletes it with 
   await apiLogin(page)
   await page.goto('/fontes')
 
-  await page.getByRole('button', { name: '+ Nova fonte' }).click()
+  await page.getByRole('button', { name: '+ Novo grupo' }).click()
   await page.getByLabel('Nome', { exact: true }).fill('Grupo Rail E2E')
   await page.getByLabel('Chat ID do Telegram').fill('-1009911')
   await page.getByRole('button', { name: 'Salvar' }).click()
   const row = page.getByRole('row', { name: /Grupo Rail E2E/ })
   await expect(row).toBeVisible()
 
-  await row.getByRole('button', { name: /Mais ações da fonte/ }).click()
+  await row.getByRole('button', { name: /Mais ações do grupo/ }).click()
   await page.getByRole('menuitem', { name: 'Editar' }).click()
-  await expect(page.getByRole('heading', { name: 'Editar fonte' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Editar grupo' })).toBeVisible()
   await page.getByLabel('Nome', { exact: true }).fill('Grupo Rail Editado')
   await page.getByRole('button', { name: 'Salvar' }).click()
   const edited = page.getByRole('row', { name: /Grupo Rail Editado/ })
   await expect(edited).toBeVisible()
 
-  await edited.getByRole('button', { name: /Mais ações da fonte/ }).click()
+  await edited.getByRole('button', { name: /Mais ações do grupo/ }).click()
   await page.getByRole('menuitem', { name: 'Excluir' }).click()
   await expect(page.getByRole('alertdialog')).toBeVisible()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir' }).click()

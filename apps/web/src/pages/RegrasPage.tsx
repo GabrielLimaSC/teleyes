@@ -27,6 +27,7 @@ import { formatDayMonth, formatMatchedAt, isLater } from '../utils/dates'
 import { EmptyState } from '../components/EmptyState'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { AnchoredPopover } from '../components/AnchoredPopover'
+import { HelpTip } from '../components/HelpTip'
 import { ListenerApplyControl } from '../components/ListenerApplyControl'
 import { RuleHistoryChart } from '../components/RuleHistoryChart'
 import { settledToast } from '../components/listenerState'
@@ -109,7 +110,7 @@ function formToTestInput(form: RuleForm): RuleTestInput {
 }
 
 function formatPriceLimit(cents: number | null): string {
-  if (cents === null) return 'Sem teto'
+  if (cents === null) return 'Sem preço máximo'
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
@@ -673,7 +674,7 @@ export function RegrasPage() {
     fetchMatches({ ruleId: rule.id })
       .then((matches) => {
         if (matches.length === 0) {
-          showToast(`Nenhum match encontrado pra "${rule.name}".`)
+          showToast(`Nenhuma oferta encontrada pra "${rule.name}".`)
           return
         }
         setClearConfirm({ rule, count: matches.length })
@@ -701,7 +702,7 @@ export function RegrasPage() {
         setRecentVersion((version) => version + 1)
         setClearConfirm(null)
         showToast(
-          deleted === 1 ? '1 match apagado.' : `${deleted} matches apagados.`,
+          deleted === 1 ? '1 oferta apagada.' : `${deleted} ofertas apagadas.`,
         )
       })
       .catch((error: unknown) => {
@@ -855,7 +856,7 @@ export function RegrasPage() {
     >
       <p className="regras-how__text">
         Basta um dos termos incluídos aparecer na mensagem; qualquer termo bloqueado descarta.
-        Se o preço achado passa do teto da regra, a mensagem também é descartada.
+        Se o preço achado passa do preço máximo da regra, a mensagem também é descartada.
       </p>
       <dl className="regras-how__stats">
         <div className="regras-how__stat">
@@ -863,7 +864,7 @@ export function RegrasPage() {
           <dd>{matchedCount ?? '—'}</dd>
         </div>
         <div className="regras-how__stat">
-          <dt>Descartadas por teto</dt>
+          <dt>Descartadas por preço máximo</dt>
           <dd>{ceilingDiscards ?? '—'}</dd>
         </div>
       </dl>
@@ -922,8 +923,8 @@ export function RegrasPage() {
                 <thead>
                   <tr>
                     <th>Regra</th>
-                    <th className="rules-table__num">Teto</th>
-                    <th className="rules-table__num">Alvo</th>
+                    <th className="rules-table__num">Preço máximo</th>
+                    <th className="rules-table__num">Preço-alvo</th>
                     <th className="rules-table__recipients">Destinatários</th>
                     <th className="rules-table__status">Status</th>
                     <th className="rules-table__actions">
@@ -961,10 +962,10 @@ export function RegrasPage() {
                             </span>
                           </button>
                         </td>
-                        <td className="rules-table__num" data-label="Teto">
+                        <td className="rules-table__num" data-label="Preço máximo">
                           {formatPriceLimit(rule.max_price_cents)}
                         </td>
-                        <td className="rules-table__num" data-label="Alvo">
+                        <td className="rules-table__num" data-label="Preço-alvo">
                           {/* S15-02: one box, so the stacked phone card keeps value and
                               gap together on the right instead of spreading them. */}
                           <RuleTargetCell rule={rule} />
@@ -1042,15 +1043,15 @@ export function RegrasPage() {
                                       : `${recipientsMissingRule(recipients, rule).length} destinatários não recebem esta regra`}
                                   </p>
                                 )}
-                                <h3 className="rule-detail__heading">Últimos matches</h3>
+                                <h3 className="rule-detail__heading">Últimas ofertas</h3>
                                 {(recent === null || recent.ruleId !== rule.id || (recent.matches === null && !recent.failed)) && (
-                                  <p role="status" className="rule-detail__muted">Carregando matches…</p>
+                                  <p role="status" className="rule-detail__muted">Carregando ofertas…</p>
                                 )}
                                 {recent?.ruleId === rule.id && recent.failed && (
-                                  <p role="alert" className="rule-detail__muted">Não foi possível carregar os matches.</p>
+                                  <p role="alert" className="rule-detail__muted">Não foi possível carregar as ofertas.</p>
                                 )}
                                 {recent?.ruleId === rule.id && recent.matches !== null && recent.matches.length === 0 && (
-                                  <p className="rule-detail__muted">Nenhum match ainda para esta regra.</p>
+                                  <p className="rule-detail__muted">Nenhuma oferta ainda para esta regra.</p>
                                 )}
                                 {recent?.ruleId === rule.id && recent.matches !== null && recent.matches.length > 0 && (
                                   <ul className="rule-detail__matches">
@@ -1228,9 +1229,9 @@ export function RegrasPage() {
               <h2>Limpar histórico: {clearConfirm.rule.name}</h2>
               <p className="regras-panel__note">
                 Isso apaga{' '}
-                {clearConfirm.count === 1 ? '1 match' : `${clearConfirm.count} matches`} desta
+                {clearConfirm.count === 1 ? '1 oferta' : `${clearConfirm.count} ofertas`} desta
                 regra (e as entregas registradas neles) do Feed/Histórico — a regra em si continua
-                ativa e pronta pra gerar matches novos. Essa ação não pode ser desfeita.
+                ativa e pronta pra encontrar ofertas novas. Essa ação não pode ser desfeita.
               </p>
               <div className="regras-panel__actions">
                 <button
@@ -1339,6 +1340,7 @@ export function RegrasPage() {
             />
             {formMode === 'advanced' && (
               <>
+                <div className="help-field">
                 <label className="regras-form__field">
                   Termos bloqueados
                   <input
@@ -1348,6 +1350,11 @@ export function RegrasPage() {
                     aria-describedby="rule-exclude-terms-hint"
                   />
                 </label>
+                <HelpTip term="Termos bloqueados" align="right">
+                  Se a mensagem tiver qualquer uma dessas palavras, ela é ignorada, mesmo que tenha um termo
+                  incluído. Bom para afastar “usado” ou “caixa aberta”.
+                </HelpTip>
+                </div>
                 <p id="rule-exclude-terms-hint" className="regras-form__helper">
                   Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
                 </p>
@@ -1364,6 +1371,10 @@ export function RegrasPage() {
               </p>
             )}
             <div className="regras-form__price-grid">
+              <div className="help-field">
+              <HelpTip term="Preço máximo" align="right">
+                O valor mais alto que você aceita pagar. Ofertas acima dele são ignoradas.
+              </HelpTip>
               <label className="regras-form__field">
                 Até quanto você paga (R$)
                 <input
@@ -1372,9 +1383,14 @@ export function RegrasPage() {
                   inputMode="decimal"
                   value={form.maxPriceReais}
                   onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
-                  placeholder="sem teto"
+                  placeholder="sem preço máximo"
                 />
               </label>
+              </div>
+              <div className="help-field">
+              <HelpTip term="Preço-alvo" align="right">
+                O preço dos sonhos: se uma oferta chegar nele, você é avisado na hora, sem esperar o resumo diário.
+              </HelpTip>
               <label className="regras-form__field">
                 Avisar na hora se cair abaixo de (R$)
                 <input
@@ -1382,14 +1398,15 @@ export function RegrasPage() {
                   inputMode="decimal"
                   value={form.targetPriceReais}
                   onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
-                  placeholder="sem alvo"
+                  placeholder="sem preço-alvo"
                 />
               </label>
+              </div>
             </div>
             {suggestion && (
               <p className="regras-form__suggestion-note">
                 <span aria-hidden="true" />
-                Sugerido a partir do histórico: teto = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
+                Sugerido a partir do histórico: preço máximo = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; preço-alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
               </p>
             )}
             <p aria-live="polite" className="regras-form__preview" data-testid="rule-preview">

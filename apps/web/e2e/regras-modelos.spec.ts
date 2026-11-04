@@ -6,7 +6,7 @@ test('cria uma regra a partir de um modelo no modo simples e a vê na tabela (S2
   await apiLogin(page)
   await page.goto('/regras')
 
-  await expect(page.getByLabel('Termos bloqueados')).toHaveCount(0)
+  await expect(page.getByLabel('Termos bloqueados', { exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'SSD', exact: true }).click()
   await expect(page.getByLabel(/Nome/)).toHaveValue('SSD')
   await expect(page.getByLabel(/Até quanto você paga/)).toBeFocused()
@@ -30,12 +30,12 @@ test('o modo avançado é lembrado e anunciado (S23-05)', async ({ page }) => {
   await page.goto('/regras')
 
   await page.getByRole('button', { name: 'Mais opções' }).click()
-  await expect(page.getByLabel('Termos bloqueados')).toBeVisible()
+  await expect(page.getByLabel('Termos bloqueados', { exact: true })).toBeVisible()
   await expect(page.getByText('Modo avançado: mais opções disponíveis.')).toBeAttached()
   await expect(page.getByText(/só casa quando a mensagem tem as duas palavras/)).toBeVisible()
 
   await page.reload()
-  await expect(page.getByLabel('Termos bloqueados')).toBeVisible()
+  await expect(page.getByLabel('Termos bloqueados', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Menos opções' }).click()
-  await expect(page.getByLabel('Termos bloqueados')).toHaveCount(0)
+  await expect(page.getByLabel('Termos bloqueados', { exact: true })).toHaveCount(0)
 })

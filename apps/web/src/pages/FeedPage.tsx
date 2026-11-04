@@ -1,3 +1,4 @@
+import { HelpTip } from '../components/HelpTip'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MatchCard } from '../components/MatchCard'
@@ -131,7 +132,7 @@ const FeedMatchList = memo(function FeedMatchList({
       {visibleMatches.length === 0 && !hasAnyMatch && rules.length === 0 && (
         <EmptyState
           title="Nenhuma regra ainda"
-          text="O feed mostra as promoções que batem com as suas regras. Crie a primeira para começar."
+          text="As ofertas mostram as promoções que batem com as suas regras. Crie a primeira para começar."
           action={{ label: 'Criar a primeira regra', to: '/regras?nova=1' }}
         />
       )}
@@ -142,7 +143,7 @@ const FeedMatchList = memo(function FeedMatchList({
           action={{ label: 'Ver as regras', to: '/regras' }}
         />
       )}
-      {visibleMatches.length === 0 && hasAnyMatch && <p>Nenhum match para esta regra ainda.</p>}
+      {visibleMatches.length === 0 && hasAnyMatch && <p>Nenhuma oferta para esta regra ainda.</p>}
       {visibleMatches.map((match) => (
         <div key={match.id} className="feed-page__card">
           <MatchCard
@@ -193,7 +194,7 @@ export function FeedPage() {
     if (seen === null) return
     const added = matches.filter((match) => !seen.has(match.id)).length
     if (added === 0) return
-    setAnnouncement(added === 1 ? '1 novo alerta no feed.' : `${added} novos alertas no feed.`)
+    setAnnouncement(added === 1 ? '1 nova oferta.' : `${added} novas ofertas.`)
     const timer = setTimeout(() => setAnnouncement(''), 5000)
     return () => clearTimeout(timer)
   }, [matches, loading])
@@ -225,7 +226,7 @@ export function FeedPage() {
   }, [])
 
   // S14-07 revisão 1 (bloqueio 2): `rules` carries each rule's own
-  // `history_30d`/`snoozed_until` (the sidebar's "Alvos de preço" and
+  // `history_30d`/`snoozed_until` (the sidebar's "Preços-alvo" and
   // "Filtrar por regra" source) — `useLiveMatches` already reloads `matches`
   // on every SSE `match`/`resync` event (or "Atualizar"), but never touched
   // `rules`, so a brand-new match's rule kept showing yesterday's history
@@ -306,14 +307,14 @@ export function FeedPage() {
     }
   }
 
-  // S14-07: "Definir alvo" — edits the match's own rule via the Regras CRUD
+  // S14-07: "Definir preço-alvo" — edits the match's own rule via the Regras CRUD
   // (`PATCH /rules/{id}`), sending only `target_price_cents`.
   async function handleSetTarget(ruleId: number, targetCents: number) {
     const token = requireCsrf()
     if (token === null) return
     try {
       await updateRule(token, ruleId, { target_price_cents: targetCents })
-      showToast('Alvo de preço salvo.')
+      showToast('Preço-alvo salvo.')
       await loadRules()
       refresh()
     } catch (err) {
@@ -350,7 +351,7 @@ export function FeedPage() {
       })
       setDigest(result)
     } catch (err) {
-      reportError(err, 'Não foi possível salvar o digest.')
+      reportError(err, 'Não foi possível salvar o resumo diário.')
     }
   }
 
@@ -397,7 +398,7 @@ export function FeedPage() {
     }
   }, [visibleMatches])
 
-  // S14-07 (barra lateral): "Alvos de preço" — every rule with a target.
+  // S14-07 (barra lateral): "Preços-alvo" — every rule with a target.
   // S17-10: hit/gap are judged on the rule's lowest offer of the LAST 24 H
   // (`Rule.lowest_price_24h_cents`), the same window the backend applies to
   // a card's own `target_hit`/`target_gap_pct`, so the rail never disagrees
@@ -651,14 +652,14 @@ export function FeedPage() {
   const activeSourcesCount = sources.filter((source) => source.active).length
   const targetsTooltip =
     targetRows.length === 0
-      ? 'Alvos de preço · nenhum'
-      : `Alvos de preço · ${targetRows.length} ${targetRows.length === 1 ? 'ativo' : 'ativos'}` +
-        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : targetRows.some((row) => row.hit) ? ', alvo atingido' : ', sem oferta nas últimas 24 h')
+      ? 'Preços-alvo · nenhum'
+      : `Preços-alvo · ${targetRows.length} ${targetRows.length === 1 ? 'ativo' : 'ativos'}` +
+        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : targetRows.some((row) => row.hit) ? ', preço-alvo atingido' : ', sem oferta nas últimas 24 h')
 
   const leftStripItems: RailStripItem[] = [
     {
       sectionId: 'feed-rail-targets',
-      label: 'Alvos de preço',
+      label: 'Preços-alvo',
       icon: 'target',
       badge: targetRows.length,
       tooltip: targetsTooltip,
@@ -679,9 +680,9 @@ export function FeedPage() {
     },
     {
       sectionId: 'feed-rail-sources',
-      label: 'Fontes',
+      label: 'Grupos',
       icon: 'sources',
-      tooltip: `Fontes · ${activeSourcesCount} ${activeSourcesCount === 1 ? 'ativa' : 'ativas'}`,
+      tooltip: `Grupos · ${activeSourcesCount} ${activeSourcesCount === 1 ? 'ativa' : 'ativas'}`,
     },
   ]
   const rightStripItems: RailStripItem[] = [
@@ -694,7 +695,7 @@ export function FeedPage() {
       label: 'Resumo',
       icon: 'summary',
       badge: summary.matches,
-      tooltip: `Matches · ${summary.matches}`,
+      tooltip: `Ofertas · ${summary.matches}`,
     },
     {
       id: 'summary-sent',
@@ -709,9 +710,9 @@ export function FeedPage() {
           {
             id: 'digest',
             sectionId: 'feed-side-digest',
-            label: 'Digest diário',
+            label: 'Resumo diário',
             icon: 'digest' as const,
-            tooltip: `Digest diário · ${digest.queue_count === 0 ? 'fila vazia' : `${digest.queue_count} na fila`}`,
+            tooltip: `Resumo diário · ${digest.queue_count === 0 ? 'fila vazia' : `${digest.queue_count} na fila`}`,
           },
         ]
       : []),
@@ -731,17 +732,17 @@ export function FeedPage() {
           dark strip. Only the bar's own pieces (mascote, cápsula, toolbar,
           tema) carry glass. */}
       <div className="feed-chrome-scrim" aria-hidden="true" />
-      {/* S16-01: "Feed ao vivo · N matches" — compact-only context next to
+      {/* S16-01: "Ofertas ao vivo · N matches" — compact-only context next to
           the mascot disc; the `summary.matches` already shown accessibly
           by "Resumo" below, so this is decorative (aria-hidden). Hides
           itself (FeedPage.css, a `:has()` off `.nav-shell`) the instant the
           navbar grows over it — never a double, unreadable glass surface. */}
       <div className="feed-page__context-capsule plane-glass" aria-hidden="true">
-        Feed ao vivo · {summary.matches} matches
+        Ofertas ao vivo · {summary.matches} ofertas
       </div>
       <div className="feed-page__header">
         <div className="feed-page__title">
-          <h1>Feed ao vivo</h1>
+          <h1>Ofertas ao vivo</h1>
           <p className="feed-page__subtitle">Ofertas encontradas pelas suas regras, em tempo real.</p>
         </div>
         {/* S16-01: one glass capsule, three segments — SSE / Agrupar / Atualizar
@@ -783,7 +784,7 @@ export function FeedPage() {
 
       <SetupBanner />
       <FirstTimeTip id="feed">
-        O feed mostra, em tempo real, as promoções que batem com as suas regras. Abra um card para ver o histórico de
+        As ofertas mostram, em tempo real, as promoções que batem com as suas regras. Abra um card para ver o histórico de
         preço do produto.
       </FirstTimeTip>
 
@@ -828,8 +829,8 @@ export function FeedPage() {
               </button>
             )}
             <div id="feed-rail-targets">
-              <div className="feed-rail__eyebrow">Alvos de preço</div>
-              {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum alvo definido ainda.</p>}
+              <div className="feed-rail__eyebrow">Preços-alvo</div>
+              {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum preço-alvo definido ainda.</p>}
               <div className="feed-rail__list">
                 {targetRows.map(({ rule, latestPriceCents, hit, gapPct, progressPct }) => (
                   <div
@@ -853,7 +854,7 @@ export function FeedPage() {
                       />
                     </div>
                     <div className="feed-target__foot">
-                      <span>alvo {formatCurrency(rule.target_price_cents as number)}</span>
+                      <span>preço-alvo {formatCurrency(rule.target_price_cents as number)}</span>
                       {latestPriceCents !== null ? (
                         <span>{formatCurrency(latestPriceCents)}</span>
                       ) : (
@@ -941,7 +942,7 @@ export function FeedPage() {
             </div>
             <div className="feed-rail__divider" />
             <div id="feed-rail-sources">
-              <div className="feed-rail__eyebrow">Fontes</div>
+              <div className="feed-rail__eyebrow">Grupos</div>
               <div className="feed-rail__sources">
                 {sources.map((source) => (
                   <div key={source.id} className="feed-rail__source">
@@ -962,7 +963,7 @@ export function FeedPage() {
                     </span>
                   </div>
                 ))}
-                {sources.length === 0 && <p className="feed-rail__empty">Nenhuma fonte cadastrada.</p>}
+                {sources.length === 0 && <p className="feed-rail__empty">Nenhum grupo cadastrado.</p>}
               </div>
             </div>
             </div>
@@ -1010,7 +1011,7 @@ export function FeedPage() {
                   (never "hoje" — the number isn't scoped to today). */}
               <div className="feed-summary__grid">
                 <div className="feed-summary__tile">
-                  <div className="feed-summary__label">Matches</div>
+                  <div className="feed-summary__label">Ofertas</div>
                   <div className="feed-summary__value">{summary.matches}</div>
                 </div>
                 <div className="feed-summary__tile">
@@ -1034,13 +1035,18 @@ export function FeedPage() {
             {/* S16-02: "Resumo de hoje" (a separate pearl panel) is gone —
                 the design has no such second panel; its real-data coverage
                 moved into "Resumo" above (Falhas, Menor preço robusto) and
-                into e2e/feed-rails-content.spec.ts. Only "Digest diário"
+                into e2e/feed-rails-content.spec.ts. Only "Resumo diário"
                 still folds up into "Resumo" here. */}
             <div className="feed-side__more" inert={rightCollapsed}>
             <div className="feed-side__more-inner">
             {digest !== null && (
               <aside id="feed-side-digest" className="plane-glass feed-digest">
-                <div className="feed-rail__eyebrow">Digest diário</div>
+                <div className="feed-rail__eyebrow help-inline">
+                  Resumo diário
+                  <HelpTip term="Resumo diário" align="right">
+                    Em vez de vários avisos, você recebe uma mensagem por dia com as melhores ofertas.
+                  </HelpTip>
+                </div>
                 <p className="feed-digest__description">
                   Um resumo por dia com os melhores preços. Alvos atingidos continuam avisando na hora.
                 </p>
@@ -1068,7 +1074,7 @@ export function FeedPage() {
                   </label>
                 </div>
                 {/* S16-02: the two toggles grouped into one bordered block
-                    (design), shorter labels ("Ativar digest"/"Silenciar
+                    (design), shorter labels ("Ativar resumo diário"/"Silenciar
                     pings" — the field above it already says "digest"/"pings
                     individuais" once, no need to repeat in each row). */}
                 <div className="feed-digest__toggles">
@@ -1078,7 +1084,7 @@ export function FeedPage() {
                     aria-pressed={digest.enabled}
                     onClick={() => saveDigest({ enabled: !digest.enabled })}
                   >
-                    <span>Ativar digest</span>
+                    <span>Ativar resumo diário</span>
                     <span className={digest.enabled ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}>
                       <span className="feed-toggle-switch__knob" />
                     </span>
@@ -1114,7 +1120,7 @@ export function FeedPage() {
           </div>
           {panel.phase !== 'closed' && panel.productKey !== null && (() => {
             // S14-08 parte 2 (rodada 2): the panel only knows a
-            // `product_key` — the rule its "Alvo de preço"/"Silenciar"
+            // `product_key` — the rule its "Preço-alvo"/"Silenciar"
             // blocks act on is the product's most-recently-matched match
             // (never the historical minimum or an arbitrary rule), read
             // straight from the live `matches` already loaded here, same as
