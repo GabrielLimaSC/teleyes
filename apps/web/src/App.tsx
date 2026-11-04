@@ -1,4 +1,6 @@
-import { Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
+import { useAuth } from './auth/AuthContext'
 import { NavCapsule } from './components/NavCapsule'
 import { DemoBanner } from './components/DemoBanner'
 import { OfflineBanner } from './components/OfflineBanner'
@@ -12,9 +14,54 @@ import { SaudePage } from './pages/SaudePage'
 import { EconomiaPage } from './pages/EconomiaPage'
 import { ConfiguracaoPage } from './pages/ConfiguracaoPage'
 
+const ROUTE_TITLES: Record<string, string> = {
+  '/feed': 'Feed ao vivo',
+  '/regras': 'Regras',
+  '/fontes': 'Fontes',
+  '/historico': 'Histórico',
+  '/economia': 'Economia',
+  '/saude': 'Saúde',
+  '/configuracao': 'Configuração',
+}
+
+/** S23-02: one `document.title` per route ("Regras · teleyes"); "/" is the login
+ * screen until a session exists, then the home ("Início"). */
+function DocumentTitle() {
+  const { pathname } = useLocation()
+  const { status } = useAuth()
+  const page = pathname === '/' ? (status === 'authenticated' ? 'Início' : 'Entrar') : (ROUTE_TITLES[pathname] ?? null)
+  useEffect(() => {
+    document.title = page === null ? 'teleyes' : `${page} · teleyes`
+  }, [page])
+  return null
+}
+
+/** S23-02: first Tab stop; moves focus to the page's <main> (which is not
+ * focusable by itself) and scrolls it into view. */
+function SkipLink() {
+  return (
+    <a
+      className="skip-link"
+      href="#conteudo"
+      onClick={(event) => {
+        const main = document.querySelector('main')
+        if (main === null) return
+        event.preventDefault()
+        main.setAttribute('tabindex', '-1')
+        main.focus()
+        main.scrollIntoView()
+      }}
+    >
+      Pular para o conteúdo
+    </a>
+  )
+}
+
 function App() {
   return (
     <>
+      <SkipLink />
+      <DocumentTitle />
       <OfflineBanner />
       <DemoBanner />
       <NavCapsule />

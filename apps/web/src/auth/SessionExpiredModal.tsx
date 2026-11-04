@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ApiError } from '../api/auth'
 import { useAuth } from './AuthContext'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import './SessionExpiredModal.css'
 
 /**
@@ -18,6 +19,8 @@ export function SessionExpiredModal() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, sessionExpired)
 
   // Fresh fields every time it opens — including when it's resolved from
   // another tab (see AuthContext's `storage` listener) while this one was
@@ -46,6 +49,8 @@ export function SessionExpiredModal() {
   return (
     <div className="session-expired__backdrop" role="presentation">
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="plane-pearl session-expired"
         role="dialog"
         aria-modal="true"

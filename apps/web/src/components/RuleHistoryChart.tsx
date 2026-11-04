@@ -86,7 +86,7 @@ export function RuleHistoryChart({
         className="rule-chart__plot"
         role="group"
         tabIndex={0}
-        aria-label={`Histórico real de ${points.length} ${points.length === 1 ? 'dia' : 'dias'}, de ${formatBrl(values[0])} a ${formatBrl(values[values.length - 1])}. Use as setas para ler cada dia.`}
+        aria-label={`Histórico real de ${points.length} ${points.length === 1 ? 'dia' : 'dias'}: menor ${formatBrl(Math.min(...values))}, maior ${formatBrl(Math.max(...values))}, último ${formatBrl(values[values.length - 1])}. Use as setas para ler cada dia.`}
         aria-describedby={tooltipId}
         onKeyDown={move}
         onBlur={() => setActive(null)}

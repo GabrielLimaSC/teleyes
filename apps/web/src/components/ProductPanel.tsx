@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent, PointerEvent as ReactPointerEvent, TransitionEvent } from 'react'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { fetchProduct } from '../api/products'
 import { fetchEditableMatches, revertMatch, updateMatch } from '../api/matches'
 import type { EditableMatch } from '../api/matches'
@@ -471,6 +472,22 @@ function buildChartGeometry(series: Product['series']): ChartGeometry | null {
   }
 }
 
+/** Text alternative of the price chart: lowest, highest and latest price. */
+function describeSeries(series: Product['series'], rangeLabel: string): string {
+  const priced = series.filter((point) => point.price_cents !== null)
+  if (priced.length === 0) return `Histórico de preço, ${rangeLabel}`
+  const prices = priced.map((point) => point.price_cents)
+  const lowest = priced.find((point) => point.price_cents === Math.min(...prices))!
+  const highest = priced.find((point) => point.price_cents === Math.max(...prices))!
+  const last = priced[priced.length - 1]
+  return (
+    `Histórico de preço, ${rangeLabel}: ${priced.length} ${priced.length === 1 ? 'dia' : 'dias'} com preço. ` +
+    `Menor ${formatCurrency(lowest.price_cents)} em ${formatSeriesDate(lowest.date)}, ` +
+    `maior ${formatCurrency(highest.price_cents)} em ${formatSeriesDate(highest.date)}, ` +
+    `último ${formatCurrency(last.price_cents)} em ${formatSeriesDate(last.date)}.`
+  )
+}
+
 export interface ProductPanelProps {
   productKey: string
   /** `'open'` while entering/settled, `'closing'` during the 07b exit
@@ -534,6 +551,7 @@ export function ProductPanel({
   const editRequestIdRef = useRef(0)
   const isSheet = useIsProductPanelSheet()
   const isDrawer = useIsProductPanelDrawer()
+  useDialogFocus(panelRef, true, isSheet || isDrawer)
 
   // The panel mounts already at its "entering" (pre-transition) styles; two
   // rAFs later it flips to "entered" so the browser has committed the first
@@ -938,7 +956,7 @@ export function ProductPanel({
                     preserveAspectRatio="none"
                     className={'product-panel__chart' + (rangeLoading ? ' product-panel__chart--loading' : '')}
                     role="img"
-                    aria-label={`Histórico de preço, ${RANGE_LABELS[range]}`}
+                    aria-label={describeSeries(product.series, RANGE_LABELS[range])}
                   >
                     <line x1="0" y1="30" x2={CHART_WIDTH} y2="30" className="product-panel__chart-grid" />
                     <line x1="0" y1="70" x2={CHART_WIDTH} y2="70" className="product-panel__chart-grid" />
