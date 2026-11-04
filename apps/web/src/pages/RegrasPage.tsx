@@ -36,6 +36,10 @@ import { useListenerStatus } from '../hooks/useListenerStatus'
 import { useToast } from '../hooks/useToast'
 import { ruleTargetState } from '../utils/target'
 import { useFillOrigin } from '../utils/useFillOrigin'
+import { readFormModePreference, usesAdvancedFields, writeFormModePreference } from '../rules/formMode'
+import type { RuleFormMode } from '../rules/formMode'
+import { RULE_TEMPLATES } from '../rules/templates'
+import { previewMessage, useRulePreview } from '../rules/useRulePreview'
 import { DeliveryAdjustments } from './DeliveryAdjustments'
 import { DestinatariosSection } from './DestinatariosSection'
 import { RecipientRailForm } from './RecipientRailForm'
@@ -222,6 +226,12 @@ export function RegrasPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const maxPriceInputRef = useRef<HTMLInputElement>(null)
+  // S23-05: simple/advanced form mode, the picked template and the polite
+  // announcement of the last change (mode switch or template applied).
+  const [formMode, setFormMode] = useState<RuleFormMode>(readFormModePreference)
+  const [templateId, setTemplateId] = useState<string>('blank')
+  const [formAnnouncement, setFormAnnouncement] = useState('')
 
   // S13-07: real-history dry-run section shared by both "Testar" entry
   // points below — cleared whenever the tester panel target changes (a
@@ -454,6 +464,11 @@ export function RegrasPage() {
     }
     setFormTarget(target)
     setForm(next)
+    setTemplateId('blank')
+    setFormAnnouncement('')
+    // A rule already using blocked terms or `a + b` opens straight in the
+    // advanced mode; anything else follows the remembered preference.
+    setFormMode(usesAdvancedFields(next) ? 'advanced' : readFormModePreference())
     setFormVersion((version) => version + 1)
     setFormError(null)
     // The still-unsaved "Nova regra" tester never survives a form reload —
@@ -491,6 +506,31 @@ export function RegrasPage() {
   const openDuplicate = (rule: Rule) => {
     loadForm({ kind: 'create' }, ruleToForm(rule, { asCopy: true }))
     focusRuleName()
+  }
+
+  const changeFormMode = (mode: RuleFormMode) => {
+    setFormMode(mode)
+    writeFormModePreference(mode)
+    setFormAnnouncement(mode === 'advanced' ? 'Modo avançado: mais opções disponíveis.' : 'Modo simples.')
+  }
+
+  const applyTemplate = (id: string) => {
+    setTemplateId(id)
+    const template = RULE_TEMPLATES.find((candidate) => candidate.id === id)
+    setForm(
+      template
+        ? { name: template.name, includeTerms: template.includeTerms, excludeTerms: template.excludeTerms, maxPriceReais: '', targetPriceReais: '' }
+        : EMPTY_FORM,
+    )
+    setFormVersion((version) => version + 1)
+    setFormError(null)
+    if (template) {
+      setFormAnnouncement(`Modelo ${template.label} aplicado. Agora diga até quanto você paga.`)
+      requestAnimationFrame(() => maxPriceInputRef.current?.focus())
+    } else {
+      setFormAnnouncement('Formulário em branco.')
+      requestAnimationFrame(() => nameInputRef.current?.focus())
+    }
   }
 
   const openRecipientCreate = () => setRecipientTarget({ kind: 'create' })
@@ -701,6 +741,9 @@ export function RegrasPage() {
       maxPriceCents: context.rule.max_price_cents,
     }
   }
+
+  const preview = useRulePreview(csrfToken, formToTestInput(form), recipientTarget === null)
+  const previewText = previewMessage(preview)
 
   const currentTesterTerms = effectiveTesterTerms(testerContext)
 
@@ -1234,6 +1277,24 @@ export function RegrasPage() {
             </div>
             {suggestionLoading && <p role="status" className="regras-form__helper">Buscando sugestão do histórico…</p>}
             {suggestionError && <p role="alert" className="regras-form__error">{suggestionError}</p>}
+            {!isEditing && (
+              <div role="group" aria-labelledby="rule-templates-label" className="regras-templates">
+                <p id="rule-templates-label" className="regras-templates__label">Começar de um modelo</p>
+                <div className="regras-templates__list">
+                  {[{ id: 'blank', label: 'Em branco' }, ...RULE_TEMPLATES].map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className="regras-templates__chip"
+                      aria-pressed={templateId === template.id}
+                      onClick={() => applyTemplate(template.id)}
+                    >
+                      {template.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <label className="regras-form__field">
               Nome
               <input
@@ -1247,28 +1308,47 @@ export function RegrasPage() {
             <TermChipsInput
               key={formVersion}
               id="rule-include-terms"
-              label="Termos incluídos"
+              label="O que você procura"
               labelAction={matchHelp}
               value={form.includeTerms}
               onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
-              helper="Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb."
+              helper={
+                formMode === 'advanced'
+                  ? 'Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb.'
+                  : 'Enter ou vírgula pra adicionar cada palavra ou produto.'
+              }
             />
-            <label className="regras-form__field">
-              Termos bloqueados
-              <input
-                value={form.excludeTerms}
-                onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
-                placeholder="usado, caixa aberta…"
-                aria-describedby="rule-exclude-terms-hint"
-              />
-            </label>
-            <p id="rule-exclude-terms-hint" className="regras-form__helper">
-              Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
-            </p>
+            {formMode === 'advanced' && (
+              <>
+                <label className="regras-form__field">
+                  Termos bloqueados
+                  <input
+                    value={form.excludeTerms}
+                    onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
+                    placeholder="usado, caixa aberta…"
+                    aria-describedby="rule-exclude-terms-hint"
+                  />
+                </label>
+                <p id="rule-exclude-terms-hint" className="regras-form__helper">
+                  Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
+                </p>
+                <p className="regras-form__helper regras-form__plus-help">
+                  <strong>a + b</strong> só casa quando a mensagem tem as duas palavras (em qualquer ordem). Termos
+                  separados por vírgula funcionam como alternativas: basta um aparecer.
+                </p>
+              </>
+            )}
+            {formMode === 'simple' && parseTermList(form.excludeTerms).length > 0 && (
+              <p className="regras-form__helper">
+                Já bloqueamos termos comuns ({parseTermList(form.excludeTerms).slice(0, 3).join(', ')}…). Veja e
+                edite em Mais opções.
+              </p>
+            )}
             <div className="regras-form__price-grid">
               <label className="regras-form__field">
-                Teto (R$)
+                Até quanto você paga (R$)
                 <input
+                  ref={maxPriceInputRef}
                   type="text"
                   inputMode="decimal"
                   value={form.maxPriceReais}
@@ -1277,7 +1357,7 @@ export function RegrasPage() {
                 />
               </label>
               <label className="regras-form__field">
-                Alvo (R$)
+                Avisar na hora se cair abaixo de (R$)
                 <input
                   type="text"
                   inputMode="decimal"
@@ -1293,6 +1373,10 @@ export function RegrasPage() {
                 Sugerido a partir do histórico: teto = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
               </p>
             )}
+            <p aria-live="polite" className="regras-form__preview" data-testid="rule-preview">
+              {previewText}
+            </p>
+            <p aria-live="polite" className="regras-form__sr">{formAnnouncement}</p>
             <div className="regras-form__actions">
               <button
                 type="submit"
@@ -1325,6 +1409,14 @@ export function RegrasPage() {
                 {createTesterOpen ? 'Fechar teste' : 'Testar'}
               </button>
             )}
+            <button
+              type="button"
+              className="regras-form__mode-link"
+              aria-expanded={formMode === 'advanced'}
+              onClick={() => changeFormMode(formMode === 'advanced' ? 'simple' : 'advanced')}
+            >
+              {formMode === 'advanced' ? 'Menos opções' : 'Mais opções'}
+            </button>
             {formError && (
               <p role="alert" className="regras-form__error">
                 {formError}

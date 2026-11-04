@@ -109,6 +109,18 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await scan(page, 'Painel de produto')
       })
 
+      test('regras: formulário de nova regra em modo simples e avançado, com modelo', async ({ page }) => {
+        await seed(page)
+        await page.goto('/regras')
+        await expect(page.getByRole('button', { name: 'Mais opções' })).toBeVisible()
+        await scan(page, 'Regras (formulário simples)')
+        await page.getByRole('button', { name: 'Placa de vídeo' }).click()
+        await expect(page.getByLabel(/Até quanto você paga/)).toBeFocused()
+        await page.getByRole('button', { name: 'Mais opções' }).click()
+        await expect(page.getByLabel('Termos bloqueados')).toBeVisible()
+        await scan(page, 'Regras (formulário avançado)')
+      })
+
       test('regras, economia com formulário e diálogo de confirmação', async ({ page }) => {
         await seed(page)
         await page.goto('/regras')

@@ -259,7 +259,7 @@ describe('RegrasPage', () => {
     // S11-05: the creation form is a permanent rail — no "+ Nova regra" click
     // needed before typing.
     await user.type(await screen.findByLabelText(/Nome/), ' ')
-    await user.type(screen.getByLabelText(/Termos incluídos/), 'termo')
+    await user.type(screen.getByLabelText(/O que você procura/), 'termo')
     await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('name must not be blank')
@@ -294,7 +294,7 @@ describe('RegrasPage', () => {
     expect(screen.getByLabelText(/Nome/)).toHaveValue('iPhone (cópia)')
     // S11-05: the terms load as chips, not as text in an input.
     expect(screen.getByRole('button', { name: 'Remover termo iphone' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/Termos incluídos/)).toHaveValue('')
+    expect(screen.getByLabelText(/O que você procura/)).toHaveValue('')
   })
 
   it('the rule tester previews a sample message locally, with no network call of its own', async () => {
@@ -398,7 +398,7 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
     await clickMenuItem(user, 'Editar', row)
-    await user.type(screen.getByLabelText(/Termos incluídos/), 'iphone 16{Enter}')
+    await user.type(screen.getByLabelText(/O que você procura/), 'iphone 16{Enter}')
 
     let testRequestBody: Record<string, unknown> | null = null
     fetchMock.mockImplementation(
@@ -436,7 +436,7 @@ describe('RegrasPage', () => {
     const user = userEvent.setup()
 
     render(<RegrasPage />)
-    await user.type(await screen.findByLabelText(/Termos incluídos/), 'rtx 5070{Enter}')
+    await user.type(await screen.findByLabelText(/O que você procura/), 'rtx 5070{Enter}')
     await user.click(screen.getByRole('button', { name: 'Testar' }))
 
     await waitFor(() => expect(testRequestBody).not.toBeNull())
@@ -783,7 +783,7 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     await user.type(await screen.findByLabelText(/Nome/), 'Nova regra')
-    await user.type(screen.getByLabelText(/Termos incluídos/), 'novo termo')
+    await user.type(screen.getByLabelText(/O que você procura/), 'novo termo')
     await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra criada.')
@@ -947,12 +947,13 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     await user.type(await screen.findByLabelText(/Nome/), 'Monitor')
-    const terms = screen.getByLabelText(/Termos incluídos/)
+    const terms = screen.getByLabelText(/O que você procura/)
     await user.type(terms, 'monitor 27{Enter}165hz,')
     // Still typed (no Enter/comma) when the button is clicked: not lost.
     await user.type(terms, 'ips')
+    await user.click(screen.getByRole('button', { name: 'Mais opções' }))
     await user.type(screen.getByLabelText('Termos bloqueados'), 'usado')
-    await user.type(screen.getByLabelText(/Teto \(R\$\)/), '1500')
+    await user.type(screen.getByLabelText(/Até quanto você paga/), '1500')
     await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     await waitFor(() => expect(postedBody).not.toBeNull())
@@ -986,9 +987,9 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     await user.type(await screen.findByLabelText(/Nome/), 'Placa de vídeo')
-    await user.type(screen.getByLabelText(/Termos incluídos/), 'rtx{Enter}')
-    await user.type(screen.getByLabelText(/Teto \(R\$\)/), '5.749')
-    await user.type(screen.getByLabelText(/Alvo \(R\$\)/), '5.749,90')
+    await user.type(screen.getByLabelText(/O que você procura/), 'rtx{Enter}')
+    await user.type(screen.getByLabelText(/Até quanto você paga/), '5.749')
+    await user.type(screen.getByLabelText(/Avisar na hora/), '5.749,90')
     await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     await waitFor(() => expect(postedBody).not.toBeNull())
@@ -1004,8 +1005,8 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     await user.type(await screen.findByLabelText(/Nome/), 'Placa de vídeo')
-    await user.type(screen.getByLabelText(/Termos incluídos/), 'rtx{Enter}')
-    await user.type(screen.getByLabelText(/Teto \(R\$\)/), '5,749')
+    await user.type(screen.getByLabelText(/O que você procura/), 'rtx{Enter}')
+    await user.type(screen.getByLabelText(/Até quanto você paga/), '5,749')
     await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     expect(
@@ -1249,7 +1250,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
 
     render(<RegrasPage />)
     const first = await screen.findByRole('button', { name: /^iPhone/ })
-    const other = screen.getByRole('button', { name: /^Notebook/ })
+    const other = screen.getAllByRole('button', { name: /^Notebook/ }).find((b) => b.hasAttribute('aria-expanded'))!
 
     await user.click(first)
     expect(window.location.search).toBe('?regra=1')
@@ -1523,8 +1524,8 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     expect(await screen.findByText('pré-preenchida do produto')).toBeInTheDocument()
     expect(screen.getByLabelText(/Nome/)).toHaveValue('Palit RTX 5070 Ti 16GB')
     expect(screen.getByRole('button', { name: 'Remover termo palit rtx 5070 ti' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/Teto/)).toHaveValue('6300')
-    expect(screen.getByLabelText(/Alvo/)).toHaveValue('5800')
+    expect(screen.getByLabelText(/Até quanto você paga/)).toHaveValue('6300')
+    expect(screen.getByLabelText(/Avisar na hora/)).toHaveValue('5800')
     const note = screen.getByText(/Sugerido a partir do histórico/)
     expect(note).toHaveTextContent('R$ 6.512,00')
     expect(note).toHaveTextContent('R$ 5.800,00')
@@ -1673,10 +1674,162 @@ describe('RegrasPage — Aplicar regras (S13-06)', () => {
 
     render(<RegrasPage />)
     await user.type(await screen.findByLabelText(/Nome/), 'Nova')
-    await user.type(screen.getByLabelText(/Termos incluídos/), 'termo')
+    await user.type(screen.getByLabelText(/O que você procura/), 'termo')
     const readsBefore = log.statusReads
     await user.click(screen.getByRole('button', { name: 'Criar regra' }))
 
     await waitFor(() => expect(log.statusReads).toBeGreaterThan(readsBefore))
+  })
+})
+
+describe('RegrasPage — modelos, modo simples/avançado e prévia (S23-05)', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  function routedFetch(rules: unknown[], testBodies: Array<Record<string, unknown>> = []) {
+    return vi.fn(
+      withEmptyRecipients((input, init) => {
+        const url = String(input)
+        if (url.startsWith('/rules/test')) {
+          testBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>)
+          return Promise.resolve(jsonResponse({ total_matched: 3, window_days: 15, messages: [] }))
+        }
+        if ((init?.method ?? 'GET') === 'POST') return Promise.resolve(jsonResponse({ ...baseRule, id: 9 }, 201))
+        return Promise.resolve(jsonResponse(rules))
+      }),
+    )
+  }
+
+  it('a new rule opens in simple mode: no blocked terms until "Mais opções"', async () => {
+    vi.stubGlobal('fetch', routedFetch([]))
+    const user = userEvent.setup()
+    render(<RegrasPage />)
+
+    expect(await screen.findByLabelText(/O que você procura/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Até quanto você paga/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Avisar na hora/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Termos bloqueados')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Mais opções' }))
+    expect(screen.getByLabelText('Termos bloqueados')).toBeInTheDocument()
+    expect(screen.getByText(/só casa quando a mensagem tem as duas palavras/)).toBeInTheDocument()
+    expect(window.localStorage.getItem('teleyes.rules.formMode')).toBe('advanced')
+
+    await user.click(screen.getByRole('button', { name: 'Menos opções' }))
+    expect(screen.queryByLabelText('Termos bloqueados')).not.toBeInTheDocument()
+  })
+
+  it('remembers the advanced preference for the next new rule', async () => {
+    window.localStorage.setItem('teleyes.rules.formMode', 'advanced')
+    vi.stubGlobal('fetch', routedFetch([]))
+    render(<RegrasPage />)
+    expect(await screen.findByLabelText('Termos bloqueados')).toBeInTheDocument()
+  })
+
+  it('applying a template fills name, terms and blocked terms, leaves the ceiling empty and focuses it', async () => {
+    vi.stubGlobal('fetch', routedFetch([]))
+    const user = userEvent.setup()
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'SSD' }))
+
+    expect(screen.getByRole('button', { name: 'SSD' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText(/Nome/)).toHaveValue('SSD')
+    expect(screen.getByRole('button', { name: 'Remover termo ssd + 1tb' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Até quanto você paga/)).toHaveValue('')
+    await waitFor(() => expect(screen.getByLabelText(/Até quanto você paga/)).toHaveFocus())
+    // Blocked terms came along even in simple mode, and the user is told.
+    expect(screen.getByText(/Já bloqueamos termos comuns/)).toBeInTheDocument()
+    expect(screen.getByText(/Modelo SSD aplicado/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Em branco' }))
+    expect(screen.getByLabelText(/Nome/)).toHaveValue('')
+    expect(screen.queryByRole('button', { name: 'Remover termo ssd + 1tb' })).not.toBeInTheDocument()
+  })
+
+  it('creates a rule from a template in simple mode, sending its blocked terms', async () => {
+    let posted: Record<string, unknown> | null = null
+    const fetchMock = vi.fn(
+      withEmptyRecipients((input, init) => {
+        if (String(input).startsWith('/rules/test')) {
+          return Promise.resolve(jsonResponse({ total_matched: 0, window_days: 15, messages: [] }))
+        }
+        if ((init?.method ?? 'GET') === 'POST') {
+          posted = JSON.parse(String(init?.body)) as Record<string, unknown>
+          return Promise.resolve(jsonResponse({ ...baseRule, id: 9 }, 201))
+        }
+        return Promise.resolve(jsonResponse([]))
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    render(<RegrasPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Monitor' }))
+    await user.type(screen.getByLabelText(/Até quanto você paga/), '1200')
+    await user.click(screen.getByRole('button', { name: 'Criar regra' }))
+
+    await waitFor(() => expect(posted).not.toBeNull())
+    expect(posted).toMatchObject({ name: 'Monitor', max_price_cents: 120_000 })
+    expect(String((posted as unknown as Record<string, unknown>).exclude_terms)).toContain('usado')
+  })
+
+  it('editing a rule with blocked terms opens straight in advanced mode', async () => {
+    const withExclude = { ...baseRule, exclude_terms: 'usado' }
+    vi.stubGlobal('fetch', routedFetch([withExclude]))
+    const user = userEvent.setup()
+    render(<RegrasPage />)
+
+    await screen.findByRole('button', { name: /^iPhone/ })
+    await clickMenuItem(user, 'Editar')
+    expect(await screen.findByLabelText('Termos bloqueados')).toHaveValue('usado')
+    expect(screen.getByRole('heading', { name: 'Editar regra' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Em branco' })).not.toBeInTheDocument()
+  })
+
+  it('editing a plain rule opens in simple mode', async () => {
+    vi.stubGlobal('fetch', routedFetch([baseRule]))
+    const user = userEvent.setup()
+    render(<RegrasPage />)
+
+    await screen.findByRole('button', { name: /^iPhone/ })
+    await clickMenuItem(user, 'Editar')
+    expect(await screen.findByRole('heading', { name: 'Editar regra' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Termos bloqueados')).not.toBeInTheDocument()
+  })
+
+  it('shows the live preview after a 500 ms debounce, without flooding the API', async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    vi.stubGlobal('fetch', routedFetch([], bodies))
+    render(<RegrasPage />)
+    await screen.findByLabelText(/O que você procura/)
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+
+    const terms = screen.getByLabelText(/O que você procura/)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.type(terms, 'rtx{Enter}')
+    await user.type(terms, '5070{Enter}')
+    expect(bodies).toHaveLength(0)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(bodies).toHaveLength(1)
+    expect(bodies[0]).toMatchObject({ include_terms: 'rtx, 5070' })
+    expect(await screen.findByText('Esta regra teria avisado 3 vezes nos últimos 15 dias.')).toBeInTheDocument()
+  })
+
+  it('shows no preview while there are no terms', async () => {
+    const bodies: Array<Record<string, unknown>> = []
+    vi.stubGlobal('fetch', routedFetch([], bodies))
+    render(<RegrasPage />)
+    await screen.findByLabelText(/O que você procura/)
+    expect(screen.getByTestId('rule-preview')).toBeEmptyDOMElement()
+    expect(bodies).toHaveLength(0)
   })
 })

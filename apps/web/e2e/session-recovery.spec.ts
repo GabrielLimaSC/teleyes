@@ -40,7 +40,7 @@ test('an expired session during a write shows a clear prompt, keeps the form, an
   await failNextWriteWithExpiredCsrf(page, '/rules')
 
   await page.getByLabel(/Nome/).fill('Sessão Expirada E2E')
-  await page.getByLabel(/Termos incluídos/).fill('sessao expirada e2e')
+  await page.getByLabel(/O que você procura/).fill('sessao expirada e2e')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Sua sessão expirou' })
@@ -77,7 +77,7 @@ test('a wrong password in the reauth modal shows an inline error and lets the ad
   await failNextWriteWithExpiredCsrf(page, '/rules')
 
   await page.getByLabel(/Nome/).fill('Senha Errada E2E')
-  await page.getByLabel(/Termos incluídos/).fill('senha errada e2e')
+  await page.getByLabel(/O que você procura/).fill('senha errada e2e')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Sua sessão expirou' })
@@ -112,7 +112,7 @@ test('reauthenticating in one tab clears the expired-session prompt in another t
   await failNextWriteWithExpiredCsrf(page, '/rules')
 
   await page.getByLabel(/Nome/).fill('Multi Aba E2E')
-  await page.getByLabel(/Termos incluídos/).fill('multi aba e2e')
+  await page.getByLabel(/O que você procura/).fill('multi aba e2e')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Sua sessão expirou' })
@@ -131,7 +131,7 @@ test('reauthenticating in one tab clears the expired-session prompt in another t
   await failNextWriteWithExpiredCsrf(otherPage, '/rules')
 
   await otherPage.getByLabel(/Nome/).fill('Multi Aba Outra E2E')
-  await otherPage.getByLabel(/Termos incluídos/).fill('multi aba outra e2e')
+  await otherPage.getByLabel(/O que você procura/).fill('multi aba outra e2e')
   await otherPage.getByRole('button', { name: 'Criar regra' }).click()
 
   const otherDialog = otherPage.getByRole('dialog', { name: 'Sua sessão expirou' })

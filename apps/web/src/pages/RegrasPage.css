@@ -1277,3 +1277,92 @@ td.wide-table__num {
     overscroll-behavior: contain;
   }
 }
+
+/* ---- S23-05: templates, simple/advanced mode, live preview ---- */
+.regras-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regras-templates__label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+.regras-templates__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.regras-templates__chip {
+  min-height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-control-border);
+  background: var(--glass-control-bg);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+  cursor: pointer;
+}
+
+.regras-templates__chip[aria-pressed='true'] {
+  border-color: var(--plane-focus-color);
+  box-shadow: inset 0 0 0 1px var(--plane-focus-color);
+  color: var(--plane-text-primary);
+}
+
+.regras-templates__chip:focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.regras-form__preview {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.regras-form__preview:empty {
+  display: none;
+}
+
+.regras-form__mode-link {
+  align-self: flex-start;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.regras-form__mode-link:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: 6px;
+}
+
+.regras-form__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
