@@ -62,6 +62,15 @@ function requestUrl(input: RequestInfo | URL): string {
   return input.url
 }
 
+function parseJsonBody(body: unknown): unknown {
+  if (typeof body !== 'string') return undefined
+  try {
+    return JSON.parse(body)
+  } catch {
+    return undefined
+  }
+}
+
 /** Replaces `fetch` and `EventSource` so the dashboard never needs a backend. */
 export function installDemoStatic(fixtures: DemoFixtures): MockApi {
   const api = createMockApi(fixtures)
@@ -71,7 +80,7 @@ export function installDemoStatic(fixtures: DemoFixtures): MockApi {
     const url = new URL(requestUrl(input), window.location.href)
     if (url.origin !== window.location.origin) return realFetch(input, init)
     const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
-    const { status, body } = api.handle(method, `${url.pathname}${url.search}`)
+    const { status, body } = api.handle(method, `${url.pathname}${url.search}`, new Date(), parseJsonBody(init?.body))
     return new Response(JSON.stringify(body), {
       status,
       headers: { 'Content-Type': 'application/json' },

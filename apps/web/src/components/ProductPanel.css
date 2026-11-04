@@ -429,8 +429,16 @@
     max-width: none;
     max-height: 92vh;
     border-radius: 20px 20px 0 0;
+    /* S23-09: an opaque sheet (the Feed showed through the translucent glass
+       behind the text); the glass stays only in the border and shadow. */
+    background: var(--product-panel-sheet-bg);
     transform: translateY(100%);
     z-index: 40;
+  }
+
+  /* On the solid sheet the close glyph needs the stronger text colour (its chip is lighter than the fill). */
+  .product-panel__close {
+    color: var(--plane-text-heading);
   }
 
   .product-panel[data-phase='open'] {

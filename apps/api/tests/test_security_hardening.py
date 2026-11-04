@@ -155,6 +155,9 @@ def _mutating_paths() -> list[tuple[str, str]]:
     return found
 
 
+# S23-09: READ_ONLY_EXEMPT_PATHS is the explicit allowlist (login/logout and the
+# `/rules/test` dry run, which never writes: proven in test_demo_mode.py). Every
+# other mutating route must answer 403.
 @pytest.mark.parametrize(
     ("method", "path"),
     [(m, p) for m, p in _mutating_paths() if p.rstrip("/") not in READ_ONLY_EXEMPT_PATHS],
