@@ -5,12 +5,14 @@ import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_INTERVAL_SECONDS = 300.0
 REQUEST_TIMEOUT_SECONDS = 5.0
+ALLOWED_SCHEMES = frozenset({"http", "https"})
 
 HeartbeatSender = Callable[[str, float], Awaitable[None]]
 HealthCheck = Callable[[], bool]
@@ -32,6 +34,10 @@ def load_heartbeat_config(environment: Mapping[str, str] | None = None) -> Heart
     """Load the optional heartbeat without ever logging its sensitive URL."""
     values = os.environ if environment is None else environment
     url = values.get("HEARTBEAT_URL", "").strip() or None
+    if url is not None and urlsplit(url).scheme.lower() not in ALLOWED_SCHEMES:
+        # S23-01: urlopen also speaks file:// and ftp://; a heartbeat is an HTTP ping.
+        logger.warning("HEARTBEAT_URL ignorada: só http:// e https:// são aceitos.")
+        url = None
     raw_interval = values.get("HEARTBEAT_INTERVAL_SECONDS", "").strip()
 
     if not raw_interval:
@@ -59,8 +65,9 @@ class HttpHeartbeatSender:
 
     @staticmethod
     def _send(url: str, timeout_seconds: float) -> None:
-        request = Request(url, data=b"", method="POST")  # noqa: S310 (configured URL)
-        response = urlopen(request, timeout=timeout_seconds)  # noqa: S310 (configured URL)
+        # The scheme was checked in `load_heartbeat_config` (http/https only).
+        request = Request(url, data=b"", method="POST")  # noqa: S310  # nosec B310
+        response = urlopen(request, timeout=timeout_seconds)  # noqa: S310  # nosec B310
         response.close()
 
 
