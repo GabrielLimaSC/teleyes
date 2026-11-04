@@ -1265,3 +1265,15 @@ td.wide-table__num {
   right: 14px;
   width: auto;
 }
+
+/* S22-02: the rail follows the scroll on the two-column layout. */
+@media (min-width: 1101px) {
+  .regras-page__rail {
+    position: sticky;
+    top: calc(var(--chrome-band-height) + 4px);
+    align-self: start;
+    max-height: calc(100dvh - var(--chrome-band-height) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

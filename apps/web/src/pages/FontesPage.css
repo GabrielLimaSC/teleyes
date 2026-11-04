@@ -670,3 +670,15 @@ main.fontes-page {
     text-align: right;
   }
 }
+
+/* S22-02: the "Adicionar fonte" rail and help card follow the scroll. */
+@media (min-width: 1101px) {
+  .fontes-page__side {
+    position: sticky;
+    top: calc(var(--chrome-band-height) + 4px);
+    align-self: start;
+    max-height: calc(100dvh - var(--chrome-band-height) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

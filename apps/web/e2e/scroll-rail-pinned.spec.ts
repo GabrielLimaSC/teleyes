@@ -221,3 +221,47 @@ test('trilho direito pinned: os cards de resumo e o chevron ficam inteiros dentr
   }
   await assertInside(page.locator('.feed-rail__collapse'), clip, 'chevron "Recolher painel" (direito)')
 })
+
+// S22-02: side rails of Histórico, Regras and Fontes follow the scroll.
+const STICKY_RAILS = [
+  { path: '/historico', rail: '.historico-page__grid > .historico-rail' },
+  { path: '/regras', rail: '.regras-page__rail' },
+  { path: '/fontes', rail: '.fontes-page__side' },
+]
+
+async function seedLongPages(page: Page): Promise<void> {
+  await page.goto('/')
+  const csrf = await apiLogin(page)
+  const tag = Math.random().toString(36).slice(2, 8)
+  for (let index = 0; index < 25; index += 1) {
+    await apiPost(page, '/sources', csrf, { name: `Fonte ${tag}-${index}`, telegram_chat_id: `s-${tag}-${index}` })
+    await apiPost(page, '/rules', csrf, { name: `Regra ${tag}-${index}`, include_terms: `item${tag}${index}` })
+  }
+}
+
+for (const { path, rail } of STICKY_RAILS) {
+  test(`${path}: o trilho lateral acompanha a rolagem no desktop`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await seedLongPages(page)
+    await page.goto(path)
+    const el = page.locator(rail).first()
+    await expect(el).toBeVisible()
+    await page.mouse.move(700, 500)
+    await page.evaluate(() => window.scrollTo(0, 1500))
+    await page.waitForTimeout(500)
+    expect(await page.evaluate(() => window.scrollY), 'setup: página não rolou').toBeGreaterThan(300)
+    const box = await el.boundingBox()
+    expect(box!.y).toBeGreaterThanOrEqual(0)
+    expect(box!.y).toBeLessThan(160)
+  })
+
+  test(`${path}: no celular o trilho não é sticky`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await apiLogin(page)
+    await page.goto(path)
+    const el = page.locator(rail).first()
+    await expect(el).toBeVisible()
+    expect(await el.evaluate((node) => getComputedStyle(node).position)).not.toBe('sticky')
+  })
+}
