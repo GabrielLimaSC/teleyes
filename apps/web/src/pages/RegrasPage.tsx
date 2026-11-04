@@ -24,6 +24,8 @@ import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
 import { formatDayMonth, formatMatchedAt, isLater } from '../utils/dates'
+import { EmptyState } from '../components/EmptyState'
+import { FirstTimeTip } from '../components/FirstTimeTip'
 import { AnchoredPopover } from '../components/AnchoredPopover'
 import { ListenerApplyControl } from '../components/ListenerApplyControl'
 import { RuleHistoryChart } from '../components/RuleHistoryChart'
@@ -331,6 +333,15 @@ export function RegrasPage() {
   }
 
   useEffect(reload, [])
+
+  // S23-04: `/regras?nova=1` (from "Comece por aqui") lands with the form focused.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('nova') !== '1') return
+    url.searchParams.delete('nova')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+    requestAnimationFrame(() => nameInputRef.current?.focus())
+  }, [])
   useEffect(loadStats, [])
   useEffect(loadSnoozes, [])
   useEffect(loadDigest, [])
@@ -892,6 +903,10 @@ export function RegrasPage() {
         </div>
       </div>
 
+      <FirstTimeTip id="regras">
+        Uma regra define o que procurar e até quanto pagar. O teleyes lê os grupos e só avisa quando uma promoção bate.
+      </FirstTimeTip>
+
       <div className="regras-page__grid">
         <div className="regras-page__main">
           {loading && <p role="status" className="regras-page__loading">Carregando regras…</p>}
@@ -1086,7 +1101,11 @@ export function RegrasPage() {
                   <tbody>
                     <tr>
                       <td colSpan={5} className="regras-page__empty">
-                        Nenhuma regra cadastrada. Use “Nova regra” para começar com termos específicos.
+                        <EmptyState
+                          title="Nenhuma regra ainda"
+                          text="Uma regra diz o que procurar e até quanto pagar. O teleyes só avisa quando uma promoção bate nela."
+                          action={{ label: 'Criar a primeira regra', onClick: openCreate }}
+                        />
                       </td>
                     </tr>
                   </tbody>

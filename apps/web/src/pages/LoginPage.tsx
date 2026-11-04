@@ -13,6 +13,7 @@ import { listRules } from '../api/rules'
 import { listSources } from '../api/sources'
 import { fetchMatches } from '../api/matches'
 import { DEMO_PASSWORD } from '../api/demo'
+import { FirstRunCard } from '../components/FirstRunCard'
 import { botStateLabel } from '../components/adapterStateLabel'
 import type { StateLabel } from '../components/adapterStateLabel'
 import '../styles/materials.css'
@@ -160,7 +161,8 @@ export function LoginPage() {
 
   if (status === 'authenticated') {
     return (
-      <main className="login-page">
+      <main className="login-page login-page--home">
+        {health?.demo !== true && <FirstRunCard />}
         <div className="login-page__grid">
           <section className="plane-glass login-panel">
             <Brand />

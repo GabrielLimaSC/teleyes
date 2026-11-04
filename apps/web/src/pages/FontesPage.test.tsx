@@ -275,3 +275,18 @@ describe('FontesPage rail (S21-11)', () => {
     expect(screen.getByRole('searchbox', { name: 'Buscar grupo' })).toHaveFocus()
   })
 })
+
+describe('FontesPage empty state (S23-04)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('with the account connected, offers "Adicionar da minha conta" and focuses the rail', async () => {
+    stubApi({ sources: [], activity: FULL_ACTIVITY, setupConfigured: true, groups: { state: 'done', error: null, dialogs: [{ chat_id: '-2001', title: 'Ofertas Gamer BR', kind: 'group', monitored: false }] } })
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByText('Nenhuma fonte ainda')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Adicionar da minha conta' }))
+    expect(screen.getByRole('searchbox', { name: 'Buscar grupo' })).toHaveFocus()
+  })
+})

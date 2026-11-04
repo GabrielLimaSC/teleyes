@@ -20,6 +20,8 @@ import type { Rule } from '../api/types'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { cardTitle } from '../components/matchTitle'
+import { EmptyState } from '../components/EmptyState'
+import { FirstTimeTip } from '../components/FirstTimeTip'
 import { EMPTY_DRAFT, valuesFromDraft } from '../economia/purchaseDraft'
 import type { EconomiaNavState, LinkOption, PurchaseDraft } from '../economia/purchaseDraft'
 import { PurchaseForm } from '../economia/PurchaseForm'
@@ -300,6 +302,10 @@ export function EconomiaPage() {
         </div>
       </div>
 
+      <FirstTimeTip id="economia">
+        Registre o que você comprou e veja quanto economizou em relação ao preço que o teleyes viu para o mesmo produto.
+      </FirstTimeTip>
+
       {formTarget && formInitial && (
         <PurchaseForm
           key={formTarget.kind === 'edit' ? `edit-${formTarget.purchase.id}-${formTarget.label ?? ''}` : 'create'}
@@ -427,8 +433,11 @@ export function EconomiaPage() {
                 {report.items.length === 0 && (
                   <tr>
                     <td colSpan={goal ? 6 : 5} className="economia-table__empty">
-                      Nenhuma compra registrada ainda. Use “Registrar compra” ou “Marcar como comprado” em um card
-                      do Feed.
+                      <EmptyState
+                        title="Nenhuma compra registrada"
+                        text="Aqui você vê quanto pagou a menos que o preço visto pelo teleyes. Registre uma compra aqui ou use “Marcar como comprado” num card do Feed."
+                        action={{ label: 'Registrar primeira compra', onClick: openCreate }}
+                      />
                     </td>
                   </tr>
                 )}

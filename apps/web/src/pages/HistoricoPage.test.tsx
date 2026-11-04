@@ -266,7 +266,7 @@ describe('HistoricoPage', () => {
     // text too, so scoping to the subtitle avoids matching those.
     const subtitle = () => container.querySelector('.historico-page__subtitle')
 
-    expect(await screen.findByText('Nenhum match encontrado com esses filtros.')).toBeInTheDocument()
+    expect(await screen.findByText('O histórico ainda está vazio')).toBeInTheDocument()
     expect(subtitle()).toHaveTextContent('mais recentes primeiro')
 
     const sortSelect = screen.getByLabelText('Ordenar por')
@@ -291,7 +291,7 @@ describe('HistoricoPage', () => {
     const user = userEvent.setup()
 
     renderHistoricoPage()
-    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await screen.findByText('O histórico ainda está vazio')
 
     await user.click(screen.getByRole('button', { name: 'Atualizar' }))
 
@@ -655,7 +655,7 @@ describe('HistoricoPage', () => {
     )
 
     renderHistoricoPage()
-    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await screen.findByText('O histórico ainda está vazio')
 
     expect(screen.queryByRole('button', { name: 'Aplicar filtros' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument()
@@ -669,7 +669,7 @@ describe('HistoricoPage', () => {
     const user = userEvent.setup()
 
     renderHistoricoPage()
-    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await screen.findByText('O histórico ainda está vazio')
 
     await user.type(screen.getByLabelText('Preço mínimo (R$)'), '5,749')
 
@@ -965,7 +965,7 @@ describe('HistoricoPage', () => {
       // No rule options loaded here (empty list), but the select itself
       // still carries whatever `form.ruleId` was set to underneath, and
       // that's what the query below asserts.
-      await screen.findByText('Nenhum match encontrado com esses filtros.')
+      await screen.findByText('O histórico ainda está vazio')
 
       await userEvent.setup().type(screen.getByLabelText('Preço mínimo (R$)'), '100')
       await waitFor(() => {
@@ -994,7 +994,7 @@ describe('HistoricoPage', () => {
       stubEmptyFetch()
       const user = userEvent.setup()
       const first = renderHistoricoPage()
-      await screen.findByText('Nenhum match encontrado com esses filtros.')
+      await screen.findByText('O histórico ainda está vazio')
 
       await user.type(screen.getByLabelText('Preço mínimo (R$)'), '100')
       expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('100')
@@ -1020,7 +1020,7 @@ describe('HistoricoPage', () => {
       const user = userEvent.setup()
 
       renderHistoricoPage()
-      await screen.findByText('Nenhum match encontrado com esses filtros.')
+      await screen.findByText('O histórico ainda está vazio')
 
       await expect(user.type(screen.getByLabelText('Preço mínimo (R$)'), '100')).resolves.not.toThrow()
       expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('100')
@@ -1055,7 +1055,7 @@ describe('product search (S17-05)', () => {
     const fetchMock = stubFetch()
     const user = userEvent.setup()
     renderHistoricoPage()
-    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await screen.findByText('O histórico ainda está vazio')
     const before = matchCalls(fetchMock).length
 
     await user.type(screen.getByLabelText('Buscar produto'), 'b850m')
@@ -1071,7 +1071,7 @@ describe('product search (S17-05)', () => {
     stubFetch()
     const user = userEvent.setup()
     renderHistoricoPage()
-    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await screen.findByText('O histórico ainda está vazio')
 
     await user.type(screen.getByLabelText('Buscar produto'), 'xyz')
     expect(await screen.findByText(/Nenhum resultado para “xyz”/)).toBeInTheDocument()
@@ -1081,7 +1081,7 @@ describe('product search (S17-05)', () => {
     const fetchMock = stubFetch()
     const user = userEvent.setup()
     const first = renderHistoricoPage()
-    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await screen.findByText('O histórico ainda está vazio')
     await user.type(screen.getByLabelText('Buscar produto'), 'geladeira')
     await waitFor(() => expect(matchCalls(fetchMock).at(-1)).toBe('/matches?q=geladeira'))
 
@@ -1107,7 +1107,7 @@ describe('product search (S17-05)', () => {
     stubFetch()
     const user = userEvent.setup()
     renderHistoricoPage()
-    await screen.findByText('Nenhum match encontrado com esses filtros.')
+    await screen.findByText('O histórico ainda está vazio')
     await user.type(screen.getByLabelText('Buscar produto'), 'abc')
     expect(screen.getByLabelText('Buscar produto')).toHaveValue('abc')
     getItemSpy.mockRestore()

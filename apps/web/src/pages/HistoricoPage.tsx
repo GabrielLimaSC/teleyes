@@ -29,6 +29,7 @@ import { RowActionsMenu } from '../components/RowActionsMenu'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
+import { EmptyState } from '../components/EmptyState'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import '../styles/productOpenTrigger.css'
@@ -608,6 +609,10 @@ export function HistoricoPage() {
   const panelMatch = panel.productKey !== null ? latestMatchForProduct(matches, panel.productKey) : null
   const panelRule = panelMatch ? rules.find((rule) => rule.id === panelMatch.rule_id) : undefined
 
+  // S23-04: an empty list with no filter on means "nothing captured yet" (teach),
+  // not "your filters match nothing" (the plain message below).
+  const hasActiveFilters = Object.keys(toApiFilters({ ...form, search: appliedSearch })).some((key) => key !== 'sort')
+
   return (
     <main className="historico-page">
       <Toast toast={toast} onDismiss={dismiss} />
@@ -820,7 +825,14 @@ export function HistoricoPage() {
                 </div>
               </div>
 
-              {rows.length === 0 && (
+              {rows.length === 0 && !hasActiveFilters && (
+                <EmptyState
+                  title="O histórico ainda está vazio"
+                  text="Cada promoção que bate numa regra fica guardada aqui, com preço, fonte e entrega."
+                  action={{ label: 'Ver as regras', to: '/regras' }}
+                />
+              )}
+              {rows.length === 0 && hasActiveFilters && (
                 <p>
                   {appliedSearch.trim() !== ''
                     ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou limpe os filtros.`

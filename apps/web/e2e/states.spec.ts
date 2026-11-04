@@ -10,10 +10,10 @@ test('feed and historico show the empty state before any match exists', async ({
   await apiLogin(page)
 
   await page.goto('/feed')
-  await expect(page.getByText('Nenhum match ainda.')).toBeVisible()
+  await expect(page.getByText(/Nenhuma (regra|oferta) ainda/)).toBeVisible()
 
   await page.goto('/historico')
-  await expect(page.getByText('Nenhum match encontrado com esses filtros.')).toBeVisible()
+  await expect(page.getByText('O histórico ainda está vazio')).toBeVisible()
 })
 
 test('the "Abrir promoção" button opens the real link in a new tab (S7-10)', async ({

@@ -1,0 +1,157 @@
+/* S23-04: "Comece por aqui" on Início. Plane 1 (pearl); tokens from materials.css only. */
+.first-run {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 0 24px;
+  padding: 22px 24px;
+}
+
+.first-run__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.first-run h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: var(--plane-text-heading);
+}
+
+.first-run__lede {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+  text-wrap: pretty;
+}
+
+.first-run__skip {
+  flex: none;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--plane-action-radius-compact);
+  border: var(--plane-action-secondary-border);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+}
+
+.first-run__skip:focus-visible {
+  outline: 2px solid var(--plane-focus-color);
+  outline-offset: 2px;
+}
+
+.first-run__progress {
+  height: 8px;
+  margin: 18px 0 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--plane-tint-bg);
+  border: 1px solid var(--plane-tint-border-color);
+}
+
+.first-run__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--plane-status-good-dot);
+  transition: width 240ms ease;
+}
+
+.first-run__count {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.first-run__steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-run__step {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--plane-tint-bg);
+  border: 1px solid var(--plane-tint-border-color);
+}
+
+.first-run__mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+  border: 1.5px solid var(--plane-text-eyebrow);
+}
+
+.first-run__step[data-done] .first-run__mark {
+  color: var(--plane-status-good);
+  border-color: var(--plane-status-good-dot);
+}
+
+.first-run__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.first-run__text {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--plane-text-secondary);
+}
+
+.first-run__step[data-done] .first-run__text {
+  color: var(--plane-status-good);
+}
+
+.first-run__cta {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .first-run {
+    padding: 18px 16px;
+  }
+
+  .first-run__head {
+    flex-direction: column;
+  }
+
+  .first-run__step {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .first-run__cta {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-run__progress-fill {
+    transition: none;
+  }
+}

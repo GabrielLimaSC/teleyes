@@ -1833,3 +1833,36 @@ describe('RegrasPage — modelos, modo simples/avançado e prévia (S23-05)', ()
     expect(bodies).toHaveLength(0)
   })
 })
+
+
+describe('RegrasPage empty state and tip (S23-04)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    window.localStorage.clear()
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('teaches what a rule is and the button focuses the form', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([])))))
+    const user = userEvent.setup()
+    render(<RegrasPage />)
+    expect(await screen.findByText('Nenhuma regra ainda')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Criar a primeira regra' }))
+    expect(screen.getByLabelText('Nome')).toHaveFocus()
+  })
+
+  it('lands with the form focused on /regras?nova=1 and cleans the URL', async () => {
+    window.history.replaceState(null, '', '/regras?nova=1')
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([])))))
+    render(<RegrasPage />)
+    await screen.findByText('Nenhuma regra ainda')
+    await waitFor(() => expect(screen.getByLabelText('Nome')).toHaveFocus())
+    expect(window.location.search).toBe('')
+  })
+
+  it('shows the first-time tip', async () => {
+    vi.stubGlobal('fetch', vi.fn(withEmptyRecipients(() => Promise.resolve(jsonResponse([])))))
+    render(<RegrasPage />)
+    expect(await screen.findByRole('button', { name: 'Entendi' })).toBeInTheDocument()
+  })
+})
