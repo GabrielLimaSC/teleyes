@@ -1341,19 +1341,20 @@ export function RegrasPage() {
             {formMode === 'advanced' && (
               <>
                 <div className="help-field">
-                <label className="regras-form__field">
-                  Termos bloqueados
+                  <div className="help-field__row">
+                    <label htmlFor="rule-exclude-terms">Termos bloqueados</label>
+                    <HelpTip term="Termos bloqueados" align="right">
+                      Se a mensagem tiver qualquer uma dessas palavras, ela é ignorada, mesmo que tenha um termo
+                      incluído. Bom para afastar “usado” ou “caixa aberta”.
+                    </HelpTip>
+                  </div>
                   <input
+                    id="rule-exclude-terms"
                     value={form.excludeTerms}
                     onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
                     placeholder="usado, caixa aberta…"
                     aria-describedby="rule-exclude-terms-hint"
                   />
-                </label>
-                <HelpTip term="Termos bloqueados" align="right">
-                  Se a mensagem tiver qualquer uma dessas palavras, ela é ignorada, mesmo que tenha um termo
-                  incluído. Bom para afastar “usado” ou “caixa aberta”.
-                </HelpTip>
                 </div>
                 <p id="rule-exclude-terms-hint" className="regras-form__helper">
                   Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
@@ -1372,12 +1373,14 @@ export function RegrasPage() {
             )}
             <div className="regras-form__price-grid">
               <div className="help-field">
-              <HelpTip term="Preço máximo" align="right">
-                O valor mais alto que você aceita pagar. Ofertas acima dele são ignoradas.
-              </HelpTip>
-              <label className="regras-form__field">
-                Até quanto você paga (R$)
+                <div className="help-field__row">
+                  <label htmlFor="rule-max-price">Até quanto você paga (R$)</label>
+                  <HelpTip term="Preço máximo" align="right">
+                    O valor mais alto que você aceita pagar. Ofertas acima dele são ignoradas.
+                  </HelpTip>
+                </div>
                 <input
+                  id="rule-max-price"
                   ref={maxPriceInputRef}
                   type="text"
                   inputMode="decimal"
@@ -1385,22 +1388,22 @@ export function RegrasPage() {
                   onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
                   placeholder="sem preço máximo"
                 />
-              </label>
               </div>
               <div className="help-field">
-              <HelpTip term="Preço-alvo" align="right">
-                O preço dos sonhos: se uma oferta chegar nele, você é avisado na hora, sem esperar o resumo diário.
-              </HelpTip>
-              <label className="regras-form__field">
-                Avisar na hora se cair abaixo de (R$)
+                <div className="help-field__row">
+                  <label htmlFor="rule-target-price">Avisar na hora se cair abaixo de (R$)</label>
+                  <HelpTip term="Preço-alvo" align="right">
+                    O preço dos sonhos: se uma oferta chegar nele, você é avisado na hora, sem esperar o resumo diário.
+                  </HelpTip>
+                </div>
                 <input
+                  id="rule-target-price"
                   type="text"
                   inputMode="decimal"
                   value={form.targetPriceReais}
                   onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
                   placeholder="sem preço-alvo"
                 />
-              </label>
               </div>
             </div>
             {suggestion && (

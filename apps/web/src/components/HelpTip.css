@@ -31,16 +31,22 @@
 
 /* A field with a "?" pinned to its top-right corner (keeps the label's own name clean). */
 .help-field {
-  position: relative;
   display: flex;
   flex-direction: column;
+  gap: 6px;
   min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
 }
 
-.help-field > .anchored-popover {
-  position: absolute;
-  top: 0;
-  right: 0;
+/* S23-09: label and "?" share one line; the label keeps its own accessible name (htmlFor). */
+.help-field__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 
 .help-inline {
