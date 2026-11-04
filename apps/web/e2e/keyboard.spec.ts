@@ -9,6 +9,18 @@ import { E2E_PASSWORD, apiLogin, apiPost, apiPut } from './helpers'
 
 const tag = Math.random().toString(36).slice(2, 8)
 
+/** Puts the sequential-focus starting point back at the top of the document. */
+async function resetFocusStart(page: Page) {
+  await page.evaluate(() => {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    const marker = document.createElement('span')
+    marker.tabIndex = -1
+    document.body.prepend(marker)
+    marker.focus()
+    marker.remove()
+  })
+}
+
 async function activeLabel(page: Page): Promise<string> {
   return page.evaluate(() => {
     const el = document.activeElement as HTMLElement | null
@@ -22,7 +34,7 @@ test('login by keyboard, skip link and page titles', async ({ page }) => {
   await expect(page).toHaveTitle('Entrar · teleyes')
 
   // First Tab stop is the skip link.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await resetFocusStart(page)
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: 'Pular para o conteúdo' })).toBeFocused()
   await page.getByLabel('Senha').focus()
@@ -33,7 +45,7 @@ test('login by keyboard, skip link and page titles', async ({ page }) => {
 
   await page.reload()
   await expect(page.getByText(/Sessão ativa/)).toBeVisible()
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await resetFocusStart(page)
   await page.keyboard.press('Tab')
   const skip = page.getByRole('link', { name: 'Pular para o conteúdo' })
   await expect(skip).toBeFocused()

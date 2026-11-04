@@ -106,6 +106,7 @@ main.fontes-page {
 
 /* ---- Table ---- */
 .fontes-table-wrap {
+  position: relative; /* contains the visually-hidden cells, so they cannot widen the page */
   overflow-x: auto;
 }
 
