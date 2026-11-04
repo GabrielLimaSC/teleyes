@@ -36,6 +36,8 @@ import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { SetupBanner } from '../components/SetupBanner'
+import { EmptyState } from '../components/EmptyState'
+import { FirstTimeTip } from '../components/FirstTimeTip'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
@@ -126,7 +128,20 @@ const FeedMatchList = memo(function FeedMatchList({
 }) {
   return (
     <div className="feed-page__list">
-      {visibleMatches.length === 0 && !hasAnyMatch && <p>Nenhum match ainda.</p>}
+      {visibleMatches.length === 0 && !hasAnyMatch && rules.length === 0 && (
+        <EmptyState
+          title="Nenhuma regra ainda"
+          text="O feed mostra as promoções que batem com as suas regras. Crie a primeira para começar."
+          action={{ label: 'Criar a primeira regra', to: '/regras?nova=1' }}
+        />
+      )}
+      {visibleMatches.length === 0 && !hasAnyMatch && rules.length > 0 && (
+        <EmptyState
+          title="Nenhuma oferta ainda"
+          text="Assim que uma promoção bater numa regra, ela aparece aqui."
+          action={{ label: 'Ver as regras', to: '/regras' }}
+        />
+      )}
       {visibleMatches.length === 0 && hasAnyMatch && <p>Nenhum match para esta regra ainda.</p>}
       {visibleMatches.map((match) => (
         <div key={match.id} className="feed-page__card">
@@ -767,6 +782,10 @@ export function FeedPage() {
       </div>
 
       <SetupBanner />
+      <FirstTimeTip id="feed">
+        O feed mostra, em tempo real, as promoções que batem com as suas regras. Abra um card para ver o histórico de
+        preço do produto.
+      </FirstTimeTip>
 
       {loading && <p>Carregando…</p>}
       {error && (

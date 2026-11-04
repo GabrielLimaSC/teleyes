@@ -57,7 +57,7 @@ describe('FeedPage', () => {
 
     renderFeedPage()
 
-    expect(await screen.findByText('Nenhum match ainda.')).toBeInTheDocument()
+    expect(await screen.findByText('Nenhuma regra ainda')).toBeInTheDocument()
     expect(screen.getByText('Feed ao vivo')).toBeInTheDocument()
   })
 
@@ -68,7 +68,7 @@ describe('FeedPage', () => {
     const user = userEvent.setup()
 
     renderFeedPage()
-    await screen.findByText('Nenhum match ainda.')
+    await screen.findByText('Nenhuma regra ainda')
     // FeedPage also fetches rules/sources/recipients on mount, all through
     // the same global fetch mock — assert the increase, not an absolute count.
     const callsBeforeRefresh = fetchMock.mock.calls.length
@@ -676,5 +676,45 @@ describe('FeedPage — barra lateral (S14-07, 06)', () => {
     const priceTile = within(resumoRail).getByText('Menor preço').closest('.feed-summary__tile')
     expect(priceTile).toHaveTextContent('R$ 2.249,00')
     expect(priceTile).not.toHaveTextContent('R$ 1,00')
+  })
+})
+
+describe('FeedPage empty states and tip (S23-04)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    window.localStorage.clear()
+  })
+
+  it('with rules but no offers yet, says a match will show up here and links to the rules', async () => {
+    vi.stubGlobal('EventSource', InertEventSource)
+    const rule = { id: 1, name: 'Regra A', include_terms: 'a', exclude_terms: null, max_price_cents: null, active: true, created_at: '2026-01-01T00:00:00Z', lowest_price_cents: null, lowest_price_24h_cents: null }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => Promise.resolve(jsonResponse(String(input).startsWith('/rules') ? [rule] : []))),
+    )
+    renderFeedPage()
+    expect(await screen.findByText('Nenhuma oferta ainda')).toBeInTheDocument()
+    expect(screen.getByText('Assim que uma promoção bater numa regra, ela aparece aqui.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver as regras' })).toHaveAttribute('href', '/regras')
+  })
+
+  it('without rules, offers to create the first one', async () => {
+    vi.stubGlobal('EventSource', InertEventSource)
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse([]))))
+    renderFeedPage()
+    expect(await screen.findByRole('link', { name: 'Criar a primeira regra' })).toHaveAttribute('href', '/regras?nova=1')
+  })
+
+  it('shows the first-time tip once and keeps it closed', async () => {
+    vi.stubGlobal('EventSource', InertEventSource)
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse([]))))
+    const user = userEvent.setup()
+    const first = renderFeedPage()
+    await user.click(await screen.findByRole('button', { name: 'Entendi' }))
+    expect(screen.queryByRole('button', { name: 'Entendi' })).not.toBeInTheDocument()
+    first.unmount()
+    renderFeedPage()
+    await screen.findByText('Nenhuma regra ainda')
+    expect(screen.queryByRole('button', { name: 'Entendi' })).not.toBeInTheDocument()
   })
 })

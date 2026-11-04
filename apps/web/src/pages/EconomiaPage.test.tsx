@@ -237,7 +237,7 @@ describe('EconomiaPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText(/Nenhuma compra registrada ainda/)).toBeInTheDocument()
+    expect(await screen.findByText('Nenhuma compra registrada')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gerar cartão de resultados' })).toBeDisabled()
   })
 

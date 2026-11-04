@@ -5,6 +5,7 @@ import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
 import type { Source, SourceActivity, SourcesActivity } from '../api/types'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { EmptyState } from '../components/EmptyState'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
 import { useSetupStatus } from '../hooks/useSetupStatus'
@@ -259,7 +260,19 @@ export function FontesPage() {
                   })}
                   {sources.length === 0 && (
                     <tr className="fontes-table__empty">
-                      <td colSpan={6}>Nenhuma fonte cadastrada ainda. Adicione a primeira ao lado.</td>
+                      <td colSpan={6}>
+                        <EmptyState
+                          title="Nenhuma fonte ainda"
+                          text="Fontes são os grupos e canais do Telegram que o teleyes lê. Sem fonte, nada é monitorado."
+                          action={{
+                            label: setupStatus?.configured === true ? 'Adicionar da minha conta' : 'Adicionar por chat_id',
+                            onClick: () => {
+                              setEditTarget(null)
+                              setFocusSignal((value) => value + 1)
+                            },
+                          }}
+                        />
+                      </td>
                     </tr>
                   )}
                 </tbody>
