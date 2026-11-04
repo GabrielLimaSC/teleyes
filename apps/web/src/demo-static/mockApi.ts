@@ -159,8 +159,49 @@ function previewRecipient(rules: Row[], matches: Row[], params: URLSearchParams)
   }
 }
 
+const splitTerms = (raw: unknown): string[] =>
+  typeof raw === 'string'
+    ? raw
+        .split(/[,\n]/)
+        .map((term) => term.trim().toLowerCase())
+        .filter((term) => term !== '')
+    : []
+
+/** S23-09: `POST /rules/test` (dry run) answered from the recorded matches; never stores anything. */
+function testRule(matches: Row[], sources: Row[], body: unknown): Row {
+  const input = (body !== null && typeof body === 'object' ? body : {}) as Row
+  const include = splitTerms(input.include_terms)
+  const exclude = splitTerms(input.exclude_terms)
+  const maxPrice = typeof input.max_price_cents === 'number' ? input.max_price_cents : null
+  const seen = new Set<string>()
+  const hits: Row[] = []
+  for (const match of matches) {
+    const text = String(match.message_text ?? '')
+    const lower = text.toLowerCase()
+    const term = include.find((t) => lower.includes(t))
+    if (term === undefined || exclude.some((t) => lower.includes(t))) continue
+    const price = match.price_cents
+    if (maxPrice !== null && (typeof price !== 'number' || price > maxPrice)) continue
+    const key = String(match.group_key ?? match.id)
+    if (seen.has(key)) continue
+    seen.add(key)
+    hits.push({
+      source_id: match.source_id,
+      source_name: String(sources.find((source) => source.id === match.source_id)?.name ?? 'Grupo Demo Ofertas'),
+      message_text: text,
+      price_cents: match.price_cents ?? null,
+      price_cash_cents: match.price_cash_cents ?? null,
+      price_card_cents: match.price_card_cents ?? null,
+      message_link: match.message_link ?? null,
+      matched_at: match.matched_at,
+      matched_term: term,
+    })
+  }
+  return { total_matched: hits.length, window_days: 30, messages: hits.slice(0, 50) }
+}
+
 export interface MockApi {
-  handle: (method: string, url: string, now?: Date) => MockResponse
+  handle: (method: string, url: string, now?: Date, requestBody?: unknown) => MockResponse
   /** A new fictional offer "just posted", for the simulated live stream. */
   nextLiveMatch: () => Row
 }
@@ -224,9 +265,13 @@ export function createMockApi(fixtures: DemoFixtures, loadedAt: Date = new Date(
   }
 
   return {
-    handle(method, url, now = new Date()) {
+    handle(method, url, now = new Date(), requestBody) {
       const parsed = new URL(url, 'http://demo.invalid')
       const verb = method.toUpperCase()
+      if (verb === 'POST' && parsed.pathname === '/rules/test') {
+        const sources = (routes.get('/sources') ?? []) as Row[]
+        return { status: 200, body: shiftTimestamps(testRule(baseMatches, sources, requestBody), deltaMs) }
+      }
       if (verb !== 'GET' && verb !== 'HEAD') {
         return { status: 403, body: { detail: DEMO_READONLY_DETAIL } }
       }

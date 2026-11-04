@@ -237,7 +237,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
         <span style={{ position: 'relative', display: 'block' }}>
           <span
             aria-hidden="true"
-            style={{ position: 'absolute', left: 12, top: 12, color: 'var(--plane-text-helper)', fontSize: 14 }}
+            style={{ position: 'absolute', left: 12, top: 12, color: 'var(--plane-text-secondary)', fontSize: 14 }}
           >
             R$
           </span>
@@ -383,7 +383,7 @@ function TargetEditor({ targetPriceCents, ruleName, onSave }: TargetEditorProps)
           <span style={{ position: 'relative', display: 'block' }}>
             <span
               aria-hidden="true"
-              style={{ position: 'absolute', left: 12, top: 13, color: 'var(--plane-text-helper)', fontSize: 14 }}
+              style={{ position: 'absolute', left: 12, top: 13, color: 'var(--plane-text-secondary)', fontSize: 14 }}
             >
               R$
             </span>

@@ -44,10 +44,10 @@ import '../styles/productPanelLayout.css'
 import './FeedPage.css'
 
 const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: string; dot: string }> = {
-  connecting: { label: 'SSE conectando…', color: 'var(--plane-status-warn)', dot: 'var(--plane-status-warn-dot)' },
-  open: { label: 'SSE conectado', color: 'var(--plane-status-good)', dot: 'var(--plane-status-good-dot)' },
+  connecting: { label: 'Conectando…', color: 'var(--plane-status-warn)', dot: 'var(--plane-status-warn-dot)' },
+  open: { label: 'Ao vivo', color: 'var(--plane-status-good)', dot: 'var(--plane-status-good-dot)' },
   error: {
-    label: 'SSE caiu — tentando reconectar…',
+    label: 'Desconectado',
     color: 'var(--plane-status-danger)',
     dot: 'var(--plane-status-danger-dot)',
   },
