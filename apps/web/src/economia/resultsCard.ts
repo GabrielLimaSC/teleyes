@@ -7,6 +7,10 @@
  * later (a source name, a message, a link) can never reach the export. Store names are
  * opt-in (`includeStores`, off by default) and the piece names can be switched off
  * (`showPieces`).
+ *
+ * S22-01: the references typed by the user (`reference*` fields of the report) are
+ * deliberately left out of the card: it is shareable, and a number the user typed is
+ * not a price the teleyes saw. Only the teleyes estimate is exported.
  */
 import type { ReportItem, SavingsReport } from '../api/purchases'
 import { METHODOLOGY, blackFridayLabel, formatCount, formatCurrency, formatPct, formatSigned } from '../utils/savings'

@@ -24,6 +24,42 @@ function setup(overrides: Partial<Parameters<typeof PurchaseForm>[0]> = {}) {
 }
 
 describe('PurchaseForm', () => {
+  it('sends the reference price and where it came from, and null when empty', async () => {
+    const { onSubmit } = setup()
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Peça ou categoria'), 'SSD')
+    await user.type(screen.getByLabelText('Preço pago (R$)'), '400')
+    expect(screen.getByText('Sem histórico no teleyes? Informe uma referência')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Preço de referência (R$)'), '529,00')
+    await user.type(screen.getByLabelText('De onde veio'), 'média do Google Shopping')
+    await user.click(screen.getByRole('button', { name: 'Salvar compra' }))
+
+    expect(onSubmit.mock.calls[0]![0]).toMatchObject({
+      reference_price_cents: 52_900,
+      reference_note: 'média do Google Shopping',
+    })
+  })
+
+  it('drops the note when there is no reference price and rejects an invalid one', async () => {
+    const { onSubmit } = setup()
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Peça ou categoria'), 'SSD')
+    await user.type(screen.getByLabelText('Preço pago (R$)'), '400')
+    await user.type(screen.getByLabelText('De onde veio'), 'sem preço')
+    await user.click(screen.getByRole('button', { name: 'Salvar compra' }))
+    expect(onSubmit.mock.calls[0]![0]).toMatchObject({ reference_price_cents: null, reference_note: null })
+
+    await user.type(screen.getByLabelText('Preço de referência (R$)'), 'abc')
+    await user.click(screen.getByRole('button', { name: 'Salvar compra' }))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Referência:')
+  })
+
+  it('focuses the link search when opened from "Vincular regra"', () => {
+    setup({ focusLink: true })
+    expect(screen.getByRole('combobox')).toHaveFocus()
+  })
+
   it('submits cents, an ISO instant and null for the optional fields', async () => {
     const { onSubmit } = setup()
     const user = userEvent.setup()

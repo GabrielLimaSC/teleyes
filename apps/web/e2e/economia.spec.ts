@@ -31,7 +31,7 @@ test('registers a purchase, sees the report and exports the results card (S19-04
   await expect(row).toBeVisible()
   await expect(row).toContainText('1.199,90')
   // No link to a product: only the amount paid is reported, never an invented saving.
-  await expect(row.locator('[data-label="Economia"]')).toHaveText('sem histórico')
+  await expect(row.locator('[data-label="Economia"]')).toHaveText('Vincular regra')
   await expect(page.getByRole('region', { name: 'Resumo' })).toContainText('sem dados')
 
   // Editing goes through the same form.
@@ -81,6 +81,41 @@ test('registers a purchase, sees the report and exports the results card (S19-04
   await page.getByRole('menuitem', { name: 'Excluir' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir compra' }).click()
   await expect(page.getByRole('row', { name: /Placa-mãe E2E B850M/ })).toHaveCount(0)
+})
+
+test('links a rule from the row and keeps a typed reference apart (S22-01)', async ({ page }) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/economia')
+
+  await page.getByRole('button', { name: 'Registrar compra' }).click()
+  const form = page.getByRole('form', { name: 'Registrar compra' })
+  await form.getByLabel('Peça ou categoria').fill('SSD E2E referência')
+  await form.getByLabel('Preço pago (R$)').fill('400')
+  await form.getByRole('button', { name: 'Salvar compra' }).click()
+
+  const row = page.getByRole('row', { name: /SSD E2E referência/ })
+  await row.getByRole('button', { name: 'Vincular regra' }).click()
+  const editForm = page.getByRole('form', { name: 'Editar compra' })
+  await expect(editForm.getByRole('combobox')).toBeFocused()
+
+  await editForm.getByLabel('Preço de referência (R$)').fill('500')
+  await editForm.getByLabel('De onde veio').fill('média do Google Shopping')
+  await editForm.getByRole('button', { name: 'Salvar compra' }).click()
+
+  const updated = page.getByRole('row', { name: /SSD E2E referência/ })
+  await expect(updated).toContainText('Referência sua: R$ 500,00 (média do Google Shopping)')
+  await expect(updated).toContainText('pela sua referência')
+  await expect(updated).toContainText('+R$ 100,00')
+  const summary = page.getByRole('region', { name: 'Resumo' })
+  await expect(summary.getByTestId('reference-saving')).toContainText('pelas suas referências')
+  // The teleyes estimate itself stays empty: the reference never feeds it.
+  await expect(summary).toContainText('sem dados')
+
+  await updated.getByRole('button', { name: /Mais ações da compra/ }).click()
+  await page.getByRole('menuitem', { name: 'Excluir' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir compra' }).click()
+  await expect(page.getByRole('row', { name: /SSD E2E referência/ })).toHaveCount(0)
 })
 
 test('sets, edits and removes the savings goal (S21-08)', async ({ page }) => {

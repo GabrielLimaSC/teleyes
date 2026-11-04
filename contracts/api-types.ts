@@ -1749,6 +1749,10 @@ export interface components {
              * Format: date-time
              */
             purchased_at: string;
+            /** Reference Note */
+            reference_note?: string | null;
+            /** Reference Price Cents */
+            reference_price_cents?: number | null;
             /** Rule Id */
             rule_id?: number | null;
             /** Store */
@@ -1774,6 +1778,10 @@ export interface components {
              * Format: date-time
              */
             purchased_at: string;
+            /** Reference Note */
+            reference_note: string | null;
+            /** Reference Price Cents */
+            reference_price_cents: number | null;
             /** Rule Id */
             rule_id: number | null;
             /** Store */
@@ -1861,12 +1869,30 @@ export interface components {
             /** Telegram Chat Id */
             telegram_chat_id?: string | null;
         };
+        /**
+         * ReferenceResponse
+         * @description A price reference typed by the user (S22-01); not a price the teleyes saw.
+         */
+        ReferenceResponse: {
+            /** Note */
+            note: string | null;
+            /** Pct */
+            pct: number | null;
+            /** Price Cents */
+            price_cents: number;
+            /** Saving Cents */
+            saving_cents: number;
+        };
         /** ReportItemResponse */
         ReportItemResponse: {
             /** Days Before Black Friday */
             days_before_black_friday: number;
             /** Id */
             id: number;
+            /** Link Kind */
+            link_kind: ("product" | "rule") | null;
+            /** Link Label */
+            link_label: string | null;
             /** Linked */
             linked: boolean;
             /** Name */
@@ -1878,6 +1904,7 @@ export interface components {
              * Format: date-time
              */
             purchased_at: string;
+            reference: components["schemas"]["ReferenceResponse"] | null;
             savings: components["schemas"]["ItemSavingsResponse"] | null;
             /** Share Of Goal */
             share_of_goal: number | null;
@@ -1894,6 +1921,10 @@ export interface components {
             linked_with_data: number;
             /** Purchases */
             purchases: number;
+            /** Reference Purchases */
+            reference_purchases: number;
+            /** Reference Saving Cents */
+            reference_saving_cents: number;
             /** Reference Total Cents */
             reference_total_cents: number;
             /** Total Paid Cents */
