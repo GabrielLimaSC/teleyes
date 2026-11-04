@@ -43,6 +43,9 @@ npm run test:e2e:demo # Playwright against a backend seeded with the demo data (
 The Playwright runs use fixed local ports (8199 for the test backend and 5183 for Vite; 8198 and 5184 for the demo run), so make sure they are
 free first. It needs the backend virtualenv at `.venv` in the repository root.
 
+CI also builds the web app and both Docker images and runs a small Playwright smoke set (`login`, `feed`,
+`regras-modelos`, `primeiro-acesso`, `a11y`); run the same files locally with `npx playwright test e2e/<name>.spec.ts`.
+
 Never run `ruff format` over the whole repository: it would rewrite unrelated files. Keep diffs focused.
 
 ## Conventions
