@@ -71,7 +71,7 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
             await application.state.telegram_login.shutdown()
 
 
-app = FastAPI(title="teleyes", version="0.1.0", lifespan=_lifespan)
+app = FastAPI(title="teleyes", version="1.0.0", lifespan=_lifespan)
 app.state.session_factory = get_sessionmaker(get_engine())
 app.state.session_store = SessionStore(app.state.session_factory)
 app.state.rate_limiter = LoginRateLimiter()

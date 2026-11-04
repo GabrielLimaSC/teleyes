@@ -406,7 +406,7 @@ test('Saúde: adapter and SSE states, notification result', async ({ page }) => 
   const health = (telegram: string, bot: string) => ({
     status: 'ok',
     env: 'development',
-    version: '0.1.0',
+    version: '1.0.0',
     uptime_seconds: 3661,
     telegram: { configured: telegram !== 'not_configured', state: telegram },
     bot: { configured: bot === 'configured', state: bot },
