@@ -441,3 +441,16 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* S22-02: the filters follow the scroll on the side-by-side layout (same
+   offset as the Feed rails); stacked layouts keep the normal flow. */
+@container (min-width: 900px) {
+  .historico-page__grid > .historico-rail {
+    position: sticky;
+    top: calc(var(--chrome-band-height) + 4px);
+    align-self: start;
+    max-height: calc(100dvh - var(--chrome-band-height) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

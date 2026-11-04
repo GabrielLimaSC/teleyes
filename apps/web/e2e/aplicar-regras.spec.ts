@@ -121,8 +121,8 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.unroute('**/listener/status')
       await serveStatus(page, { ...APPLIED, has_unapplied_changes: true })
       await page.goto('/saude')
-      const tile = page.locator('.saude-tile', { hasText: 'Listener' })
-      await expect(tile).toContainText('Mudanças pendentes')
+      const tile = page.locator('.saude-service', { hasText: 'Listener' })
+      await expect(tile).toContainText('ainda usa a configuração carregada')
       await expect(tile).toContainText('Aplique na página Regras.')
       await page.screenshot({
         path: `test-results/aplicar-regras/${scheme}-${viewport.name}-saude.png`,
