@@ -1,5 +1,5 @@
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
 
 
 async def test_without_token_stays_not_configured_and_never_sends() -> None:

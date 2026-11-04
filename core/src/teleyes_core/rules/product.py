@@ -30,7 +30,7 @@ must be the same whichever rule caught the message.
 import re
 import unicodedata
 
-from packages.rules.normalize import normalize_text
+from teleyes_core.rules.normalize import normalize_text
 
 _FIRST_LINK_RE = re.compile(r"https?://", re.IGNORECASE)
 

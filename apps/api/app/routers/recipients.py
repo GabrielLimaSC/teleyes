@@ -12,9 +12,9 @@ from app.main import get_current_session, get_db, require_csrf
 from app.utc import UtcDatetime, utc_now
 from models import Match, Recipient, Rule
 from models.recipient import RULES_MODE_ALL
-from packages.rules.target import target_hit
 from repositories import recipient_repo
 from repositories.errors import InvalidSettingsError, NotFoundError, ValidationError
+from teleyes_core.rules.target import target_hit
 
 router = APIRouter(
     prefix="/recipients",

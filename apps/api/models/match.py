@@ -31,7 +31,7 @@ class Match(Base):
     price_cash_cents: Mapped[int | None] = mapped_column(nullable=True)
     price_card_cents: Mapped[int | None] = mapped_column(nullable=True)
     message_link: Mapped[str | None] = mapped_column(String, nullable=True)
-    # S14-01: `packages.rules.product.product_key(message_text)`, computed on
+    # S14-01: `teleyes_core.rules.product.product_key(message_text)`, computed on
     # insert (and backfilled by migration 7e2a9c4d1b35). NULL when the message
     # has no recognisable product title. Never edited by hand.
     product_key: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
@@ -42,7 +42,7 @@ class Match(Base):
     # "Reverter ao detectado" (`POST /matches/{id}/revert`) restores the
     # original. `original_price_cents` is set exactly once, at the first
     # correction ever made to this match — it always holds the price that
-    # `packages.rules.price.extract_price` originally found, never a later
+    # `teleyes_core.rules.price.extract_price` originally found, never a later
     # manual value, so a revert always has something real to go back to.
     display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     model_variant: Mapped[str | None] = mapped_column(String(120), nullable=True)

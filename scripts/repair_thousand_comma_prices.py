@@ -37,7 +37,7 @@ from sqlalchemy.orm import Session
 
 from models import Match
 from models.db import get_engine, get_sessionmaker
-from packages.rules.price import extract_price
+from teleyes_core.rules.price import extract_price
 
 _COMMA_THOUSANDS_TOKEN_RE = re.compile(r"\d{1,3}(?:,\d{3})+(?!\d)(?!,\d)")
 _PRICE_FIELDS = ("price_cents", "price_cash_cents", "price_card_cents")

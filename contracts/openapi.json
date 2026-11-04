@@ -1502,7 +1502,7 @@
         "type": "object"
       },
       "MatchUpdate": {
-        "description": "`PATCH /matches/{id}` (F7). Every field is optional \u2014 only the ones\nactually sent are validated and applied, same \"if provided\" shape as\n`RuleUpdate` (`app.routers.rules`). `price` is free text\n(`packages.rules.manual_price.parse_manual_price_cents` parses it);\nthere is no way to clear `display_name`/`model_variant` back to `None`\nthrough this endpoint on purpose \u2014 that is exactly what `POST\n/matches/{id}/revert` (\"Reverter ao detectado\") does.",
+        "description": "`PATCH /matches/{id}` (F7). Every field is optional \u2014 only the ones\nactually sent are validated and applied, same \"if provided\" shape as\n`RuleUpdate` (`app.routers.rules`). `price` is free text\n(`teleyes_core.rules.manual_price.parse_manual_price_cents` parses it);\nthere is no way to clear `display_name`/`model_variant` back to `None`\nthrough this endpoint on purpose \u2014 that is exactly what `POST\n/matches/{id}/revert` (\"Reverter ao detectado\") does.",
         "properties": {
           "apply_name_to_product": {
             "default": false,

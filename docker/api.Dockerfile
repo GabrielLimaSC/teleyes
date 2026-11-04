@@ -13,6 +13,7 @@ ENV PYTHONUNBUFFERED=1
 
 COPY pyproject.toml ./
 COPY apps/api apps/api
+COPY core core
 COPY packages packages
 COPY scripts scripts
 # Editable install, not a built wheel: models/db.py anchors the default SQLite
@@ -22,7 +23,7 @@ COPY scripts scripts
 # instead of at the /app/data volume below. Same reason Dockerfile.dev (root)
 # already installs with -e; production gets no benefit from a built wheel here
 # since this image runs one single service, not something distributed.
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -e ./core -e .
 
 COPY docker/api-entrypoint.sh /api-entrypoint.sh
 COPY docker/listener-entrypoint.sh /listener-entrypoint.sh

@@ -22,9 +22,9 @@ from app.pipeline import (
     process_message,
 )
 from models import Delivery, Match, Recipient, Rule, Snooze, Source
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 
 def _seed(session: Session, *, target_price_cents: int | None) -> tuple[Source, Rule, Recipient]:

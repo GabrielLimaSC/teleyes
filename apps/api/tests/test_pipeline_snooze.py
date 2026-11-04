@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.pipeline import IncomingMessage, ProcessResult, build_match_event, process_message
 from models import Delivery, Match, Recipient, Rule, Snooze, Source
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 PALIT = "Placa de Vídeo Palit RTX 5070 Ti 16GB\n\nR$ 5.749,00 no pix\nhttps://x.example/1"
 NOW = datetime(2026, 9, 23, 12, 0, tzinfo=UTC)

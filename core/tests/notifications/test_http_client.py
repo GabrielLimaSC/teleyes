@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from packages.notifications.http_client import HttpBotClient
+from teleyes_core.notifications.http_client import HttpBotClient
 
 
 async def test_send_message_posts_chat_id_and_text_to_send_message_endpoint() -> None:

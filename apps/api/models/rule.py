@@ -17,7 +17,7 @@ class Rule(Base):
     # S14-02: the per-rule price alert target (F6), edited from the rule's
     # "Avise-me abaixo de" field. `None` means the rule has no target — a
     # match is never treated as a target hit without one
-    # (`packages.rules.target.target_hit`). Always a strictly positive
+    # (`teleyes_core.rules.target.target_hit`). Always a strictly positive
     # amount when set, enforced by the CRUD (`repositories.rule_repo`).
     target_price_cents: Mapped[int | None] = mapped_column(nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)

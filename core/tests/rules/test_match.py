@@ -1,6 +1,6 @@
 import pytest
 
-from packages.rules.match import MatchRule, split_term_parts, term_error, terms_error
+from teleyes_core.rules.match import MatchRule, split_term_parts, term_error, terms_error
 
 
 def test_positive_term_matches_when_present() -> None:

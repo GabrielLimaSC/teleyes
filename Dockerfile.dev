@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/apps/api
 
 COPY . .
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir -e ./core -e ".[dev]"
 
 EXPOSE 8000
 

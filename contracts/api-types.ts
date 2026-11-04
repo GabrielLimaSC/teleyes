@@ -1530,7 +1530,7 @@ export interface components {
          * @description `PATCH /matches/{id}` (F7). Every field is optional — only the ones
          *     actually sent are validated and applied, same "if provided" shape as
          *     `RuleUpdate` (`app.routers.rules`). `price` is free text
-         *     (`packages.rules.manual_price.parse_manual_price_cents` parses it);
+         *     (`teleyes_core.rules.manual_price.parse_manual_price_cents` parses it);
          *     there is no way to clear `display_name`/`model_variant` back to `None`
          *     through this endpoint on purpose — that is exactly what `POST
          *     /matches/{id}/revert` ("Reverter ao detectado") does.

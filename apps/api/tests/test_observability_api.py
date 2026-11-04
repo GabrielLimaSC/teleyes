@@ -18,10 +18,10 @@ from auth.session import SessionStore
 from models import Admin, Delivery, Match, MatchCorrection, Recipient, Rule, Source
 from models.base import Base
 from packages.metrics.counters import MetricReason, increment_counter
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 from packages.telegram.fakes import FakeTelegramClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
 
 PASSWORD = "correct horse battery staple"
 

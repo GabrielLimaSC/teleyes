@@ -1,4 +1,4 @@
-from packages.telegram.links import build_message_link
+from teleyes_core.telegram.links import build_message_link
 
 
 def test_builds_the_real_telegram_link_for_a_supergroup_chat_id() -> None:

@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from auth.hashing import verify_password
 from models import Admin, Recipient, Rule, Source
-from packages.notifications.bot import BotNotifier, DeliveryResult
+from teleyes_core.notifications.bot import BotNotifier, DeliveryResult
 
 DEMO_PASSWORD = "demo-teleyes"
 DEMO_CHAT_PREFIX = "demo:"

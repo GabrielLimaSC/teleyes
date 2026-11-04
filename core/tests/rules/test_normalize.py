@@ -1,6 +1,6 @@
 import pytest
 
-from packages.rules.normalize import normalize_text
+from teleyes_core.rules.normalize import normalize_text
 
 
 @pytest.mark.parametrize(

@@ -109,9 +109,6 @@ from app.listener_reload import ReloadWorker
 from app.pipeline import HISTORICAL_WINDOW
 from models.db import get_engine, get_sessionmaker
 from packages.monitoring.heartbeat import load_heartbeat_config, run_heartbeat
-from packages.notifications.bot import BotNotifier
-from packages.notifications.http_client import HttpBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.setup.credentials import (
     TelegramCredentials,
     fingerprint,
@@ -129,6 +126,9 @@ from packages.telegram.connection_supervisor import (
 )
 from packages.telegram.reconnect_watch import supervise_reconnects
 from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.http_client import HttpBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 # S19-01: the self-host compose keeps the session in its own volume.
 SESSION_PATH = Path(os.environ.get("TELEYES_SESSION_PATH", "data/teleyes.session"))

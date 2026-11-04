@@ -43,7 +43,7 @@ from app.pipeline import (
 )
 from app.utc import ensure_utc
 from models import Delivery, Match, Recipient, Rule
-from packages.notifications.bot import BotNotifier
+from teleyes_core.notifications.bot import BotNotifier
 
 logger = logging.getLogger(__name__)
 

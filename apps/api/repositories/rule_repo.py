@@ -4,8 +4,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from models import Delivery, Match, MatchCorrection, RecipientRule, Rule
-from packages.rules.match import terms_error
 from repositories.errors import NotFoundError, ValidationError
+from teleyes_core.rules.match import terms_error
 
 
 def _validate_target_price_cents(target_price_cents: int | None) -> None:

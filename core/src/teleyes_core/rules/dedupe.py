@@ -3,7 +3,7 @@ import time
 from collections.abc import Callable
 from urllib.parse import urlparse
 
-from packages.rules.normalize import normalize_text
+from teleyes_core.rules.normalize import normalize_text
 
 
 def normalize_link(url: str) -> str:
