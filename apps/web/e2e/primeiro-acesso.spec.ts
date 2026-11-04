@@ -14,7 +14,8 @@ import { apiLogin, apiPost } from './helpers'
 /** Empties rules, sources and recipients through the real API: "a fresh install". */
 async function wipe(page: Page, csrf: string): Promise<void> {
   await page.evaluate(async (token) => {
-    for (const path of ['/rules?include_inactive=true', '/sources?include_inactive=true', '/recipients?include_inactive=true']) {
+    // Matches left by other specs would hide the empty states (a 404 on a sibling is fine).
+    for (const path of ['/matches', '/rules?include_inactive=true', '/sources?include_inactive=true', '/recipients?include_inactive=true']) {
       const items = (await (await fetch(path, { credentials: 'same-origin' })).json()) as { id: number }[]
       const base = path.split('?')[0]
       for (const item of items) {

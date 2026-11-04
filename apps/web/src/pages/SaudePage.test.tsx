@@ -41,7 +41,7 @@ const recipient = {
 const health = {
   status: 'ok',
   env: 'development',
-  version: '0.1.0',
+  version: '1.0.0',
   uptime_seconds: 90,
   telegram: { configured: false, state: 'not_configured' },
   bot: { configured: false, state: 'not_configured' },
@@ -176,7 +176,7 @@ describe('SaudePage', () => {
 
     // health.uptime_seconds is 90 → "1min 30s"
     expect(await screen.findByText('1min 30s')).toBeInTheDocument()
-    expect(screen.getByText('v0.1.0')).toBeInTheDocument()
+    expect(screen.getByText('v1.0.0')).toBeInTheDocument()
     expect(screen.getByText('development')).toBeInTheDocument()
     for (const label of ['Telegram', 'Bot', 'Leitor do Telegram', 'Atualização ao vivo', 'Banco']) {
       expect(screen.getByRole('heading', { name: label })).toBeInTheDocument()

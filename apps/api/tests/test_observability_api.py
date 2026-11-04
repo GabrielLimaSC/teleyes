@@ -1161,7 +1161,7 @@ def test_health_remains_public_and_reports_not_configured_components(api: ApiCon
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["env"]
-    assert response.json()["version"] == "0.1.0"
+    assert response.json()["version"] == "1.0.0"
     assert response.json()["uptime_seconds"] >= 5.0
     assert response.json()["telegram"] == {
         "configured": False,
