@@ -1,6 +1,6 @@
 import pytest
 
-from packages.rules.manual_price import PriceParseError, parse_manual_price_cents
+from teleyes_core.rules.manual_price import PriceParseError, parse_manual_price_cents
 
 
 @pytest.mark.parametrize(

@@ -23,9 +23,6 @@ from app.listener_lifecycle import ListenerLifecycle
 from app.pipeline import IncomingMessage, ListenerSource, process_message
 from models import Delivery, Match, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import TelegramAdapter
 from packages.telegram.connection_supervisor import (
     BackoffPolicy,
@@ -34,6 +31,9 @@ from packages.telegram.connection_supervisor import (
 )
 from packages.telegram.cursor import TelegramMessage, advance_cursor, get_cursor
 from packages.telegram.fakes import FakeTelegramClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 
 def _refused() -> ConnectionRefusedError:

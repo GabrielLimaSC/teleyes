@@ -71,10 +71,10 @@ apps/api
 packages/telegram
   cliente Telethon, descoberta de grupos, updates e backfill
 
-packages/rules
+core (teleyes_core.rules)
   normalização, preço, matching e deduplicação
 
-packages/notifications
+core (teleyes_core.notifications)
   envio pelo Bot API e registro de entrega
 
 apps/web

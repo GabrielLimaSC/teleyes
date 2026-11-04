@@ -19,9 +19,9 @@ from app.pipeline import (
     process_message,
 )
 from models import Delivery, Recipient, Rule, Snooze, Source
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 NOW = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 

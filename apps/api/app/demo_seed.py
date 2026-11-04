@@ -55,9 +55,9 @@ from models import (
 from models.digest_settings import DIGEST_SETTINGS_ID
 from models.listener_control import LISTENER_CONTROL_ID
 from packages.metrics.counters import MetricCounter, MetricReason
-from packages.notifications.formatting import format_price_cents
-from packages.rules.dedupe import DedupeCache
 from repositories import recipient_repo, rule_repo, source_repo
+from teleyes_core.notifications.formatting import format_price_cents
+from teleyes_core.rules.dedupe import DedupeCache
 
 SEED = 20260514
 HISTORY_DAYS = 90

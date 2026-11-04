@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.main import get_current_session, get_db, require_csrf
 from app.utc import UtcDatetime, utc_now
 from models import Match, Rule, Snooze
-from packages.rules.product import product_title
+from teleyes_core.rules.product import product_title
 
 router = APIRouter(
     prefix="/snoozes",

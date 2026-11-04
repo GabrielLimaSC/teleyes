@@ -8,12 +8,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.pipeline import IncomingMessage, ListenerSource, catch_up_since_cursor, process_message
 from models import Match, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 from packages.telegram.cursor import TelegramMessage, get_cursor
 from packages.telegram.fakes import FakeTelegramClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 
 async def _fake_sleep(seconds: float) -> None:

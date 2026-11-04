@@ -42,11 +42,11 @@ from models import (
     Source,
     TelegramDialog,
 )
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
 from packages.setup.bot_api import BotApiError, BotApiErrorCode, BotIdentity, UpdatesResult
 from packages.setup.credentials import remove_session_files
 from packages.setup.telegram_login import TelegramLoginService
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
 
 WORLD = FakeTelegramWorld()
 INBOX: list[Any] = []

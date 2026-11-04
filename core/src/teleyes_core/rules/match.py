@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass, field
 
-from packages.rules.normalize import normalize_text
+from teleyes_core.rules.normalize import normalize_text
 
 # S17-06: the AND separator is a plus sign with whitespace on both sides, so
 # literal terms such as "5g+" or "a+" keep matching as contiguous text.

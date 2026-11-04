@@ -4,7 +4,7 @@ A promotion older than this window has already expired in practice, so the
 read side (`MatchResponse.target_hit`/`target_gap_pct`, the feed pin, the
 per-rule `lowest_price_24h_cents`) only counts offers inside it. Sending the
 target alert (`app.pipeline`) never consults this: that decision stays the
-pure `packages.rules.target.target_hit` on the fresh message.
+pure `teleyes_core.rules.target.target_hit` on the fresh message.
 """
 
 from datetime import datetime, timedelta

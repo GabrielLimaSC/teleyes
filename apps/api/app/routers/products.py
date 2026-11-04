@@ -1,6 +1,6 @@
 """S14-01: `GET /products/{key}` — one product's price history (F1).
 
-`key` is `Match.product_key` (`packages.rules.product.product_key`). All
+`key` is `Match.product_key` (`teleyes_core.rules.product.product_key`). All
 numbers are aggregated on read from every match of that key; see
 `app.product_history` for the windows and the no-price rule.
 """
@@ -29,8 +29,8 @@ from app.product_history import (
 )
 from app.utc import UtcDatetime, utc_now
 from models import Match, Rule
-from packages.rules.normalize import normalize_text
-from packages.rules.product import (
+from teleyes_core.rules.normalize import normalize_text
+from teleyes_core.rules.product import (
     is_model_code_suffix,
     is_model_code_token,
     is_spec_noise_token,
@@ -104,7 +104,7 @@ _MAX_CANDIDATE_WIDTH = 6  # a wider window past this never reads as "conservativ
 # identity content in a *rule-suggestion candidate*, even though a store's
 # wording keeps them right next to the real product name ("Headset HyperX
 # Cloud III") — the audio/peripheral/furniture counterparts of
-# `packages.rules.product`'s own "placa"/"processador"/"memoria". This is
+# `teleyes_core.rules.product`'s own "placa"/"processador"/"memoria". This is
 # deliberately its own, local set rather than an addition to that module's
 # `_GENERIC_DISCARD_TOKENS`/`is_spec_noise_token`: review 2 tried adding
 # "headset" there and it looked safe against the review's synthetic corpus,

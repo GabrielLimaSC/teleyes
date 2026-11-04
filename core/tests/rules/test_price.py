@@ -1,6 +1,6 @@
 import pytest
 
-from packages.rules.price import extract_price
+from teleyes_core.rules.price import extract_price
 
 
 def test_extracts_price_with_currency_symbol_and_no_cents() -> None:
