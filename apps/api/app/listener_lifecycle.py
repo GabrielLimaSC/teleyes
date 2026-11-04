@@ -49,11 +49,11 @@ from app.pipeline import (
 )
 from models import Recipient, Rule, Source
 from packages.metrics.hourly import EventKind, log_system_event
-from packages.notifications.bot import BotNotifier
-from packages.rules.dedupe import DedupeCache
 from packages.telegram.connection_supervisor import describe_error, is_transient_connection_error
 from packages.telegram.cursor import TelegramMessage
-from packages.telegram.links import build_message_link
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.rules.dedupe import DedupeCache
+from teleyes_core.telegram.links import build_message_link
 
 logger = logging.getLogger(__name__)
 

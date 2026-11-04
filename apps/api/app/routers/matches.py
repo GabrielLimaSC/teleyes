@@ -25,9 +25,9 @@ from app.target_window import within_target_window
 from app.utc import UtcDatetime, utc_now
 from auth.session import SessionRecord
 from models import Delivery, Match, MatchCorrection, Recipient, Rule, Snooze, Source
-from packages.rules.manual_price import PriceParseError, parse_manual_price_cents
-from packages.rules.normalize import normalize_text
-from packages.rules.target import target_gap_pct, target_hit
+from teleyes_core.rules.manual_price import PriceParseError, parse_manual_price_cents
+from teleyes_core.rules.normalize import normalize_text
+from teleyes_core.rules.target import target_gap_pct, target_hit
 
 router = APIRouter(
     prefix="/matches",
@@ -71,7 +71,7 @@ class MatchResponse(BaseModel):
     rule_id: int
     message_text: str
     price_cents: int | None
-    # S7-05: only ever both set together, when packages.rules.price found two
+    # S7-05: only ever both set together, when teleyes_core.rules.price found two
     # explicit, distinct textual anchors — null/null for every other match,
     # same as always.
     price_cash_cents: int | None
@@ -88,7 +88,7 @@ class MatchResponse(BaseModel):
     # still exists and is unaffected, this only decides which one is the
     # representative card and which ones are folded into it.
     grouped_source_ids: list[int] | None = None
-    # S14-01: `packages.rules.product.product_key` of the message (null when
+    # S14-01: `teleyes_core.rules.product.product_key` of the message (null when
     # no product title was recognised) and a short 90-day lowest-price-per-day
     # series of that product (at most 30 points, oldest first; empty when the
     # product has no priced match in the window). Aggregated for the whole
@@ -104,7 +104,7 @@ class MatchResponse(BaseModel):
     # match's own price is to it. `target_price_cents` mirrors `Rule.
     # target_price_cents` (null without one); `target_hit` and
     # `target_gap_pct` are computed fresh on every read from those two plus
-    # `price_cents` (`packages.rules.target`), never persisted — same
+    # `price_cents` (`teleyes_core.rules.target`), never persisted — same
     # reasoning as `is_lowest_price_ever` above. S17-10: both only apply to a
     # match inside `TARGET_HIT_WINDOW` (24 h); an older match reads
     # `target_hit=False`, `target_gap_pct=None` (an expired offer). Items with
@@ -145,7 +145,7 @@ class MatchResponse(BaseModel):
     # manualmente" chip (`"manual"` right after an edit, `"parsed"` again
     # once "Reverter ao detectado" runs, `None` for a match never touched).
     # `original_price_cents` is the price
-    # `packages.rules.price.extract_price` first found, kept for the
+    # `teleyes_core.rules.price.extract_price` first found, kept for the
     # "Reverter" action regardless of how many manual edits followed.
     display_name: str | None = None
     model_variant: str | None = None
@@ -728,7 +728,7 @@ class MatchUpdate(BaseModel):
     """`PATCH /matches/{id}` (F7). Every field is optional — only the ones
     actually sent are validated and applied, same "if provided" shape as
     `RuleUpdate` (`app.routers.rules`). `price` is free text
-    (`packages.rules.manual_price.parse_manual_price_cents` parses it);
+    (`teleyes_core.rules.manual_price.parse_manual_price_cents` parses it);
     there is no way to clear `display_name`/`model_variant` back to `None`
     through this endpoint on purpose — that is exactly what `POST
     /matches/{id}/revert` ("Reverter ao detectado") does.

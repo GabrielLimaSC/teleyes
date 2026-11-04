@@ -30,8 +30,8 @@ from auth.rate_limit import LoginRateLimiter
 from auth.session import SessionStore
 from models import Admin, Match, Recipient, Rule, Source
 from models.base import Base
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
 
 PASSWORD = "correct horse battery staple"
 NOW = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)

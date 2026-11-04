@@ -14,8 +14,8 @@ from app.delivery_retry import resend_failed_deliveries
 from app.pipeline import IncomingMessage, process_message_with_retry
 from models import Delivery, Match, Recipient, RecipientRule, Rule, Source
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.rules.dedupe import DedupeCache
 
 TEXT = "Promoção iPhone 15 por R$ 3.899"
 

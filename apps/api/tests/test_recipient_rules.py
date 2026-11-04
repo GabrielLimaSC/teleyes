@@ -25,11 +25,11 @@ from app.pipeline import (
 )
 from app.recipient_rules import RecipientPrefs, recipients_for_match
 from models import Delivery, Match, Recipient, RecipientRule, Rule, Snooze, Source
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
 from repositories import recipient_repo, rule_repo
 from repositories.errors import InvalidSettingsError
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 NOW = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 COMMON_TEXT = "RTX 5070 por R$ 2.000 na Amazon"

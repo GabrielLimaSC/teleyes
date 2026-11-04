@@ -10,7 +10,7 @@ Backend (Python 3.12+):
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ./core -e ".[dev]"
 ```
 
 Frontend (Node and npm):

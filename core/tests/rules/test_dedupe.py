@@ -1,4 +1,4 @@
-from packages.rules.dedupe import DedupeCache, compute_signature, normalize_link
+from teleyes_core.rules.dedupe import DedupeCache, compute_signature, normalize_link
 
 
 def test_signature_is_deterministic_for_identical_input() -> None:

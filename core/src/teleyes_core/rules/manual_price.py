@@ -1,7 +1,7 @@
 """S14-06 (F7): parse a manually-typed price into cents.
 
 `app.routers.matches`'s `PATCH /matches/{id}` is the only caller. Deliberately
-strict, same reasoning as `packages.rules.price` (CLAUDE.md: no fuzzy
+strict, same reasoning as `teleyes_core.rules.price` (CLAUDE.md: no fuzzy
 matching) — a human typing a price into a form can write it a handful of
 distinct, unambiguous ways, and anything outside that fixed set is rejected
 with a pt-BR message rather than guessed:

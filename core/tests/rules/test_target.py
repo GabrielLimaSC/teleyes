@@ -1,4 +1,4 @@
-from packages.rules.target import target_gap_pct, target_hit
+from teleyes_core.rules.target import target_gap_pct, target_hit
 
 
 def test_price_at_or_below_target_is_a_hit() -> None:

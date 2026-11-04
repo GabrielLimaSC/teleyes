@@ -53,9 +53,9 @@ from app.pipeline import (
 )
 from app.utc import ensure_utc
 from models import Delivery, DigestRun, Match, Recipient
-from packages.notifications.bot import BotNotifier
-from packages.notifications.formatting import format_price_cents
-from packages.rules.product import product_title
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.formatting import format_price_cents
+from teleyes_core.rules.product import product_title
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class DigestQueueItem:
 
 def _title_for(match: Match) -> str:
     """A human-readable line for the digest text — the same product-title
-    extraction the panel and the snooze labels use (`packages.rules.product`),
+    extraction the panel and the snooze labels use (`teleyes_core.rules.product`),
     falling back to the message's first line when no product title was found
     (e.g. a match with no recognisable product, per S14-01's `product_key`).
     """

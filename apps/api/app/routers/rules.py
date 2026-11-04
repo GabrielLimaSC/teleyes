@@ -15,9 +15,9 @@ from app.recipient_rules import load_selected_rule_ids, recipient_gets_rule
 from app.target_window import target_window_start
 from app.utc import UtcDatetime, ensure_utc, utc_now
 from models import Match, Recipient, Rule, Snooze, Source
-from packages.rules.match import MatchRule, terms_error
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
+from teleyes_core.rules.match import MatchRule, terms_error
 
 router = APIRouter(
     prefix="/rules",

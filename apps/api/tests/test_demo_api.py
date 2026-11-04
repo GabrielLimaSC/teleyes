@@ -15,9 +15,9 @@ from auth.session import SessionStore
 from models import Admin
 from models.base import Base
 from packages.events.broker import EventBroker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 PASSWORD = "correct horse battery staple"
 

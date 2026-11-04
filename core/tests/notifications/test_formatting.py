@@ -1,4 +1,4 @@
-from packages.notifications.formatting import format_price_cents
+from teleyes_core.notifications.formatting import format_price_cents
 
 
 def test_formats_thousands_and_cents() -> None:

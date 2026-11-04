@@ -28,12 +28,12 @@ from auth.session import REMEMBER_TTL_SECONDS, SessionRecord, SessionStore
 from models import Admin
 from models.db import get_engine, get_sessionmaker
 from packages.events.broker import EventBroker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.http_client import HttpBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.setup.bot_api import HttpBotApi
 from packages.setup.telegram_login import TelegramLoginService
 from packages.telegram.adapter import AdapterState, TelegramAdapter
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.http_client import HttpBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 SESSION_COOKIE_NAME = "teleyes_session"
 

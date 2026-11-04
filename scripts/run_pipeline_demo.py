@@ -42,12 +42,12 @@ from telethon import TelegramClient, events
 from app.demo_setup import ensure_demo_setup
 from app.pipeline import IncomingMessage, ListenerSource, catch_up_since_cursor, process_message
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.http_client import HttpBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.telegram.adapter import AdapterState, TelegramAdapter
 from packages.telegram.reconnect_watch import supervise_reconnects
 from packages.telegram.telethon_client import TelethonMessageFetcher, to_telegram_message
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.http_client import HttpBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 # S19-01: the self-host compose keeps the session in its own volume.
 SESSION_PATH = Path(os.environ.get("TELEYES_SESSION_PATH", "data/teleyes.session"))

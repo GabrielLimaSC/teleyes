@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "teleyes-core"
+version = "0.1.0"
+description = "Reusable teleyes domain core: deterministic promo rules, price extraction, dedupe and Telegram Bot API notifications"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/teleyes_core"]

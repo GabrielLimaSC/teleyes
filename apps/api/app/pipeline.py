@@ -22,13 +22,6 @@ from models import Delivery, Match, Recipient, Rule, Source, SuppressedMessage
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.metrics.hourly import EventKind, record_system_event
-from packages.notifications.bot import BotNotifier, DeliveryResult
-from packages.notifications.formatting import format_price_cents
-from packages.rules.dedupe import DedupeCache, compute_signature
-from packages.rules.match import MatchRule
-from packages.rules.price import extract_price
-from packages.rules.product import product_key, product_title
-from packages.rules.target import target_hit
 from packages.telegram.cursor import (
     MessageFetcherProtocol,
     TelegramMessage,
@@ -41,7 +34,14 @@ from packages.telegram.historical import (
     fetch_messages_since,
     latest_message_id,
 )
-from packages.telegram.links import build_message_link
+from teleyes_core.notifications.bot import BotNotifier, DeliveryResult
+from teleyes_core.notifications.formatting import format_price_cents
+from teleyes_core.rules.dedupe import DedupeCache, compute_signature
+from teleyes_core.rules.match import MatchRule
+from teleyes_core.rules.price import extract_price
+from teleyes_core.rules.product import product_key, product_title
+from teleyes_core.rules.target import target_hit
+from teleyes_core.telegram.links import build_message_link
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ class RuleEvaluation:
     price_cents: int | None
     discard_reason: MetricReason | None
     # S7-05: only ever both set together, and only when extract_price found
-    # two explicit, distinct textual anchors — see packages.rules.price.
+    # two explicit, distinct textual anchors — see teleyes_core.rules.price.
     price_cash_cents: int | None = None
     price_card_cents: int | None = None
 

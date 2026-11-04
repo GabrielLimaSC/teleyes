@@ -280,6 +280,20 @@ Environment variables are documented one by one in [`.env.example`](.env.example
 guide (diagnostics, Windows boot automation, the author's production setup) is in
 [`docs/OPERATIONS.md`](docs/OPERATIONS.md), written in Portuguese.
 
+## Core library
+
+The deterministic heart of teleyes lives in [`core/`](core/) as a standalone, installable package, `teleyes-core`.
+It has no database, web framework or Telegram session code, and its only runtime dependency is `httpx`:
+
+- `teleyes_core.rules`: text normalization, price extraction, rule matching, product identity, target prices and deduplication.
+- `teleyes_core.notifications`: Telegram Bot API client, alert formatting and test fakes.
+- `teleyes_core.telegram.links`: builds the original-message link from Telegram protocol IDs.
+
+The app imports it directly (`from teleyes_core.rules.price import ...`). Install it from a checkout with
+`pip install -e ./core`, or from another project with
+`pip install "teleyes-core @ git+https://github.com/GabrielLimaSC/teleyes@<ref>#subdirectory=core"`.
+Its tests run with the rest of the suite (`pytest`) or on their own with `pytest core/tests`.
+
 ## Security
 
 - Remote access is meant to go through Tailscale Serve (private HTTPS); the app is not designed to be
@@ -311,7 +325,7 @@ GitHub Actions runs ruff, mypy, pytest, tsc, Oxlint and Vitest on every push and
 
 ```bash
 # Backend (Python 3.12+)
-python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+python3.12 -m venv .venv && .venv/bin/pip install -e ./core -e ".[dev]"
 .venv/bin/pytest && .venv/bin/ruff check . && .venv/bin/mypy .
 
 # Frontend

@@ -15,9 +15,9 @@ from app.pipeline import (
 from models import Delivery, Match, Recipient, Rule, Source
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, get_count
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 
 def _seed(session: Session, *, rule: Rule | None = None) -> tuple[Source, Rule, Recipient]:

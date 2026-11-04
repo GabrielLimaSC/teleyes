@@ -16,8 +16,8 @@ from app.digest import DigestScheduler
 from app.digest_settings import save_digest_settings
 from models import DigestRun
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
 
 AlembicRunner = Callable[..., subprocess.CompletedProcess[str]]
 

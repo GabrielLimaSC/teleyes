@@ -8,7 +8,7 @@ line ahead of the product line) — never copied from a real message."""
 
 import pytest
 
-from packages.rules.product import (
+from teleyes_core.rules.product import (
     is_model_code_token,
     is_spec_noise_token,
     product_key,
