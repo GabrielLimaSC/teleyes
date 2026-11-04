@@ -246,6 +246,8 @@ for (const { path, rail } of STICKY_RAILS) {
     await page.goto(path)
     const el = page.locator(rail).first()
     await expect(el).toBeVisible()
+    // The page height depends on whatever data other specs left behind; guarantee room to scroll.
+    await page.addStyleTag({ content: 'main { padding-bottom: 2400px !important; }' })
     await page.mouse.move(700, 500)
     await page.evaluate(() => window.scrollTo(0, 1500))
     await page.waitForTimeout(500)
