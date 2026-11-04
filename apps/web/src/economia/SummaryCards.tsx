@@ -45,6 +45,13 @@ export function SavingsCard({ report }: { report: SavingsReport }) {
           </div>
         </div>
       )}
+      {(totals.reference_purchases ?? 0) > 0 && (
+        <p className="economia-hero__reference" data-testid="reference-saving">
+          {formatSigned(totals.reference_saving_cents ?? 0)} pelas suas referências ({totals.reference_purchases}{' '}
+          {totals.reference_purchases === 1 ? 'compra' : 'compras'}), valores que você informou, fora da estimativa
+          do teleyes
+        </p>
+      )}
       <p className="economia-tile__detail economia-hero__method">
         {hasData
           ? `${totals.linked_with_data} de ${totals.purchases} ${totals.purchases === 1 ? 'compra' : 'compras'} com histórico${withoutHistory > 0 ? ` (${withoutHistory} sem histórico, fora da conta)` : ''}. `

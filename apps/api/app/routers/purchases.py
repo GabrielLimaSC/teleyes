@@ -40,8 +40,12 @@ class PurchaseInput(BaseModel):
     store: str | None = Field(default=None, max_length=80)
     product_key: str | None = Field(default=None, max_length=200)
     rule_id: int | None = None
+    # S22-01: a reference the admin typed (e.g. "média do Google Shopping"). Not a price
+    # the app saw; the report only uses it when there is no teleyes history.
+    reference_price_cents: int | None = Field(default=None, gt=0, le=MAX_PRICE_CENTS)
+    reference_note: str | None = Field(default=None, max_length=120)
 
-    @field_validator("name", "store", "product_key", mode="before")
+    @field_validator("name", "store", "product_key", "reference_note", mode="before")
     @classmethod
     def _normalize(cls, value: object) -> object:
         return _clean_text(value) if isinstance(value, str) else value
@@ -62,6 +66,8 @@ class PurchaseResponse(BaseModel):
     store: str | None
     product_key: str | None
     rule_id: int | None
+    reference_price_cents: int | None
+    reference_note: str | None
     created_at: UtcDatetime
 
 
@@ -74,6 +80,8 @@ def _to_response(purchase: Purchase) -> PurchaseResponse:
         store=purchase.store,
         product_key=purchase.product_key,
         rule_id=purchase.rule_id,
+        reference_price_cents=purchase.reference_price_cents,
+        reference_note=purchase.reference_note,
         created_at=purchase.created_at,
     )
 
@@ -95,6 +103,11 @@ def _apply(purchase: Purchase, payload: PurchaseInput) -> None:
     purchase.store = payload.store
     purchase.product_key = payload.product_key
     purchase.rule_id = payload.rule_id
+    purchase.reference_price_cents = payload.reference_price_cents
+    # A note without a price is meaningless: drop it.
+    purchase.reference_note = (
+        payload.reference_note if payload.reference_price_cents is not None else None
+    )
 
 
 def _get_or_404(db: Session, purchase_id: int) -> Purchase:

@@ -583,6 +583,17 @@ PURCHASE_SCRIPT: tuple[tuple[str, int, float, str, str | None], ...] = (
 UNLINKED_PURCHASES: tuple[tuple[int, int, str, str | None], ...] = (
     (33, 4_990, "Cabo HDMI 2.1 (exemplo)", "Mercado Demo"),
 )
+# S22-01: a fictional purchase with a reference typed by the user (no teleyes history).
+REFERENCE_PURCHASES: tuple[tuple[int, int, str, str | None, int, str], ...] = (
+    (
+        23,
+        41_990,
+        "Memória RAM DDR5 32 GB (exemplo)",
+        "Tech Fictícia",
+        52_900,
+        "média em um comparador de preços, 25/10 (exemplo)",
+    ),
+)
 
 
 def _seed_purchases(session: Session, now: datetime) -> None:
@@ -640,6 +651,19 @@ def _seed_purchases(session: Session, now: datetime) -> None:
                 price_cents=cents,
                 purchased_at=purchased_at,
                 store=store,
+                created_at=purchased_at,
+            )
+        )
+    for days_ago, cents, name, store, reference_cents, note in REFERENCE_PURCHASES:
+        purchased_at = now - timedelta(days=days_ago)
+        session.add(
+            Purchase(
+                name=name,
+                price_cents=cents,
+                purchased_at=purchased_at,
+                store=store,
+                reference_price_cents=reference_cents,
+                reference_note=note,
                 created_at=purchased_at,
             )
         )
