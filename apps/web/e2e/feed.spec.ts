@@ -21,7 +21,7 @@ test('feed shows a match live via SSE, without a page refresh', async ({ page })
 
   await page.goto('/feed')
   await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
-  await expect(page.getByText('Nenhum match ainda.')).toBeVisible()
+  await expect(page.getByText(/Nenhuma (regra|oferta) ainda/)).toBeVisible()
 
   await apiPost(page, '/demo/messages', csrfToken, {
     source_id: source.id,

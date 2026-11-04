@@ -135,6 +135,34 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await scan(page, 'Economia (registrar compra)')
       })
 
+      // S23-04: the first-run card, the empty states and the first-time tips.
+      test('primeiro acesso e estados vazios', async ({ page }) => {
+        await seed(page)
+        const empty = (route: import('@playwright/test').Route) => route.fulfill({ json: [] })
+        await page.route(/\/(rules|sources|recipients|matches)(\?.*)?$/, empty)
+        await page.route(/\/savings\/report$/, async (route) => {
+          const response = await route.fetch()
+          const report = (await response.json()) as { items: unknown[]; totals: Record<string, number> }
+          report.items = []
+          report.totals.purchases = 0
+          await route.fulfill({ response, json: report })
+        })
+        await page.goto('/')
+        await expect(page.getByRole('heading', { name: 'Comece por aqui' })).toBeVisible()
+        await scan(page, 'Início (Comece por aqui)')
+        for (const [route, text] of [
+          ['/feed', 'Nenhuma regra ainda'],
+          ['/regras', 'Nenhuma regra ainda'],
+          ['/fontes', 'Nenhuma fonte ainda'],
+          ['/historico', 'O histórico ainda está vazio'],
+          ['/economia', 'Nenhuma compra registrada'],
+        ] as const) {
+          await page.goto(route)
+          await expect(page.getByText(text).first()).toBeVisible()
+          await scan(page, `${route} (estado vazio e dica)`)
+        }
+      })
+
       test('fontes (duas abas)', async ({ page }) => {
         await seed(page)
         await page.goto('/fontes')
