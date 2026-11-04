@@ -19,6 +19,7 @@ import { updateRule } from '../api/rules'
 import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
 import type { Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
+import { csvField } from '../utils/csv'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { useProductPanel } from '../hooks/useProductPanel'
@@ -156,11 +157,6 @@ function formatCurrency(cents: number): string {
 function formatPrice(cents: number | null): string {
   if (cents === null) return 'Preço não identificado'
   return formatCurrency(cents)
-}
-
-function csvField(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
-  return value
 }
 
 /** S11-04: gera o CSV a partir do que já está calculado pra tela — os mesmos

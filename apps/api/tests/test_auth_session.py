@@ -62,7 +62,7 @@ def client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
 
     app.dependency_overrides[get_db] = override_get_db
     app.state.session_store = SessionStore(session_factory)
-    app.state.rate_limiter = LoginRateLimiter(max_attempts=3, window_seconds=60.0)
+    app.state.rate_limiter = LoginRateLimiter(max_failures=3, window_seconds=60.0)
 
     # Secure cookies are only sent back by the client over https.
     with TestClient(app, base_url="https://testserver") as test_client:
