@@ -226,12 +226,7 @@ const PAIRS: Pair[] = [
 ]
 
 /** Known under-4.5 pairs of the approved LIGHT theme (see header). */
-const LIGHT_DEBT: Record<string, string> = {
-  'light: state-good-text on card': '4.31:1 — #1c8a4b (Saúde/Login state word)',
-  'light: state-neutral-text on card': '3.37:1 — #8a8a92 ("Não configurado")',
-  'light: text-faint on card': '3.37:1 — #8a8a92 (card meta)',
-  'light: plane-text-helper-on-glass on glass rail': '4.23:1 — #606875 (Feed rail empty state)',
-}
+const LIGHT_DEBT: Record<string, string> = {}
 
 function worstRatio(theme: Theme, pair: Pair, tokens: Record<string, string>): number {
   const fgValue = tokens[pair.fg]
