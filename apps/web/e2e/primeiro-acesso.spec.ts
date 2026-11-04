@@ -48,7 +48,7 @@ test('guides a new install through the three steps until "Tudo pronto"', async (
   // Telegram connected (stood in by a source), back on Início.
   await apiPost(page, '/sources', csrf, { name: 'Grupo Primeiro Acesso', telegram_chat_id: 'pa-src-1' })
   await page.goto('/')
-  await expect(card.getByText('Telegram conectado, 1 fonte em monitoramento.')).toBeVisible()
+  await expect(card.getByText('Telegram conectado, 1 grupo em monitoramento.')).toBeVisible()
   await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
 
   // Step 2: an authorized recipient.
@@ -63,8 +63,8 @@ test('guides a new install through the three steps until "Tudo pronto"', async (
   const name = page.getByLabel(/Nome/)
   await expect(name).toBeFocused()
   await name.fill('Primeira regra E2E')
-  await page.getByLabel(/Termos incluídos/).fill('placa de video')
-  await page.getByLabel(/Termos incluídos/).press('Enter')
+  await page.getByLabel(/O que você procura/).fill('placa de video')
+  await page.getByLabel(/O que você procura/).press('Enter')
   await page.getByRole('button', { name: 'Criar regra' }).click()
   await expect(page.getByText('Primeira regra E2E').first()).toBeVisible()
 

@@ -68,7 +68,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(activeToggle).toHaveAttribute('aria-checked', 'true')
       const activeX = await leftOf(activeToggle)
       const activeWidth = (await activeToggle.boundingBox())!.width
-      const teto = row.locator('[data-label="Teto"]')
+      const teto = row.locator('[data-label="Preço máximo"]')
       const activeTetoX = await leftOf(teto)
       await expectNoHorizontalOverflow(page)
       await shoot(page, `${viewport.name}-${theme}-ativa`)

@@ -26,9 +26,9 @@ test('logs in against the real API, navigates the shell, and logs out', async ({
 
   // The desktop capsule keeps its links visible at rest.
   await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
-  await nav.getByRole('link', { name: 'Feed' }).click()
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
-  await expect(nav.getByRole('link', { name: 'Feed' })).toHaveClass(/nav-tab--active/)
+  await nav.getByRole('link', { name: 'Ofertas' }).click()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
+  await expect(nav.getByRole('link', { name: 'Ofertas' })).toHaveClass(/nav-tab--active/)
 
   await nav.getByRole('link', { name: 'Início' }).click()
   await page.getByRole('button', { name: 'Sair' }).click()

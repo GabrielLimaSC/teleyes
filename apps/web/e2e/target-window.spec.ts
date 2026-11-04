@@ -5,7 +5,7 @@ import { apiLogin, apiPost } from './helpers'
 
 /**
  * S17-10: "atingido" só vale para oferta das últimas 24 h, e o status do
- * trilho "Alvos de preço" ("falta 14%", "atingido") fica em UMA linha mesmo
+ * trilho "Preços-alvo" ("falta 14%", "atingido") fica em UMA linha mesmo
  * com nome de regra longo — o nome é que quebra. Backend real; as ofertas são
  * semeadas agora (dentro da janela). A regra sem oferta nas últimas 24 h é
  * uma regra com alvo e nenhum match: nunca "atingido".
@@ -103,7 +103,7 @@ for (const scheme of ['light', 'dark'] as const) {
       // Regras: same three states in the "Alvo" column.
       await page.goto('/regras')
       const cell = (name: string) =>
-        page.locator('tr', { has: page.getByText(name, { exact: true }) }).locator('[data-label="Alvo"]')
+        page.locator('tr', { has: page.getByText(name, { exact: true }) }).locator('[data-label="Preço-alvo"]')
       await expect(cell(hitName)).toContainText('atingido')
       await expect(cell(gapName)).toContainText('falta 16%')
       await expect(cell(noneName)).toContainText('sem oferta 24 h')

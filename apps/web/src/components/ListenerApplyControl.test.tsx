@@ -29,7 +29,7 @@ describe('ListenerApplyControl', () => {
   })
 
   it('a failed first read is announced, not hidden', () => {
-    renderPanel(null, { error: 'Não foi possível consultar o estado do listener.' })
+    renderPanel(null, { error: 'Não foi possível consultar o estado do leitor do Telegram.' })
 
     expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível consultar')
   })

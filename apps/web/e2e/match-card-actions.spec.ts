@@ -5,7 +5,7 @@ import { apiLogin, apiPost, apiPut } from './helpers'
 /**
  * S16-03: a barra de ações do MatchCard no novo design — nunca quebra em
  * duas linhas (card largo ou estreito), o menu "⋯" é acessível, e "Corrigir"/
- * "Corrigir preço" substitui "Definir alvo" quando o preço não foi
+ * "Corrigir preço" substitui "Definir preço-alvo" quando o preço não foi
  * identificado. Real backend (`/demo/messages`), mesmo padrão de
  * feedv2.spec.ts/product-panel-actions.spec.ts — tag aleatória porque o
  * backend de e2e é compartilhado pela rodada.
@@ -239,7 +239,7 @@ test.describe('MatchCard — menu "⋯" acessível (S16-03 05)', () => {
 
     await trigger.click()
     await expect(card.getByRole('menu')).toBeVisible()
-    await page.getByRole('heading', { name: 'Feed ao vivo' }).click()
+    await page.getByRole('heading', { name: 'Ofertas ao vivo' }).click()
     await expect(card.getByRole('menu')).not.toBeVisible()
 
     await trigger.click()
@@ -250,7 +250,7 @@ test.describe('MatchCard — menu "⋯" acessível (S16-03 05)', () => {
 })
 
 test.describe('MatchCard — preço ausente (S16-03 02)', () => {
-  test('mostra "Corrigir"/"Corrigir preço" no lugar de "Definir alvo" quando o preço não foi identificado', async ({
+  test('mostra "Corrigir"/"Corrigir preço" no lugar de "Definir preço-alvo" quando o preço não foi identificado', async ({
     page,
   }) => {
     const seed = await seedProduct(page, 'sem-preco-acoes', 'Placa de vídeo Ações SemPreco', null)
@@ -259,7 +259,7 @@ test.describe('MatchCard — preço ausente (S16-03 02)', () => {
     const card = page.locator('.match-card', { hasText: seed.title })
     await expect(card).toBeVisible()
 
-    await expect(card.getByRole('button', { name: 'Definir alvo' })).not.toBeVisible()
+    await expect(card.getByRole('button', { name: 'Definir preço-alvo' })).not.toBeVisible()
     await expect(card.getByRole('button', { name: /^Corrigir/ })).toBeVisible()
   })
 })

@@ -196,11 +196,11 @@ export function RecipientCard({
 
       <div className="recipient-card__line">
         <span>
-          Alvo atingido → <strong>{targetLine(draft.notifyTarget)}</strong>
+          Preço-alvo atingido → <strong>{targetLine(draft.notifyTarget)}</strong>
         </span>
         <DeliverySwitch
           checked={draft.notifyTarget}
-          label={`Alvo atingido para ${recipient.name}`}
+          label={`Preço-alvo atingido para ${recipient.name}`}
           onChange={(next) => {
             setFeedback(null)
             setDraft({ ...draft, notifyTarget: next })
@@ -209,11 +209,11 @@ export function RecipientCard({
       </div>
       <div className="recipient-card__line">
         <span>
-          Match comum → <strong>{commonLine(draft.notifyCommon, digest)}</strong>
+          Oferta comum → <strong>{commonLine(draft.notifyCommon, digest)}</strong>
         </span>
         <DeliverySwitch
           checked={draft.notifyCommon}
-          label={`Match comum para ${recipient.name}`}
+          label={`Oferta comum para ${recipient.name}`}
           onChange={(next) => {
             setFeedback(null)
             setDraft({ ...draft, notifyCommon: next })

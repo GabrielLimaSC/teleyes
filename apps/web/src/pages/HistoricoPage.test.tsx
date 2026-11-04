@@ -6,7 +6,7 @@ import { HISTORICO_FILTERS_STORAGE_KEY, HistoricoPage, parseStoredHistoricoFilte
 import type { FilterForm } from './HistoricoPage'
 
 // S14-08 parte 2 (rodada 2): HistoricoPage now reads `csrfToken` from
-// `useAuth()` too (the panel's "Definir alvo"/"Silenciar" actions) — same
+// `useAuth()` too (the panel's "Definir preço-alvo"/"Silenciar" actions) — same
 // stub every other authenticated-page suite already uses (FeedPage.test.tsx,
 // SaudePage.test.tsx), preserving every other real export
 // (`CSRF_MISSING_MESSAGE`) instead of replacing the whole module.
@@ -105,7 +105,7 @@ describe('HistoricoPage', () => {
   // Playwright, or Testing Library itself) can resolve the WRONG combobox.
   // `aria-label` pins each select's own accessible name to its short, real
   // label regardless of option count.
-  it('keeps "Regra"/"Fonte"/"Destinatário" as distinct accessible names with many, similarly-prefixed options', async () => {
+  it('keeps "Regra"/"Grupo"/"Destinatário" as distinct accessible names with many, similarly-prefixed options', async () => {
     const rules = Array.from({ length: 20 }, (_, i) => ({
       id: i + 1,
       name: `Regra item-${i}`,
@@ -117,7 +117,7 @@ describe('HistoricoPage', () => {
     }))
     const sources = Array.from({ length: 20 }, (_, i) => ({
       id: i + 1,
-      name: `Fonte item-${i}`,
+      name: `Grupo item-${i}`,
       telegram_chat_id: `chat-${i}`,
       active: true,
       created_at: '2026-01-01T00:00:00Z',
@@ -147,13 +147,13 @@ describe('HistoricoPage', () => {
     // elements, and never the wrong one (asserted via `selector: 'select'`
     // plus a direct element-identity check against each field's own select).
     const ruleSelect = screen.getByLabelText('Regra', { selector: 'select' })
-    const sourceSelect = screen.getByLabelText('Fonte', { selector: 'select' })
+    const sourceSelect = screen.getByLabelText('Grupo', { selector: 'select' })
     const recipientSelect = screen.getByLabelText('Destinatário', { selector: 'select' })
     expect(ruleSelect).not.toBe(sourceSelect)
     expect(ruleSelect).not.toBe(recipientSelect)
     expect(sourceSelect).not.toBe(recipientSelect)
     expect(within(ruleSelect).getByRole('option', { name: 'Regra item-0' })).toBeInTheDocument()
-    expect(within(sourceSelect).getByRole('option', { name: 'Fonte item-0' })).toBeInTheDocument()
+    expect(within(sourceSelect).getByRole('option', { name: 'Grupo item-0' })).toBeInTheDocument()
     expect(within(recipientSelect).getByRole('option', { name: 'Dest item-0' })).toBeInTheDocument()
   })
 
@@ -371,7 +371,7 @@ describe('HistoricoPage', () => {
 
     // 3 matches, média (1000+3000)/2=2000 (ignora o sem preço), menor 1000,
     // 1 entrega com status sent.
-    const countTile = screen.getByText('Matches no período').closest('.historico-stats__tile')
+    const countTile = screen.getByText('Ofertas no período').closest('.historico-stats__tile')
     expect(countTile).toHaveTextContent('3')
     const avgTile = screen.getByText('Preço médio').closest('.historico-stats__tile')
     expect(avgTile).toHaveTextContent('R$ 20,00')

@@ -19,14 +19,14 @@ export function targetLine(notifyTarget: boolean): string {
 /** The channel of a common match comes from the global delivery policy. */
 export function commonLine(notifyCommon: boolean, digest: DigestSettings | null): string {
   if (!notifyCommon) return 'desligado'
-  if (digest?.enabled) return `no digest ${digest.send_at_local.slice(0, 5)}`
+  if (digest?.enabled) return `no resumo diário ${digest.send_at_local.slice(0, 5)}`
   return 'imediato'
 }
 
 export function typesLabel(notifyTarget: boolean, notifyCommon: boolean): string {
-  if (notifyTarget && notifyCommon) return 'alvos e matches comuns'
-  if (notifyTarget) return 'só alvos atingidos'
-  if (notifyCommon) return 'só matches comuns'
+  if (notifyTarget && notifyCommon) return 'preços-alvo e ofertas comuns'
+  if (notifyTarget) return 'só preços-alvo atingidos'
+  if (notifyCommon) return 'só ofertas comuns'
   return 'nenhum tipo de alerta'
 }
 

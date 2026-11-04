@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 import { apiLogin, apiPost, apiPut } from './helpers'
 
 /**
- * S14-08 parte 2 (rodada 2) / S14-13: the product panel's "Alvo de preço",
+ * S14-08 parte 2 (rodada 2) / S14-13: the product panel's "Preço-alvo",
  * "Criar regra disso", "Silenciar 7 dias"/"Reativar" and "Editar dados"
  * actions, wired the same way from both the Feed and Histórico pages —
  * real backend (`/demo/messages`, same pattern as product-panel.spec.ts/
@@ -87,7 +87,7 @@ for (const [origin, openPanel] of [
   ['Histórico', openPanelFromHistorico],
 ] as const) {
   test.describe(`painel do produto a partir do ${origin} — ações (S14-08 parte 2 rodada 2)`, () => {
-    test(`"Salvar alvo" digitando "5.749" grava 574900 centavos na regra e mostra R$ 5.749,00 no painel`, async ({
+    test(`"Salvar preço-alvo" digitando "5.749" grava 574900 centavos na regra e mostra R$ 5.749,00 no painel`, async ({
       page,
     }) => {
       const seed = await seedPanelProduct(page, `${origin}-alvo`, 'Placa de vídeo Painel Alvo', '10.000')
@@ -96,10 +96,10 @@ for (const [origin, openPanel] of [
 
       const input = panel.getByRole('textbox', { name: 'Avise-me abaixo de' })
       await input.fill('5.749')
-      await panel.getByRole('button', { name: 'Salvar alvo' }).click()
+      await panel.getByRole('button', { name: 'Salvar preço-alvo' }).click()
 
       await expect(
-        page.getByRole('status').filter({ hasText: 'Alvo de preço salvo.' }),
+        page.getByRole('status').filter({ hasText: 'Preço-alvo salvo.' }),
       ).toBeVisible()
       // The panel reloads the rule's real target after saving — the field
       // reformats to the pt-BR value that was actually persisted, R$

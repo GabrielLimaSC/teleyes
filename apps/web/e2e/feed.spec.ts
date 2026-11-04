@@ -20,7 +20,7 @@ test('feed shows a match live via SSE, without a page refresh', async ({ page })
   })
 
   await page.goto('/feed')
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
   await expect(page.getByText(/Nenhuma (regra|oferta) ainda/)).toBeVisible()
 
   await apiPost(page, '/demo/messages', csrfToken, {
@@ -289,6 +289,6 @@ test('feed rail filters by rule and shows real counts, sources and a Resumo (S11
   await expect(page.getByText('trilhaa e2e por R$ 100')).toBeVisible()
   await expect(page.getByText('trilhab e2e por R$ 200')).not.toBeVisible()
 
-  const matchesTile = page.locator('.feed-summary__tile', { hasText: 'Matches' })
+  const matchesTile = page.locator('.feed-summary__tile', { hasText: 'Ofertas' })
   await expect(matchesTile).toContainText('1')
 })

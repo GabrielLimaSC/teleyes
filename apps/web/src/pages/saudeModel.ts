@@ -58,8 +58,8 @@ export interface ServiceView {
 export const SERVICE_ORDER: { key: ServiceKey; name: string }[] = [
   { key: 'telegram', name: 'Telegram' },
   { key: 'bot', name: 'Bot' },
-  { key: 'listener', name: 'Listener' },
-  { key: 'sse', name: 'Feed (SSE)' },
+  { key: 'listener', name: 'Leitor do Telegram' },
+  { key: 'sse', name: 'Atualização ao vivo' },
   { key: 'db', name: 'Banco' },
 ]
 
@@ -106,7 +106,7 @@ export function buildVerdict(views: ServiceView[], demo: boolean): Verdict {
 }
 
 export const EVENT_KIND: Record<SystemEventKind, { label: string; tone: Tone }> = {
-  match_target: { label: 'match', tone: 'good' },
+  match_target: { label: 'oferta', tone: 'good' },
   sse_reconnect: { label: 'sse', tone: 'warn' },
   rules_applied: { label: 'regras', tone: 'neutral' },
   backup: { label: 'banco', tone: 'neutral' },

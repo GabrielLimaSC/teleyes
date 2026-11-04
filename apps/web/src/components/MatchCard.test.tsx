@@ -748,33 +748,33 @@ describe('MatchCard — "Abrir produto" trigger (S14-08, 07b)', () => {
 })
 
 describe('MatchCard — selos (S14-07, 06)', () => {
-  it('shows "Alvo atingido" only when the match itself hit the target', () => {
+  it('shows "Preço-alvo atingido" only when the match itself hit the target', () => {
     const { rerender } = render(
       <MatchCard match={buildMatch({ target_hit: false })} rule={rule} source={source} recipients={[]} />,
     )
-    expect(screen.queryByText('Alvo atingido')).not.toBeInTheDocument()
+    expect(screen.queryByText('Preço-alvo atingido')).not.toBeInTheDocument()
 
     rerender(
       <MatchCard match={buildMatch({ target_hit: true })} rule={rule} source={source} recipients={[]} />,
     )
-    expect(screen.getByText('Alvo atingido')).toBeInTheDocument()
+    expect(screen.getByText('Preço-alvo atingido')).toBeInTheDocument()
   })
 
   it('shows "+N fonte(s)" (N = seen_count - 1) only above 1 source — a different mechanism from "Visto em: <names>" (S7-11, S16-03 03)', () => {
     const { rerender } = render(
       <MatchCard match={buildMatch({ seen_count: 1 })} rule={rule} source={source} recipients={[]} />,
     )
-    expect(screen.queryByText(/\+\d+ fontes?/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\+\d+ grupos?/)).not.toBeInTheDocument()
 
     rerender(
       <MatchCard match={buildMatch({ seen_count: 2 })} rule={rule} source={source} recipients={[]} />,
     )
-    expect(screen.getByText('+1 fonte')).toBeInTheDocument()
+    expect(screen.getByText('+1 grupo')).toBeInTheDocument()
 
     rerender(
       <MatchCard match={buildMatch({ seen_count: 3 })} rule={rule} source={source} recipients={[]} />,
     )
-    expect(screen.getByText('+2 fontes')).toBeInTheDocument()
+    expect(screen.getByText('+2 grupos')).toBeInTheDocument()
   })
 
   it('shows the "preço não identificado" chip whenever price_cents is null, alongside the price placeholder text', () => {
@@ -836,7 +836,7 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
     expect(screen.getByRole('img', { name: /Histórico de preço/ })).toBeInTheDocument()
     expect(screen.getByText('90 dias')).toBeInTheDocument()
     expect(screen.getByTitle('Menor preço da regra por dia, últimos 90 dias')).toBeInTheDocument()
-    expect(screen.queryByText('90 dias · linha = alvo')).not.toBeInTheDocument()
+    expect(screen.queryByText('90 dias · linha = preço-alvo')).not.toBeInTheDocument()
 
     rerender(
       <MatchCard
@@ -852,7 +852,7 @@ describe('MatchCard — sparkline (S14-07, 06)', () => {
         recipients={[]}
       />,
     )
-    expect(screen.getByText('90 dias · linha = alvo')).toBeInTheDocument()
+    expect(screen.getByText('90 dias · linha = preço-alvo')).toBeInTheDocument()
   })
 })
 
@@ -977,15 +977,15 @@ describe('MatchCard — ações (S14-07, 06)', () => {
     expect(onSnooze).toHaveBeenCalledTimes(2)
   })
 
-  it('"Definir alvo" opens an inline form and calls onSetTarget with cents parsed from reais', async () => {
+  it('"Definir preço-alvo" opens an inline form and calls onSetTarget with cents parsed from reais', async () => {
     const onSetTarget = vi.fn()
     const user = userEvent.setup()
     render(
       <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
-    const input = screen.getByLabelText('Alvo (R$)')
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
+    const input = screen.getByLabelText('Preço-alvo (R$)')
     await user.clear(input)
     await user.type(input, '2050')
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -1002,8 +1002,8 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
-    const input = screen.getByLabelText('Alvo (R$)')
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
+    const input = screen.getByLabelText('Preço-alvo (R$)')
     await user.clear(input)
     await user.type(input, '5.749')
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -1019,8 +1019,8 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
-    const input = screen.getByLabelText('Alvo (R$)')
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
+    const input = screen.getByLabelText('Preço-alvo (R$)')
     await user.clear(input)
     await user.type(input, '5.749,00')
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -1035,8 +1035,8 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
-    const input = screen.getByLabelText('Alvo (R$)')
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
+    const input = screen.getByLabelText('Preço-alvo (R$)')
     await user.clear(input)
     await user.type(input, '5749,900')
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -1055,8 +1055,8 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
-    const input = screen.getByLabelText('Alvo (R$)')
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
+    const input = screen.getByLabelText('Preço-alvo (R$)')
     await user.clear(input)
     await user.type(input, '0')
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -1072,8 +1072,8 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
-    const input = screen.getByLabelText('Alvo (R$)')
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
+    const input = screen.getByLabelText('Preço-alvo (R$)')
     await user.clear(input)
     await user.type(input, 'abc')
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -1083,7 +1083,7 @@ describe('MatchCard — ações (S14-07, 06)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('"Definir alvo" prefills the field with the rule\'s current target, in reais', async () => {
+  it('"Definir preço-alvo" prefills the field with the rule\'s current target, in reais', async () => {
     const user = userEvent.setup()
     render(
       <MatchCard
@@ -1095,8 +1095,8 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
-    expect(screen.getByLabelText('Alvo (R$)')).toHaveValue('2050')
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
+    expect(screen.getByLabelText('Preço-alvo (R$)')).toHaveValue('2050')
   })
 
   it('"Cancelar" closes the inline form without calling onSetTarget', async () => {
@@ -1106,14 +1106,14 @@ describe('MatchCard — ações (S14-07, 06)', () => {
       <MatchCard match={buildMatch()} rule={rule} source={source} recipients={[]} onSetTarget={onSetTarget} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Definir alvo' }))
+    await user.click(screen.getByRole('button', { name: 'Definir preço-alvo' }))
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
 
-    expect(screen.queryByLabelText('Alvo (R$)')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Preço-alvo (R$)')).not.toBeInTheDocument()
     expect(onSetTarget).not.toHaveBeenCalled()
   })
 
-  it('"Corrigir preço" opens the product panel — only shown with a product_key and no identified price, replacing "Definir alvo" (S16-03 02)', async () => {
+  it('"Corrigir preço" opens the product panel — only shown with a product_key and no identified price, replacing "Definir preço-alvo" (S16-03 02)', async () => {
     const onOpenProduct = vi.fn()
     const user = userEvent.setup()
     const { rerender } = render(
@@ -1129,7 +1129,7 @@ describe('MatchCard — ações (S14-07, 06)', () => {
     // isNarrow defaults to false (no ResizeObserver in jsdom) — the wide
     // label, "Corrigir preço", is what this environment always renders.
     expect(screen.queryByRole('button', { name: 'Corrigir preço' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Definir alvo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Definir preço-alvo' })).toBeInTheDocument()
 
     rerender(
       <MatchCard
@@ -1141,8 +1141,8 @@ describe('MatchCard — ações (S14-07, 06)', () => {
         onSetTarget={vi.fn()}
       />,
     )
-    // "Corrigir preço" takes over the "Definir alvo" slot entirely.
-    expect(screen.queryByRole('button', { name: 'Definir alvo' })).not.toBeInTheDocument()
+    // "Corrigir preço" takes over the "Definir preço-alvo" slot entirely.
+    expect(screen.queryByRole('button', { name: 'Definir preço-alvo' })).not.toBeInTheDocument()
     const corrigir = screen.getByRole('button', { name: 'Corrigir preço' })
     await user.click(corrigir)
     expect(onOpenProduct).toHaveBeenCalledWith('produto-x', corrigir)
@@ -1311,7 +1311,7 @@ describe('MatchCard — "vs. média 30d" line (S16-03 06)', () => {
     )
 
     expect(screen.getByText('-6% vs. média 30d')).toBeInTheDocument()
-    expect(screen.queryByText(/para o alvo/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/para o preço-alvo/)).not.toBeInTheDocument()
   })
 
   it('never shows it with a target set, even without enough sparkline history (the gap line wins)', () => {
@@ -1334,6 +1334,6 @@ describe('MatchCard — "vs. média 30d" line (S16-03 06)', () => {
     )
 
     expect(screen.queryByText(/vs\. média 30d/)).not.toBeInTheDocument()
-    expect(screen.getByText(/para o alvo/)).toBeInTheDocument()
+    expect(screen.getByText(/para o preço-alvo/)).toBeInTheDocument()
   })
 })

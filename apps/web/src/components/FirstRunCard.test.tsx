@@ -76,7 +76,7 @@ describe('FirstRunCard', () => {
   it('turns done steps into a check with what was done', async () => {
     arrange({ sources: 2, recipients: [{ allowlisted: true, active: true }] })
     renderCard()
-    expect(await screen.findByText('Telegram conectado, 2 fontes em monitoramento.')).toBeInTheDocument()
+    expect(await screen.findByText('Telegram conectado, 2 grupos em monitoramento.')).toBeInTheDocument()
     expect(screen.getByText('1 destinatário autorizado para receber alertas.')).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2')
     expect(screen.queryByRole('link', { name: 'Conectar o bot' })).not.toBeInTheDocument()

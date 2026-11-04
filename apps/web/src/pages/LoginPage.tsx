@@ -173,16 +173,16 @@ export function LoginPage() {
                 <div className="login-stats__value">{stats ? stats.activeRules : '…'}</div>
               </div>
               <div className="login-stats__tile">
-                <div className="login-stats__label">Fontes ouvindo</div>
+                <div className="login-stats__label">Grupos acompanhados</div>
                 <div className="login-stats__value">{stats ? stats.activeSources : '…'}</div>
               </div>
               <div className="login-stats__tile">
-                <div className="login-stats__label">Matches hoje</div>
+                <div className="login-stats__label">Ofertas hoje</div>
                 <div className="login-stats__value">{stats ? stats.matchesToday : '…'}</div>
               </div>
             </div>
             <div className="login-status">
-              <StatusRow label="Feed em tempo real (SSE)" state={SSE_STATE_LABELS[sseState]} />
+              <StatusRow label="Atualização ao vivo" state={SSE_STATE_LABELS[sseState]} />
               {health && <StatusRow label="Bot do Telegram" state={botStateLabel(health.bot.state)} />}
               {health && (
                 <StatusRow label="Ambiente" state={`${health.env} · v${health.version}`} />
@@ -241,7 +241,7 @@ export function LoginPage() {
             Lê os grupos de promoção do Telegram por você e só chama quando o preço vale a pena.
           </p>
           <ul className="login-v2__bullets">
-            <li data-tone="1">Regras por termo, teto e alvo de preço</li>
+            <li data-tone="1">Regras por termo, preço máximo e preço-alvo</li>
             <li data-tone="2">Histórico de 90 dias para cada produto</li>
             <li data-tone="3">Alerta no Telegram só quando é de verdade</li>
           </ul>

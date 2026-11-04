@@ -38,7 +38,7 @@ test('Histórico shows real stat tiles matching known matches (S11-04)', async (
   await expect(page.getByText('statsitem dois por R$ 300')).toBeVisible()
 
   // 2 matches conhecidos, preços R$ 100 e R$ 300 — média R$ 200, menor R$ 100.
-  const countTile = page.locator('.historico-stats__tile', { hasText: 'Matches no período' })
+  const countTile = page.locator('.historico-stats__tile', { hasText: 'Ofertas no período' })
   await expect(countTile).toContainText('2')
   const avgTile = page.locator('.historico-stats__tile', { hasText: 'Preço médio' })
   await expect(avgTile).toContainText('200,00')
@@ -321,7 +321,7 @@ test('the Regra/Fonte/Destinatário filters stay independently selectable with m
   // check inside `selectOption` already asserts single-element strict mode,
   // so simply not throwing here is the real assertion.
   await page.getByLabel('Regra', { exact: true }).selectOption({ label: `Regra ${tag}-0` })
-  await page.getByLabel('Fonte', { exact: true }).selectOption({ label: `Fonte ${tag}-0` })
+  await page.getByLabel('Grupo', { exact: true }).selectOption({ label: `Fonte ${tag}-0` })
   await expect(page.getByText(`${tag}item0 achado por R$ 321`)).toBeVisible()
   await page.getByLabel('Destinatário', { exact: true }).selectOption({ label: `Alvo ${tag}` })
 })

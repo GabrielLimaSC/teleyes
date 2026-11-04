@@ -54,7 +54,7 @@ export async function fetchMatches(filters: MatchFilters = {}): Promise<Match[]>
     credentials: 'same-origin',
   })
   if (!response.ok) {
-    throw new ApiError('Não foi possível carregar os matches.', response.status)
+    throw new ApiError('Não foi possível carregar as ofertas.', response.status)
   }
   return (await response.json()) as Match[]
 }

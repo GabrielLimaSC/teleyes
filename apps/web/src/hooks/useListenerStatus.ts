@@ -51,7 +51,7 @@ export function useListenerStatus({ csrfToken = null, onSettled }: Options = {})
         if (!cancelled) accept(next)
       })
       .catch(() => {
-        if (!cancelled) setError('Não foi possível consultar o estado do listener.')
+        if (!cancelled) setError('Não foi possível consultar o estado do leitor do Telegram.')
       })
       .finally(() => {
         if (cancelled) return

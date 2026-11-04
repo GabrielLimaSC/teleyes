@@ -501,7 +501,7 @@ describe('ConfiguracaoPage (S19-02)', () => {
       serve({ 'GET /setup/status': () => json({ ...everything, listener_online: true, complete: true }) })
       renderPage()
       expect(await screen.findByText(/Tudo pronto\./)).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: 'Ir para o Feed' })).toHaveAttribute('href', '/feed')
+      expect(screen.getByRole('link', { name: 'Ir para as Ofertas' })).toHaveAttribute('href', '/feed')
     })
   })
 

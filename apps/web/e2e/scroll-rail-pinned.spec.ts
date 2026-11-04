@@ -10,7 +10,7 @@ import { apiLogin, apiPost } from './helpers'
  * draws once the rail is taller than the viewport:
  *  - `.feed-rail__full-inner` / `.feed-side__full-inner` sized their content
  *    at the rail's full 272/312px even though the scrollbar ate part of
- *    that width, running "Alvos de preço" cards and "Filtrar por regra"
+ *    that width, running "Preços-alvo" cards and "Filtrar por regra"
  *    buttons off the right edge;
  *  - `.feed-rail__collapse` (the "Recolher painel" chevron) sat at a
  *    negative inset, past `.feed-rail__full`'s own `overflow: hidden` box.
@@ -26,7 +26,7 @@ async function seedTallRails(page: Page): Promise<void> {
   await page.goto('/')
   const csrf = await apiLogin(page)
   const tag = Math.random().toString(36).slice(2, 8)
-  // 13 sources + 10 rules with a price target: enough "Alvos de preço" cards,
+  // 13 sources + 10 rules with a price target: enough "Preços-alvo" cards,
   // "Filtrar por regra" buttons and "Fontes" rows that the left rail is
   // taller than a 900px-tall viewport once it's `pinned`.
   const sources: { id: number }[] = []
@@ -145,10 +145,10 @@ test('trilho esquerdo pinned: cards, botões e o chevron ficam inteiros dentro d
   await settle(page)
 
   // S16-02: the collapsed button's accessible name now includes its badge
-  // count ("Alvos de preço · 10") when there's at least one active target —
+  // count ("Preços-alvo · 10") when there's at least one active target —
   // this seed has 10, so matching the label prefix (not `exact`) is what
-  // keeps the check "click the opener of 'Alvos de preço'", not a specific count.
-  await page.getByRole('button', { name: /^Alvos de preço/ }).click()
+  // keeps the check "click the opener of 'Preços-alvo'", not a specific count.
+  await page.getByRole('button', { name: /^Preços-alvo/ }).click()
   await expect(page.locator('.feed-page__grid')).toHaveAttribute('data-left-rail', 'pinned')
   await settle(page)
 
@@ -206,7 +206,7 @@ test('trilho direito pinned: os cards de resumo e o chevron ficam inteiros dentr
   // S16-02: the right strip now has two openers of "Resumo" (Matches/graph,
   // Enviados/plane) — the Matches one keeps the "Resumo" accessible name,
   // with its own badge count appended once there's at least one match.
-  await page.getByRole('button', { name: /^Resumo/ }).click()
+  await page.getByRole('button', { name: /^Resumo( ·|$)/ }).click()
   await expect(page.locator('.feed-page__grid')).toHaveAttribute('data-right-rail', 'pinned')
   await settle(page)
 
@@ -246,6 +246,8 @@ for (const { path, rail } of STICKY_RAILS) {
     await page.goto(path)
     const el = page.locator(rail).first()
     await expect(el).toBeVisible()
+    // The page height depends on whatever data other specs left behind; guarantee room to scroll.
+    await page.addStyleTag({ content: 'main { padding-bottom: 2400px !important; }' })
     await page.mouse.move(700, 500)
     await page.evaluate(() => window.scrollTo(0, 1500))
     await page.waitForTimeout(500)

@@ -73,7 +73,7 @@ async function seedBase(page: Page, tag: string, targetPriceCents: number | null
 }
 
 test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
-  test('mostra "Alvo atingido" quando o preço já bate o alvo da regra, no card e na trilha', async ({ page }) => {
+  test('mostra "Preço-alvo atingido" quando o preço já bate o alvo da regra, no card e na trilha', async ({ page }) => {
     const tag = uniqueTag('alvo')
     const price = randomPrice()
     const seed = await seedBase(page, tag, price * 100)
@@ -88,14 +88,14 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
 
     const card = page.locator('.match-card', { hasText: `Produto ${tag}` })
     await expect(card).toBeVisible()
-    await expect(card.getByText('Alvo atingido')).toBeVisible()
+    await expect(card.getByText('Preço-alvo atingido')).toBeVisible()
 
     const targetRow = page.locator('.feed-target', { hasText: `Regra ${tag}` })
     await expect(targetRow).toBeVisible()
     await expect(targetRow.getByText('atingido')).toBeVisible()
   })
 
-  test('"Definir alvo" salva o alvo da regra e o card passa a mostrar "Alvo atingido"', async ({ page }) => {
+  test('"Definir preço-alvo" salva o alvo da regra e o card passa a mostrar "Preço-alvo atingido"', async ({ page }) => {
     const tag = uniqueTag('definir')
     const price = randomPrice()
     const seed = await seedBase(page, tag) // sem alvo ainda
@@ -110,16 +110,16 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
 
     const card = page.locator('.match-card', { hasText: `Produto ${tag}` })
     await expect(card).toBeVisible()
-    await expect(card.getByText('Alvo atingido')).not.toBeVisible()
+    await expect(card.getByText('Preço-alvo atingido')).not.toBeVisible()
 
-    await card.getByRole('button', { name: 'Definir alvo' }).click()
-    await card.getByLabel('Alvo (R$)').fill(String(price + 1))
+    await card.getByRole('button', { name: 'Definir preço-alvo' }).click()
+    await card.getByLabel('Preço-alvo (R$)').fill(String(price + 1))
     await card.getByRole('button', { name: 'Salvar' }).click()
 
-    await expect(card.getByText('Alvo atingido')).toBeVisible()
+    await expect(card.getByText('Preço-alvo atingido')).toBeVisible()
   })
 
-  test('"Definir alvo" digitando "5.749" (formato pt-BR) salva exatamente 574900 centavos, nunca 575', async ({ page }) => {
+  test('"Definir preço-alvo" digitando "5.749" (formato pt-BR) salva exatamente 574900 centavos, nunca 575', async ({ page }) => {
     // Regressão: `Math.round(Number(targetInput) * 100)` lia o ponto de
     // milhar pt-BR como separador decimal — "5.749" virava 575 centavos
     // (um alvo de R$ 5,75) em vez de R$ 5.749. Confere direto na API, não só
@@ -138,13 +138,13 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
     const card = page.locator('.match-card', { hasText: `Produto ${tag}` })
     await expect(card).toBeVisible()
 
-    await card.getByRole('button', { name: 'Definir alvo' }).click()
-    await card.getByLabel('Alvo (R$)').fill('5.749')
+    await card.getByRole('button', { name: 'Definir preço-alvo' }).click()
+    await card.getByLabel('Preço-alvo (R$)').fill('5.749')
     await card.getByRole('button', { name: 'Salvar' }).click()
 
     // O card passa a mostrar "falta N%" pro alvo (preço R$ 10.000 > alvo
     // R$ 5.749) — confirma que o formulário realmente submeteu.
-    await expect(card.getByText(/falta \d+% para o alvo/)).toBeVisible()
+    await expect(card.getByText(/falta \d+% para o preço-alvo/)).toBeVisible()
 
     const rules = await apiGet<Array<{ id: number; target_price_cents: number | null }>>(page, '/rules')
     const savedRule = rules.find((candidate) => candidate.id === seed.ruleId)
@@ -206,10 +206,10 @@ test.describe('Feed v2 — selos e ações do card (S14-07)', () => {
     const card = page.locator('.match-card', { hasText: title })
     await expect(card).toBeVisible()
     // S16-03 (03): "Visto em N fontes" virou "+N fonte(s)" (N = seen_count - 1).
-    await expect(card.getByText('+1 fonte', { exact: true })).toBeVisible()
+    await expect(card.getByText('+1 grupo', { exact: true })).toBeVisible()
   })
 
-  test('mostra o chip "preço não identificado" e "Corrigir"/"Corrigir preço" abre o painel de produto (S16-03: substitui "Definir alvo")', async ({ page }) => {
+  test('mostra o chip "preço não identificado" e "Corrigir"/"Corrigir preço" abre o painel de produto (S16-03: substitui "Definir preço-alvo")', async ({ page }) => {
     const tag = uniqueTag('sem-preco')
     const seed = await seedBase(page, tag)
     const title = `Placa de vídeo Palit RTX 5070 Ti GamingPro-S 16GB ${tag}`
@@ -410,7 +410,7 @@ test.describe('Feed v2 — regra 06b (cards alinhados na mesma linha)', () => {
   test('dois cards na mesma linha do grid têm a mesma altura e a base (preço/ações) alinhada', async ({ page }) => {
     const tag = uniqueTag('06b')
     const targetPrice = randomPrice()
-    const priceHit = targetPrice // igual ao alvo: "Alvo atingido" (selo extra)
+    const priceHit = targetPrice // igual ao alvo: "Preço-alvo atingido" (selo extra)
     const priceMiss = targetPrice + 5000 // bem acima: sem selo nenhum
 
     await page.goto('/')
@@ -460,8 +460,8 @@ test.describe('Feed v2 — regra 06b (cards alinhados na mesma linha)', () => {
     const cardB = page.locator('.match-card', { hasText: `Produto B ${tag}` })
     await expect(cardA).toBeVisible()
     await expect(cardB).toBeVisible()
-    await expect(cardA.getByText('Alvo atingido')).toBeVisible()
-    await expect(cardB.getByText('Alvo atingido')).not.toBeVisible()
+    await expect(cardA.getByText('Preço-alvo atingido')).toBeVisible()
+    await expect(cardB.getByText('Preço-alvo atingido')).not.toBeVisible()
     // Só os dois cards do teste visíveis — garante que estão na mesma linha
     // do grid de 2 colunas (primeira e única linha).
     await expect(page.locator('.feed-page__card')).toHaveCount(2)
@@ -514,7 +514,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     const card = page.locator('.match-card', { hasText: title })
     await expect(card).toBeVisible()
-    await expect(card.getByText('Alvo atingido')).toBeVisible()
+    await expect(card.getByText('Preço-alvo atingido')).toBeVisible()
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
 
     await page.screenshot({ path: `test-results/feed-v2/${theme}-1440.png`, fullPage: true })

@@ -87,7 +87,7 @@ for (const viewport of VIEWPORTS) {
         await expectNoHorizontalScroll(page)
         await shot(page, `feed-${viewport.width}-${theme}-panel`)
         // The page header (title) stays inside the viewport, aligned.
-        const heading = page.getByRole('heading', { name: 'Feed ao vivo' })
+        const heading = page.getByRole('heading', { name: 'Ofertas ao vivo' })
         const box = await heading.boundingBox()
         expect(box?.x ?? -1).toBeGreaterThanOrEqual(0)
         // The panel itself is fully inside the viewport.

@@ -1,6 +1,6 @@
 /**
  * S14-07: mirrors `packages/rules/target.py` exactly (same floor-division
- * formula) so the sidebar's "Alvos de preço" — a per-rule aggregate the
+ * formula) so the sidebar's "Preços-alvo" — a per-rule aggregate the
  * backend has no endpoint for — never disagrees with what a match's own
  * `target_hit`/`target_gap_pct` fields already say about that same rule.
  */

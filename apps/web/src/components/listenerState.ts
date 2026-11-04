@@ -32,7 +32,7 @@ export function describeLoaded(status: ListenerStatus): string | null {
   const { sources_loaded: sources, rules_loaded: rules, recipients_loaded: recipients } = status
   if (sources === null || rules === null || recipients === null) return null
   return [
-    plural(sources, 'fonte', 'fontes'),
+    plural(sources, 'grupo', 'grupos'),
     plural(rules, 'regra', 'regras'),
     plural(recipients, 'destinatário', 'destinatários'),
   ].join(' · ')
@@ -42,11 +42,11 @@ export function describeHistory(status: ListenerStatus): string {
   const found = status.new_matches
   let text: string
   if (found === null) text = describeLoaded(status) ?? 'configuração carregada'
-  else if (found === 0) text = 'nenhum match novo no histórico'
-  else text = `${plural(found, 'match novo', 'matches novos')} no histórico`
+  else if (found === 0) text = 'nenhuma oferta nova no histórico'
+  else text = `${plural(found, 'oferta nova', 'ofertas novas')} no histórico`
   const failures = status.scan_failures ?? 0
   if (failures > 0) {
-    text += ` · histórico incompleto em ${plural(failures, 'fonte', 'fontes')}`
+    text += ` · histórico incompleto em ${plural(failures, 'grupo', 'grupos')}`
   }
   return text
 }
@@ -63,7 +63,7 @@ export function describeListener(status: ListenerStatus, now: Date = new Date())
       busy: true,
       needsApply: true,
       failed: false,
-      detail: 'Relendo fontes, regras e destinatários e conferindo o histórico.',
+      detail: 'Relendo grupos, regras e destinatários e conferindo o histórico.',
     }
   }
 
@@ -73,15 +73,15 @@ export function describeListener(status: ListenerStatus, now: Date = new Date())
         ? 'Pedido enviado.'
         : `Pedido enviado ${formatClockMoment(status.reload_requested_at, now)}.`
     return {
-      label: 'Aguardando o listener…',
+      label: 'Aguardando o leitor do Telegram…',
       shortLabel: 'Aguardando…',
       ...WARN,
       busy: true,
       needsApply: true,
       failed: false,
       detail: status.listener_online
-        ? `${requested} O listener aplica em alguns segundos.`
-        : `${requested} O listener não está respondendo; aplica assim que voltar.`,
+        ? `${requested} O leitor do Telegram aplica em alguns segundos.`
+        : `${requested} O leitor do Telegram não está respondendo; aplica assim que voltar.`,
     }
   }
 
@@ -108,20 +108,20 @@ export function describeListener(status: ListenerStatus, now: Date = new Date())
       failed: false,
       detail:
         appliedAt === null
-          ? 'O listener ainda não carregou nenhuma configuração.'
-          : `O listener ainda usa a configuração carregada ${appliedAt}.`,
+          ? 'O leitor do Telegram ainda não carregou nenhuma configuração.'
+          : `O leitor do Telegram ainda usa a configuração carregada ${appliedAt}.`,
     }
   }
 
   if (!status.listener_online) {
     return {
-      label: 'Listener sem sinal',
+      label: 'Leitor do Telegram sem sinal',
       shortLabel: 'Sem sinal',
       ...NEUTRAL,
       busy: false,
       needsApply: false,
       failed: false,
-      detail: 'O listener não respondeu ao painel há algum tempo. Confira se o serviço está rodando.',
+      detail: 'O leitor do Telegram não respondeu ao painel há algum tempo. Confira se o serviço está rodando.',
     }
   }
 

@@ -18,19 +18,19 @@ describe('NavCapsule', () => {
       </MemoryRouter>,
     )
 
-    const left = ['Início', 'Feed', 'Histórico', 'Economia']
+    const left = ['Início', 'Ofertas', 'Histórico', 'Economia']
     for (const label of left) expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     const wings = document.querySelectorAll('.nav-capsule__wing')
     expect([...wings[0].querySelectorAll('.nav-tab')].map((el) => el.textContent)).toEqual(left)
     expect([...wings[1].querySelectorAll('.nav-tab')].map((el) => el.textContent)).toEqual([
       'Regras',
-      'Fontes',
+      'Grupos',
       'Saúde',
       'Tema',
     ])
     expect(screen.getByRole('button', { name: /^Tema: / })).toBeInTheDocument()
 
-    const feed = screen.getByRole('link', { name: 'Feed' })
+    const feed = screen.getByRole('link', { name: 'Ofertas' })
     expect(feed).toHaveClass('nav-tab--active')
     expect(feed).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Início' })).not.toHaveAttribute('aria-current')
@@ -44,7 +44,7 @@ describe('NavCapsule', () => {
     )
 
     expect(screen.getByRole('link', { name: 'Início' })).toHaveClass('nav-tab--active')
-    expect(screen.getByRole('link', { name: 'Feed' })).not.toHaveClass('nav-tab--active')
+    expect(screen.getByRole('link', { name: 'Ofertas' })).not.toHaveClass('nav-tab--active')
   })
 
   it('the mascot medallion goes home on wide screens and uses the theme-matching art', () => {

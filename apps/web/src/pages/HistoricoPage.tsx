@@ -468,14 +468,14 @@ export function HistoricoPage() {
   }
 
   // S14-08 parte 2 (rodada 2): same `PATCH /rules/{id}` as FeedPage's
-  // `handleSetTarget` and MatchCard's "Definir alvo" — only
+  // `handleSetTarget` and MatchCard's "Definir preço-alvo" — only
   // `target_price_cents` in the body.
   async function handleSetTarget(ruleId: number, targetCents: number) {
     const token = requireCsrf()
     if (token === null) return
     try {
       await updateRule(token, ruleId, { target_price_cents: targetCents })
-      showToast('Alvo de preço salvo.')
+      showToast('Preço-alvo salvo.')
       await loadRules()
       loadMatches()
     } catch (err) {
@@ -543,7 +543,7 @@ export function HistoricoPage() {
         if (match.is_lowest_price_ever) {
           priceDetails.push('Menor já visto')
         } else if (rule?.max_price_cents != null) {
-          priceDetails.push(`Teto ${formatCurrency(rule.max_price_cents)}`)
+          priceDetails.push(`Preço máximo ${formatCurrency(rule.max_price_cents)}`)
         }
         return {
           match,
@@ -694,9 +694,9 @@ export function HistoricoPage() {
             </select>
           </label>
           <label>
-            Fonte
+            Grupo
             <select
-              aria-label="Fonte"
+              aria-label="Grupo"
               value={form.sourceId}
               onChange={(event) => updateField('sourceId')(event.target.value)}
             >
@@ -804,7 +804,7 @@ export function HistoricoPage() {
             <>
               <div className="historico-stats">
                 <div className="historico-stats__tile">
-                  <div className="historico-stats__label">Matches no período</div>
+                  <div className="historico-stats__label">Ofertas no período</div>
                   <div className="historico-stats__value">{stats.count}</div>
                 </div>
                 <div className="historico-stats__tile">
@@ -828,7 +828,7 @@ export function HistoricoPage() {
               {rows.length === 0 && !hasActiveFilters && (
                 <EmptyState
                   title="O histórico ainda está vazio"
-                  text="Cada promoção que bate numa regra fica guardada aqui, com preço, fonte e entrega."
+                  text="Cada promoção que bate numa regra fica guardada aqui, com preço, grupo e entrega."
                   action={{ label: 'Ver as regras', to: '/regras' }}
                 />
               )}
@@ -836,14 +836,14 @@ export function HistoricoPage() {
                 <p>
                   {appliedSearch.trim() !== ''
                     ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou limpe os filtros.`
-                    : 'Nenhum match encontrado com esses filtros.'}
+                    : 'Nenhuma oferta encontrada com esses filtros.'}
                 </p>
               )}
               {rows.length > 0 && (
                 <div className="plane-pearl historico-table">
                   <div className="historico-table__row historico-table__row--head">
                     <span>Produto</span>
-                    <span>Regra · fonte</span>
+                    <span>Regra · grupo</span>
                     <span>Hora</span>
                     <span className="historico-table__cell--right">Preço</span>
                     <span className="historico-table__cell--right">Entrega</span>
