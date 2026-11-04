@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import './ConfirmDialog.css'
 
 /** Marker other overlays (ProductPanel's Esc / click-outside) use to leave
@@ -31,6 +32,8 @@ export function ConfirmDialog({
 }) {
   const titleId = useId()
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef)
 
   useEffect(() => {
     cancelRef.current?.focus()
@@ -47,6 +50,8 @@ export function ConfirmDialog({
   return createPortal(
     <div className="confirm-dialog__backdrop" role="presentation" {...{ [CONFIRM_DIALOG_ATTR]: true }}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="plane-pearl confirm-dialog"
         role="alertdialog"
         aria-modal="true"

@@ -1183,7 +1183,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     const detail = document.getElementById(toggle.getAttribute('aria-controls') as string) as HTMLElement
     expect(
-      within(detail).getByRole('group', { name: /Histórico real de 2 dias, de R\$\s7\.000,00 a R\$\s6\.500,00/ }),
+      within(detail).getByRole('group', { name: /Histórico real de 2 dias: menor R\$\s6\.500,00, maior R\$\s7\.000,00, último R\$\s6\.500,00/ }),
     ).toBeInTheDocument()
     expect(detail.querySelector('.rule-chart__ref--ceiling')).not.toBeNull()
     expect(detail.querySelector('.rule-chart__ref--target')).not.toBeNull()

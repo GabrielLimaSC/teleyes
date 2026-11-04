@@ -81,8 +81,8 @@
   --plane-text-eyebrow: #47566e; /* uppercase small labels ("PLANO 3 — VIDRO") */
   --plane-text-eyebrow-on-glass: #47566e; /* the same on a stat tile inside a glass rail */
   --plane-text-secondary: #525866; /* body/paragraph secondary */
-  --plane-text-helper: #606875; /* smallest helper/caption text */
-  --plane-text-helper-on-glass: #606875; /* the same, when it sits on a glass rail */
+  --plane-text-helper: #586070; /* smallest helper/caption text */
+  --plane-text-helper-on-glass: #586070; /* the same, when it sits on a glass rail */
 
   /* ---- Status (dot + word, never color alone) ---- */
   --plane-status-good: #176945;
@@ -114,7 +114,7 @@
   --text-strong: #08060d;
   --text-body: #17181c;
   --text-muted: #4b4b52;
-  --text-faint: #8a8a92;
+  --text-faint: #686870;
   --text-violet: #6a3fbf; /* "Menor preço já visto" on the card */
   --text-violet-quiet: #5b4d88; /* the same note in Histórico's price cell */
 
@@ -242,11 +242,11 @@
   --source-hue-5: #f0a3b8;
   --source-hue-ink: #14171c;
   /* Adapter / SSE state word and its dot (Saúde, Login's bot row). */
-  --state-neutral-text: #8a8a92;
+  --state-neutral-text: #686870;
   --state-neutral-dot: #8a8a92;
-  --state-good-text: #1c8a4b;
+  --state-good-text: #17743f;
   --state-good-dot: #1c8a4b;
-  --state-warn-text: #8a6d00;
+  --state-warn-text: #7a5f00;
   --state-warn-dot: #8a6d00;
   --state-danger-text: #b3261e;
   --state-danger-dot: #b3261e;

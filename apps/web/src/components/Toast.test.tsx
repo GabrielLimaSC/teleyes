@@ -5,9 +5,9 @@ import { Toast } from './Toast'
 import type { ToastState } from '../hooks/useToast'
 
 describe('Toast', () => {
-  it('renders nothing when there is no toast', () => {
-    const { container } = render(<Toast toast={null} onDismiss={vi.fn()} />)
-    expect(container).toBeEmptyDOMElement()
+  it('keeps an empty live region mounted when there is no toast', () => {
+    render(<Toast toast={null} onDismiss={vi.fn()} />)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
   it('renders the message with a status role for screen readers', () => {
@@ -20,11 +20,11 @@ describe('Toast', () => {
   it('applies the tone as a class for success and error', () => {
     const success: ToastState = { id: 1, message: 'ok', tone: 'success' }
     const { rerender } = render(<Toast toast={success} onDismiss={vi.fn()} />)
-    expect(screen.getByRole('status')).toHaveClass('toast--success')
+    expect(screen.getByText('ok').parentElement).toHaveClass('toast--success')
 
     const error: ToastState = { id: 2, message: 'falhou', tone: 'error' }
     rerender(<Toast toast={error} onDismiss={vi.fn()} />)
-    expect(screen.getByRole('status')).toHaveClass('toast--error')
+    expect(screen.getByText('falhou').parentElement).toHaveClass('toast--error')
   })
 
   it('calls onDismiss when the close button is clicked', async () => {
