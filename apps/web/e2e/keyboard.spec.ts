@@ -75,7 +75,7 @@ test('rules: create, expand row and ⋯ menu with the keyboard', async ({ page }
   const name = `Teclado ${tag}`
   await page.getByLabel(/Nome/).focus()
   await page.keyboard.type(name)
-  await page.getByLabel(/Termos incluídos/).focus()
+  await page.getByLabel(/O que você procura/).focus()
   await page.keyboard.type(`teclado${tag}`)
   await page.keyboard.press('Enter')
   const create = page.getByRole('button', { name: 'Criar regra' })

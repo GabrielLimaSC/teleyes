@@ -24,11 +24,12 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   // S11-05: the creation form is a permanent rail, and include terms are
   // chips — Enter or a comma closes one.
   await page.getByLabel(/Nome/).fill('RTX 5070 E2E')
-  await page.getByLabel(/Termos incluídos/).fill('rtx 5070')
-  await page.getByLabel(/Termos incluídos/).press('Enter')
-  await page.getByLabel(/Termos incluídos/).fill('rtx 5070 super,')
+  await page.getByLabel(/O que você procura/).fill('rtx 5070')
+  await page.getByLabel(/O que você procura/).press('Enter')
+  await page.getByLabel(/O que você procura/).fill('rtx 5070 super,')
+  await page.getByRole('button', { name: 'Mais opções' }).click()
   await page.getByLabel('Termos bloqueados').fill('usada')
-  await page.getByLabel(/Teto \(R\$\)/).fill('5500')
+  await page.getByLabel(/Até quanto você paga/).fill('5500')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   const createdRow = rowByExactName(page, 'RTX 5070 E2E')
@@ -71,7 +72,7 @@ test('a term still typed when "Criar regra" is clicked is not lost (S11-05)', as
   await page.goto('/regras')
 
   await page.getByLabel(/Nome/).fill('Termo Pendente E2E')
-  await page.getByLabel(/Termos incluídos/).fill('termopendentee2e')
+  await page.getByLabel(/O que você procura/).fill('termopendentee2e')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   await expect(rowByExactName(page, 'Termo Pendente E2E').locator('.wide-table__terms')).toHaveText(

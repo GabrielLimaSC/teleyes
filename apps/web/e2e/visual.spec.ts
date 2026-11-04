@@ -356,8 +356,8 @@ test('seeded data across every screen', async ({ page }) => {
   await expect(page.getByRole('alert')).toBeVisible()
   await shoot(page, 'regras-form-error', '1440', { fullPage: false })
   await page.getByLabel(/Nome/).fill('Regra do toast')
-  await page.getByLabel(/Termos incluídos/).fill('toastitem')
-  await page.getByLabel(/Termos incluídos/).press('Enter')
+  await page.getByLabel(/O que você procura/).fill('toastitem')
+  await page.getByLabel(/O que você procura/).press('Enter')
   // The toast dismisses itself after 4s: hold the page clock while it is shot.
   await page.clock.install()
   await page.clock.pauseAt(new Date(Date.now() + 1000))
