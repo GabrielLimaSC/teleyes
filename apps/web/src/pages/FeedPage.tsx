@@ -167,6 +167,22 @@ export function FeedPage() {
     },
   })
 
+  // S23-02: new alerts arriving over SSE are announced politely (one message
+  // per batch, never for the first load) through a visually hidden live region.
+  const [announcement, setAnnouncement] = useState('')
+  const seenMatchIdsRef = useRef<Set<number> | null>(null)
+  useEffect(() => {
+    if (loading) return
+    const seen = seenMatchIdsRef.current
+    seenMatchIdsRef.current = new Set(matches.map((match) => match.id))
+    if (seen === null) return
+    const added = matches.filter((match) => !seen.has(match.id)).length
+    if (added === 0) return
+    setAnnouncement(added === 1 ? '1 novo alerta no feed.' : `${added} novos alertas no feed.`)
+    const timer = setTimeout(() => setAnnouncement(''), 5000)
+    return () => clearTimeout(timer)
+  }, [matches, loading])
+
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -689,6 +705,9 @@ export function FeedPage() {
   return (
     <main className="feed-page">
       <Toast toast={toast} onDismiss={dismiss} />
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
       {deleteDialog}
       {/* S16-01: no gradient/blur band anymore — this repaints the page's
           own background (color-paper + body-wash, same as index.css's

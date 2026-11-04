@@ -123,7 +123,7 @@ describe('ProductPanel', () => {
 
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
 
-    expect(await screen.findByRole('img', { name: 'Histórico de preço, 90d' })).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: /^Histórico de preço, 90d/ })).toBeInTheDocument()
     expect(screen.getByText('24/06')).toBeInTheDocument()
     expect(screen.getByText('hoje')).toBeInTheDocument()
   })
@@ -137,7 +137,7 @@ describe('ProductPanel', () => {
     const user = userEvent.setup()
 
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
-    await screen.findByRole('img', { name: 'Histórico de preço, 90d' })
+    await screen.findByRole('img', { name: /^Histórico de preço, 90d/ })
 
     const tab30d = screen.getByRole('tab', { name: '30d' })
     expect(tab30d).toHaveAttribute('aria-selected', 'false')
@@ -148,7 +148,7 @@ describe('ProductPanel', () => {
         true,
       ),
     )
-    await screen.findByRole('img', { name: 'Histórico de preço, 30d' })
+    await screen.findByRole('img', { name: /^Histórico de preço, 30d/ })
     expect(screen.getByRole('tab', { name: '30d' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: '90d' })).toHaveAttribute('aria-selected', 'false')
   })

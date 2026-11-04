@@ -362,7 +362,7 @@ test('seeded data across every screen', async ({ page }) => {
   await page.clock.install()
   await page.clock.pauseAt(new Date(Date.now() + 1000))
   await page.getByRole('button', { name: 'Criar regra' }).click()
-  await expect(page.getByRole('status')).toContainText('Regra criada.')
+  await expect(page.getByRole('status').filter({ hasText: 'Regra criada.' })).toContainText('Regra criada.')
   await eachViewport(page, (v) => shoot(page, 'regras-toast', v, { fullPage: false }))
   await page.clock.resume()
 
