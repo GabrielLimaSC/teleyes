@@ -14,7 +14,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 const health = {
   status: 'ok',
   env: 'development',
-  version: '0.1.0',
+  version: '1.0.0',
   uptime_seconds: 42,
   telegram: { configured: false, state: 'not_configured' },
   bot: { configured: true, state: 'configured' },
@@ -236,7 +236,7 @@ describe('LoginPage', () => {
     )
 
     await screen.findByLabelText('Senha')
-    expect(await screen.findByText('v0.1.0 · development')).toBeInTheDocument()
+    expect(await screen.findByText('v1.0.0 · development')).toBeInTheDocument()
     // /rules, /sources e /matches exigem sessão — não devem ser chamados
     // antes do login.
     expect(screen.queryByText('Regras ativas')).not.toBeInTheDocument()

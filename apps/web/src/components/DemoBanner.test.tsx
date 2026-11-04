@@ -6,7 +6,7 @@ import { DemoBanner } from './DemoBanner'
 const baseHealth = {
   status: 'ok',
   env: 'development',
-  version: '0.1.0',
+  version: '1.0.0',
   uptime_seconds: 1,
   telegram: { configured: false, state: 'not_configured' },
   bot: { configured: false, state: 'not_configured' },

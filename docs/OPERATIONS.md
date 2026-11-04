@@ -195,7 +195,7 @@ curl http://localhost:8080/health
 {
   "status": "ok",
   "env": "production",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "uptime_seconds": 123.4,
   "telegram": {"configured": true, "state": "connected"},
   "bot": {"configured": true, "state": "configured"}
