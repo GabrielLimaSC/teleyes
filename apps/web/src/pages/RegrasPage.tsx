@@ -24,6 +24,7 @@ import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
 import { formatDayMonth, formatMatchedAt, isLater } from '../utils/dates'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState } from '../components/EmptyState'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { AnchoredPopover } from '../components/AnchoredPopover'
@@ -36,6 +37,7 @@ import { StatusToggle } from '../components/StatusToggle'
 import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
 import { useListenerStatus } from '../hooks/useListenerStatus'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { useToast } from '../hooks/useToast'
 import { ruleTargetState } from '../utils/target'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -46,7 +48,7 @@ import { RegrasMobileList, RegrasMobileSkeleton } from './RegrasMobileList'
 import { previewMessage, useRulePreview } from '../rules/useRulePreview'
 import { DeliveryAdjustments } from './DeliveryAdjustments'
 import { BottomSheet } from '../components/BottomSheet'
-import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { RegraFormMobile } from './RegraFormMobile'
 import { DestinatariosSection } from './DestinatariosSection'
 import { RecipientRailForm } from './RecipientRailForm'
 import type { RecipientFormTarget } from './RecipientRailForm'
@@ -231,6 +233,9 @@ export function RegrasPage() {
   // half-typed term never leaks from one rule into the next.
   const [formTarget, setFormTarget] = useState<FormTarget>({ kind: 'create' })
   const [form, setForm] = useState<RuleForm>(EMPTY_FORM)
+  // S24-03c: on the phone the form is a full-screen modal instead of the rail.
+  const [mobileFormOpen, setMobileFormOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<Rule | null>(null)
   const [formVersion, setFormVersion] = useState(0)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -513,16 +518,19 @@ export function RegrasPage() {
     setSuggestion(null)
     setSuggestionError(null)
     loadForm({ kind: 'create' }, EMPTY_FORM)
+    if (phone) setMobileFormOpen(true)
     focusRuleName()
   }
 
   const openEdit = (rule: Rule) => {
     loadForm({ kind: 'edit', rule }, ruleToForm(rule, { asCopy: false }))
+    if (phone) setMobileFormOpen(true)
     focusRuleName()
   }
 
   const openDuplicate = (rule: Rule) => {
     loadForm({ kind: 'create' }, ruleToForm(rule, { asCopy: true }))
+    if (phone) setMobileFormOpen(true)
     focusRuleName()
   }
 
@@ -568,6 +576,7 @@ export function RegrasPage() {
   }
 
   const resetForm = () => {
+    setMobileFormOpen(false)
     setSuggestion(null)
     loadForm({ kind: 'create' }, EMPTY_FORM)
   }
@@ -906,7 +915,7 @@ export function RegrasPage() {
       {
         key: 'delete',
         label: 'Excluir',
-        onSelect: () => handleDelete(rule),
+        onSelect: () => (phone ? setDeleteConfirm(rule) : handleDelete(rule)),
         disabled: deletingId === rule.id,
         danger: true,
       },
@@ -916,6 +925,128 @@ export function RegrasPage() {
   if (recipientCount !== null) {
     subtitleParts.push(recipientCount === 1 ? '1 destinatário' : `${recipientCount} destinatários`)
   }
+
+  const formFields = (
+    <>
+    {suggestionLoading && <p role="status" className="regras-form__helper">Buscando sugestão do histórico…</p>}
+    {suggestionError && <p role="alert" className="regras-form__error">{suggestionError}</p>}
+    {!isEditing && (
+      <div role="group" aria-labelledby="rule-templates-label" className="regras-templates">
+        <p id="rule-templates-label" className="regras-templates__label">Começar de um modelo</p>
+        <div className="regras-templates__list">
+          {[{ id: 'blank', label: 'Em branco' }, ...RULE_TEMPLATES].map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="regras-templates__chip"
+              aria-pressed={templateId === template.id}
+              onClick={() => applyTemplate(template.id)}
+            >
+              {template.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+    <label className="regras-form__field">
+      Nome
+      <input
+        ref={nameInputRef}
+        value={form.name}
+        onChange={(event) => setForm({ ...form, name: event.target.value })}
+        placeholder='ex.: Monitor 27" 165Hz'
+        required
+      />
+    </label>
+    <TermChipsInput
+      key={formVersion}
+      id="rule-include-terms"
+      label={phone ? 'Termos incluídos' : 'O que você procura'}
+      labelAction={matchHelp}
+      value={form.includeTerms}
+      onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
+      helper={
+        formMode === 'advanced'
+          ? 'Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb.'
+          : 'Enter ou vírgula pra adicionar cada palavra ou produto.'
+      }
+    />
+    {(formMode === 'advanced' || phone) && (
+      <>
+        <div className="help-field">
+          <div className="help-field__row">
+            <label htmlFor="rule-exclude-terms">Termos bloqueados</label>
+            <HelpTip term="Termos bloqueados" align="right">
+              Se a mensagem tiver qualquer uma dessas palavras, ela é ignorada, mesmo que tenha um termo
+              incluído. Bom para afastar “usado” ou “caixa aberta”.
+            </HelpTip>
+          </div>
+          <input
+            id="rule-exclude-terms"
+            value={form.excludeTerms}
+            onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
+            placeholder="usado, caixa aberta…"
+            aria-describedby="rule-exclude-terms-hint"
+          />
+        </div>
+        <p id="rule-exclude-terms-hint" className="regras-form__helper">
+          Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
+        </p>
+        <p className="regras-form__helper regras-form__plus-help">
+          <strong>a + b</strong> só casa quando a mensagem tem as duas palavras (em qualquer ordem). Termos
+          separados por vírgula funcionam como alternativas: basta um aparecer.
+        </p>
+      </>
+    )}
+    {formMode === 'simple' && parseTermList(form.excludeTerms).length > 0 && (
+      <p className="regras-form__helper">
+        Já bloqueamos termos comuns ({parseTermList(form.excludeTerms).slice(0, 3).join(', ')}…). Veja e
+        edite em Mais opções.
+      </p>
+    )}
+    <div className="regras-form__price-grid">
+      <div className="help-field">
+        <div className="help-field__row">
+          <label htmlFor="rule-max-price">{phone ? 'Preço máximo (R$)' : 'Até quanto você paga (R$)'}</label>
+          <HelpTip term="Preço máximo" align="right">
+            O valor mais alto que você aceita pagar. Ofertas acima dele são ignoradas.
+          </HelpTip>
+        </div>
+        <input
+          id="rule-max-price"
+          ref={maxPriceInputRef}
+          type="text"
+          inputMode="decimal"
+          value={form.maxPriceReais}
+          onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
+          placeholder="sem preço máximo"
+        />
+      </div>
+      <div className="help-field">
+        <div className="help-field__row">
+          <label htmlFor="rule-target-price">{phone ? 'Preço-alvo (R$)' : 'Avisar na hora se cair abaixo de (R$)'}</label>
+          <HelpTip term="Preço-alvo" align="right">
+            O preço dos sonhos: se uma oferta chegar nele, você é avisado na hora, sem esperar o resumo diário.
+          </HelpTip>
+        </div>
+        <input
+          id="rule-target-price"
+          type="text"
+          inputMode="decimal"
+          value={form.targetPriceReais}
+          onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
+          placeholder="sem preço-alvo"
+        />
+      </div>
+    </div>
+    {suggestion && (
+      <p className="regras-form__suggestion-note">
+        <span aria-hidden="true" />
+        Sugerido a partir do histórico: preço máximo = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; preço-alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
+      </p>
+    )}
+    </>
+  )
 
   return (
     <main className="crud-page regras-page">
@@ -1273,7 +1404,7 @@ export function RegrasPage() {
             </div>
           )}
 
-          {clearConfirm && (
+          {!phone && clearConfirm && (
             <div className="plane-pearl regras-panel">
               <h2>Limpar histórico: {clearConfirm.rule.name}</h2>
               <p className="regras-panel__note">
@@ -1355,129 +1486,13 @@ export function RegrasPage() {
               onSaved={recipientSaved}
               onCancel={closeRecipientForm}
             />
-          ) : (
+          ) : phone ? null : (
             <form className="plane-glass regras-form" onSubmit={submitForm}>
             <div className="regras-form__title-row">
               <h2 className="regras-rail__eyebrow">{isEditing ? 'Editar regra' : 'Nova regra'}</h2>
               {suggestion && !isEditing && <span className="regras-form__badge">pré-preenchida do produto</span>}
             </div>
-            {suggestionLoading && <p role="status" className="regras-form__helper">Buscando sugestão do histórico…</p>}
-            {suggestionError && <p role="alert" className="regras-form__error">{suggestionError}</p>}
-            {!isEditing && (
-              <div role="group" aria-labelledby="rule-templates-label" className="regras-templates">
-                <p id="rule-templates-label" className="regras-templates__label">Começar de um modelo</p>
-                <div className="regras-templates__list">
-                  {[{ id: 'blank', label: 'Em branco' }, ...RULE_TEMPLATES].map((template) => (
-                    <button
-                      key={template.id}
-                      type="button"
-                      className="regras-templates__chip"
-                      aria-pressed={templateId === template.id}
-                      onClick={() => applyTemplate(template.id)}
-                    >
-                      {template.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <label className="regras-form__field">
-              Nome
-              <input
-                ref={nameInputRef}
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                placeholder='ex.: Monitor 27" 165Hz'
-                required
-              />
-            </label>
-            <TermChipsInput
-              key={formVersion}
-              id="rule-include-terms"
-              label="O que você procura"
-              labelAction={matchHelp}
-              value={form.includeTerms}
-              onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
-              helper={
-                formMode === 'advanced'
-                  ? 'Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb.'
-                  : 'Enter ou vírgula pra adicionar cada palavra ou produto.'
-              }
-            />
-            {formMode === 'advanced' && (
-              <>
-                <div className="help-field">
-                  <div className="help-field__row">
-                    <label htmlFor="rule-exclude-terms">Termos bloqueados</label>
-                    <HelpTip term="Termos bloqueados" align="right">
-                      Se a mensagem tiver qualquer uma dessas palavras, ela é ignorada, mesmo que tenha um termo
-                      incluído. Bom para afastar “usado” ou “caixa aberta”.
-                    </HelpTip>
-                  </div>
-                  <input
-                    id="rule-exclude-terms"
-                    value={form.excludeTerms}
-                    onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
-                    placeholder="usado, caixa aberta…"
-                    aria-describedby="rule-exclude-terms-hint"
-                  />
-                </div>
-                <p id="rule-exclude-terms-hint" className="regras-form__helper">
-                  Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
-                </p>
-                <p className="regras-form__helper regras-form__plus-help">
-                  <strong>a + b</strong> só casa quando a mensagem tem as duas palavras (em qualquer ordem). Termos
-                  separados por vírgula funcionam como alternativas: basta um aparecer.
-                </p>
-              </>
-            )}
-            {formMode === 'simple' && parseTermList(form.excludeTerms).length > 0 && (
-              <p className="regras-form__helper">
-                Já bloqueamos termos comuns ({parseTermList(form.excludeTerms).slice(0, 3).join(', ')}…). Veja e
-                edite em Mais opções.
-              </p>
-            )}
-            <div className="regras-form__price-grid">
-              <div className="help-field">
-                <div className="help-field__row">
-                  <label htmlFor="rule-max-price">Até quanto você paga (R$)</label>
-                  <HelpTip term="Preço máximo" align="right">
-                    O valor mais alto que você aceita pagar. Ofertas acima dele são ignoradas.
-                  </HelpTip>
-                </div>
-                <input
-                  id="rule-max-price"
-                  ref={maxPriceInputRef}
-                  type="text"
-                  inputMode="decimal"
-                  value={form.maxPriceReais}
-                  onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
-                  placeholder="sem preço máximo"
-                />
-              </div>
-              <div className="help-field">
-                <div className="help-field__row">
-                  <label htmlFor="rule-target-price">Avisar na hora se cair abaixo de (R$)</label>
-                  <HelpTip term="Preço-alvo" align="right">
-                    O preço dos sonhos: se uma oferta chegar nele, você é avisado na hora, sem esperar o resumo diário.
-                  </HelpTip>
-                </div>
-                <input
-                  id="rule-target-price"
-                  type="text"
-                  inputMode="decimal"
-                  value={form.targetPriceReais}
-                  onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
-                  placeholder="sem preço-alvo"
-                />
-              </div>
-            </div>
-            {suggestion && (
-              <p className="regras-form__suggestion-note">
-                <span aria-hidden="true" />
-                Sugerido a partir do histórico: preço máximo = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; preço-alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
-              </p>
-            )}
+            {formFields}
             <p aria-live="polite" className="regras-form__preview" data-testid="rule-preview">
               {previewText}
             </p>
@@ -1545,6 +1560,56 @@ export function RegrasPage() {
             onCancel={closeRecipientForm}
           />
         </BottomSheet>
+      )}
+      <RegraFormMobile
+        open={phone && mobileFormOpen}
+        isEditing={isEditing}
+        csrfToken={csrfToken}
+        testInput={formToTestInput(form)}
+        preview={preview}
+        submitting={submitting}
+        error={formError}
+        onClose={resetForm}
+        onSubmit={submitForm}
+        modeLink={
+          <>
+            <button
+              type="button"
+              className="regras-form__mode-link"
+              aria-expanded={formMode === 'advanced'}
+              onClick={() => changeFormMode(formMode === 'advanced' ? 'simple' : 'advanced')}
+            >
+              {formMode === 'advanced' ? 'Menos opções' : 'Mais opções'}
+            </button>
+            <p aria-live="polite" className="regras-form__sr">{formAnnouncement}</p>
+          </>
+        }
+      >
+        {formFields}
+      </RegraFormMobile>
+      {phone && clearConfirm && (
+        <ConfirmDialog
+          title={`Limpar histórico de ${clearConfirm.rule.name}?`}
+          message={`Isso apaga ${clearConfirm.count === 1 ? '1 oferta' : `${clearConfirm.count} ofertas`} desta regra do Feed/Histórico. A regra continua ativa. Essa ação não pode ser desfeita.`}
+          confirmLabel="Apagar histórico"
+          busyLabel="Apagando…"
+          busy={clearing}
+          onConfirm={confirmClear}
+          onCancel={closeClearConfirm}
+        />
+      )}
+      {deleteConfirm && (
+        <ConfirmDialog
+          title={`Excluir a regra ${deleteConfirm.name}?`}
+          message="A regra deixa de procurar ofertas. Essa ação não pode ser desfeita."
+          confirmLabel="Excluir"
+          busy={deletingId === deleteConfirm.id}
+          onConfirm={() => {
+            handleDelete(deleteConfirm)
+            setDeleteConfirm(null)
+          }}
+          onCancel={() => setDeleteConfirm(null)}
+        />
       )}
       <Toast toast={toast} onDismiss={dismiss} />
     </main>
