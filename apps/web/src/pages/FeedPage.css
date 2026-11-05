@@ -1181,3 +1181,10 @@
     transition: none;
   }
 }
+
+/* S24: on the phone, Ao vivo lives in the app bar and Agrupar/Atualizar in the filter sheet. */
+@media (max-width: 640px) {
+  .feed-page__header-actions {
+    display: none;
+  }
+}

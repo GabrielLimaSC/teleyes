@@ -56,17 +56,19 @@ function DeliveryBody({
           </div>
           <div className="delivery-card delivery-card--controls">
             <strong>Oferta comum</strong>
-            <label>
-              <input
-                type="checkbox"
-                checked={digest.enabled}
-                onChange={(event) => onChange({ ...digest, enabled: event.target.checked })}
-              />
-              Resumo diário
-            </label>
-            <HelpTip term="Resumo diário" align="right">
-              Em vez de vários avisos, você recebe uma mensagem por dia com as melhores ofertas.
-            </HelpTip>
+            <div className="delivery-card__row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={digest.enabled}
+                  onChange={(event) => onChange({ ...digest, enabled: event.target.checked })}
+                />
+                Resumo diário
+              </label>
+              <HelpTip term="Resumo diário" align="right">
+                Em vez de vários avisos, você recebe uma mensagem por dia com as melhores ofertas.
+              </HelpTip>
+            </div>
             <label>
               Horário
               <input
