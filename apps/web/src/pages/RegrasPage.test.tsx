@@ -1475,6 +1475,11 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     expect(await screen.findByText(/Próximo envio: 25\/09 09:00/)).toBeInTheDocument()
     expect(screen.getByText(/2 itens na fila/)).toBeInTheDocument()
     expect(screen.getByText(/fura o resumo diário e o silêncio/)).toBeInTheDocument()
+    // Digest on + individual sending on: the digest would stay empty, so say so.
+    expect(screen.getByRole('note')).toHaveTextContent(/o resumo fica vazio/)
+    await user.click(screen.getByLabelText('Não enviar ofertas comuns individualmente'))
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+    await user.click(screen.getByLabelText('Não enviar ofertas comuns individualmente'))
 
     await user.clear(screen.getByLabelText('Máximo de itens'))
     await user.type(screen.getByLabelText('Máximo de itens'), '8')
