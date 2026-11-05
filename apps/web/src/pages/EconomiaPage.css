@@ -913,3 +913,20 @@ button.economia-pill--action:focus-visible {
   font-weight: 600;
   color: var(--plane-text-secondary);
 }
+
+/* S24-04c: phone header: the two actions side by side, 44px touch targets. */
+@media (max-width: 640px) {
+  .economia-page__header-actions {
+    width: 100%;
+  }
+
+  .economia-page__header-actions .plane-action {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .economia-page__header-actions .fill-button {
+    order: -1;
+  }
+}
