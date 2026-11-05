@@ -126,6 +126,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.goto('/regras')
         await page.locator('.rule-row__toggle', { hasText: `Regra A11y ${tag}` }).first().click()
         await scan(page, 'Regras (linha expandida)')
+        // S24-03b: on the phone the recipients live in their own tab.
+        if ((page.viewportSize()?.width ?? 1440) <= 640) {
+          await page.getByRole('tab', { name: 'Destinatários' }).click()
+        }
         await page.getByRole('button', { name: '+ Adicionar destinatário' }).click()
         await scan(page, 'Regras (trilho de destinatário)')
 
