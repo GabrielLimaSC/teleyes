@@ -532,3 +532,16 @@
     width: 100%;
   }
 }
+
+/* S24-04a: assistente em passos verticais numerados. */
+@media (max-width: 640px) {
+  .setup-step__header {
+    min-height: 56px;
+  }
+
+  .setup-fields input,
+  .setup-fields select,
+  .setup-actions .setup-button {
+    min-height: 44px;
+  }
+}
