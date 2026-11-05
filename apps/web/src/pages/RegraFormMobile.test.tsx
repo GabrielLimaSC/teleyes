@@ -78,7 +78,7 @@ describe('RegraFormMobile (S24-03c)', () => {
     render(<RegrasPage />)
     await screen.findByText('iPhone')
 
-    await user.click(screen.getByRole('button', { name: '+ Nova regra' }))
+    await user.click(screen.getByRole('button', { name: '+ Nova' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Nova regra' })
     expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
@@ -96,15 +96,21 @@ describe('RegraFormMobile (S24-03c)', () => {
   it('opens Editar from the row menu as "Editar regra" and asks before deleting', async () => {
     const user = userEvent.setup()
     render(<RegrasPage />)
-    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    await screen.findByText('iPhone')
+    const more = () => screen.getByRole('button', { name: 'Mais ações da regra iPhone' })
 
-    await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
+    await user.click(more())
     await user.click(await screen.findByRole('menuitem', { name: 'Editar' }))
     const dialog = await screen.findByRole('dialog', { name: 'Editar regra' })
     expect(within(dialog).getByRole('button', { name: 'Salvar alterações' })).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
 
-    await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
+    await user.click(more())
+    await user.click(await screen.findByRole('menuitem', { name: 'Duplicar' }))
+    expect(await screen.findByRole('dialog', { name: 'Nova regra' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    await user.click(more())
     await user.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
     expect(await screen.findByRole('alertdialog')).toHaveTextContent('Excluir a regra iPhone?')
   })
