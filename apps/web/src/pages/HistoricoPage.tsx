@@ -26,6 +26,9 @@ import { useProductPanel } from '../hooks/useProductPanel'
 import { useStableCallback } from '../hooks/useStableCallback'
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { RowActionsMenu } from '../components/RowActionsMenu'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { HistoricoMobileFilters, MobileHistoricoItem, MOBILE_SORT_OPTIONS, activeFilterChips } from './HistoricoMobile'
+import type { MobileRow } from './HistoricoMobile'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
@@ -361,6 +364,8 @@ const HistoricoTableRow = memo(function HistoricoTableRow({
 
 export function HistoricoPage() {
   const panel = useProductPanel()
+  const phone = useMediaQuery(PHONE_QUERY)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
   const { toast, showToast, dismiss } = useToast()
@@ -594,7 +599,27 @@ export function HistoricoPage() {
     }
   }, [matches])
 
-  const exportCsv = () => downloadCsv(buildCsv(rows))
+  const chips = useMemo(() => activeFilterChips(form, rules, sources, recipients), [form, rules, sources, recipients])
+  const mobileRows: MobileRow[] = useMemo(
+    () =>
+      rows.map((row) => ({
+        id: row.match.id,
+        title: row.title,
+        productKey: row.productKey,
+        priceText: row.priceText,
+        priceDetails: row.priceDetails,
+        ruleName: row.ruleName,
+        sourceName: row.sourceName,
+        time: row.time,
+        link: row.match.message_link,
+        deliveries: row.match.deliveries,
+        deliveryLabel: row.deliveryLabel,
+        recipientNames: row.recipientNames,
+      })),
+    [rows],
+  )
+
+  const exportCsv =() => downloadCsv(buildCsv(rows))
 
   // S14-13: inline pt-BR error for an unparseable, non-blank price filter —
   // `toApiFilters` already drops it from the query instead of sending `NaN`,
@@ -617,6 +642,75 @@ export function HistoricoPage() {
     <main className="historico-page">
       <Toast toast={toast} onDismiss={dismiss} />
       {deleteDialog}
+      {phone ? (
+        <>
+          <div className="historico-page__header hist-m__head">
+            <div>
+              <h1>Histórico</h1>
+              <p className="historico-page__subtitle">
+                {matches.length} {matches.length === 1 ? 'anúncio' : 'anúncios'} · últimos 90 dias
+              </p>
+            </div>
+            <button type="button" className="plane-action plane-action--secondary" onClick={exportCsv} disabled={rows.length === 0}>
+              CSV ↓
+            </button>
+          </div>
+          <div className="hist-m__tools">
+            <input
+              type="search"
+              className="hist-m__search"
+              aria-label="Buscar produto"
+              placeholder="Buscar produto"
+              maxLength={200}
+              autoComplete="off"
+              value={form.search}
+              onChange={(event) => updateField('search')(event.target.value)}
+            />
+            <div className="hist-m__bar">
+              <button type="button" className="plane-action plane-action--secondary" onClick={() => setFiltersOpen(true)}>
+                Filtros{chips.length > 0 ? ` (${chips.length})` : ''}
+              </button>
+              <select
+                className="hist-m__sort"
+                aria-label="Ordenação"
+                value={form.sort}
+                onChange={(event) => updateField('sort')(event.target.value)}
+              >
+                {MOBILE_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {chips.length > 0 && (
+              <div className="hist-m__chips">
+                {chips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className="hist-m__chip"
+                    aria-label={`Remover filtro ${chip.label}`}
+                    onClick={() => updateField(chip.key)('')}
+                  >
+                    {chip.label} <span aria-hidden="true">✕</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <HistoricoMobileFilters
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
+            form={form}
+            onApply={(next) => setForm((current) => ({ ...current, ...next, search: current.search, sort: current.sort }))}
+            rules={rules}
+            sources={sources}
+            recipients={recipients}
+            toApi={(draft) => toApiFilters({ ...draft, search: appliedSearch, sort: form.sort })}
+          />
+        </>
+      ) : (
       <div className="historico-page__header">
         <div>
           <h1>Histórico</h1>
@@ -638,6 +732,7 @@ export function HistoricoPage() {
           </button>
         </div>
       </div>
+      )}
 
       <div className="product-panel-layout" data-panel-phase={panel.phase}>
       <div className="product-panel-layout__content">
@@ -645,7 +740,8 @@ export function HistoricoPage() {
         {/* S10-07: mesmos campos de filtro de sempre (Regra/Fonte/
             Destinatário/Entrega/Preço/Ordenar por), só restilizados pro
             plano vidro — nenhum campo novo, nenhum removido. */}
-        <form className="plane-glass historico-rail" onSubmit={(event) => event.preventDefault()}>
+        {!phone && (
+        <form className="plane-glass historico-rail"onSubmit={(event) => event.preventDefault()}>
           <div className="historico-rail__head">
             <span className="historico-rail__eyebrow">Filtros</span>
             {/* S15-06: also clears what's saved — reopening the page (or
@@ -792,6 +888,7 @@ export function HistoricoPage() {
             </select>
           </label>
         </form>
+        )}
 
         <div className="historico-page__results">
           {loading && <p>Carregando…</p>}
@@ -802,6 +899,7 @@ export function HistoricoPage() {
           )}
           {!loading && !error && (
             <>
+              {!phone && (
               <div className="historico-stats">
                 <div className="historico-stats__tile">
                   <div className="historico-stats__label">Ofertas no período</div>
@@ -824,6 +922,7 @@ export function HistoricoPage() {
                   <div className="historico-stats__value">{stats.deliveriesDone}</div>
                 </div>
               </div>
+              )}
 
               {rows.length === 0 && !hasActiveFilters && (
                 <EmptyState
@@ -839,7 +938,19 @@ export function HistoricoPage() {
                     : 'Nenhuma oferta encontrada com esses filtros.'}
                 </p>
               )}
-              {rows.length > 0 && (
+              {rows.length > 0 && phone && (
+                <ul className="hist-m__list">
+                  {mobileRows.map((row) => (
+                    <MobileHistoricoItem
+                      key={row.id}
+                      row={row}
+                      onOpenProduct={panel.open}
+                      onRequestDelete={stableRequestDeleteMatch}
+                    />
+                  ))}
+                </ul>
+              )}
+              {rows.length > 0 && !phone && (
                 <div className="plane-pearl historico-table">
                   <div className="historico-table__row historico-table__row--head">
                     <span>Produto</span>
