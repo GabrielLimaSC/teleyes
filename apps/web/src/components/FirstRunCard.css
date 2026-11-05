@@ -155,3 +155,29 @@
     transition: none;
   }
 }
+
+@media (max-width: 640px) {
+  .first-run {
+    margin-bottom: 16px;
+  }
+
+  .first-run h2 {
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .first-run__head {
+    flex-direction: row;
+  }
+
+  .first-run__lede,
+  .first-run__count {
+    display: none;
+  }
+
+  .first-run__skip,
+  .first-run__cta {
+    min-height: 44px;
+  }
+}
