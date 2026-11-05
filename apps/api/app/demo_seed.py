@@ -292,7 +292,8 @@ def plan_events(now: datetime, rng: random.Random) -> list[Event]:
         text, link = message_for(spec, cents, rng, serial, variant=variant)
         events.append(Event(when, spec, source_index, text, link, cents))
         if repost:
-            delay = timedelta(minutes=rng.randint(2, 12), seconds=rng.randint(0, 59))
+            # Same-minute cross-posts, so they group as one alert (S23-11).
+            delay = timedelta(seconds=rng.randint(2, 12) * 4 + rng.randint(0, 59) % 8)
             if when + delay < now - timedelta(minutes=1):
                 serial += 1
                 other = (source_index + rng.randrange(1, len(SOURCE_NAMES))) % len(SOURCE_NAMES)
