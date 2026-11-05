@@ -101,7 +101,14 @@ DIGEST_ATTEMPTED_DELIVERY_STATUS = "digest_attempted"
 # description ("1 a 10 minutos de diferença") suggested 15 minutes as a
 # margin over that.
 GROUPED_DELIVERY_STATUS = "grouped"
+# Feed cards ("visto em N grupos") and the digest queue still collapse the same
+# promotion over 15 minutes: that only changes how it is shown.
 GROUPING_WINDOW = timedelta(minutes=15)
+# S23-11: a Telegram alert is only held back for a cross-post in the same
+# minute. Flash sales sell out and come back minutes later, re-announced in
+# the groups; that second announcement must alert again (Gabriel, 05/11).
+# Production data: of 112 held alerts, only 15 were within 60 s of the sent one.
+ALERT_GROUPING_WINDOW = timedelta(minutes=1)
 # S13-05: how far back the non-notifying historical scan looks (S6-02/S7-04),
 # widened from 7 to 15 days at Gabriel's request. The single source of truth:
 # `run_historical_scan`, `ListenerLifecycle` and `scripts/run_listener.py` all
@@ -497,7 +504,7 @@ async def process_message(
                 rule.id,
                 evaluation.price_cents,
                 message.received_at,
-                GROUPING_WINDOW,
+                ALERT_GROUPING_WINDOW,
                 kind=kind,
             )
         )
@@ -511,7 +518,7 @@ async def process_message(
                 rule.id,
                 evaluation.price_cents,
                 message.received_at,
-                GROUPING_WINDOW,
+                ALERT_GROUPING_WINDOW,
                 kind=DELIVERY_KIND_IMMEDIATE,
             )
         )
