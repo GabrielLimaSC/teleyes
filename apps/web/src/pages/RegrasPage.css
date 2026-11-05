@@ -310,6 +310,14 @@ td.wide-table__num {
   color: var(--plane-text-primary);
 }
 
+.delivery-card__hint {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--plane-status-warn);
+  background: var(--plane-surface-raised, transparent);
+  color: var(--plane-text-primary);
+}
+
 .delivery-card__state--neutral {
   color: var(--plane-status-neutral);
 }
