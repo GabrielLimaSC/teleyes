@@ -1645,9 +1645,15 @@ describe('RegrasPage — Aplicar regras (S13-06)', () => {
     expect(await screen.findByRole('button', { name: 'Aplicando…' })).toBeDisabled()
     expect(log.reloadHeaders?.['X-CSRF-Token']).toBe('test-csrf')
 
-    await vi.advanceTimersByTimeAsync(4000)
-
-    expect(await screen.findByRole('status')).toHaveTextContent('Regras aplicadas — 5 ofertas novas no histórico.')
+    // The result comes from the next status poll; under CI load that poll can land
+    // after the first timer advance, so keep advancing until the toast says so.
+    await waitFor(
+      async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(screen.getByText('Regras aplicadas — 5 ofertas novas no histórico.')).toBeInTheDocument()
+      },
+      { timeout: 10000 },
+    )
     expect(screen.getByText(/^aplicado \d{2}\/\d{2} \d{2}:\d{2}$/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aplicar regras' })).toBeEnabled()
   })
