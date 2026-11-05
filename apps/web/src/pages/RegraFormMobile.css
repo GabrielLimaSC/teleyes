@@ -20,6 +20,10 @@
   white-space: nowrap;
 }
 
+.regra-form-sheet .bottom-sheet__close {
+  display: none;
+}
+
 .regra-form-sheet .bottom-sheet__body {
   display: flex;
   flex-direction: column;

@@ -85,6 +85,7 @@ function FormShell({
   const [testing, setTesting] = useState(false)
   const [testError, setTestError] = useState<string | null>(null)
   const requestId = useRef(0)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   const testRef = useRef<HTMLElement>(null)
   const hasTerms = parseTermList(testInput.include_terms).length > 0
 
@@ -120,6 +121,13 @@ function FormShell({
     fetchResult()
   }
 
+  // Initial focus: the "Cancelar" button (the sheet's own close button is hidden).
+  // Deferred so it lands after BottomSheet's mount effects.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => cancelRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
   useEffect(() => {
     if (testOpen) testRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
   }, [testOpen])
@@ -129,7 +137,7 @@ function FormShell({
   return (
     <form className="regra-form-m" onSubmit={onSubmit}>
       <header className="regra-form-m__top">
-        <button type="button" className="regra-form-m__cancel" onClick={onClose}>
+        <button ref={cancelRef} type="button" className="regra-form-m__cancel" onClick={onClose}>
           Cancelar
         </button>
         <span className="regra-form-m__title" aria-hidden="true">

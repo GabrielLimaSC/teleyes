@@ -84,6 +84,9 @@ describe('RegraFormMobile (S24-03c)', () => {
     expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Testar' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Salvar regra' })).toBeInTheDocument()
+    // The rail form is not rendered on the phone: one set of fields, inside the dialog.
+    expect(document.querySelectorAll('#rule-max-price')).toHaveLength(1)
+    expect(dialog.querySelector('#rule-max-price')).not.toBeNull()
     expect(within(dialog).getByLabelText('Nome')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Termos bloqueados')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Preço máximo (R$)')).toBeInTheDocument()

@@ -118,7 +118,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.getByRole('button', { name: 'Mais opções' })).toBeVisible()
         await scan(page, 'Regras (formulário simples)')
         await page.getByRole('button', { name: 'Placa de vídeo' }).click()
-        await expect(page.getByLabel(phone ? /Preço máximo/ : /Até quanto você paga/)).toBeFocused()
+        await expect(page.getByLabel(phone ? 'Preço máximo (R$)' : /Até quanto você paga/)).toBeFocused()
         await page.getByRole('button', { name: 'Mais opções' }).click()
         await expect(page.getByLabel('Termos bloqueados', { exact: true })).toBeVisible()
         await scan(page, 'Regras (formulário avançado)')
