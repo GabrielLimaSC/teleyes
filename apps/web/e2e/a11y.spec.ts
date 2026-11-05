@@ -112,10 +112,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
       test('regras: formulário de nova regra em modo simples e avançado, com modelo', async ({ page }) => {
         await seed(page)
         await page.goto('/regras')
+        // S24-03c: on the phone (<= 640px) the form is a full-screen modal opened by "+ Nova".
+        const phone = (page.viewportSize()?.width ?? 1024) <= 640
+        if (phone) await page.getByRole('button', { name: /^\+ Nova/ }).first().click()
         await expect(page.getByRole('button', { name: 'Mais opções' })).toBeVisible()
         await scan(page, 'Regras (formulário simples)')
         await page.getByRole('button', { name: 'Placa de vídeo' }).click()
-        await expect(page.getByLabel(/Até quanto você paga/)).toBeFocused()
+        await expect(page.getByLabel(phone ? 'Preço máximo (R$)' : /Até quanto você paga/)).toBeFocused()
         await page.getByRole('button', { name: 'Mais opções' }).click()
         await expect(page.getByLabel('Termos bloqueados', { exact: true })).toBeVisible()
         await scan(page, 'Regras (formulário avançado)')

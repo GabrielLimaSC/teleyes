@@ -1,0 +1,189 @@
+/* S24-03c: full-screen rule form on the phone. Only mounted at <= 640px. */
+.bottom-sheet.regra-form-sheet {
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+  border: none;
+  padding-bottom: 0;
+}
+
+/* The sheet's own handle/close are replaced by the Cancelar header; the title
+   stays in the DOM as the dialog's accessible name. */
+.regra-form-sheet .bottom-sheet__grab {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.regra-form-sheet .bottom-sheet__close {
+  display: none;
+}
+
+.regra-form-sheet .bottom-sheet__body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.regra-form-m {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.regra-form-m__top {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 52px;
+  padding: env(safe-area-inset-top) 8px 0;
+  border-bottom: 1px solid var(--plane-divider-color);
+}
+
+.regra-form-m__cancel {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--plane-text-primary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.regra-form-m__cancel:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: 8px;
+}
+
+.regra-form-m__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.regra-form-m__fields {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 24px;
+}
+
+.regra-form-m__fields input {
+  min-height: 44px;
+}
+
+.regra-form-m__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: var(--plane-pearl-border);
+  border-radius: 14px;
+  background: var(--plane-tint-bg);
+}
+
+.regra-form-m__preview p {
+  margin: 0;
+}
+
+.regra-form-m__preview-count {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.regra-form-m__preview-window {
+  color: var(--plane-text-helper);
+  font-size: 12px;
+}
+
+.regra-form-m__see {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--plane-text-heading);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.regra-form-m__test {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regra-form-m__test p,
+.regra-form-m__list {
+  margin: 0;
+}
+
+.regra-form-m__test-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.regra-form-m__list {
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.regra-form-m__list li {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--plane-divider-color);
+}
+
+.regra-form-m__list-text {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.regra-form-m__list-meta {
+  color: var(--plane-text-helper);
+  font-size: 12px;
+}
+
+.regra-form-m__error {
+  margin: 0;
+  color: var(--plane-action-danger-color);
+}
+
+.regra-form-m__footer {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--plane-divider-color);
+  background: var(--plane-input-bg);
+}
+
+.regra-form-m__btn {
+  min-height: 48px;
+  justify-content: center;
+}
