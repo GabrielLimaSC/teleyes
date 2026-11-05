@@ -13,10 +13,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.pipeline import (
+    ALERT_GROUPING_WINDOW,
     DELIVERY_KIND_IMMEDIATE,
     DELIVERY_KIND_TARGET,
     GROUPED_DELIVERY_STATUS,
-    GROUPING_WINDOW,
     IncomingMessage,
     decide_delivery_kind,
     process_message,
@@ -171,9 +171,7 @@ async def test_reprocessing_the_same_real_message_never_duplicates_the_target_de
     assert first.match is not None
 
     # Simulate a restart: a fresh notifier and dedupe cache, same real message.
-    restarted_notifier = BotNotifier(
-        bot_token="token", client=client, allowlisted_chat_ids={"999"}
-    )
+    restarted_notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
     second = await process_message(
         session, message, rule, [recipient], restarted_notifier, DedupeCache()
     )
@@ -225,7 +223,7 @@ async def test_match_that_hits_target_after_a_grouped_common_match_is_delivered_
         message_id=2,
         text="RTX 5070 por R$ 2.000 no Mercado Livre",
         link=None,
-        received_at=datetime.now(UTC) + timedelta(minutes=5),
+        received_at=datetime.now(UTC) + timedelta(seconds=5),
     )
     second = await process_message(
         session, second_message, rule, [recipient], notifier, dedupe_cache
@@ -246,9 +244,7 @@ async def test_match_that_hits_target_after_a_grouped_common_match_is_delivered_
     }
 
     # Reprocessing (restart) never adds a third delivery for this match.
-    restarted_notifier = BotNotifier(
-        bot_token="token", client=client, allowlisted_chat_ids={"999"}
-    )
+    restarted_notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
     third = await process_message(
         session, second_message, rule, [recipient], restarted_notifier, DedupeCache()
     )
@@ -283,11 +279,9 @@ async def test_three_postings_below_target_in_the_same_window_send_exactly_one_t
             message_id=1,
             text=f"RTX 5070 por R$ 2.000 na loja {index}",
             link=None,
-            received_at=base + timedelta(minutes=index * 2),
+            received_at=base + timedelta(seconds=index * 2),
         )
-        result = await process_message(
-            session, message, rule, [recipient], notifier, dedupe_cache
-        )
+        result = await process_message(session, message, rule, [recipient], notifier, dedupe_cache)
         session.commit()
         results.append(result)
 
@@ -350,7 +344,7 @@ async def test_repetition_after_an_already_notified_common_match_still_sends_onl
             message_id=1,
             text="RTX 5070 por R$ 2.000 no Mercado Livre",
             link=None,
-            received_at=base + timedelta(minutes=5),
+            received_at=base + timedelta(seconds=5),
         ),
         rule,
         [recipient],
@@ -368,7 +362,7 @@ async def test_repetition_after_an_already_notified_common_match_still_sends_onl
             message_id=1,
             text="RTX 5070 por R$ 2.000 no Magalu",
             link=None,
-            received_at=base + timedelta(minutes=9),
+            received_at=base + timedelta(seconds=9),
         ),
         rule,
         [recipient],
@@ -426,7 +420,7 @@ async def test_repetition_outside_the_grouping_window_sends_a_new_target_alert(
             message_id=1,
             text="RTX 5070 por R$ 2.000 no Mercado Livre",
             link=None,
-            received_at=base + GROUPING_WINDOW + timedelta(minutes=1),
+            received_at=base + ALERT_GROUPING_WINDOW + timedelta(minutes=1),
         ),
         rule,
         [recipient],
@@ -465,11 +459,9 @@ async def test_snoozed_rule_still_sends_exactly_one_target_alert_for_a_repeated_
             message_id=1,
             text=f"RTX 5070 por R$ 2.000 na loja {index}",
             link=None,
-            received_at=base + timedelta(minutes=index * 2),
+            received_at=base + timedelta(seconds=index * 2),
         )
-        result = await process_message(
-            session, message, rule, [recipient], notifier, dedupe_cache
-        )
+        result = await process_message(session, message, rule, [recipient], notifier, dedupe_cache)
         session.commit()
         results.append(result)
 
@@ -514,7 +506,7 @@ async def test_reprocessing_a_suppressed_group_repeat_target_delivery_never_dupl
         message_id=1,
         text="RTX 5070 por R$ 2.000 no Mercado Livre",
         link=None,
-        received_at=base + timedelta(minutes=3),
+        received_at=base + timedelta(seconds=3),
     )
     second = await process_message(
         session, second_message, rule, [recipient], notifier, dedupe_cache
@@ -524,9 +516,7 @@ async def test_reprocessing_a_suppressed_group_repeat_target_delivery_never_dupl
     assert second.match is not None
     assert len(_deliveries_for(session, second.match.id)) == 1
 
-    restarted_notifier = BotNotifier(
-        bot_token="token", client=client, allowlisted_chat_ids={"999"}
-    )
+    restarted_notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
     third = await process_message(
         session, second_message, rule, [recipient], restarted_notifier, DedupeCache()
     )

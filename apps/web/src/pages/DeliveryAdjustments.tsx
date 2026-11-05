@@ -114,7 +114,7 @@ export function DeliveryAdjustments({
           </div>
           <div className="delivery-card">
             <strong>Repetição da mesma oferta</strong>
-            <span>Agrupa no card e não dispara outra entrega.</span>
+            <span>No mesmo minuto, agrupa e não envia de novo. Anunciou de novo depois disso (estoque renovado, por exemplo)? Você recebe outro alerta.</span>
             <span className="delivery-card__state delivery-card__state--neutral">
               <i /> silencioso
             </span>
