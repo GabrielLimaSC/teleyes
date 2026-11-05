@@ -366,17 +366,26 @@ export function MatchCard({
   const canSetTarget = onSetTarget !== undefined && !canCorrect
   // S16-03 (05): narrow pulls Silenciar into the ⋯ menu; wide keeps it a
   // standalone button and the menu only ever holds "Criar regra disso".
-  const showSnoozeButton = canSnooze && !isNarrow
+  const showSnoozeButton = canSnooze && !isNarrow && !phone
   const canDelete = onDelete !== undefined
   const canMarkPurchased = onMarkPurchased !== undefined
-  const showMenu = canCreateRule || (isNarrow && canSnooze) || canDelete || canMarkPurchased
+  const showMenu =
+    canCreateRule || (isNarrow && canSnooze) || canDelete || canMarkPurchased || (phone && match.message_link !== null)
 
   const menuItems: { key: string; label: string; danger?: boolean; run: () => void }[] = []
-  if (isNarrow && canSnooze) {
+  if ((isNarrow || phone) && canSnooze) {
     menuItems.push({
       key: 'snooze',
       label: match.snoozed ? 'Reativar' : 'Silenciar 7 dias',
       run: () => onSnooze?.(match),
+    })
+  }
+  if (phone && match.message_link !== null) {
+    const link = match.message_link
+    menuItems.push({
+      key: 'promo',
+      label: 'Abrir promoção',
+      run: () => window.open(link, '_blank', 'noopener,noreferrer'),
     })
   }
   if (canCreateRule) {
@@ -489,15 +498,17 @@ export function MatchCard({
             <div className="match-card__price-missing">
               <p className="match-card__price-missing-label">
                 <span className="match-card__price-missing-dot" aria-hidden="true" />
-                Preço não identificado
+                {phone ? 'R$ —' : 'Preço não identificado'}
               </p>
-              <p className="match-card__price-missing-hint">Corrija à mão — o valor entra no histórico.</p>
+              <p className="match-card__price-missing-hint">
+                {phone ? 'Não conseguimos ler o preço na mensagem' : 'Corrija à mão — o valor entra no histórico.'}
+              </p>
             </div>
           ) : match.price_cash_cents !== null && match.price_card_cents !== null ? (
             <p className="match-card__price">
               {formatCurrency(match.price_cash_cents)}
               <span className="match-card__price-sub">
-                À vista · Cartão {formatCurrency(match.price_card_cents)}
+                {phone ? 'à vista · cartão' : 'À vista · Cartão'} {formatCurrency(match.price_card_cents)}
               </span>
             </p>
           ) : (
@@ -546,7 +557,7 @@ export function MatchCard({
             {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
             onClick={(event) => openProduct(event.currentTarget)}
           >
-            {isNarrow ? 'Corrigir' : 'Corrigir preço'}
+            {isNarrow && !phone ? 'Corrigir' : 'Corrigir preço'}
           </button>
         )}
         {canSetTarget && (
@@ -559,7 +570,7 @@ export function MatchCard({
               setShowTargetForm((current) => !current)
             }}
           >
-            Definir preço-alvo
+            {phone ? 'Definir alvo' : 'Definir preço-alvo'}
           </button>
         )}
         {showSnoozeButton && (
@@ -578,9 +589,9 @@ export function MatchCard({
         {/* S16-03 (01): the trailing group — pushed right, "Abrir promoção"
             text+icon on a wide card, icon-only (same accessible name) on a
             narrow one, then the "⋯" menu. */}
-        {(match.message_link !== null || showMenu) && (
+        {((match.message_link !== null && !phone) || showMenu) && (
           <span className="match-card__links">
-            {match.message_link !== null && (
+            {match.message_link !== null && !phone && (
               <a
                 className="match-card__link"
                 href={match.message_link}

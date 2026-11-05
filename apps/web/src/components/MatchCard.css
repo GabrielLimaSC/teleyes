@@ -577,3 +577,43 @@
     white-space: normal;
   }
 }
+
+/* S24-02a: phone layout (<= 640px). Desktop untouched. */
+@media (max-width: 640px) {
+  .match-card__price-row {
+    flex-wrap: nowrap;
+    align-items: flex-end;
+  }
+
+  .match-card__spark {
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .match-card__spark-chart {
+    width: 88px;
+    height: 28px;
+  }
+
+  .match-card__spark-axis {
+    display: none;
+  }
+
+  .match-card__actions {
+    flex-wrap: nowrap;
+  }
+
+  .match-card__actions .product-open-trigger,
+  .match-card__actions .match-card__action {
+    flex: 1 1 0;
+    justify-content: center;
+    height: 44px;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .match-card__menu-trigger {
+    width: 44px;
+    height: 44px;
+  }
+}
