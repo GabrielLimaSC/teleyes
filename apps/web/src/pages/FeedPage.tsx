@@ -39,6 +39,8 @@ import { useDeleteListing } from '../hooks/useDeleteListing'
 import { SetupBanner } from '../components/SetupBanner'
 import { EmptyState } from '../components/EmptyState'
 import { FirstTimeTip } from '../components/FirstTimeTip'
+import { ConnectionLostNotice } from '../components/OfflineBanner'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
@@ -127,19 +129,29 @@ const FeedMatchList = memo(function FeedMatchList({
   onDelete: (match: Match) => void
   onMarkPurchased: (match: Match) => void
 }) {
+  const phone = useMediaQuery(PHONE_QUERY)
   return (
     <div className="feed-page__list">
       {visibleMatches.length === 0 && !hasAnyMatch && rules.length === 0 && (
         <EmptyState
           title="Nenhuma regra ainda"
-          text="As ofertas mostram as promoções que batem com as suas regras. Crie a primeira para começar."
-          action={{ label: 'Criar a primeira regra', to: '/regras?nova=1' }}
+          text={
+            phone
+              ? 'Crie uma regra dizendo o que procurar e até quanto pagar. As ofertas aparecem aqui sozinhas.'
+              : 'As ofertas mostram as promoções que batem com as suas regras. Crie a primeira para começar.'
+          }
+          action={{ label: phone ? 'Criar primeira regra' : 'Criar a primeira regra', to: '/regras?nova=1' }}
+          secondaryAction={phone ? { label: 'Começar de um modelo', to: '/regras?nova=1' } : undefined}
         />
       )}
       {visibleMatches.length === 0 && !hasAnyMatch && rules.length > 0 && (
         <EmptyState
           title="Nenhuma oferta ainda"
-          text="Assim que uma promoção bater numa regra, ela aparece aqui."
+          text={
+            phone
+              ? `Suas ${rules.length} ${rules.length === 1 ? 'regra está' : 'regras estão'} de olho. Assim que uma promoção bater, ela aparece aqui.`
+              : 'Assim que uma promoção bater numa regra, ela aparece aqui.'
+          }
           action={{ label: 'Ver as regras', to: '/regras' }}
         />
       )}
@@ -171,6 +183,7 @@ const FeedMatchList = memo(function FeedMatchList({
 export function FeedPage() {
   const { matches, loading, error, connectionState, refresh } = useLiveMatches()
   const panel = useProductPanel()
+  const phone = useMediaQuery(PHONE_QUERY)
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
   const { toast, showToast, dismiss } = useToast()
@@ -788,7 +801,16 @@ export function FeedPage() {
         preço do produto.
       </FirstTimeTip>
 
-      {loading && <p>Carregando…</p>}
+      {phone && connectionState === 'error' && !loading && <ConnectionLostNotice onRetry={refresh} />}
+      {loading &&
+        (phone ? (
+          <div className="feed-skeleton" aria-busy="true" aria-label="Carregando ofertas">
+            <div className="feed-skeleton__card" />
+            <div className="feed-skeleton__card" />
+          </div>
+        ) : (
+          <p>Carregando…</p>
+        ))}
       {error && (
         <p role="alert" className="feed-page__error">
           {error}
