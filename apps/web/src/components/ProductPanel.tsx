@@ -7,11 +7,13 @@ import type { EditableMatch } from '../api/matches'
 import { ApiError } from '../api/auth'
 import type { Product, ProductHistoryRange, ProductPosting } from '../api/types'
 import { formatClockMoment, formatDayMonth, formatMatchedAt } from '../utils/dates'
-import { useIsProductPanelDrawer, useIsProductPanelSheet } from '../hooks/useMediaQuery'
+import { PHONE_QUERY, useIsProductPanelDrawer, useIsProductPanelSheet, useMediaQuery } from '../hooks/useMediaQuery'
 import { useAuth } from '../auth/AuthContext'
 import { parsePriceInput } from '../utils/priceInput'
 import { CONFIRM_DIALOG_ATTR } from './ConfirmDialog'
 import './ProductPanel.css'
+
+let productPanelEntrySeq = 0
 
 const RANGES: ProductHistoryRange[] = ['90d', '30d', '7d']
 const RANGE_LABELS: Record<ProductHistoryRange, string> = { '90d': '90d', '30d': '30d', '7d': '7d' }
@@ -81,9 +83,11 @@ interface ProductEditorProps {
   onCancel: () => void
   onSaved: (match: EditableMatch) => void
   onReverted: (match: EditableMatch) => void
+  /** S24-02c: phone layout (tela 07), "Corrigir oferta" labels. */
+  phone?: boolean
 }
 
-function ProductEditor({ match, product, onCancel, onSaved, onReverted }: ProductEditorProps) {
+function ProductEditor({ match, product, onCancel, onSaved, onReverted, phone = false }: ProductEditorProps) {
   const { csrfToken } = useAuth()
   const [name, setName] = useState(match.display_name ?? product.title)
   const [price, setPrice] = useState(formatPriceInput(match.price_cents))
@@ -178,7 +182,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
   const errorStyle = { ...helperStyle, color: 'var(--plane-status-danger)' }
 
   return (
-    <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <form onSubmit={handleSubmit} noValidate className={phone ? 'product-editor product-editor--phone' : 'product-editor'} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div
         style={{
           borderRadius: 14,
@@ -190,7 +194,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
           gap: 7,
         }}
       >
-        <div className="product-panel__label">Texto original da mensagem (somente leitura)</div>
+        <div className="product-panel__label">{phone ? 'Mensagem original' : 'Texto original da mensagem (somente leitura)'}</div>
         <div
           data-testid="original-message"
           style={{
@@ -211,9 +215,9 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
       </div>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span className="product-panel__label">Nome exibido</span>
+        <span className="product-panel__label">{phone ? 'Nome do produto' : 'Nome exibido'}</span>
         <input
-          aria-label="Nome exibido"
+          aria-label={phone ? 'Nome do produto' : 'Nome exibido'}
           value={name}
           maxLength={120}
           aria-invalid={Boolean((nameTouched && nameError) || nameServerError)}
@@ -233,7 +237,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
       </label>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span className="product-panel__label">Preço</span>
+        <span className="product-panel__label">{phone ? 'À vista' : 'Preço'}</span>
         <span style={{ position: 'relative', display: 'block' }}>
           <span
             aria-hidden="true"
@@ -242,7 +246,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
             R$
           </span>
           <input
-            aria-label="Preço"
+            aria-label={phone ? 'À vista' : 'Preço'}
             value={price}
             inputMode="decimal"
             aria-invalid={Boolean((priceTouched && priceError) || priceServerError)}
@@ -318,11 +322,11 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
 
       {formError && <p role="alert" style={{ ...errorStyle, fontSize: 12 }}>{formError}</p>}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      <div className="product-editor__buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
         <button type="submit" className="plane-action" disabled={!canSubmit} style={{ flex: '1 1 150px', minHeight: 42 }}>
-          {submitting ? 'Salvando…' : 'Salvar correção'}
+          {submitting ? 'Salvando…' : phone ? 'Salvar' : 'Salvar correção'}
         </button>
-        <button type="button" className="plane-action plane-action--secondary" onClick={onCancel} disabled={submitting || reverting} style={{ minHeight: 42 }}>
+        <button type="button" className="plane-action plane-action--secondary product-editor__cancel" onClick={onCancel} disabled={submitting || reverting} style={{ minHeight: 42 }}>
           Cancelar
         </button>
         <button type="button" className="plane-action plane-action--secondary" onClick={handleRevert} disabled={!canRevert || submitting || reverting} style={{ minHeight: 42 }}>
@@ -551,6 +555,7 @@ export function ProductPanel({
   const editRequestIdRef = useRef(0)
   const isSheet = useIsProductPanelSheet()
   const isDrawer = useIsProductPanelDrawer()
+  const isPhone = useMediaQuery(PHONE_QUERY)
   useDialogFocus(panelRef, true, isSheet || isDrawer)
 
   // The panel mounts already at its "entering" (pre-transition) styles; two
@@ -690,6 +695,32 @@ export function ProductPanel({
     }
   }, [onClose])
 
+  // S24-02c: on the phone the back button closes the sheet (one history
+  // entry for its lifetime, same mechanic as BottomSheet).
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+  useEffect(() => {
+    if (!isPhone) return
+    const key = 'teleyesProductPanel'
+    const entry = `${productPanelEntrySeq++}`
+    window.history.pushState({ ...window.history.state, [key]: entry }, '')
+    let popped = false
+    const onPop = () => {
+      popped = true
+      onCloseRef.current()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      if (popped) return
+      setTimeout(() => {
+        if (window.history.state?.[key] === entry) window.history.back()
+      }, 0)
+    }
+  }, [isPhone])
+
   // The background only stops scrolling in the full-screen sheet (<960px) —
   // the desktop split keeps the feed scrollable behind the panel (07b).
   useEffect(() => {
@@ -805,6 +836,7 @@ export function ProductPanel({
   }
 
   const chart = product ? buildChartGeometry(product.series) : null
+  const firstPostingLink = product?.postings.find((posting) => posting.message_link)?.message_link ?? null
 
   return (
     <>
@@ -817,7 +849,7 @@ export function ProductPanel({
       />
       <section
       ref={panelRef}
-      className={'product-panel' + (isSheet ? ' product-panel--sheet' : '') + (isDrawer ? ' product-panel--drawer' : '')}
+      className={'product-panel' + (isPhone ? ' product-panel--phone' : '') + (isSheet ? ' product-panel--sheet' : '') + (isDrawer ? ' product-panel--drawer' : '')}
       data-phase={visualPhase}
       data-settled={settled ? '' : undefined}
       onTransitionEnd={handleTransitionEnd}
@@ -846,14 +878,24 @@ export function ProductPanel({
             </div>
           )}
           <div className="product-panel__header-text">
-            {editing && product && (
+            {editing && product && !isPhone && (
               <div style={{ marginBottom: 5, color: 'var(--plane-text-eyebrow)', fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase' }}>
                 Editando produto
               </div>
             )}
             <h2 id={headingId} ref={headingRef} tabIndex={-1} className="product-panel__title">
-              {editing && product ? editableMatch?.display_name ?? product.title : product?.title ?? 'Carregando produto…'}
+              {editing && product
+                ? isPhone
+                  ? 'Corrigir oferta'
+                  : editableMatch?.display_name ?? product.title
+                : product?.title ?? 'Carregando produto…'}
             </h2>
+            {editing && product && isPhone && editableMatch && (
+              <p className="product-panel__subtitle">
+                {product.postings.find((posting) => posting.id === editableMatch.id)?.source_name ?? 'Grupo'} ·{' '}
+                {formatClockMoment(editableMatch.matched_at)}
+              </p>
+            )}
             {product && !editing && (
               <p className="product-panel__subtitle">
                 {product.total_count} {product.total_count === 1 ? 'registro' : 'registros'} desde{' '}
@@ -863,7 +905,7 @@ export function ProductPanel({
             )}
           </div>
         </div>
-        {!editing && product && (
+        {!editing && product && !isPhone && (
           <button type="button" className="plane-action plane-action--secondary product-panel__chip" onClick={handleEditData}>
             Editar dados
           </button>
@@ -913,6 +955,7 @@ export function ProductPanel({
                 onCancel={() => setEditing(false)}
                 onSaved={handleSaved}
                 onReverted={handleReverted}
+                phone={isPhone}
               />
             )}
           </>
@@ -920,6 +963,23 @@ export function ProductPanel({
 
         {status === 'ready' && product && !editing && (
           <>
+            {isPhone && (
+              <div className="product-panel__phone-links">
+                <button type="button" className="plane-action plane-action--secondary" onClick={handleEditData}>
+                  Editar dados
+                </button>
+                {firstPostingLink && (
+                  <a
+                    className="plane-action plane-action--secondary"
+                    href={firstPostingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Abrir promoção <span aria-hidden="true">↗</span>
+                  </a>
+                )}
+              </div>
+            )}
             <div className="product-panel__well">
               <div className="product-panel__price-row">
                 <div>
@@ -1034,7 +1094,7 @@ export function ProductPanel({
                   className="plane-action plane-action--danger product-panel__chip"
                   onClick={() => onDeleteProduct(product.total_count)}
                 >
-                  Excluir
+                  {isPhone ? 'Excluir produto' : 'Excluir'}
                 </button>
               )}
             </div>
