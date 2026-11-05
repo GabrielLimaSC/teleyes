@@ -1374,3 +1374,10 @@ td.wide-table__num {
   white-space: nowrap;
   border: 0;
 }
+
+/* S24: the "Resumo diário" checkbox and its "?" share one line. */
+.delivery-card__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
