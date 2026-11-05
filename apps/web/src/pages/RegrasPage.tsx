@@ -44,6 +44,8 @@ import type { RuleFormMode } from '../rules/formMode'
 import { RULE_TEMPLATES } from '../rules/templates'
 import { previewMessage, useRulePreview } from '../rules/useRulePreview'
 import { DeliveryAdjustments } from './DeliveryAdjustments'
+import { BottomSheet } from '../components/BottomSheet'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { DestinatariosSection } from './DestinatariosSection'
 import { RecipientRailForm } from './RecipientRailForm'
 import type { RecipientFormTarget } from './RecipientRailForm'
@@ -197,6 +199,9 @@ function RuleRecipients({ rule, recipients }: { rule: Rule; recipients: Recipien
 export function RegrasPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
+  const [phoneTab, setPhoneTab] = useState<'regras' | 'destinatarios' | 'entrega'>('regras')
+  const showTab = (tab: string): boolean => !phone || phoneTab === tab
   const { toast, showToast, dismiss } = useToast()
   // S13-06: the listener reads rules/sources/recipients itself; this is how the
   // panel asks it to reload, and how it learns there is something to apply.
@@ -908,8 +913,19 @@ export function RegrasPage() {
         Uma regra define o que procurar e até quanto pagar. O teleyes lê os grupos e só avisa quando uma promoção bate.
       </FirstTimeTip>
 
+      {phone && (
+        <div className="regras-tabs" role="tablist" aria-label="Seções de Regras">
+          {([['regras', 'Regras'], ['destinatarios', 'Destinatários'], ['entrega', 'Entrega']] as const).map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={phoneTab === id} onClick={() => setPhoneTab(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="regras-page__grid">
         <div className="regras-page__main">
+          <div hidden={!showTab('regras')}>
           {loading && <p role="status" className="regras-page__loading">Carregando regras…</p>}
           {listError && (
             <p role="alert" className="crud-page__error">
@@ -1259,6 +1275,9 @@ export function RegrasPage() {
             </div>
           )}
 
+          </div>
+
+          <div hidden={!showTab('destinatarios')}>
           <DestinatariosSection
             onChanged={recipientsChanged}
             rules={rules}
@@ -1268,7 +1287,7 @@ export function RegrasPage() {
             onAdd={openRecipientCreate}
             onEdit={openRecipientEdit}
             onLoaded={setRecipients}
-            headerExtra={
+            headerExtra={phone ? null : (
               <DeliveryAdjustments
                 digest={digest}
                 error={digestError}
@@ -1276,12 +1295,26 @@ export function RegrasPage() {
                 onChange={setDigest}
                 onSave={saveDigest}
               />
-            }
+            )}
           />
+          </div>
+
+          <div hidden={!showTab('entrega')}>
+            {phone && (
+              <DeliveryAdjustments
+                inline
+                digest={digest}
+                error={digestError}
+                saving={digestSaving}
+                onChange={setDigest}
+                onSave={saveDigest}
+              />
+            )}
+          </div>
         </div>
 
-        <aside className="regras-page__rail">
-          {recipientTarget !== null ? (
+        <aside className="regras-page__rail" hidden={!showTab('regras')}>
+          {recipientTarget !== null && !phone ? (
             <RecipientRailForm
               key={recipientTarget.kind === 'edit' ? `edit-${recipientTarget.recipient.id}` : 'create'}
               target={recipientTarget}
@@ -1465,6 +1498,21 @@ export function RegrasPage() {
           )}
         </aside>
       </div>
+      {phone && recipientTarget !== null && (
+        <BottomSheet
+          open
+          onClose={closeRecipientForm}
+          title={recipientTarget.kind === 'edit' ? 'Editar destinatário' : 'Novo destinatário'}
+        >
+          <RecipientRailForm
+            key={recipientTarget.kind === 'edit' ? `edit-${recipientTarget.recipient.id}` : 'create'}
+            target={recipientTarget}
+            rules={rules}
+            onSaved={recipientSaved}
+            onCancel={closeRecipientForm}
+          />
+        </BottomSheet>
+      )}
       <Toast toast={toast} onDismiss={dismiss} />
     </main>
   )

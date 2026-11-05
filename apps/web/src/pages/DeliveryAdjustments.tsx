@@ -21,28 +21,23 @@ function formatNextDigestRun(value: string): string {
  * size, "preço-alvo atingido" (always an immediate ping), the common-match rule,
  * and how a repeated offer is handled.
  */
-export function DeliveryAdjustments({
+function DeliveryBody({
   digest,
   error,
   saving,
   onChange,
   onSave,
+  inline,
 }: {
   digest: DigestSettings | null
   error: string | null
   saving: boolean
   onChange: (next: DigestSettings) => void
   onSave: () => void
+  inline: boolean
 }) {
   return (
-    <AnchoredPopover
-      triggerLabel="Ajustes de entrega"
-      triggerContent="Ajustes de entrega"
-      triggerClassName="plane-action plane-action--secondary regras-section-row__button"
-      title="Entrega dos alertas"
-      align="right"
-      wide
-    >
+    <>
       <p className="delivery-panel__intro">Uma decisão por tipo de evento — o restante pode ir no resumo diário.</p>
       {error && (
         <p role="alert" className="regras-panel__error">
@@ -82,13 +77,35 @@ export function DeliveryAdjustments({
             </label>
             <label>
               Máximo de itens
-              <input
-                type="number"
-                min="1"
-                max="50"
-                value={digest.top_n}
-                onChange={(event) => onChange({ ...digest, top_n: Number(event.target.value) })}
-              />
+              <span className="delivery-stepper">
+                {inline && (
+                  <button
+                    type="button"
+                    aria-label="Diminuir máximo de itens"
+                    disabled={digest.top_n <= 1}
+                    onClick={() => onChange({ ...digest, top_n: Math.max(1, digest.top_n - 1) })}
+                  >
+                    −
+                  </button>
+                )}
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={digest.top_n}
+                  onChange={(event) => onChange({ ...digest, top_n: Number(event.target.value) })}
+                />
+                {inline && (
+                  <button
+                    type="button"
+                    aria-label="Aumentar máximo de itens"
+                    disabled={digest.top_n >= 50}
+                    onClick={() => onChange({ ...digest, top_n: Math.min(50, digest.top_n + 1) })}
+                  >
+                    +
+                  </button>
+                )}
+              </span>
             </label>
             <label>
               <input
@@ -133,6 +150,35 @@ export function DeliveryAdjustments({
           </button>
         </div>
       )}
+    </>
+  )
+}
+
+export function DeliveryAdjustments(props: {
+  digest: DigestSettings | null
+  error: string | null
+  saving: boolean
+  onChange: (next: DigestSettings) => void
+  onSave: () => void
+} & { inline?: boolean }) {
+  const { inline = false, ...rest } = props
+  if (inline) {
+    return (
+      <div className="delivery-inline">
+        <DeliveryBody {...rest} inline />
+      </div>
+    )
+  }
+  return (
+    <AnchoredPopover
+      triggerLabel="Ajustes de entrega"
+      triggerContent="Ajustes de entrega"
+      triggerClassName="plane-action plane-action--secondary regras-section-row__button"
+      title="Entrega dos alertas"
+      align="right"
+      wide
+    >
+      <DeliveryBody {...rest} inline={false} />
     </AnchoredPopover>
   )
 }
