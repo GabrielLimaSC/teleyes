@@ -20,6 +20,7 @@ export function PurchaseForm({
   onSubmit,
   onCancel,
   focusLink = false,
+  embedded = false,
 }: {
   title: string
   initial: PurchaseFormValues
@@ -30,6 +31,8 @@ export function PurchaseForm({
   onCancel: () => void
   /** "Vincular regra": opens the form with the link search focused. */
   focusLink?: boolean
+  /** Phone: inside a BottomSheet, which already shows the title. */
+  embedded?: boolean
 }) {
   const [values, setValues] = useState(initial)
   const [fieldError, setFieldError] = useState<string | null>(null)
@@ -124,8 +127,12 @@ export function PurchaseForm({
   const shownError = fieldError ?? error
 
   return (
-    <form className="plane-pearl economia-form" onSubmit={submit} aria-label={title}>
-      <h2>{title}</h2>
+    <form
+      className={embedded ? 'economia-form economia-form--embedded' : 'plane-pearl economia-form'}
+      onSubmit={submit}
+      aria-label={title}
+    >
+      {!embedded && <h2>{title}</h2>}
       <div className="economia-form__grid">
         <label>
           Peça ou categoria

@@ -29,7 +29,16 @@ function download(blob: Blob, filename: string) {
  * S19-04: preview and export of the results card (PNG + aggregates JSON). Everything
  * is built in the browser from the report already on screen; nothing is sent anywhere.
  */
-export function ResultsCardPanel({ report, onClose }: { report: SavingsReport; onClose: () => void }) {
+export function ResultsCardPanel({
+  report,
+  onClose,
+  embedded = false,
+}: {
+  report: SavingsReport
+  onClose: () => void
+  /** Phone: inside a BottomSheet, which provides the title and the close button. */
+  embedded?: boolean
+}) {
   const [options, setOptions] = useState<CardOptions>(DEFAULT_CARD_OPTIONS)
   const [mascot, setMascot] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -70,13 +79,19 @@ export function ResultsCardPanel({ report, onClose }: { report: SavingsReport; o
   }
 
   return (
-    <section className="plane-pearl economia-card-panel" aria-labelledby="economia-card-title">
-      <div className="economia-card-panel__header">
-        <h2 id="economia-card-title">Cartão de resultados</h2>
-        <button type="button" className="plane-action plane-action--secondary" onClick={onClose}>
-          Fechar
-        </button>
-      </div>
+    <section
+      className={embedded ? 'economia-card-panel economia-card-panel--embedded' : 'plane-pearl economia-card-panel'}
+      aria-labelledby={embedded ? undefined : 'economia-card-title'}
+      aria-label={embedded ? 'Cartão de resultados' : undefined}
+    >
+      {!embedded && (
+        <div className="economia-card-panel__header">
+          <h2 id="economia-card-title">Cartão de resultados</h2>
+          <button type="button" className="plane-action plane-action--secondary" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      )}
       <p className="economia-card-panel__note">
         A imagem ({CARD_WIDTH}×{CARD_HEIGHT}) e o JSON levam só números agregados: nunca nomes de grupos,
         mensagens ou links.

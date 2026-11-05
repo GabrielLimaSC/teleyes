@@ -639,8 +639,8 @@ main.fontes-page {
     grid-row: 1;
   }
 
-  .fontes-table td[data-label='Avaliações · 7d'],
-  .fontes-table td[data-label='Matches · 7d'],
+  .fontes-table td[data-label='Mensagens analisadas · 7d'],
+  .fontes-table td[data-label='Ofertas · 7d'],
   .fontes-table td[data-label='Último match'],
   .fontes-table td[data-label='Status'] {
     grid-column: 1 / -1;
@@ -681,5 +681,42 @@ main.fontes-page {
     max-height: calc(100dvh - var(--chrome-band-height) - 20px);
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+}
+
+/* S24-04c: "Adicionar grupo" inside a BottomSheet (phone). */
+.fontes-rail--embedded {
+  padding: 4px 16px 16px;
+}
+
+.fontes-rail__help {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.fontes-rail__help summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.fontes-rail__help p {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .fontes-tabs__tab,
+  .fontes-rail--embedded input,
+  .fontes-rail--embedded .plane-action {
+    min-height: 44px;
+  }
+
+  .fontes-page__new {
+    height: 44px;
   }
 }
