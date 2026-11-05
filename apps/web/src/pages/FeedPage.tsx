@@ -38,9 +38,10 @@ import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Sour
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { SetupBanner } from '../components/SetupBanner'
 import { EmptyState } from '../components/EmptyState'
+import { FeedMobileTop } from './FeedMobileTop'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { ConnectionLostNotice } from '../components/OfflineBanner'
-import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
@@ -184,6 +185,7 @@ export function FeedPage() {
   const { matches, loading, error, connectionState, refresh } = useLiveMatches()
   const panel = useProductPanel()
   const phone = useMediaQuery(PHONE_QUERY)
+  const isPhone = phone
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
   const { toast, showToast, dismiss } = useToast()
@@ -378,6 +380,8 @@ export function FeedPage() {
     }
     return counts
   }, [matches])
+
+  const matchIds = useMemo(() => matches.map((match) => match.id), [matches])
 
   const visibleMatches: Match[] = useMemo(
     () => (selectedRuleId === null ? matches : matches.filter((match) => match.rule_id === selectedRuleId)),
@@ -755,8 +759,10 @@ export function FeedPage() {
       </div>
       <div className="feed-page__header">
         <div className="feed-page__title">
-          <h1>Ofertas ao vivo</h1>
-          <p className="feed-page__subtitle">Ofertas encontradas pelas suas regras, em tempo real.</p>
+          <h1>{isPhone ? 'Ofertas' : 'Ofertas ao vivo'}</h1>
+          <p className="feed-page__subtitle">
+            {isPhone ? 'Encontradas pelas suas regras, em tempo real.' : 'Ofertas encontradas pelas suas regras, em tempo real.'}
+          </p>
         </div>
         {/* S16-01: one glass capsule, three segments — SSE / Agrupar / Atualizar
             used to be three separate dark buttons. It's the same element at
@@ -795,6 +801,78 @@ export function FeedPage() {
         </div>
       </div>
 
+      {isPhone && (
+        <FeedMobileTop
+          rules={rules}
+          ruleCounts={ruleCounts}
+          totalCount={matches.length}
+          matchIds={matchIds}
+          loading={loading}
+          selectedRuleId={selectedRuleId}
+          onSelectRule={setSelectedRuleId}
+          snoozes={snoozes}
+          snoozeRemaining={(snooze) => formatSnoozeRemaining(snooze.until, new Date())}
+          onReactivate={handleReactivateSnooze}
+          groupDuplicates={feedSettings === null ? null : feedSettings.group_duplicates}
+          onToggleGroupDuplicates={handleToggleGroupDuplicates}
+          onRefresh={refresh}
+          targetsCount={targetRows.length}
+          targets={
+            <>
+              {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum preço-alvo definido ainda.</p>}
+              <div className="feed-rail__list">
+                {targetRows.map(({ rule, latestPriceCents, hit, gapPct, progressPct }) => (
+                  <div key={rule.id} className="feed-target">
+                    <div className="feed-target__head">
+                      <span className="feed-target__name">{rule.name}</span>
+                      <span className={hit ? 'feed-target__status feed-target__status--hit' : 'feed-target__status'}>
+                        {hit ? 'atingido' : gapPct === null ? 'sem oferta' : `falta ${gapPct}%`}
+                      </span>
+                    </div>
+                    <div className="feed-target__bar">
+                      <div
+                        className={hit ? 'feed-target__bar-fill feed-target__bar-fill--hit' : 'feed-target__bar-fill'}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <div className="feed-target__foot">
+                      <span>preço-alvo {formatCurrency(rule.target_price_cents as number)}</span>
+                      {latestPriceCents !== null ? (
+                        <span>{formatCurrency(latestPriceCents)}</span>
+                      ) : (
+                        <span className="feed-target__foot-muted">últimas 24 h</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          }
+          sourcesCount={sources.length}
+          sourcesList={
+            <div className="feed-rail__sources">
+              {sources.map((source) => (
+                <div key={source.id} className="feed-rail__source">
+                  <span>{source.name}</span>
+                  <span
+                    className="feed-rail__status"
+                    style={{ color: source.active ? 'var(--plane-status-good)' : 'var(--plane-status-neutral)' }}
+                  >
+                    <span
+                      className="feed-rail__status-dot"
+                      style={{
+                        background: source.active ? 'var(--plane-status-good-dot)' : 'var(--plane-status-neutral-dot)',
+                      }}
+                    />
+                    {source.active ? 'ativa' : 'inativa'}
+                  </span>
+                </div>
+              ))}
+              {sources.length === 0 && <p className="feed-rail__empty">Nenhum grupo cadastrado.</p>}
+            </div>
+          }
+        />
+      )}
       <SetupBanner />
       <FirstTimeTip id="feed">
         As ofertas mostram, em tempo real, as promoções que batem com as suas regras. Abra um card para ver o histórico de
