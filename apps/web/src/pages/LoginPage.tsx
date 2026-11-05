@@ -13,6 +13,7 @@ import { listRules } from '../api/rules'
 import { listSources } from '../api/sources'
 import { fetchMatches } from '../api/matches'
 import { DEMO_PASSWORD } from '../api/demo'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { FirstRunCard } from '../components/FirstRunCard'
 import { botStateLabel } from '../components/adapterStateLabel'
 import type { StateLabel } from '../components/adapterStateLabel'
@@ -57,6 +58,11 @@ function DemoEntry() {
   )
 }
 
+function greeting(now: Date): string {
+  const hour = now.getHours()
+  return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
+}
+
 function Brand() {
   return (
     <div className="login-panel__brand">
@@ -96,6 +102,7 @@ function StatusRow({
 export function LoginPage() {
   const { status, adminId, logout, login } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -162,6 +169,16 @@ export function LoginPage() {
   if (status === 'authenticated') {
     return (
       <main className="login-page login-page--home">
+        {phone && (
+          <header className="login-greeting">
+            <h1>{greeting(new Date())}</h1>
+            <p>
+              {stats === null
+                ? 'Carregando as ofertas de hoje…'
+                : `${stats.matchesToday} ${stats.matchesToday === 1 ? 'oferta encontrada' : 'ofertas encontradas'} hoje.`}
+            </p>
+          </header>
+        )}
         {health?.demo !== true && <FirstRunCard />}
         <div className="login-page__grid">
           <section className="plane-glass login-panel">
