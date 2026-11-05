@@ -50,3 +50,36 @@
 .hist-m-filters__footer { display: flex; gap: 10px; }
 .hist-m-filters__footer > * { min-height: 44px; }
 .hist-m-filters__footer .fill-button { flex: 1; }
+
+/* S24: themed fields (the browser default looked like a light grey box in dark mode). */
+.hist-m__search,
+.hist-m__sort,
+.hist-m-filters select,
+.hist-m-filters input {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--plane-input-border-color);
+  border-radius: 10px;
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.hist-m__sort {
+  width: auto;
+}
+
+.hist-m__search::placeholder,
+.hist-m-filters input::placeholder {
+  color: var(--plane-text-placeholder);
+}
+
+.hist-m__search:focus-visible,
+.hist-m__sort:focus-visible,
+.hist-m-filters select:focus-visible,
+.hist-m-filters input:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
