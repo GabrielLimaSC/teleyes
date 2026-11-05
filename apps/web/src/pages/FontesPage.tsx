@@ -4,10 +4,12 @@ import { deleteSource, fetchSourcesActivity, listSources, pauseSource } from '..
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
 import type { Source, SourceActivity, SourcesActivity } from '../api/types'
+import { BottomSheet } from '../components/BottomSheet'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState } from '../components/EmptyState'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { useSetupStatus } from '../hooks/useSetupStatus'
 import { formatDayMonthClock, formatRelativeAgo } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -60,6 +62,8 @@ function MiniBars({ bars, hue }: { bars: Bar[]; hue: number }) {
 export function FontesPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const now = useNow()
   const { status: setupStatus } = useSetupStatus()
   const [sources, setSources] = useState<Source[]>([])
@@ -88,6 +92,11 @@ export function FontesPage() {
   }, [])
 
   useEffect(reload, [reload])
+
+  const openRail = () => {
+    setFocusSignal((value) => value + 1)
+    setSheetOpen(true)
+  }
 
   const handlePause = (source: Source) => {
     if (csrfToken === null) {
@@ -150,11 +159,11 @@ export function FontesPage() {
           className="plane-action fill-button fontes-page__new"
           onClick={() => {
             setEditTarget(null)
-            setFocusSignal((value) => value + 1)
+            openRail()
           }}
           onPointerDown={fillOrigin}
         >
-          + Novo grupo
+          {phone ? '+ Novo' : '+ Novo grupo'}
         </button>
       </div>
 
@@ -242,7 +251,7 @@ export function FontesPage() {
                                 label: 'Editar',
                                 onSelect: () => {
                                   setEditTarget(source)
-                                  setFocusSignal((value) => value + 1)
+                                  openRail()
                                 },
                               },
                               {
@@ -268,7 +277,7 @@ export function FontesPage() {
                             label: setupStatus?.configured === true ? 'Adicionar da minha conta' : 'Adicionar por chat_id',
                             onClick: () => {
                               setEditTarget(null)
-                              setFocusSignal((value) => value + 1)
+                              openRail()
                             },
                           }}
                         />
@@ -281,25 +290,51 @@ export function FontesPage() {
           )}
         </div>
 
-        <div className="fontes-page__side">
-          <FontesRail
-            csrfToken={csrfToken}
-            setupStatus={setupStatus}
-            sources={sources}
-            editTarget={editTarget}
-            focusSignal={focusSignal}
-            onChanged={reload}
-            onCancelEdit={() => setEditTarget(null)}
-          />
-          <section className="plane-pearl fontes-help">
-            <h2>Não aparece na lista?</h2>
-            <p>
-              A conta precisa estar no grupo. Para canais privados, use “Por chat_id” — o id começa com{' '}
-              <code>-100</code>.
-            </p>
-          </section>
-        </div>
+        {!phone && (
+          <div className="fontes-page__side">
+            <FontesRail
+              csrfToken={csrfToken}
+              setupStatus={setupStatus}
+              sources={sources}
+              editTarget={editTarget}
+              focusSignal={focusSignal}
+              onChanged={reload}
+              onCancelEdit={() => setEditTarget(null)}
+            />
+            <section className="plane-pearl fontes-help">
+              <h2>Não aparece na lista?</h2>
+              <p>
+                A conta precisa estar no grupo. Para canais privados, use “Por chat_id” — o id começa com{' '}
+                <code>-100</code>.
+              </p>
+            </section>
+          </div>
+        )}
       </div>
+
+      <BottomSheet
+        open={phone && sheetOpen}
+        onClose={() => {
+          setSheetOpen(false)
+          setEditTarget(null)
+        }}
+        title={editTarget !== null ? 'Editar grupo' : 'Adicionar grupo'}
+      >
+        <FontesRail
+          embedded
+          csrfToken={csrfToken}
+          setupStatus={setupStatus}
+          sources={sources}
+          editTarget={editTarget}
+          focusSignal={0}
+          onChanged={reload}
+          onCancelEdit={() => {
+            setEditTarget(null)
+            setSheetOpen(false)
+          }}
+          onDone={() => setSheetOpen(false)}
+        />
+      </BottomSheet>
 
       {deleteTarget !== null && (
         <ConfirmDialog

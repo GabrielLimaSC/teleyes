@@ -184,6 +184,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.getByRole('alertdialog')).toBeVisible()
         await scan(page, 'Diálogo de confirmação')
         await page.keyboard.press('Escape')
+        // Phone (<= 640px): the tabs live in the "Adicionar grupo" sheet.
+        if ((page.viewportSize()?.width ?? 1280) <= 640) await page.getByRole('button', { name: '+ Novo' }).click()
         await page.getByRole('tab', { name: 'Da minha conta' }).click()
         await scan(page, 'Fontes (da minha conta)')
       })

@@ -40,10 +40,13 @@ interface RailProps {
   focusSignal: number
   onChanged: () => void
   onCancelEdit: () => void
+  /** Phone: the rail lives in a BottomSheet (which has the title); called after a chat_id save. */
+  embedded?: boolean
+  onDone?: () => void
 }
 
 /** S21-11: "Adicionar grupo" rail — pick from the account's groups, or register by chat_id. */
-export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusSignal, onChanged, onCancelEdit }: RailProps) {
+export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusSignal, onChanged, onCancelEdit, embedded = false, onDone }: RailProps) {
   const configured = setupStatus?.configured === true
   const [chosenTab, setChosenTab] = useState<RailTab | null>(null)
   const tab: RailTab = editTarget !== null ? 'chat' : (chosenTab ?? (configured ? 'account' : 'chat'))
@@ -61,8 +64,13 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
   }
 
   return (
-    <aside className="plane-glass fontes-rail" aria-label="Adicionar grupo" ref={railRef} id="fontes-rail">
-      <h2 className="fontes-rail__eyebrow">{editTarget !== null ? 'Editar grupo' : 'Adicionar grupo'}</h2>
+    <aside
+      className={embedded ? 'fontes-rail fontes-rail--embedded' : 'plane-glass fontes-rail'}
+      aria-label="Adicionar grupo"
+      ref={railRef}
+      id="fontes-rail"
+    >
+      {!embedded && <h2 className="fontes-rail__eyebrow">{editTarget !== null ? 'Editar grupo' : 'Adicionar grupo'}</h2>}
       <div className="fontes-tabs" role="tablist" aria-label="Como adicionar">
         {(
           [
@@ -92,11 +100,31 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
             key={editTarget === null ? 'create' : `edit-${editTarget.id}`}
             csrfToken={csrfToken}
             editTarget={editTarget}
-            onSaved={onChanged}
+            onSaved={() => {
+              onChanged()
+              onDone?.()
+            }}
             onCancelEdit={onCancelEdit}
           />
         )}
       </div>
+      {embedded && (
+        <div className="fontes-rail__help">
+          <details>
+            <summary>Como adicionar</summary>
+            <p>
+              Na aba “Da minha conta” escolha um grupo que a conta já acessa; em “Por chat_id” informe o nome e o id do
+              chat.
+            </p>
+          </details>
+          <details>
+            <summary>Não aparece na lista?</summary>
+            <p>
+              A conta precisa estar no grupo. Para canais privados, use “Por chat_id” — o id começa com <code>-100</code>.
+            </p>
+          </details>
+        </div>
+      )}
     </aside>
   )
 }

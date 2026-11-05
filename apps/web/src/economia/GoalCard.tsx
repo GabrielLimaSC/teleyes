@@ -7,7 +7,7 @@ import { toDateInputValue } from '../utils/dates'
 import { formatCurrency, formatSigned } from '../utils/savings'
 import '../components/ConfirmDialog.css'
 
-const PACE_LABEL: Record<GoalPace, string> = {
+export const PACE_LABEL: Record<GoalPace, string> = {
   done: 'concluída',
   on_track: 'no prazo',
   behind: 'atrasado',
@@ -103,7 +103,10 @@ export function GoalDialog({
   onSubmit,
   onRemove,
   onCancel,
+  sheet = false,
 }: {
+  /** Phone: render only the form (the BottomSheet provides backdrop, title and Esc). */
+  sheet?: boolean
   current: GoalReport | null
   submitting: boolean
   error: string | null
@@ -128,9 +131,10 @@ export function GoalDialog({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && !submitting) onCancel()
     }
+    if (sheet) return
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [submitting, onCancel])
+  }, [submitting, onCancel, sheet])
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -156,17 +160,21 @@ export function GoalDialog({
   }
 
   const shownError = fieldError ?? error
-  return createPortal(
-    <div className="confirm-dialog__backdrop" role="presentation">
+  const formClass = sheet
+    ? 'economia-goal-dialog economia-goal-dialog--sheet'
+    : 'plane-pearl confirm-dialog economia-goal-dialog'
+  const dialog = (
       <form
-        className="plane-pearl confirm-dialog economia-goal-dialog"
-        role="dialog"
-        aria-modal="true"
+        className={formClass}
+        role={sheet ? undefined : 'dialog'}
+        aria-modal={sheet ? undefined : true}
         aria-labelledby={titleId}
         onSubmit={submit}
         noValidate
       >
-        <h2 id={titleId}>{current === null ? 'Definir meta de economia' : 'Editar meta de economia'}</h2>
+        <h2 id={titleId} className={sheet ? 'sr-only' : undefined}>
+          {current === null ? 'Definir meta de economia' : 'Editar meta de economia'}
+        </h2>
         <label>
           Quanto quer economizar (R$)
           <input
@@ -200,6 +208,11 @@ export function GoalDialog({
           </button>
         </div>
       </form>
+  )
+  if (sheet) return dialog
+  return createPortal(
+    <div className="confirm-dialog__backdrop" role="presentation">
+      {dialog}
     </div>,
     document.body,
   )

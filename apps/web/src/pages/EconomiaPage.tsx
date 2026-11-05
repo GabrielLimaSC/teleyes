@@ -17,6 +17,7 @@ import {
 import type { Purchase, PurchaseInput, SavingsGoalInput, SavingsReport } from '../api/purchases'
 import { listRules } from '../api/rules'
 import type { Rule } from '../api/types'
+import { BottomSheet } from '../components/BottomSheet'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { cardTitle } from '../components/matchTitle'
@@ -24,13 +25,14 @@ import { EmptyState } from '../components/EmptyState'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { EMPTY_DRAFT, valuesFromDraft } from '../economia/purchaseDraft'
 import type { EconomiaNavState, LinkOption, PurchaseDraft } from '../economia/purchaseDraft'
+import { EconomiaMobile, dayMonth, shareLabel } from '../economia/EconomiaMobile'
 import { PurchaseForm } from '../economia/PurchaseForm'
 import { PriceRangeBar } from '../economia/PriceRangeBar'
 import { ReferenceMarker } from '../economia/ReferenceMarker'
 import { ResultsCardPanel } from '../economia/ResultsCardPanel'
 import { GoalCard, GoalDialog } from '../economia/GoalCard'
 import { PaidCard, SavingsCard } from '../economia/SummaryCards'
-import { apiDateToInput, parseApiDate, toDateInputValue } from '../utils/dates'
+import { apiDateToInput, toDateInputValue } from '../utils/dates'
 import {
   formatCount,
   formatCurrency,
@@ -39,6 +41,7 @@ import {
   savingPill,
   savingTone,
 } from '../utils/savings'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../styles/materials.css'
 import '../components/FillButton.css'
@@ -53,19 +56,10 @@ function normalize(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 }
 
-function dayMonth(iso: string): string {
-  return parseApiDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-}
-
-/** "+8,3%" / "−2,0%" of the goal; the sign matters (an overpayment subtracts). */
-function shareLabel(share: number): string {
-  const text = `${Math.abs(share).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
-  return share > 0 ? `+${text}` : share < 0 ? `−${text}` : text
-}
-
 export function EconomiaPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
   const navigate = useNavigate()
   const location = useLocation()
   const [purchases, setPurchases] = useState<Purchase[]>([])
@@ -293,7 +287,7 @@ export function EconomiaPage() {
             onClick={() => setShowCard((open) => !open)}
             disabled={report === null || report.totals.purchases === 0}
           >
-            Gerar cartão de resultados
+            {phone ? 'Gerar cartão' : 'Gerar cartão de resultados'}
           </button>
           <button type="button" className="plane-action fill-button" onClick={openCreate} onPointerDown={fillOrigin}>
             <span aria-hidden="true" className="economia-page__plus">+</span>
@@ -306,7 +300,7 @@ export function EconomiaPage() {
         Registre o que você comprou e veja quanto economizou em relação ao preço que o teleyes viu para o mesmo produto.
       </FirstTimeTip>
 
-      {formTarget && formInitial && (
+      {formTarget && formInitial && !phone && (
         <PurchaseForm
           key={formTarget.kind === 'edit' ? `edit-${formTarget.purchase.id}-${formTarget.label ?? ''}` : 'create'}
           title={formTarget.kind === 'create' ? 'Registrar compra' : 'Editar compra'}
@@ -320,6 +314,46 @@ export function EconomiaPage() {
         />
       )}
 
+      <BottomSheet
+        open={phone && formTarget !== null && formInitial !== null}
+        onClose={closeForm}
+        title={formTarget?.kind === 'edit' ? formTarget.purchase.name : 'Registrar compra'}
+      >
+        {formTarget && formInitial && (
+          <>
+            {formTarget.kind === 'edit' && (
+              <p className="eco-m__sheetnote">
+                {[formTarget.purchase.store, dayMonth(formTarget.purchase.purchased_at)].filter(Boolean).join(' · ')}
+                {' · '}
+                Sem preços vistos suficientes o item fica fora da conta; vincule uma regra ou informe uma referência sua
+                (mostrada separada).
+              </p>
+            )}
+            <PurchaseForm
+              key={formTarget.kind === 'edit' ? `edit-${formTarget.purchase.id}-${formTarget.label ?? ''}` : 'create'}
+              embedded
+              title={formTarget.kind === 'create' ? 'Registrar compra' : 'Editar compra'}
+              initial={formInitial}
+              submitting={submitting}
+              error={formError}
+              onSearch={search}
+              onSubmit={submitForm}
+              onCancel={closeForm}
+              focusLink={formTarget.kind === 'edit' && formTarget.focusLink === true}
+            />
+            {formTarget.kind === 'edit' && (
+              <button
+                type="button"
+                className="plane-action plane-action--secondary eco-m__danger"
+                onClick={() => setPendingDelete(formTarget.purchase)}
+              >
+                Excluir compra
+              </button>
+            )}
+          </>
+        )}
+      </BottomSheet>
+
       {loading && <p>Carregando…</p>}
       {listError && (
         <p role="alert" className="economia-page__error">
@@ -327,7 +361,18 @@ export function EconomiaPage() {
         </p>
       )}
 
-      {report && totals && (
+      {report && totals && phone && (
+        <EconomiaMobile
+          report={report}
+          purchaseById={purchaseById}
+          onEditGoal={() => setGoalDialog(true)}
+          onEdit={openEdit}
+          onDelete={setPendingDelete}
+          onCreate={openCreate}
+        />
+      )}
+
+      {report && totals && !phone && (
         <>
           <section className="economia-tiles" aria-label="Resumo">
             <SavingsCard report={report} />
@@ -487,7 +532,11 @@ export function EconomiaPage() {
         </>
       )}
 
-      {goalDialog && (
+      <BottomSheet open={phone && showCard && report !== null} onClose={() => setShowCard(false)} title="Cartão de resultados">
+        {report && <ResultsCardPanel embedded report={report} onClose={() => setShowCard(false)} />}
+      </BottomSheet>
+
+      {goalDialog && !phone && (
         <GoalDialog
           current={goal}
           submitting={goalSaving}
@@ -497,6 +546,17 @@ export function EconomiaPage() {
           onCancel={closeGoal}
         />
       )}
+      <BottomSheet open={phone && goalDialog} onClose={closeGoal} title="Meta de economia">
+        <GoalDialog
+          sheet
+          current={goal}
+          submitting={goalSaving}
+          error={goalError}
+          onSubmit={submitGoal}
+          onRemove={removeGoal}
+          onCancel={closeGoal}
+        />
+      </BottomSheet>
 
       {pendingDelete && (
         <ConfirmDialog
