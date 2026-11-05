@@ -124,7 +124,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
       test('regras, economia com formulário e diálogo de confirmação', async ({ page }) => {
         await seed(page)
         await page.goto('/regras')
-        await page.locator('.rule-row__toggle', { hasText: `Regra A11y ${tag}` }).first().click()
+        if (size.width <= 640) {
+          const card = page.locator('.rules-m__card', { hasText: `Regra A11y ${tag}` }).first()
+          await card.getByRole('button', { name: 'Ver gráfico e ofertas' }).click()
+        } else {
+          await page.locator('.rule-row__toggle', { hasText: `Regra A11y ${tag}` }).first().click()
+        }
         await scan(page, 'Regras (linha expandida)')
         // S24-03b: on the phone the recipients live in their own tab.
         if ((page.viewportSize()?.width ?? 1440) <= 640) {

@@ -42,6 +42,7 @@ import { useFillOrigin } from '../utils/useFillOrigin'
 import { readFormModePreference, usesAdvancedFields, writeFormModePreference } from '../rules/formMode'
 import type { RuleFormMode } from '../rules/formMode'
 import { RULE_TEMPLATES } from '../rules/templates'
+import { RegrasMobileList, RegrasMobileSkeleton } from './RegrasMobileList'
 import { previewMessage, useRulePreview } from '../rules/useRulePreview'
 import { DeliveryAdjustments } from './DeliveryAdjustments'
 import { BottomSheet } from '../components/BottomSheet'
@@ -879,6 +880,38 @@ export function RegrasPage() {
     </AnchoredPopover>
   )
 
+  const ruleMenuItems = (rule: Rule) => [
+      { key: 'edit', label: 'Editar', onSelect: () => openEdit(rule) },
+      { key: 'test', label: 'Testar', onSelect: () => toggleRowTester(rule) },
+      { key: 'duplicate', label: 'Duplicar', onSelect: () => openDuplicate(rule) },
+      {
+        key: 'snooze',
+        label:
+          snoozeBusyId === rule.id
+            ? 'Salvando…'
+            : rule.snoozed_until
+              ? 'Reativar'
+              : 'Silenciar',
+        onSelect: () => handleSnooze(rule),
+        disabled: snoozeBusyId === rule.id,
+      },
+      {
+        key: 'clear',
+        label: checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico',
+        onSelect: () => openClearConfirm(rule),
+        disabled: checkingClearId === rule.id,
+        danger: true,
+        separatorBefore: true,
+      },
+      {
+        key: 'delete',
+        label: 'Excluir',
+        onSelect: () => handleDelete(rule),
+        disabled: deletingId === rule.id,
+        danger: true,
+      },
+  ]
+
   const subtitleParts = [rules.length === 1 ? '1 regra' : `${rules.length} regras`]
   if (recipientCount !== null) {
     subtitleParts.push(recipientCount === 1 ? '1 destinatário' : `${recipientCount} destinatários`)
@@ -892,19 +925,21 @@ export function RegrasPage() {
           {!loading && !listError && <p className="regras-page__subtitle">{subtitleParts.join(' · ')}</p>}
         </div>
         <div className="regras-page__header-actions">
-          <ListenerApplyControl
-            status={listener.status}
-            error={listener.error}
-            requesting={listener.requesting}
-            onApply={listener.apply}
-          />
+          {!phone && (
+            <ListenerApplyControl
+              status={listener.status}
+              error={listener.error}
+              requesting={listener.requesting}
+              onApply={listener.apply}
+            />
+          )}
           <button
             type="button"
             className="plane-action fill-button regras-page__new-button"
             onClick={openCreate}
             onPointerDown={fillOrigin}
           >
-            + Nova regra
+            {phone ? '+ Nova' : '+ Nova regra'}
           </button>
         </div>
       </div>
@@ -926,14 +961,42 @@ export function RegrasPage() {
       <div className="regras-page__grid">
         <div className="regras-page__main">
           <div hidden={!showTab('regras')}>
-          {loading && <p role="status" className="regras-page__loading">Carregando regras…</p>}
+          {loading && phone && <RegrasMobileSkeleton />}
+          {loading && !phone && <p role="status" className="regras-page__loading">Carregando regras…</p>}
           {listError && (
             <p role="alert" className="crud-page__error">
               {listError}
             </p>
           )}
 
-          {!loading && !listError && (
+          {!loading && !listError && phone && (
+            <RegrasMobileList
+              rules={rules}
+              recipients={recipients}
+              listener={{
+                status: listener.status,
+                error: listener.error,
+                requesting: listener.requesting,
+                onApply: listener.apply,
+              }}
+              expandedId={expandedId}
+              onToggleExpand={setExpandedId}
+              pausingId={pausingId}
+              onPause={handlePause}
+              onResume={handleResume}
+              menuItems={ruleMenuItems}
+              recent={recent}
+              onEdit={openEdit}
+              onTest={toggleRowTester}
+              onCreate={openCreate}
+              onTemplate={(id) => {
+                openCreate()
+                applyTemplate(id)
+              }}
+            />
+          )}
+
+          {!loading && !listError && !phone && (
             <div className="plane-pearl rules-table-wrap">
               <table className="rules-table">
                 <thead>
@@ -1008,37 +1071,7 @@ export function RegrasPage() {
                         <td className="rules-table__actions">
                           <RowActionsMenu
                             label={`Mais ações da regra ${rule.name}`}
-                            items={[
-                              { key: 'edit', label: 'Editar', onSelect: () => openEdit(rule) },
-                              { key: 'test', label: 'Testar', onSelect: () => toggleRowTester(rule) },
-                              { key: 'duplicate', label: 'Duplicar', onSelect: () => openDuplicate(rule) },
-                              {
-                                key: 'snooze',
-                                label:
-                                  snoozeBusyId === rule.id
-                                    ? 'Salvando…'
-                                    : rule.snoozed_until
-                                      ? 'Reativar'
-                                      : 'Silenciar',
-                                onSelect: () => handleSnooze(rule),
-                                disabled: snoozeBusyId === rule.id,
-                              },
-                              {
-                                key: 'clear',
-                                label: checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico',
-                                onSelect: () => openClearConfirm(rule),
-                                disabled: checkingClearId === rule.id,
-                                danger: true,
-                                separatorBefore: true,
-                              },
-                              {
-                                key: 'delete',
-                                label: 'Excluir',
-                                onSelect: () => handleDelete(rule),
-                                disabled: deletingId === rule.id,
-                                danger: true,
-                              },
-                            ]}
+                            items={ruleMenuItems(rule)}
                           />
                         </td>
                       </tr>
