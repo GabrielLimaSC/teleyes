@@ -102,6 +102,15 @@ export function DeliveryAdjustments({
               Próximo envio: {formatNextDigestRun(digest.next_run_at_local)} · {digest.queue_count}{' '}
               {digest.queue_count === 1 ? 'item' : 'itens'} na fila
             </span>
+            {/* The digest only collects common offers that were held back. With
+                individual sending on, every offer already went out and the
+                digest stays empty, which looked like "the digest never arrives". */}
+            {digest.enabled && !digest.mute_individual && (
+              <span className="delivery-card__hint" role="note">
+                Cada oferta comum já chega na hora, então o resumo fica vazio. Marque a opção acima para
+                receber tudo em uma mensagem por dia.
+              </span>
+            )}
           </div>
           <div className="delivery-card">
             <strong>Repetição da mesma oferta</strong>
