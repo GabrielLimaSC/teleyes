@@ -31,3 +31,6 @@ export const useIsProductPanelDrawer = (): boolean => useMediaQuery(PRODUCT_PANE
 export const useIsProductPanelSheet = (): boolean => useMediaQuery(PRODUCT_PANEL_SHEET_QUERY)
 
 export const usePrefersReducedMotion = (): boolean => useMediaQuery('(prefers-reduced-motion: reduce)')
+
+/** S24-01: the phone layout (<= 640px, the breakpoint the whole app uses). */
+export const PHONE_QUERY = '(max-width: 640px)'

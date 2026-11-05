@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { BottomSheet } from './BottomSheet'
 import './AnchoredPopover.css'
 
 /**
@@ -32,16 +34,17 @@ export function AnchoredPopover({
   const wrapRef = useRef<HTMLSpanElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const phone = useMediaQuery(PHONE_QUERY)
 
   useEffect(() => {
-    if (!open) return
+    if (!open || phone) return
     panelRef.current?.focus()
     const onPointerDown = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onPointerDown)
     return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [open])
+  }, [open, phone])
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== 'Escape' || !open) return
@@ -65,7 +68,12 @@ export function AnchoredPopover({
       >
         {triggerContent}
       </button>
-      {open && (
+      {phone && (
+        <BottomSheet open={open} onClose={() => setOpen(false)} title={title ?? triggerLabel}>
+          {children}
+        </BottomSheet>
+      )}
+      {open && !phone && (
         <div
           ref={panelRef}
           id={panelId}
