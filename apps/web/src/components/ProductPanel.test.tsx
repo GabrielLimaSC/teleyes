@@ -547,3 +547,83 @@ describe('ProductPanel', () => {
     expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/matches/1/revert') && init?.method === 'POST')).toBe(true)
   })
 })
+
+describe('ProductPanel on the phone (S24-02c)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  function stubPhone() {
+    const matchMedia = window.matchMedia
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      ...matchMedia(query),
+      matches: query === '(max-width: 640px)' || query === '(max-width: 959px)',
+    }))
+  }
+
+  it('shows the sheet with Editar dados, Abrir promoção and every action', async () => {
+    stubPhone()
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+
+    const { container } = render(
+      <ProductPanel
+        productKey={product.product_key}
+        phase="open"
+        onClose={() => {}}
+        onSaveTarget={() => {}}
+        onCreateRule={() => {}}
+        onSnooze={() => {}}
+        onMarkPurchased={() => {}}
+        onDeleteProduct={() => {}}
+      />,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Editar dados' })).toBeInTheDocument()
+    expect(container.querySelector('.product-panel--phone')).not.toBeNull()
+    expect(screen.getByRole('link', { name: /Abrir promoção/ })).toHaveAttribute('href', 'https://t.me/c/demo/1')
+    expect(screen.getByRole('button', { name: 'Criar regra disso' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Silenciar 7 dias' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Marcar como comprado' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Ver as 14 postagens/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Excluir produto' })).toBeInTheDocument()
+  })
+
+  it('opens "Corrigir oferta" with Cancelar and Salvar, without a re-evaluate option', async () => {
+    stubPhone()
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product)),
+      ),
+    )
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+
+    expect(await screen.findByRole('heading', { name: 'Corrigir oferta' })).toBeInTheDocument()
+    expect(screen.getByText('Mensagem original')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Nome do produto' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'À vista' })).toHaveValue('6.991,00')
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument()
+    expect(screen.queryByText(/Reavaliar regras/)).toBeNull()
+  })
+
+  it('closes with the phone back button', async () => {
+    stubPhone()
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+    const onClose = vi.fn()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={onClose} />)
+    await screen.findByRole('button', { name: 'Editar dados' })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+})
