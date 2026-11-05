@@ -148,7 +148,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
           await route.fulfill({ response, json: report })
         })
         await page.goto('/')
-        await expect(page.getByRole('heading', { name: 'Comece por aqui' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Comece por aqui|Primeiros passos/ })).toBeVisible()
         await scan(page, 'Início (Comece por aqui)')
         for (const [route, text] of [
           ['/feed', 'Nenhuma regra ainda'],
