@@ -85,7 +85,7 @@
     border: none;
     border-radius: 20px;
     background: transparent;
-    color: var(--plane-text-helper);
+    color: var(--plane-text-secondary);
     font: inherit;
     text-decoration: none;
     cursor: pointer;
