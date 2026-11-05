@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { BottomSheet } from './BottomSheet'
 import './RowActionsMenu.css'
 
 export interface RowActionsMenuItem {
@@ -42,6 +44,7 @@ export function RowActionsMenu({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
+  const phone = useMediaQuery(PHONE_QUERY)
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
@@ -64,8 +67,8 @@ export function RowActionsMenu({
   }, [])
 
   useLayoutEffect(() => {
-    if (open) place()
-  }, [open, place])
+    if (open && !phone) place()
+  }, [open, phone, place])
 
   const focusItem = useCallback((index: number) => {
     const nodes = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
@@ -74,12 +77,12 @@ export function RowActionsMenu({
   }, [])
 
   useEffect(() => {
-    if (!open || position === null) return
+    if (!open || phone || position === null) return
     focusItem(0)
-  }, [open, position, focusItem])
+  }, [open, phone, position, focusItem])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || phone) return
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node
       if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return
@@ -102,7 +105,7 @@ export function RowActionsMenu({
       window.removeEventListener('resize', onViewportChange)
       window.removeEventListener('scroll', onViewportChange, true)
     }
-  }, [open, close, place])
+  }, [open, phone, close, place])
 
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const nodes = Array.from(
@@ -149,7 +152,29 @@ export function RowActionsMenu({
       >
         <span aria-hidden="true">⋯</span>
       </button>
+      {phone && (
+        <BottomSheet open={open} onClose={() => setOpen(false)} title={label}>
+          <div className="bottom-sheet__list" role="menu" aria-label={label}>
+            {items.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                role="menuitem"
+                className={`bottom-sheet__item${item.danger ? ' bottom-sheet__item--danger' : ''}`}
+                disabled={item.disabled}
+                onClick={() => {
+                  setOpen(false)
+                  item.onSelect()
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
+      )}
       {open &&
+        !phone &&
         createPortal(
           <div
             ref={menuRef}

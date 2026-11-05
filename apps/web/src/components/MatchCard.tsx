@@ -3,7 +3,9 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { CategoryIcon } from './CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND, CATEGORY_ICON_COLOR } from './matchCategory'
 import { summarizeDeliveryStatus } from './deliveryStatus'
+import { BottomSheet } from './BottomSheet'
 import { Tooltip } from './Tooltip'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { cardTitle, productText } from './matchTitle'
 import { PRODUCT_OPEN_CONTROL_ATTR } from './ProductPanel'
 import type { Match, Recipient, Rule, Source } from '../api/types'
@@ -242,9 +244,10 @@ export function MatchCard({
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const menuPopupRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
+  const phone = useMediaQuery(PHONE_QUERY)
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen || phone) return
 
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node
@@ -265,16 +268,16 @@ export function MatchCard({
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [menuOpen])
+  }, [menuOpen, phone])
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen || phone) return
     // First item, same expectation as any native menu opened by keyboard or
     // click — the popup's own buttons are reachable without landing back on
     // the trigger first.
     const firstItem = menuPopupRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
     firstItem?.focus()
-  }, [menuOpen])
+  }, [menuOpen, phone])
 
   function closeMenu() {
     setMenuOpen(false)
@@ -367,6 +370,24 @@ export function MatchCard({
   const canDelete = onDelete !== undefined
   const canMarkPurchased = onMarkPurchased !== undefined
   const showMenu = canCreateRule || (isNarrow && canSnooze) || canDelete || canMarkPurchased
+
+  const menuItems: { key: string; label: string; danger?: boolean; run: () => void }[] = []
+  if (isNarrow && canSnooze) {
+    menuItems.push({
+      key: 'snooze',
+      label: match.snoozed ? 'Reativar' : 'Silenciar 7 dias',
+      run: () => onSnooze?.(match),
+    })
+  }
+  if (canCreateRule) {
+    menuItems.push({ key: 'rule', label: 'Criar regra disso', run: () => onCreateRule?.(productKey as string) })
+  }
+  if (canMarkPurchased) {
+    menuItems.push({ key: 'purchased', label: 'Marcar como comprado', run: () => onMarkPurchased?.(match) })
+  }
+  if (canDelete) {
+    menuItems.push({ key: 'delete', label: 'Excluir anúncio', danger: true, run: () => onDelete?.(match) })
+  }
 
   function submitTarget(event: FormEvent) {
     event.preventDefault()
@@ -593,7 +614,7 @@ export function MatchCard({
                     <circle cx="19" cy="12" r="1.2" />
                   </svg>
                 </button>
-                {menuOpen && (
+                {menuOpen && !phone && (
                   <div
                     id={menuId}
                     ref={menuPopupRef}
@@ -601,59 +622,41 @@ export function MatchCard({
                     className="glass-card match-card__menu-popup"
                     onKeyDown={handleMenuKeyDown}
                   >
-                    {isNarrow && canSnooze && (
+                    {menuItems.map((item) => (
                       <button
+                        key={item.key}
                         type="button"
                         role="menuitem"
-                        className="match-card__menu-item"
+                        className={`match-card__menu-item${item.danger ? ' match-card__menu-item--danger' : ''}`}
                         onClick={() => {
-                          onSnooze?.(match)
+                          item.run()
                           closeMenu()
                         }}
                       >
-                        {match.snoozed ? 'Reativar' : 'Silenciar 7 dias'}
+                        {item.label}
                       </button>
-                    )}
-                    {canCreateRule && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="match-card__menu-item"
-                        onClick={() => {
-                          onCreateRule?.(productKey as string)
-                          closeMenu()
-                        }}
-                      >
-                        Criar regra disso
-                      </button>
-                    )}
-                    {canMarkPurchased && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="match-card__menu-item"
-                        onClick={() => {
-                          onMarkPurchased?.(match)
-                          closeMenu()
-                        }}
-                      >
-                        Marcar como comprado
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="match-card__menu-item match-card__menu-item--danger"
-                        onClick={() => {
-                          onDelete?.(match)
-                          closeMenu()
-                        }}
-                      >
-                        Excluir anúncio
-                      </button>
-                    )}
+                    ))}
                   </div>
+                )}
+                {phone && (
+                  <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Mais ações">
+                    <div className="bottom-sheet__list" role="menu" aria-label="Mais ações">
+                      {menuItems.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          role="menuitem"
+                          className={`bottom-sheet__item${item.danger ? ' bottom-sheet__item--danger' : ''}`}
+                          onClick={() => {
+                            setMenuOpen(false)
+                            item.run()
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </BottomSheet>
                 )}
               </span>
             )}

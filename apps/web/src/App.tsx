@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import { NavCapsule } from './components/NavCapsule'
+import { MobileChrome } from './components/MobileChrome'
+import { PHONE_QUERY, useMediaQuery } from './hooks/useMediaQuery'
 import { DemoBanner } from './components/DemoBanner'
 import { OfflineBanner } from './components/OfflineBanner'
 import { RequireAuth } from './auth/RequireAuth'
@@ -57,6 +59,13 @@ function SkipLink() {
   )
 }
 
+/** S24-01: on a phone, once signed in, the tab bar + top bar replace the capsule. */
+function Chrome() {
+  const { status } = useAuth()
+  const phone = useMediaQuery(PHONE_QUERY)
+  return phone && status === 'authenticated' ? <MobileChrome /> : <NavCapsule />
+}
+
 function App() {
   return (
     <>
@@ -64,7 +73,7 @@ function App() {
       <DocumentTitle />
       <OfflineBanner />
       <DemoBanner />
-      <NavCapsule />
+      <Chrome />
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route

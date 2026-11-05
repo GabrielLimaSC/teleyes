@@ -1,0 +1,214 @@
+/* S24-01: phone chrome. Everything here is phone-only: the pieces are only
+   mounted at <= 640px (App), and the rules below are scoped to the same query. */
+.mobile-top,
+.mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mobile-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 4px;
+  }
+
+  .mobile-top__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    color: var(--plane-text-heading);
+    text-decoration: none;
+  }
+
+  .mobile-top__brand:focus-visible {
+    outline: none;
+    box-shadow: var(--plane-focus-ring);
+    border-radius: 12px;
+  }
+
+  .mobile-top__name {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .mobile-top__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--plane-tint-bg);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .mobile-top__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  /* Floating pill; the content gets matching room below (see body padding). */
+  .mobile-tabs {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 70;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    height: 66px;
+    padding: 0 6px;
+    border-radius: 33px;
+    background: color-mix(in srgb, var(--plane-input-bg) 88%, transparent);
+    border: var(--plane-pearl-border);
+    box-shadow: var(--nav-capsule-shadow);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+  }
+
+  .mobile-tabs__tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 56px;
+    min-width: 44px;
+    padding: 0;
+    border: none;
+    border-radius: 20px;
+    background: transparent;
+    color: var(--plane-text-secondary);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .mobile-tabs__tab:focus-visible {
+    outline: none;
+    box-shadow: var(--plane-focus-ring);
+  }
+
+  .mobile-tabs__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 30px;
+    border-radius: 15px;
+  }
+
+  .mobile-tabs__label {
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  .mobile-tabs__tab--active {
+    color: var(--plane-focus-color);
+  }
+
+  .mobile-tabs__tab--active .mobile-tabs__icon {
+    background: var(--plane-tint-bg);
+  }
+
+  .mobile-tabs__tab--active .mobile-tabs__label {
+    color: var(--plane-text-primary);
+  }
+
+  :root[data-mobile-nav] body {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  /* The demo notice lives in the "Mais" sheet; a fixed strip would sit on the bar. */
+  :root[data-mobile-nav] .demo-banner {
+    display: none;
+  }
+
+  :root[data-mobile-nav] .toast-viewport {
+    bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ---- "Mais" sheet ---- */
+.mobile-more__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mobile-more__theme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  border-top: 1px solid var(--plane-divider-color);
+  border-bottom: 1px solid var(--plane-divider-color);
+}
+
+.mobile-more__theme-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mobile-more__segments {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--plane-tint-bg);
+}
+
+.mobile-more__segment {
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--plane-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mobile-more__segment--on {
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+  box-shadow: var(--plane-pearl-shadow);
+}
+
+.mobile-more__segment:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.mobile-more__demo {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--plane-tint-bg);
+  color: var(--plane-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mobile-more__demo a {
+  color: var(--plane-focus-color);
+  font-weight: 600;
+}
+
+.mobile-more__version {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
