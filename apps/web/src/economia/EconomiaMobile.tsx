@@ -1,6 +1,7 @@
 import { useArrival } from '../motion/stagger'
 import type { GoalReport, Purchase, ReportItem, SavingsReport } from '../api/purchases'
-import { EmptyState } from '../components/EmptyState'
+import { Link } from 'react-router-dom'
+import { Mascot } from '../components/Mascot'
 import { HelpTip } from '../components/HelpTip'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { parseApiDate } from '../utils/dates'
@@ -42,13 +43,47 @@ interface Props {
 
 /** S24-04c: phone layout of Economia (comp 23): savings, paid + goal, purchases, noise. */
 export function EconomiaMobile({ report, purchaseById, onEditGoal, onEdit, onDelete, onCreate }: Props) {
+  const goal = report.goal ?? null
+  if (report.items.length === 0) {
+    return (
+      <>
+        <section className="plane-pearl eco-m__invite" aria-label="Primeira compra">
+          <Mascot className="eco-m__mascot" width={56} height={56} />
+          <h2>Registre sua primeira compra</h2>
+          <p>
+            Diga o que comprou e quanto pagou. Se o teleyes já viu o produto, compara com a mediana dos 90 dias e mostra
+            quanto você economizou.
+          </p>
+          <div className="eco-m__invite-actions">
+            <button type="button" className="plane-action fill-button" onClick={onCreate}>
+              + Registrar compra
+            </button>
+            <Link className="plane-action plane-action--secondary" to="/ofertas">
+              Marcar oferta como comprada
+            </Link>
+          </div>
+        </section>
+        <GoalInvite onEdit={onEditGoal} withLabel />
+        <Noise report={report} />
+      </>
+    )
+  }
   return (
     <>
       <SavingsHero report={report} />
-      <div className="eco-m__pair">
-        <PaidTile report={report} />
-        <GoalTile goal={report.goal ?? null} onEdit={onEditGoal} />
-      </div>
+      {goal ? (
+        <div className="eco-m__pair">
+          <PaidTile report={report} />
+          <GoalTile goal={goal} onEdit={onEditGoal} />
+        </div>
+      ) : (
+        <>
+          <div className="eco-m__pair eco-m__pair--single">
+            <PaidTile report={report} />
+          </div>
+          <GoalInvite onEdit={onEditGoal} />
+        </>
+      )}
       <section className="eco-m__section" aria-label="Compras">
         <h2>Compras</h2>
         <ul className="eco-m__legend" aria-label="Legenda">
@@ -65,27 +100,19 @@ export function EconomiaMobile({ report, purchaseById, onEditGoal, onEdit, onDel
             você pagou
           </li>
         </ul>
-        {report.items.length === 0 ? (
-          <EmptyState
-            title="Nenhuma compra registrada"
-            text="Aqui você vê quanto pagou a menos que o preço visto pelo teleyes. Registre uma compra aqui ou use “Marcar como comprado” num card das Ofertas."
-            action={{ label: 'Registrar primeira compra', onClick: onCreate }}
-          />
-        ) : (
-          <ul className="eco-m__list">
-            {report.items.map((item, index) => (
-              <PurchaseRow
-                key={item.id}
-                index={index}
-                item={item}
-                purchase={purchaseById.get(item.id)}
-                hasGoal={report.goal != null}
-                onEdit={onEdit}
-                onDelete={onDelete}
-              />
-            ))}
-          </ul>
-        )}
+        <ul className="eco-m__list">
+          {report.items.map((item, index) => (
+            <PurchaseRow
+              key={item.id}
+              index={index}
+              item={item}
+              purchase={purchaseById.get(item.id)}
+              hasGoal={report.goal != null}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </ul>
       </section>
       <Noise report={report} />
     </>
@@ -155,6 +182,20 @@ function PaidTile({ report }: { report: SavingsReport }) {
         {period ? ` · ${period}` : ''}
       </div>
       {top && report.items.length > 1 && <div className="eco-m__sub">{Math.round(top.share)}% numa única peça</div>}
+    </section>
+  )
+}
+
+/** No goal yet: an invitation card (comps 36/37), not a bare tile. */
+function GoalInvite({ onEdit, withLabel = false }: { onEdit: () => void; withLabel?: boolean }) {
+  return (
+    <section className="plane-pearl eco-m__goalinvite" aria-label="Meta de economia">
+      {withLabel && <div className="eco-m__label">Meta de economia</div>}
+      <strong>Sem meta definida</strong>
+      <p>Diga quanto quer economizar e até quando — o teleyes mostra o ritmo.</p>
+      <button type="button" className="plane-action plane-action--secondary" onClick={onEdit}>
+        Definir meta
+      </button>
     </section>
   )
 }
