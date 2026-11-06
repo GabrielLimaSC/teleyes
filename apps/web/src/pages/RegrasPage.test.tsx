@@ -1828,9 +1828,11 @@ describe('RegrasPage — modelos, modo simples/avançado e prévia (S23-05)', ()
     const user = userEvent.setup()
     render(<RegrasPage />)
 
-    await user.click(await screen.findByRole('button', { name: 'SSD' }))
+    await screen.findByText('Começar de um modelo')
+    const ssd = () => within(screen.getByRole('group', { name: 'Começar de um modelo' })).getByRole('button', { name: 'SSD' })
+    await user.click(ssd())
 
-    expect(screen.getByRole('button', { name: 'SSD' })).toHaveAttribute('aria-pressed', 'true')
+    expect(ssd()).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByLabelText(/Nome/)).toHaveValue('SSD')
     expect(screen.getByRole('button', { name: 'Remover termo ssd + 1tb' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Até quanto você paga/)).toHaveValue('')
@@ -1939,8 +1941,8 @@ describe('RegrasPage empty state and tip (S23-04)', () => {
     const user = userEvent.setup()
     render(<RegrasPage />)
     expect(await screen.findByText('Nenhuma regra ainda')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Criar a primeira regra' }))
-    expect(screen.getByLabelText('Nome')).toHaveFocus()
+    await user.click(within(screen.getByRole('group', { name: 'Modelos de regra' })).getByRole('button', { name: 'SSD' }))
+    await waitFor(() => expect(screen.getByLabelText(/Nome/)).toHaveValue('SSD'))
   })
 
   it('lands with the form focused on /regras?nova=1 and cleans the URL', async () => {

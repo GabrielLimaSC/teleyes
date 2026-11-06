@@ -43,8 +43,9 @@ export function GoalCard({
     return (
       <div className="plane-pearl economia-tile economia-goal">
         <div className="economia-tile__label">Meta de economia</div>
+        <div className="economia-tile__value">Sem meta definida</div>
         <p className="economia-tile__detail">
-          Defina quanto quer economizar e até quando: o teleyes mostra o quanto já foi e se o ritmo cabe no prazo.
+          Defina quanto quer economizar e até quando. O teleyes mostra o ritmo e quanto cada compra contribuiu.
         </p>
         <button type="button" className="plane-action plane-action--secondary" onClick={onDefine}>
           Definir meta

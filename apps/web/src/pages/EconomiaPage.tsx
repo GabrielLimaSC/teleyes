@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
@@ -21,7 +21,6 @@ import { BottomSheet } from '../components/BottomSheet'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { cardTitle } from '../components/matchTitle'
-import { EmptyState } from '../components/EmptyState'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { EMPTY_DRAFT, valuesFromDraft } from '../economia/purchaseDraft'
 import type { EconomiaNavState, LinkOption, PurchaseDraft } from '../economia/purchaseDraft'
@@ -374,6 +373,28 @@ export function EconomiaPage() {
 
       {report && totals && !phone && (
         <>
+          {report.items.length === 0 ? (
+            <section className="economia-empty" aria-label="Resumo">
+              <div className="plane-pearl economia-empty__hero">
+                <h2>Registre sua primeira compra</h2>
+                <p>
+                  Diga o que comprou e quanto pagou. Se o teleyes já viu esse produto, ele compara com a mediana dos 90
+                  dias anteriores e mostra quanto você economizou.
+                </p>
+                <div className="economia-empty__actions">
+                  <button type="button" className="plane-action fill-button" onClick={openCreate}>
+                    <span aria-hidden="true" className="economia-page__plus">+</span>
+                    Registrar compra
+                  </button>
+                  <Link className="plane-action plane-action--secondary" to="/ofertas">
+                    Marcar oferta como comprada
+                  </Link>
+                </div>
+              </div>
+              <GoalCard goal={goal} onDefine={() => setGoalDialog(true)} onEdit={() => setGoalDialog(true)} />
+            </section>
+          ) : (
+          <>
           <section className="economia-tiles" aria-label="Resumo">
             <SavingsCard report={report} />
             <PaidCard report={report} />
@@ -409,7 +430,12 @@ export function EconomiaPage() {
                   <th className="economia-table__num">Pago</th>
                   <th>Onde o preço caiu na faixa vista</th>
                   <th>Economia</th>
-                  {goal && <th className="economia-table__num">Parte da meta</th>}
+                  <th
+                    className="economia-table__num"
+                    title={goal ? undefined : 'Aparece quando houver uma meta'}
+                  >
+                    Parte da meta
+                  </th>
                   <th>
                     <span className="sr-only">Ações</span>
                   </th>
@@ -456,11 +482,9 @@ export function EconomiaPage() {
                           <span className={`economia-pill economia-pill--${tone}`}>{pill}</span>
                         )}
                       </td>
-                      {goal && (
-                        <td className="economia-table__num" data-label="Parte da meta">
-                          {item.share_of_goal == null ? '—' : shareLabel(item.share_of_goal)}
-                        </td>
-                      )}
+                      <td className="economia-table__num" data-label="Parte da meta">
+                        {!goal || item.share_of_goal == null ? '—' : shareLabel(item.share_of_goal)}
+                      </td>
                       <td className="economia-table__actions">
                         {purchase && (
                           <RowActionsMenu
@@ -475,20 +499,12 @@ export function EconomiaPage() {
                     </tr>
                   )
                 })}
-                {report.items.length === 0 && (
-                  <tr>
-                    <td colSpan={goal ? 6 : 5} className="economia-table__empty">
-                      <EmptyState
-                        title="Nenhuma compra registrada"
-                        text="Aqui você vê quanto pagou a menos que o preço visto pelo teleyes. Registre uma compra aqui ou use “Marcar como comprado” num card das Ofertas."
-                        action={{ label: 'Registrar primeira compra', onClick: openCreate }}
-                      />
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </section>
+
+          </>
+          )}
 
           <section className="plane-pearl economia-noise" aria-label="Ruído evitado">
             <h2>Ruído evitado</h2>
