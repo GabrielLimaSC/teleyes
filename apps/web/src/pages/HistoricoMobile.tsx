@@ -1,5 +1,7 @@
 import { useArrival } from '../motion/stagger'
 import { memo, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Mascot } from '../components/Mascot'
 import { BottomSheet } from '../components/BottomSheet'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { PRODUCT_OPEN_CONTROL_ATTR } from '../components/ProductPanel'
@@ -279,6 +281,22 @@ function FiltersBody({ form, onApply, rules, sources, recipients, toApi }: Filte
           {count === null ? 'Ver anúncios' : `Ver ${count} ${count === 1 ? 'anúncio' : 'anúncios'}`}
         </button>
       </div>
+    </div>
+  )
+}
+
+/** S26-b (tela 34): phone empty state, with the cat. */
+export function HistoricoMobileEmpty() {
+  return (
+    <div className="empty-state motion-item hist-m__empty">
+      <Mascot className="hist-m__mascot" width={56} height={56} />
+      <h3 className="empty-state__title">Nenhum anúncio ainda</h3>
+      <p className="empty-state__text">
+        Quando uma regra encontrar uma oferta, ela fica registrada aqui por 90 dias, com preço, grupo e para quem foi.
+      </p>
+      <Link className="plane-action empty-state__action" to="/regras">
+        Ver regras
+      </Link>
     </div>
   )
 }

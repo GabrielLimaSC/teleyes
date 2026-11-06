@@ -29,7 +29,7 @@ import { useDeleteListing } from '../hooks/useDeleteListing'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { useSpringFollow } from '../motion/useSpringFollow'
-import { HistoricoMobileFilters, MobileHistoricoItem, MOBILE_SORT_OPTIONS, activeFilterChips } from './HistoricoMobile'
+import { HistoricoMobileEmpty, HistoricoMobileFilters, MobileHistoricoItem, MOBILE_SORT_OPTIONS, activeFilterChips } from './HistoricoMobile'
 import type { MobileRow } from './HistoricoMobile'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
 import { useToast } from '../hooks/useToast'
@@ -693,10 +693,12 @@ export function HistoricoPage() {
             <div>
               <h1>Histórico</h1>
               <p className="historico-page__subtitle">
-                {matches.length} {matches.length === 1 ? 'anúncio' : 'anúncios'} · últimos 90 dias
+                {hasActiveFilters && matches.length === 0 && totalUnfiltered !== null
+                  ? `${totalUnfiltered} ${totalUnfiltered === 1 ? 'anúncio' : 'anúncios'} · 0 com os filtros`
+                  : `${matches.length} ${matches.length === 1 ? 'anúncio' : 'anúncios'} · últimos 90 dias`}
               </p>
             </div>
-            <button type="button" className="plane-action plane-action--secondary" onClick={exportCsv} disabled={rows.length === 0}>
+            <button type="button" className="plane-action plane-action--secondary" onClick={exportCsv} disabled={rows.length === 0 || nothingYet}>
               CSV ↓
             </button>
           </div>
@@ -707,17 +709,19 @@ export function HistoricoPage() {
               aria-label="Buscar produto"
               placeholder="Buscar produto"
               maxLength={200}
+              disabled={nothingYet}
               autoComplete="off"
               value={form.search}
               onChange={(event) => updateField('search')(event.target.value)}
             />
             <div className="hist-m__bar">
-              <button type="button" className="plane-action plane-action--secondary" onClick={() => setFiltersOpen(true)}>
+              <button type="button" className="plane-action plane-action--secondary" onClick={() => setFiltersOpen(true)} disabled={nothingYet}>
                 Filtros{chips.length > 0 ? ` (${chips.length})` : ''}
               </button>
               <select
                 className="hist-m__sort"
                 aria-label="Ordenação"
+                disabled={nothingYet}
                 value={form.sort}
                 onChange={(event) => updateField('sort')(event.target.value)}
               >
@@ -971,7 +975,8 @@ export function HistoricoPage() {
               </div>
               )}
 
-              {rows.length === 0 && !hasActiveFilters && (
+              {rows.length === 0 && !hasActiveFilters && phone && <HistoricoMobileEmpty />}
+              {rows.length === 0 && !hasActiveFilters && !phone && (
                 <EmptyState
                   title="Nenhum anúncio ainda"
                   text="Quando uma regra encontrar uma oferta, ela fica registrada aqui por 90 dias, com preço, grupo e para quem foi."
