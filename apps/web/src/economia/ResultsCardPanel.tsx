@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { useSegmentThumb } from '../motion/useSegmentThumb'
 import type { SavingsReport } from '../api/purchases'
 import {
   CARD_HEIGHT,
@@ -47,6 +48,7 @@ export function ResultsCardPanel({
   embedded?: boolean
 }) {
   const [options, setOptions] = useState<CardOptions>(DEFAULT_CARD_OPTIONS)
+  const { containerRef: periodsRef, thumbRef: periodsThumbRef } = useSegmentThumb<HTMLDivElement>(options.period ?? 'all')
   const [mascot, setMascot] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -141,20 +143,22 @@ export function ResultsCardPanel({
       <div className="economia-card-panel__body">
         <fieldset className="economia-card-panel__options">
           <legend>Período</legend>
-          <div className="economia-card-panel__periods" role="radiogroup" aria-label="Período">
+          <div ref={periodsRef} className="economia-card-panel__periods motion-seg" role="radiogroup" aria-label="Período">
+            <span ref={periodsThumbRef} className="motion-seg__thumb" aria-hidden="true" />
             {PERIODS.map((period) => (
-              <label key={period} className="economia-card-panel__period">
-                <input
-                  type="radio"
-                  name="card-period"
-                  checked={(options.period ?? 'all') === period}
-                  onChange={() => {
-                    setNotice(null)
-                    setOptions({ ...options, period })
-                  }}
-                />
-                <span>{PERIOD_LABELS[period]}</span>
-              </label>
+              <button
+                key={period}
+                type="button"
+                role="radio"
+                aria-checked={(options.period ?? 'all') === period}
+                className="economia-card-panel__period"
+                onClick={() => {
+                  setNotice(null)
+                  setOptions({ ...options, period })
+                }}
+              >
+                {PERIOD_LABELS[period]}
+              </button>
             ))}
           </div>
           {empty && <p className="economia-card-panel__note">Nenhuma compra neste período.</p>}
