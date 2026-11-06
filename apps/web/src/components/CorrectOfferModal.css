@@ -1,0 +1,104 @@
+/* S25-F3 (tela B2): desktop "Corrigir oferta" modal. Liquid glass (the app's
+   own material), above the product panel (z 40) and below the toast (200)
+   and the confirm dialog (300). Moves on the chrome spring; under
+   `prefers-reduced-motion` the duration token collapses to 1ms. */
+.correct-offer-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--session-expired-backdrop-bg);
+  opacity: 0;
+  transition: opacity calc(var(--chrome-spring-duration) * 0.45) ease-out;
+}
+
+.correct-offer-modal__backdrop[data-state='open'] {
+  opacity: 1;
+}
+
+.correct-offer-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100dvh - 2 * var(--space-4));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--plane-text-primary);
+  font-family: var(--font-body);
+  opacity: 0;
+  transform: translateY(18px) scale(0.96);
+  transition:
+    transform var(--chrome-spring-duration) var(--chrome-spring),
+    opacity calc(var(--chrome-spring-duration) * 0.4) ease-out;
+}
+
+.correct-offer-modal__backdrop[data-state='open'] .correct-offer-modal {
+  opacity: 1;
+  transform: none;
+}
+
+.correct-offer-modal:focus-visible {
+  outline: none;
+}
+
+.correct-offer-modal__header {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 4px 24px;
+}
+
+.correct-offer-modal__heading {
+  min-width: 0;
+}
+
+.correct-offer-modal__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--plane-text-primary);
+}
+
+.correct-offer-modal__subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.correct-offer-modal__close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--plane-text-secondary);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.correct-offer-modal__close:hover:not(:disabled) {
+  background: var(--glass-tile-bg);
+  color: var(--plane-text-primary);
+}
+
+.correct-offer-modal__close:focus-visible {
+  outline: 2px solid var(--product-panel-accent);
+  outline-offset: 2px;
+}
+
+.correct-offer-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 24px 24px;
+}

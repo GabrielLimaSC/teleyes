@@ -1542,6 +1542,22 @@
               }
             ],
             "title": "Price"
+          },
+          "price_card": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Card"
+          },
+          "reevaluate": {
+            "default": false,
+            "title": "Reevaluate",
+            "type": "boolean"
           }
         },
         "title": "MatchUpdate",
