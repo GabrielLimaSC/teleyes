@@ -695,14 +695,16 @@ describe('FeedPage empty states and tip (S23-04)', () => {
     renderFeedPage()
     expect(await screen.findByText('Nenhuma oferta ainda')).toBeInTheDocument()
     expect(screen.getByText('Assim que uma promoção bater numa regra, ela aparece aqui.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ver as regras' })).toHaveAttribute('href', '/regras')
+    expect(screen.getByRole('link', { name: 'Ver regras' })).toHaveAttribute('href', '/regras')
+    expect(screen.getByRole('link', { name: 'Testar uma regra' })).toHaveAttribute('href', '/regras?nova=1')
   })
 
   it('without rules, offers to create the first one', async () => {
     vi.stubGlobal('EventSource', InertEventSource)
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse([]))))
     renderFeedPage()
-    expect(await screen.findByRole('link', { name: 'Criar a primeira regra' })).toHaveAttribute('href', '/regras?nova=1')
+    expect(await screen.findByRole('link', { name: 'Criar primeira regra' })).toHaveAttribute('href', '/regras?nova=1')
+    expect(screen.getByRole('link', { name: 'SSD' })).toHaveAttribute('href', '/regras?nova=1&modelo=ssd')
   })
 
   it('shows the first-time tip once and keeps it closed', async () => {

@@ -576,3 +576,15 @@
     min-height: 44px;
   }
 }
+
+/* S25-F1a: right column of Início: first steps or latest offers, then the session. */
+.login-page__side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.login-page__side > .login-panel--form {
+  flex: none;
+}

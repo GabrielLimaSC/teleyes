@@ -40,6 +40,7 @@ import { SetupBanner } from '../components/SetupBanner'
 import { EmptyState } from '../components/EmptyState'
 import { FeedMobileTop, NewOffersPill } from './FeedMobileTop'
 import { useNewOffersCount } from './useNewOffersCount'
+import { FeedLoadingSkeleton, NoRulesWide } from './FeedStates'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { ConnectionLostNotice } from '../components/OfflineBanner'
@@ -154,7 +155,8 @@ const FeedMatchList = memo(function FeedMatchList({
               ? `Suas ${rules.length} ${rules.length === 1 ? 'regra está' : 'regras estão'} de olho. Assim que uma promoção bater, ela aparece aqui.`
               : 'Assim que uma promoção bater numa regra, ela aparece aqui.'
           }
-          action={{ label: 'Ver as regras', to: '/regras' }}
+          action={phone ? { label: 'Ver as regras', to: '/regras' } : { label: 'Testar uma regra', to: '/regras?nova=1' }}
+          secondaryAction={phone ? undefined : { label: 'Ver regras', to: '/regras' }}
         />
       )}
       {visibleMatches.length === 0 && hasAnyMatch && <p>Nenhuma oferta para esta regra ainda.</p>}
@@ -238,7 +240,12 @@ export function FeedPage() {
   const [digest, setDigest] = useState<DigestSettings | null>(null)
   const [feedSettings, setFeedSettings] = useState<FeedSettings | null>(null)
 
-  const loadRules = () => fetchRules().then(setRules).catch(() => setRules([]))
+  const [rulesLoaded, setRulesLoaded] = useState(false)
+  const loadRules = () =>
+    fetchRules()
+      .then(setRules)
+      .catch(() => setRules([]))
+      .finally(() => setRulesLoaded(true))
   const loadSnoozes = () => listSnoozes().then(setSnoozes).catch(() => setSnoozes([]))
   const loadDigest = () => fetchDigestSettings().then(setDigest).catch(() => setDigest(null))
   const loadFeedSettings = () => fetchFeedSettings().then(setFeedSettings).catch(() => setFeedSettings(null))
@@ -809,6 +816,9 @@ export function FeedPage() {
       : []),
   ]
 
+  // S25-F1a (A2): no rules and nothing to show — the rails go away and the empty state takes the width.
+  const noRulesWide = !phone && !loading && !error && rulesLoaded && rules.length === 0 && matches.length === 0
+
   return (
     <main className="feed-page">
       <Toast toast={toast} onDismiss={dismiss} />
@@ -838,7 +848,7 @@ export function FeedPage() {
             {isPhone ? 'Encontradas pelas suas regras, em tempo real.' : 'Ofertas encontradas pelas suas regras, em tempo real.'}
           </p>
         </div>
-        {(loading || error) && liveBlock}
+        {(loading || error || noRulesWide) && liveBlock}
       </div>
 
       {isPhone && (
@@ -919,7 +929,7 @@ export function FeedPage() {
         preço do produto.
       </FirstTimeTip>
 
-      {phone && connectionState === 'error' && !loading && <ConnectionLostNotice onRetry={refresh} />}
+      {connectionState === 'error' && !loading && <ConnectionLostNotice onRetry={refresh} />}
       {loading &&
         (phone ? (
           <div className="feed-skeleton" aria-busy="true" aria-label="Carregando ofertas">
@@ -927,15 +937,16 @@ export function FeedPage() {
             <div className="feed-skeleton__card" />
           </div>
         ) : (
-          <p>Carregando…</p>
+          <FeedLoadingSkeleton />
         ))}
+      {noRulesWide && <NoRulesWide />}
       {error && (
         <p role="alert" className="feed-page__error">
           {error}
         </p>
       )}
 
-      {!loading && !error && (
+      {!loading && !error && !noRulesWide && (
         <div className="product-panel-layout" data-panel-phase={panel.phase}>
           <div className="product-panel-layout__content">
         <div

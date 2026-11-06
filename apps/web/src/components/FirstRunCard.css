@@ -2,8 +2,7 @@
 .first-run {
   box-sizing: border-box;
   width: 100%;
-  max-width: 1120px;
-  margin: 0 0 24px;
+  margin: 0;
   padding: 22px 24px;
 }
 
@@ -156,24 +155,25 @@
   }
 }
 
+/* S25-F1a: one compact presentation at every width (the card now lives in Início's right column). */
+.first-run h2 {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.first-run__lede,
+.first-run__count {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .first-run {
     margin-bottom: 16px;
   }
 
-  .first-run h2 {
-    font-size: 13px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
   .first-run__head {
     flex-direction: row;
-  }
-
-  .first-run__lede,
-  .first-run__count {
-    display: none;
   }
 
   .first-run__skip,
