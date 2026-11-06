@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { HelpTip } from '../components/HelpTip'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -31,7 +32,15 @@ export function VerdictStrip({
       <span className="saude-verdict__dot" aria-hidden="true" />
       <div className="saude-verdict__text">
         <h2>{verdict.title}</h2>
-        <p>{verdict.detail}</p>
+        <p>
+          {verdict.detail}
+          {verdict.botOff === true && (
+            <>
+              {' '}
+              <Link to="/configuracao">Configurar bot</Link>
+            </>
+          )}
+        </p>
       </div>
       <dl className="saude-verdict__meta">
         <div>

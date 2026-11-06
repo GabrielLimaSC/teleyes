@@ -69,6 +69,8 @@ export interface Verdict {
   detail: string
   active: number
   total: number
+  /** Bot off is the only gap: the strip offers the link to configure it. */
+  botOff?: boolean
 }
 
 /** Services still loading (no view yet) are simply not counted as active. */
@@ -88,6 +90,16 @@ export function buildVerdict(views: ServiceView[], demo: boolean): Verdict {
   if (off.length > 0) {
     const names = off.map((view) => view.name).join(' e ')
     const verb = off.length > 1 ? 'estão desligados' : 'está desligado'
+    if (!demo && off.length === 1 && off[0].key === 'bot') {
+      return {
+        tone: 'neutral',
+        title: 'Bot desligado — nenhum alerta sai',
+        detail: `${base}. Sem BOT_TOKEN o teleyes encontra ofertas mas não avisa ninguém.`,
+        active,
+        total,
+        botOff: true,
+      }
+    }
     if (demo) {
       return {
         tone: 'warn',

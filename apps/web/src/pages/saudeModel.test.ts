@@ -53,6 +53,9 @@ describe('saudeModel', () => {
     expect(demoVerdict.title).toBe('Operando em demonstração')
     expect(demoVerdict.detail).toContain('3 de 5 serviços ativos')
     expect(buildVerdict(demo, false).title).toBe('Configuração incompleta')
+    const botOff = buildVerdict([all[0], view('bot', 'neutral', 'Bot'), ...all.slice(2)], false)
+    expect(botOff.title).toBe('Bot desligado — nenhum alerta sai')
+    expect(botOff.botOff).toBe(true)
     const down = [...all.slice(0, 3), view('sse', 'danger', 'Atualização ao vivo'), all[4]]
     expect(buildVerdict(down, false).title).toBe('Atenção: Atualização ao vivo fora')
   })

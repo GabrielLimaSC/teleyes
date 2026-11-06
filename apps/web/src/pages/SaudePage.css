@@ -559,10 +559,10 @@
   }
 }
 
-/* S24-04a: celular. "Reverificar" fica para a 1.1. */
+/* S24-04a: celular. */
 @media (max-width: 640px) {
   .saude-reverify {
-    display: none;
+    min-height: 44px;
   }
 
   .saude-panel__field select,
