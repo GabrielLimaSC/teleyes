@@ -51,8 +51,10 @@
 .feed-mobile-top__pill {
   position: fixed;
   top: calc(72px + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   z-index: 60;
   min-height: 44px;
   padding: 0 18px;
@@ -208,4 +210,70 @@
 
 .feed-mobile-sheet__refresh span[aria-hidden='true'] {
   margin-right: 6px;
+}
+
+/* S25-F2 (screen 32): pull to refresh. The indicator hangs under the app bar;
+   The gesture writes transform/opacity inline, so only the compositor moves. */
+.feed-pull {
+  --pull-progress: 0;
+  position: fixed;
+  top: calc(60px + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  z-index: 55;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-52px);
+}
+
+.feed-pull__bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  background: var(--glass-tile-bg);
+  box-shadow: var(--popover-shadow);
+  border: 1px solid var(--glass-inner-border-color);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+
+.feed-pull__arrow {
+  display: inline-block;
+  transform: rotate(calc(var(--pull-progress) * 180deg));
+  transition: transform 240ms var(--chrome-spring, ease-out);
+}
+
+.feed-pull[data-phase='ready'] .feed-pull__arrow {
+  transform: rotate(180deg);
+}
+
+.feed-pull[data-phase='loading'] .feed-pull__arrow {
+  animation: feed-pull-spin 900ms linear infinite;
+}
+
+@keyframes feed-pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-pull__arrow {
+    transition: none;
+    transform: none;
+  }
+
+  .feed-pull[data-phase='ready'] .feed-pull__arrow,
+  .feed-pull[data-phase='loading'] .feed-pull__arrow {
+    animation: none;
+    transform: none;
+  }
 }
