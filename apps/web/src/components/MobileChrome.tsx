@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { DEMO_BANNER_TEXT } from '../api/demo'
 import { DemoStaticLinks } from '../demo-static/DemoStaticLinks'
+import { useMobileScrollChrome } from '../chrome/useMobileScrollChrome'
 import { useHealth } from '../hooks/useHealth'
 import type { SseState } from '../hooks/useHealth'
 import { useTheme } from '../hooks/useTheme'
@@ -105,6 +106,7 @@ export function MobileChrome() {
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [busy, setBusy] = useState(false)
   const { preference, setPreference } = useTheme()
+  const { compact, scrolled } = useMobileScrollChrome()
 
   // Tells the stylesheet there is a tab bar: room under the content, and the
   // fixed demo strip moves into the "Mais" sheet.
@@ -119,10 +121,13 @@ export function MobileChrome() {
   const adapter = health === null ? null : telegramStateLabel(health.telegram.state)
   const healthText = health === null ? 'Verificando…' : health.demo === true ? 'Operando em demonstração' : (adapter?.label ?? '')
   const closeMore = () => setMoreOpen(false)
+  const tabIndex = TABS.findIndex((tab) => (tab.to === '/' ? pathname === '/' : pathname.startsWith(tab.to)))
+  // The sliding pill sits under the current tab; "Mais" owns the last slot.
+  const pillIndex = moreActive ? TABS.length : tabIndex
 
   return (
     <>
-      <header className="mobile-top">
+      <header className="mobile-top" data-scrolled={scrolled ? 'true' : undefined}>
         <Link to="/" className="mobile-top__brand" aria-label="teleyes, ir para o início">
           <Mascot width={32} height={32} />
           <span className="mobile-top__name">teleyes</span>
@@ -130,7 +135,13 @@ export function MobileChrome() {
         <ConnectionPill state={sseState} />
       </header>
 
-      <nav className="mobile-tabs" aria-label="Navegação principal">
+      <nav
+        className="mobile-tabs"
+        aria-label="Navegação principal"
+        data-compact={compact ? 'true' : undefined}
+        style={{ '--tab-index': Math.max(pillIndex, 0) } as CSSProperties}
+      >
+        <span className="mobile-tabs__pill" data-visible={pillIndex >= 0 ? 'true' : 'false'} aria-hidden="true" />
         {TABS.map((tab) => (
           <NavLink
             key={tab.to}
@@ -154,7 +165,7 @@ export function MobileChrome() {
         </button>
       </nav>
 
-      <BottomSheet open={moreOpen} onClose={closeMore} title="Mais">
+      <BottomSheet open={moreOpen} onClose={closeMore} title="Mais" className="mobile-more-sheet">
         <div className="bottom-sheet__list">
           <Link to="/historico" replace className="bottom-sheet__item" onClick={closeMore}>
             Histórico

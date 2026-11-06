@@ -6,12 +6,42 @@
 }
 
 @media (max-width: 640px) {
+  /* S25-M2: liquid glass, the NavCapsule material (tint, specular border,
+     shadow) with the plane-glass blur. */
+  .mobile-top,
+  .mobile-tabs {
+    background: var(--nav-tint);
+    border: 1px solid var(--nav-shine-border-color);
+    box-shadow: var(--nav-shine-shadow), var(--nav-capsule-shadow);
+    -webkit-backdrop-filter: var(--plane-glass-blur);
+    backdrop-filter: var(--plane-glass-blur);
+  }
+
+  /* Fixed glass capsule at the top; it gets denser once content is under it. */
   .mobile-top {
+    position: fixed;
+    top: calc(8px + env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    z-index: 70;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: calc(12px + env(safe-area-inset-top)) 16px 4px;
+    height: 52px;
+    padding: 0 8px 0 14px;
+    border-radius: 26px;
+    transition:
+      -webkit-backdrop-filter var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease),
+      backdrop-filter var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease);
+  }
+
+  .mobile-top[data-scrolled='true'] {
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    backdrop-filter: blur(26px) saturate(180%);
+    background:
+      linear-gradient(var(--mobile-top-scrolled-veil), var(--mobile-top-scrolled-veil)),
+      var(--nav-tint);
   }
 
   .mobile-top__brand {
@@ -53,42 +83,86 @@
     flex: none;
   }
 
-  /* Floating pill; the content gets matching room below (see body padding). */
+  /* Floating glass capsule. Folded (scrolling down) it keeps only the icons
+     and narrows; every change rides the app spring. */
   .mobile-tabs {
+    --tabs-inset: 12px;
+    --tabs-pad: 6px;
     position: fixed;
-    left: 12px;
-    right: 12px;
+    left: var(--tabs-inset);
+    right: var(--tabs-inset);
     bottom: calc(12px + env(safe-area-inset-bottom));
     z-index: 70;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     align-items: center;
     height: 66px;
-    padding: 0 6px;
+    padding: 0 var(--tabs-pad);
     border-radius: 33px;
-    background: color-mix(in srgb, var(--plane-input-bg) 88%, transparent);
-    border: var(--plane-pearl-border);
-    box-shadow: var(--nav-capsule-shadow);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    backdrop-filter: blur(18px) saturate(160%);
+    transition:
+      left var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease),
+      right var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease),
+      height var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease),
+      border-radius var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease);
+  }
+
+  .mobile-tabs[data-compact='true'] {
+    --tabs-inset: 36px;
+    height: 52px;
+    border-radius: 26px;
+  }
+
+  /* Lighter glass pill under the current tab; it slides between the slots. */
+  .mobile-tabs__pill {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: var(--tabs-pad);
+    width: calc((100% - 2 * var(--tabs-pad)) / 5);
+    box-sizing: border-box;
+    border-radius: 999px;
+    background: var(--nav-tab-active-bg);
+    box-shadow: var(--nav-tab-active-shadow);
+    transform: translateX(calc(var(--tab-index, 0) * 100%));
+    transition:
+      transform var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease),
+      opacity 200ms ease-out;
+    pointer-events: none;
+  }
+
+  .mobile-tabs__pill[data-visible='false'] {
+    opacity: 0;
   }
 
   .mobile-tabs__tab {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 2px;
     min-height: 56px;
     min-width: 44px;
     padding: 0;
     border: none;
-    border-radius: 20px;
+    border-radius: 999px;
     background: transparent;
-    color: var(--plane-text-secondary);
+    color: var(--nav-tab-text);
     font: inherit;
     text-decoration: none;
     cursor: pointer;
+    transition:
+      transform 220ms var(--chrome-spring, ease),
+      color 200ms ease-out;
+  }
+
+  .mobile-tabs[data-compact='true'] .mobile-tabs__tab {
+    min-height: 44px;
+  }
+
+  .mobile-tabs__tab:active {
+    transform: scale(0.9);
   }
 
   .mobile-tabs__tab:focus-visible {
@@ -101,29 +175,57 @@
     align-items: center;
     justify-content: center;
     width: 52px;
-    height: 30px;
-    border-radius: 15px;
+    height: 28px;
   }
 
   .mobile-tabs__label {
+    max-height: 14px;
+    overflow: hidden;
     font-size: 10.5px;
     font-weight: 600;
+    line-height: 14px;
+    transition:
+      max-height var(--chrome-spring-duration, 680ms) var(--chrome-spring, ease),
+      opacity 200ms ease-out;
+  }
+
+  .mobile-tabs[data-compact='true'] .mobile-tabs__label {
+    max-height: 0;
+    opacity: 0;
   }
 
   .mobile-tabs__tab--active {
-    color: var(--plane-focus-color);
+    color: var(--nav-tab-active-text);
   }
 
-  .mobile-tabs__tab--active .mobile-tabs__icon {
-    background: var(--plane-tint-bg);
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-top,
+    .mobile-tabs,
+    .mobile-tabs__pill,
+    .mobile-tabs__tab,
+    .mobile-tabs__label {
+      transition: none;
+    }
+
+    .mobile-tabs__tab:active {
+      transform: none;
+    }
   }
 
-  .mobile-tabs__tab--active .mobile-tabs__label {
-    color: var(--plane-text-primary);
-  }
-
+  /* Room for the fixed capsules: the top one used to sit in the flow. */
   :root[data-mobile-nav] body {
+    padding-top: calc(68px + env(safe-area-inset-top));
     padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  /* "Mais" sheet in glass (the BottomSheet is S25-M1's; only its skin here). */
+  .bottom-sheet.mobile-more-sheet {
+    background: var(--nav-tint);
+    -webkit-backdrop-filter: blur(26px) saturate(170%);
+    backdrop-filter: blur(26px) saturate(170%);
+    border: 1px solid var(--nav-shine-border-color);
+    border-bottom: none;
+    box-shadow: var(--nav-shine-shadow), var(--popover-shadow);
   }
 
   /* The demo notice lives in the "Mais" sheet; a fixed strip would sit on the bar. */

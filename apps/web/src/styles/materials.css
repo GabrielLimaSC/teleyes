@@ -212,6 +212,7 @@
   --nav-tab-text: #4b4b52;
   --nav-tab-hover-text: #171717;
   --nav-tab-hover-bg: rgba(255, 255, 255, 0.62);
+  --mobile-top-scrolled-veil: rgba(255, 255, 255, 0.14);
   /* S21-01: the active tab is a raised white glass pill, not a solid block. */
   --nav-tab-active-text: #0a0a0a;
   --nav-tab-active-bg: #ffffff;
@@ -593,6 +594,7 @@
   --nav-tab-text: #c4cbd8;
   --nav-tab-hover-text: #ffffff;
   --nav-tab-hover-bg: rgba(255, 255, 255, 0.08);
+  --mobile-top-scrolled-veil: rgba(255, 255, 255, 0.08);
   --nav-tab-active-text: #ffffff;
   --nav-tab-active-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
   --nav-tab-active-shadow:
