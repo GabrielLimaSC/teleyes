@@ -707,13 +707,36 @@
 }
 
 .economia-card-panel__periods {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--plane-input-border-color);
+  border-radius: 12px;
+  background: var(--plane-surface-sunken);
 }
 
 .economia-card-panel__period {
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--plane-text-secondary);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.economia-card-panel__period[aria-checked='true'] {
+  color: var(--plane-text-primary);
+}
+
+.economia-card-panel__period:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
 }
 
 .economia-card-panel__label {
