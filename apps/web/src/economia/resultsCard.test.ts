@@ -86,7 +86,7 @@ describe('results card privacy (S19-04)', () => {
     const aggregates = buildResultsAggregates(pollutedReport(), { showPieces: true, includeStores: false })
 
     expect(Object.keys(aggregates).sort()).toEqual(
-      ['black_friday', 'generated_at', 'methodology', 'noise', 'pieces', 'schema', 'totals'].sort(),
+      ['black_friday', 'generated_at', 'methodology', 'noise', 'period', 'pieces', 'schema', 'totals'].sort(),
     )
     expect(Object.keys(aggregates.pieces?.[0] ?? {}).sort()).toEqual(
       ['name', 'paid_cents', 'saving_vs_median_cents', 'saving_vs_median_pct'],
