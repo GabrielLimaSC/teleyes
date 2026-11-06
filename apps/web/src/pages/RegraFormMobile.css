@@ -85,8 +85,30 @@
   padding: 16px 16px 24px;
 }
 
-.regra-form-m__fields input {
+.regra-form-m__fields input:not(.term-chips__input):not([type="checkbox"]):not([type="radio"]),
+.regra-form-m__fields select,
+.regra-form-m__fields textarea {
   min-height: 44px;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--plane-input-border-color);
+  border-radius: 10px;
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.regra-form-m__fields input:not(.term-chips__input)::placeholder,
+.regra-form-m__fields textarea::placeholder {
+  color: var(--plane-text-placeholder);
+}
+
+.regra-form-m__fields input:not(.term-chips__input):not([type="checkbox"]):focus-visible,
+.regra-form-m__fields select:focus-visible,
+.regra-form-m__fields textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
 }
 
 .regra-form-m__preview {
