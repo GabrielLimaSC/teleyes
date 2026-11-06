@@ -1,0 +1,97 @@
+/* S25-F1a: "Últimas ofertas" on Início (glass, like the other Início panels). */
+.latest-offers {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.latest-offers__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.latest-offers h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+}
+
+.latest-offers__all {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.latest-offers__empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+.latest-offers__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.latest-offers__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  background: var(--plane-tint-bg);
+  border: 1px solid var(--plane-tint-border-color);
+  color: var(--plane-text-primary);
+}
+
+.latest-offers__item:focus-visible,
+.latest-offers__all:focus-visible {
+  outline: 2px solid var(--plane-focus-color);
+  outline-offset: 2px;
+}
+
+.latest-offers__main {
+  display: grid;
+  min-width: 0;
+}
+
+.latest-offers__title {
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.latest-offers__when {
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.latest-offers__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+}
+
+.latest-offers__price {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.latest-offers__badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--plane-status-good);
+}

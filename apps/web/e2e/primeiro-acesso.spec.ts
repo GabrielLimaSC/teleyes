@@ -37,7 +37,7 @@ test('guides a new install through the three steps until "Tudo pronto"', async (
   const csrf = await freshInstall(page)
 
   await page.goto('/')
-  const card = page.getByRole('region', { name: 'Comece por aqui' })
+  const card = page.getByRole('region', { name: /Primeiros passos/ })
   await expect(card).toBeVisible()
   await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
 
@@ -76,23 +76,23 @@ test('guides a new install through the three steps until "Tudo pronto"', async (
   // A new page load: gone for good.
   await page.reload()
   await expect(page.getByText(/Sessão ativa/)).toBeVisible()
-  await expect(page.getByRole('heading', { name: /Tudo pronto|Comece por aqui/ })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: /Tudo pronto|Primeiros passos/ })).toHaveCount(0)
 })
 
 test('"Pular por agora" dismisses the card and it stays dismissed', async ({ page }) => {
   await freshInstall(page)
   await page.goto('/')
-  await page.getByRole('button', { name: 'Pular por agora' }).click()
-  await expect(page.getByRole('heading', { name: 'Comece por aqui' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Ocultar' }).click()
+  await expect(page.getByRole('heading', { name: /Primeiros passos/ })).toHaveCount(0)
   await page.reload()
   await expect(page.getByText(/Sessão ativa/)).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Comece por aqui' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: /Primeiros passos/ })).toHaveCount(0)
 })
 
 test('is reachable with the keyboard and announces a finished step only when it changes', async ({ page }) => {
   const csrf = await freshInstall(page)
   await page.goto('/')
-  const card = page.getByRole('region', { name: 'Comece por aqui' })
+  const card = page.getByRole('region', { name: /Primeiros passos/ })
   await expect(card).toBeVisible()
   await expect(card.getByRole('status')).toHaveText('')
 
@@ -117,7 +117,7 @@ test('the empty Feed and Regras teach and act', async ({ page }) => {
   await page.goto('/feed')
   await expect(page.getByText('Nenhuma regra ainda').first()).toBeVisible()
   await expect(page.getByText(/Entendi/).first()).toBeVisible()
-  await page.getByRole('link', { name: 'Criar a primeira regra' }).click()
+  await page.getByRole('link', { name: 'Criar primeira regra' }).click()
   await expect(page).toHaveURL(/\/regras$/)
   await expect(page.getByLabel(/Nome/)).toBeFocused()
 
