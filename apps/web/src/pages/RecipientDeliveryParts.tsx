@@ -1,4 +1,5 @@
 import type { Rule, RulesMode } from '../api/types'
+import { useSegmentThumb } from '../motion/useSegmentThumb'
 import './RecipientDelivery.css'
 
 /** S21-07: small building blocks shared by the recipient card and the rail form. */
@@ -12,8 +13,11 @@ export function ModeSegmented({
   onChange: (mode: RulesMode) => void
   label: string
 }) {
+  // S25-M1: the selected option's background glides between the two.
+  const { containerRef, thumbRef } = useSegmentThumb<HTMLDivElement>(value)
   return (
-    <div className="delivery-seg" role="group" aria-label={label}>
+    <div ref={containerRef} className="delivery-seg motion-seg" role="group" aria-label={label}>
+      <span ref={thumbRef} className="motion-seg__thumb" aria-hidden="true" />
       <button
         type="button"
         className={value === 'all' ? 'delivery-seg__opt delivery-seg__opt--on' : 'delivery-seg__opt'}

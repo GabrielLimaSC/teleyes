@@ -1,3 +1,4 @@
+import { useArrival } from '../motion/stagger'
 import type { GoalReport, Purchase, ReportItem, SavingsReport } from '../api/purchases'
 import { EmptyState } from '../components/EmptyState'
 import { HelpTip } from '../components/HelpTip'
@@ -72,9 +73,10 @@ export function EconomiaMobile({ report, purchaseById, onEditGoal, onEdit, onDel
           />
         ) : (
           <ul className="eco-m__list">
-            {report.items.map((item) => (
+            {report.items.map((item, index) => (
               <PurchaseRow
                 key={item.id}
+                index={index}
                 item={item}
                 purchase={purchaseById.get(item.id)}
                 hasGoal={report.goal != null}
@@ -200,25 +202,29 @@ function GoalTile({ goal, onEdit }: { goal: GoalReport | null; onEdit: () => voi
 }
 
 function PurchaseRow({
+  index,
   item,
   purchase,
   hasGoal,
   onEdit,
   onDelete,
 }: {
+  /** Position when the row arrives (cascade only; never re-read). */
+  index: number
   item: ReportItem
   purchase: Purchase | undefined
   hasGoal: boolean
   onEdit: (purchase: Purchase, focusLink?: boolean) => void
   onDelete: (purchase: Purchase) => void
 }) {
+  const arrival = useArrival(index)
   const tone = savingTone(item.savings)
   const pill = savingPill(item.savings)
   const origin = historyOrigin(item)
   const reference = item.reference ?? null
   const noHistory = pill === 'sem histórico'
   return (
-    <li className="plane-pearl eco-m__item">
+    <li className={`plane-pearl eco-m__item ${arrival.className}`.trim()} style={arrival.style}>
       <div className="eco-m__itemhead">
         <div className="eco-m__itemname">
           <strong>{item.name}</strong>

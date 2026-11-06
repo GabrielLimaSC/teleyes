@@ -65,6 +65,13 @@ main.regras-page {
   min-width: 0;
 }
 
+.regras-page__panes {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
 .regras-page__rail {
   display: flex;
   flex-direction: column;

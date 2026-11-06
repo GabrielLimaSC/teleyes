@@ -1,7 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import type { PointerEvent, ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import type { PointerEvent, ReactNode, RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { BACKDROP_PRESET, SHEET_PRESET, animateEnter, animateExit } from '../motion/waapi'
+import { usePresence } from '../motion/usePresence'
+import { prefersReducedMotion } from '../motion/tokens'
 import { CONFIRM_DIALOG_ATTR } from './ConfirmDialog'
 import './BottomSheet.css'
 
@@ -32,9 +35,30 @@ export interface BottomSheetProps {
  * takes the sheet's entry and "back" returns to the page before the sheet.
  */
 export function BottomSheet({ open, onClose, title, children, className }: BottomSheetProps) {
-  if (!open) return null
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // How far a drag left the panel below its place: the exit starts from there.
+  const dragOffset = useRef(0)
+  // S25-M1: closing keeps the sheet mounted while it sinks and the backdrop fades.
+  const rendered = usePresence(open, backdropRef, (backdrop) => {
+    const panel = panelRef.current
+    const from = dragOffset.current > 0 ? `translateY(${dragOffset.current}px)` : undefined
+    return Promise.all([
+      animateExit(backdrop, BACKDROP_PRESET),
+      panel === null ? Promise.resolve() : animateExit(panel, SHEET_PRESET, from),
+    ]).then(() => undefined)
+  })
+  if (!rendered) return null
   return createPortal(
-    <SheetInner onClose={onClose} title={title} className={className}>
+    <SheetInner
+      open={open}
+      backdropRef={backdropRef}
+      panelRef={panelRef}
+      dragOffset={dragOffset}
+      onClose={onClose}
+      title={title}
+      className={className}
+    >
       {children}
     </SheetInner>,
     document.body,
@@ -42,14 +66,21 @@ export function BottomSheet({ open, onClose, title, children, className }: Botto
 }
 
 function SheetInner({
+  open,
+  backdropRef,
+  panelRef,
+  dragOffset,
   onClose,
   title,
   className,
   children,
-}: Pick<BottomSheetProps, 'onClose' | 'title' | 'className' | 'children'>) {
+}: Pick<BottomSheetProps, 'open' | 'onClose' | 'title' | 'className' | 'children'> & {
+  backdropRef: RefObject<HTMLDivElement | null>
+  panelRef: RefObject<HTMLDivElement | null>
+  dragOffset: RefObject<number>
+}) {
   const titleId = useId()
   const [entryId] = useState(() => `sheet-${++entryCounter}`)
-  const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const onCloseRef = useRef(onClose)
   const activeRef = useRef(false)
@@ -59,7 +90,16 @@ function SheetInner({
     onCloseRef.current = onClose
   })
 
-  useDialogFocus(panelRef)
+  // `open` is false while the exit animation runs: focus goes back to the
+  // opener, the history entry pops and the page scrolls again right away.
+  useDialogFocus(panelRef, open)
+
+  // S25-M1: the backdrop fades in and the panel rises on the Feed's spring.
+  useLayoutEffect(() => {
+    dragOffset.current = 0
+    if (backdropRef.current !== null) animateEnter(backdropRef.current, BACKDROP_PRESET)
+    if (panelRef.current !== null) animateEnter(panelRef.current, SHEET_PRESET)
+  }, [backdropRef, panelRef, dragOffset])
 
   useEffect(() => {
     closeRef.current?.focus()
@@ -68,6 +108,7 @@ function SheetInner({
   // Back button: one history entry for the lifetime of the sheet. `entryId` is
   // stable across StrictMode's remount, so the entry is pushed only once.
   useEffect(() => {
+    if (!open) return
     activeRef.current = true
     let popped = false
     if (window.history.state?.[HISTORY_KEY] !== entryId) {
@@ -87,9 +128,10 @@ function SheetInner({
         if (!activeRef.current && window.history.state?.[HISTORY_KEY] === entryId) window.history.back()
       }, 0)
     }
-  }, [entryId])
+  }, [entryId, open])
 
   useEffect(() => {
+    if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
       if (document.querySelector(`[${CONFIRM_DIALOG_ATTR}]`) !== null) return
@@ -103,17 +145,19 @@ function SheetInner({
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
     }
-  }, [])
+  }, [open])
 
   const setOffset = (dy: number) => {
     const panel = panelRef.current
     if (panel === null) return
+    dragOffset.current = dy
     panel.style.transform = dy > 0 ? `translateY(${dy}px)` : ''
-    panel.style.transition = 'none'
   }
 
   const onDragStart = (event: PointerEvent<HTMLElement>) => {
     if ((event.target as HTMLElement).closest('button') !== null) return
+    // The finger takes over from the entrance spring.
+    panelRef.current?.getAnimations?.().forEach((animation) => animation.cancel())
     drag.current = { startY: event.clientY, startAt: event.timeStamp, dy: 0 }
     event.currentTarget.setPointerCapture?.(event.pointerId)
   }
@@ -131,19 +175,23 @@ function SheetInner({
       onCloseRef.current()
       return
     }
+    // Released short of the threshold: spring back from where the finger left it.
     const panel = panelRef.current
-    if (panel !== null) {
-      panel.style.transition = ''
-      panel.style.transform = ''
-    }
+    const from = `translateY(${state.dy}px)`
+    dragOffset.current = 0
+    if (panel === null) return
+    panel.style.transform = ''
+    if (state.dy > 0 && !prefersReducedMotion()) animateEnter(panel, SHEET_PRESET, from)
   }
 
   return (
     <div
+      ref={backdropRef}
       className="bottom-sheet__backdrop"
       role="presentation"
+      inert={!open}
       onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onCloseRef.current()
+        if (open && event.target === event.currentTarget) onCloseRef.current()
       }}
     >
       <div

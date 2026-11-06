@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { ApiError } from '../api/auth'
 import { useAuth } from './AuthContext'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { useModalMotion } from '../motion/modalMotion'
+import { DIALOG_PRESET } from '../motion/waapi'
 import './SessionExpiredModal.css'
 
 /**
@@ -20,7 +22,9 @@ export function SessionExpiredModal() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   useDialogFocus(dialogRef, sessionExpired)
+  useModalMotion(backdropRef, dialogRef, DIALOG_PRESET, sessionExpired)
 
   // Fresh fields every time it opens — including when it's resolved from
   // another tab (see AuthContext's `storage` listener) while this one was
@@ -47,7 +51,7 @@ export function SessionExpiredModal() {
   }
 
   return (
-    <div className="session-expired__backdrop" role="presentation">
+    <div ref={backdropRef} className="session-expired__backdrop" role="presentation">
       <div
         ref={dialogRef}
         tabIndex={-1}
