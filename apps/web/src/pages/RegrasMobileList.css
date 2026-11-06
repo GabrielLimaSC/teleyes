@@ -23,19 +23,8 @@
   justify-content: space-between;
 }
 
-.rules-m__apply--pending {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--plane-status-warn-bg);
-  border: 1px solid var(--plane-status-warn-dot);
-}
-
-.rules-m__apply-title {
-  color: var(--plane-status-warn);
-  font-size: 13px;
+.rules-m .pending-banner {
+  margin: 0;
 }
 
 .rules-m__card {

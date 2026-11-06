@@ -709,7 +709,7 @@ describe('RegrasPage', () => {
     await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
 
     const items = screen.getAllByRole('menuitem').map((item) => item.textContent)
-    expect(items).toEqual(['Editar', 'Testar', 'Duplicar', 'Silenciar', 'Limpar histórico', 'Excluir'])
+    expect(items).toEqual(['Editar', 'Testar', 'Duplicar', 'Silenciar›', 'Limpar histórico', 'Excluir'])
     expect(screen.getByRole('menuitem', { name: 'Limpar histórico' }).className).toContain('row-actions__item--danger')
     expect(screen.getByRole('menuitem', { name: 'Excluir' }).className).toContain('row-actions__item--danger')
     expect(screen.getByRole('menu').querySelectorAll('[role="separator"]')).toHaveLength(1)
@@ -728,7 +728,7 @@ describe('RegrasPage', () => {
 
     render(<RegrasPage />)
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    expect(within(row).getByText('silenciada até 28/09')).toBeInTheDocument()
+    expect(within(row).getByText(/silenciada até 28\/09 \d\d:\d\d/)).toBeInTheDocument()
     await user.click(within(row).getByRole('button', { name: /^Mais ações da regra/ }))
 
     expect(screen.getByRole('menuitem', { name: 'Reativar' })).toBeInTheDocument()
@@ -829,6 +829,9 @@ describe('RegrasPage', () => {
     render(<RegrasPage />)
 
     await clickMenuItem(user, 'Excluir')
+    // S25-F4: the desktop asks first, like the phone.
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Excluir' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Regra excluída.')
   })
@@ -1376,9 +1379,66 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     expect(within(row).getByRole('switch', { name: 'ativa' })).toBeInTheDocument()
 
     await clickMenuItem(user, 'Silenciar', row)
+    await user.click(await screen.findByRole('menuitem', { name: 'Por 7 dias' }))
 
     await waitFor(() => expect(postedBody).toEqual({ scope: 'rule', rule_id: 1, days: 7 }))
     expect(await screen.findByRole('status')).toHaveTextContent('Regra silenciada por 7 dias.')
+  })
+
+  it.each([
+    ['Por 24 h', { scope: 'rule', rule_id: 1, days: 1 }, 'Regra silenciada por 24 h.'],
+    ['Até reativar', { scope: 'rule', rule_id: 1, indefinite: true }, 'Regra silenciada até reativar.'],
+  ])('Silenciar → "%s" POSTs that duration (S25-F4)', async (choice, expected, toast) => {
+    let postedBody: Record<string, unknown> | null = null
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/listener/status')) return Promise.resolve(jsonResponse(listenerStatus()))
+      if (url.startsWith('/metrics')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/digest') && method === 'GET') return Promise.resolve(jsonResponse(DEFAULT_DIGEST))
+      if (url === '/snoozes' && method === 'POST') {
+        postedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+        return Promise.resolve(
+          jsonResponse(
+            { id: 9, scope: 'rule', rule_id: 1, product_key: null, until: '2026-10-01T00:00:00Z', label: 'iPhone' },
+            201,
+          ),
+        )
+      }
+      if (url.startsWith('/snoozes') && method === 'GET') return Promise.resolve(jsonResponse([]))
+      if (method === 'GET') return Promise.resolve(jsonResponse([baseRule]))
+      throw new Error(`unexpected ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+    await clickMenuItem(user, 'Silenciar', row)
+    await user.click(await screen.findByRole('menuitem', { name: choice }))
+
+    await waitFor(() => expect(postedBody).toEqual(expected))
+    expect(await screen.findByRole('status')).toHaveTextContent(toast)
+  })
+
+  it('an indefinitely silenced rule reads "silenciada até reativar" (S25-F4)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        withEmptyRecipients(() =>
+          Promise.resolve(
+            jsonResponse([{ ...baseRule, snoozed_until: '9999-12-31T23:59:59Z', snoozed_indefinitely: true }]),
+          ),
+        ),
+      ),
+    )
+
+    render(<RegrasPage />)
+    const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
+
+    expect(within(row).getByText('silenciada até reativar')).toBeInTheDocument()
   })
 
   it('a silenced rule shows "silenciada até DD/MM" and "Reativar", which DELETEs the matching snooze', async () => {
@@ -1429,7 +1489,7 @@ describe('RegrasPage — Regras v2 (S14-09)', () => {
     // ("iPhone" appears in both — and there are two <table>s on this page,
     // Regras and Destinatários — so the row is picked out by its own <tr>).
     const row = (await screen.findByText('iPhone')).closest('tr') as HTMLElement
-    expect(within(row).getByText('silenciada até 28/09')).toBeInTheDocument()
+    expect(within(row).getByText(/silenciada até 28\/09 \d\d:\d\d/)).toBeInTheDocument()
 
     await clickMenuItem(user, 'Reativar', row)
 
@@ -1626,6 +1686,27 @@ describe('RegrasPage — Aplicar regras (S13-06)', () => {
 
     expect(await screen.findByText('mudanças pendentes')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Aplicar regras' })).toBeEnabled()
+  })
+
+  it('names the pending changes in the amber strip and moves the button into it (S25-F4)', async () => {
+    const { fetchMock } = listenerAwareFetch({
+      statuses: [
+        listenerStatus({
+          has_unapplied_changes: true,
+          unapplied_changes: [
+            { entity: 'rule', action: 'edited', name: 'Fone bluetooth', fields: ['target_price'] },
+            { entity: 'rule', action: 'created', name: 'SSD NVMe', fields: [] },
+          ],
+        }),
+      ],
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<RegrasPage />)
+
+    expect(await screen.findByText('2 mudanças não aplicadas')).toBeInTheDocument()
+    expect(screen.getByText(/preço-alvo de Fone bluetooth e nova regra SSD NVMe/)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Aplicar regras' })).toHaveLength(1)
   })
 
   it('applying posts with the CSRF token, shows "Aplicando…", then confirms with the history result', async () => {

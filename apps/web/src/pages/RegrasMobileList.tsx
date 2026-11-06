@@ -2,13 +2,14 @@ import type { ListenerStatus } from '../api/listener'
 import type { Match, Recipient, Rule } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
 import { ListenerApplyControl } from '../components/ListenerApplyControl'
-import { describeListener } from '../components/listenerState'
+import { PendingChangesBanner, showsPendingBanner } from '../components/PendingChangesBanner'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import type { RowActionsMenuItem } from '../components/RowActionsMenu'
 import { RuleHistoryChart } from '../components/RuleHistoryChart'
 import { StatusToggle } from '../components/StatusToggle'
 import { RULE_TEMPLATES } from '../rules/templates'
-import { formatDayMonth, formatMatchedAt, isLater } from '../utils/dates'
+import { formatMatchedAt, isLater } from '../utils/dates'
+import { ruleSilenceLabel } from '../utils/snooze'
 import { ruleTargetState } from '../utils/target'
 import { Avatar } from './RecipientDeliveryParts'
 import { initial, recipientsLabel } from './recipientDelivery'
@@ -110,7 +111,7 @@ export function RegrasMobileList({
   onCreate: () => void
   onTemplate: (templateId: string) => void
 }) {
-  const pending = listener.status !== null && describeListener(listener.status).needsApply
+  const banner = showsPendingBanner(listener.status)
 
   if (rules.length === 0) {
     return (
@@ -134,13 +135,14 @@ export function RegrasMobileList({
 
   return (
     <div className="rules-m">
-      <div className={pending ? 'rules-m__apply rules-m__apply--pending' : 'rules-m__apply'}>
-        {pending && <strong className="rules-m__apply-title">Mudanças não aplicadas</strong>}
+      <PendingChangesBanner status={listener.status} requesting={listener.requesting} onApply={listener.onApply} />
+      <div className="rules-m__apply">
         <ListenerApplyControl
           status={listener.status}
           error={listener.error}
           requesting={listener.requesting}
           onApply={listener.onApply}
+          hideButton={banner}
         />
       </div>
       <ul className="rules-m__list">
@@ -167,10 +169,10 @@ export function RegrasMobileList({
                   onResume={() => onResume(rule)}
                 />
               </div>
-              {rule.snoozed_until && (
+              {ruleSilenceLabel(rule) && (
                 <span className="rule-silence rule-silence--muted">
                   <span aria-hidden="true" />
-                  silenciada até {formatDayMonth(rule.snoozed_until)}
+                  {ruleSilenceLabel(rule)}
                 </span>
               )}
               <dl className="rules-m__prices">
