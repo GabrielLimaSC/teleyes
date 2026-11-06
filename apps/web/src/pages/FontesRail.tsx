@@ -376,9 +376,12 @@ function ChatIdForm({
         <input
           value={form.telegramChatId}
           onChange={(event) => setForm({ ...form, telegramChatId: event.target.value })}
+          placeholder="-100…"
+          inputMode="numeric"
           required
         />
       </label>
+      <p className="fontes-note">O id começa com -100.</p>
       <button type="submit" className="plane-action fill-button fontes-rail__primary" disabled={submitting} onPointerDown={fillOrigin}>
         {submitting ? 'Salvando…' : 'Salvar'}
       </button>
