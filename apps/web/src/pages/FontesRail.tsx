@@ -8,6 +8,8 @@ import type { Groups, SetupStatus } from '../api/setup'
 import { createSource, updateSource } from '../api/sources'
 import type { SourceInput } from '../api/sources'
 import type { Source } from '../api/types'
+import { SwapTransition, useSwapDirection } from '../motion/SwapTransition'
+import { useSegmentThumb } from '../motion/useSegmentThumb'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/FillButton.css'
 
@@ -51,6 +53,9 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
   const [chosenTab, setChosenTab] = useState<RailTab | null>(null)
   const tab: RailTab = editTarget !== null ? 'chat' : (chosenTab ?? (configured ? 'account' : 'chat'))
   const railRef = useRef<HTMLElement>(null)
+  // S25-M1: the indicator glides and the panel slides toward the chosen tab.
+  const direction = useSwapDirection(tab === 'account' ? 0 : 1)
+  const { containerRef: tabsRef, thumbRef } = useSegmentThumb<HTMLDivElement>(tab)
 
   useEffect(() => {
     if (focusSignal === 0) return
@@ -71,7 +76,8 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
       id="fontes-rail"
     >
       {!embedded && <h2 className="fontes-rail__eyebrow">{editTarget !== null ? 'Editar grupo' : 'Adicionar grupo'}</h2>}
-      <div className="fontes-tabs" role="tablist" aria-label="Como adicionar">
+      <div ref={tabsRef} className="fontes-tabs motion-seg" role="tablist" aria-label="Como adicionar">
+        <span ref={thumbRef} className="motion-seg__thumb" aria-hidden="true" />
         {(
           [
             ['account', 'Da minha conta'],
@@ -93,6 +99,7 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
         ))}
       </div>
       <div role="tabpanel" id="fontes-tabpanel" aria-labelledby={`fontes-tab-${tab}`} className="fontes-rail__panel">
+        <SwapTransition swapKey={tab} direction={direction}>
         {tab === 'account' ? (
           <AccountTab csrfToken={csrfToken} configured={configured} sources={sources} onAdded={onChanged} />
         ) : (
@@ -107,6 +114,7 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
             onCancelEdit={onCancelEdit}
           />
         )}
+        </SwapTransition>
       </div>
       {embedded && (
         <div className="fontes-rail__help">

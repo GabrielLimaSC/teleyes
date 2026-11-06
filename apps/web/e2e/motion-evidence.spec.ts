@@ -60,7 +60,7 @@ test('mobile navigation drawer opens from the mascot (mid-transition capture)', 
   expect(midAnimState.every((state) => state === 'running')).toBe(true)
 })
 
-test('page fade advances through intermediate frames without stalling', async ({ page }) => {
+test('page change crossfades through intermediate frames without stalling', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/')
   await apiLogin(page)
@@ -69,35 +69,34 @@ test('page fade advances through intermediate frames without stalling', async ({
   const feedHeading = page.getByRole('heading', { name: 'Ofertas ao vivo' })
   const saudeHeading = page.getByRole('heading', { name: 'Saúde' })
 
+  // S25-M1: page changes run through the View Transitions API. A linear,
+  // slowed copy lets the test compare equally-spaced frames of the incoming
+  // page's layer without depending on the production easing or machine speed.
   await page.addStyleTag({
-    // A linear, slowed copy lets this test compare equally-spaced visual
-    // frames without depending on the production easing or machine speed.
     content:
-      'main { animation-duration: 1600ms !important; ' +
+      '::view-transition-old(root), ::view-transition-new(root) { animation-duration: 1600ms !important; ' +
       'animation-timing-function: linear !important; }',
   })
   await page.getByRole('link', { name: 'Saúde' }).click()
 
+  const layerOpacity = () =>
+    page.evaluate(() =>
+      Number.parseFloat(getComputedStyle(document.documentElement, '::view-transition-new(root)').opacity),
+    )
   const opacities: number[] = []
   for (const frame of [1, 2, 3]) {
     await rafPumpWait(page, 260, 4)
-    opacities.push(
-      await page
-        .locator('main')
-        .evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
-    )
+    opacities.push(await layerOpacity())
     await page.screenshot({ path: `.impeccable/review/motion-page-transition-${frame}${SUFFIX}.png` })
   }
 
-  const fadeStates = await page
-    .locator('main')
-    .evaluate((element) => element.getAnimations().map((animation) => animation.playState))
-  expect(fadeStates).toContain('running')
   expect(opacities).toHaveLength(3)
   expect(opacities.every(Number.isFinite)).toBe(true)
   expect(opacities[1]).toBeGreaterThan(opacities[0])
   expect(opacities[2]).toBeGreaterThan(opacities[1])
   expect(opacities[2]).toBeLessThan(1)
+  // Navigation bars are named layers: they are not part of the crossfade.
+  await expect(page.locator('.nav-capsule')).toHaveCSS('view-transition-name', 'teleyes-nav')
   await expect(feedHeading).not.toBeVisible()
   await expect(saudeHeading).toBeVisible()
 })

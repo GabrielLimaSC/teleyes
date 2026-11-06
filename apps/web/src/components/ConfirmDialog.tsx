@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useDialogFocus } from '../hooks/useDialogFocus'
+import { useModalMotion } from '../motion/modalMotion'
+import { DIALOG_PRESET } from '../motion/waapi'
 import './ConfirmDialog.css'
 
 /** Marker other overlays (ProductPanel's Esc / click-outside) use to leave
@@ -33,7 +35,10 @@ export function ConfirmDialog({
   const titleId = useId()
   const cancelRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   useDialogFocus(dialogRef)
+  // S25-M1: scale 0.96 → 1 + fade in; the same, reversed, when the caller unmounts it.
+  useModalMotion(backdropRef, dialogRef, DIALOG_PRESET)
 
   useEffect(() => {
     cancelRef.current?.focus()
@@ -48,7 +53,7 @@ export function ConfirmDialog({
   }, [busy, onCancel])
 
   return createPortal(
-    <div className="confirm-dialog__backdrop" role="presentation" {...{ [CONFIRM_DIALOG_ATTR]: true }}>
+    <div ref={backdropRef} className="confirm-dialog__backdrop" role="presentation" {...{ [CONFIRM_DIALOG_ATTR]: true }}>
       <div
         ref={dialogRef}
         tabIndex={-1}

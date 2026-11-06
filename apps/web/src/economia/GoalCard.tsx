@@ -5,6 +5,8 @@ import type { GoalPace, GoalReport, SavingsGoalInput } from '../api/purchases'
 import { parsePriceInput } from '../utils/priceInput'
 import { toDateInputValue } from '../utils/dates'
 import { formatCurrency, formatSigned } from '../utils/savings'
+import { useModalMotion } from '../motion/modalMotion'
+import { DIALOG_PRESET } from '../motion/waapi'
 import '../components/ConfirmDialog.css'
 
 export const PACE_LABEL: Record<GoalPace, string> = {
@@ -117,6 +119,10 @@ export function GoalDialog({
 }) {
   const titleId = useId()
   const amountRef = useRef<HTMLInputElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLFormElement>(null)
+  // S25-M1: no backdrop in the phone sheet (the BottomSheet moves it).
+  useModalMotion(backdropRef, panelRef, DIALOG_PRESET, !sheet)
   const [amount, setAmount] = useState(
     current === null ? '' : (current.amount_cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
   )
@@ -166,6 +172,7 @@ export function GoalDialog({
     : 'plane-pearl confirm-dialog economia-goal-dialog'
   const dialog = (
       <form
+        ref={panelRef}
         className={formClass}
         role={sheet ? undefined : 'dialog'}
         aria-modal={sheet ? undefined : true}
@@ -212,7 +219,7 @@ export function GoalDialog({
   )
   if (sheet) return dialog
   return createPortal(
-    <div className="confirm-dialog__backdrop" role="presentation">
+    <div ref={backdropRef} className="confirm-dialog__backdrop" role="presentation">
       {dialog}
     </div>,
     document.body,

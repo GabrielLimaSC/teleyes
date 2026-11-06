@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
 import { deleteSource, fetchSourcesActivity, listSources, pauseSource } from '../api/sources'
 import { ApiError } from '../api/auth'
@@ -10,6 +10,7 @@ import { EmptyState } from '../components/EmptyState'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { useSpringFollow } from '../motion/useSpringFollow'
 import { useSetupStatus } from '../hooks/useSetupStatus'
 import { formatDayMonthClock, formatRelativeAgo } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -60,6 +61,9 @@ function MiniBars({ bars, hue }: { bars: Bar[]; hue: number }) {
 }
 
 export function FontesPage() {
+  // S25-M1: the "Adicionar grupo" rail trails the scroll on a spring.
+  const sideRef = useRef<HTMLDivElement>(null)
+  useSpringFollow(sideRef)
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
   const phone = useMediaQuery(PHONE_QUERY)
@@ -291,7 +295,7 @@ export function FontesPage() {
         </div>
 
         {!phone && (
-          <div className="fontes-page__side">
+          <div ref={sideRef} className="fontes-page__side">
             <FontesRail
               csrfToken={csrfToken}
               setupStatus={setupStatus}

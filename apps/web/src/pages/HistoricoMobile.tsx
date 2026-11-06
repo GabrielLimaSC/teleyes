@@ -1,3 +1,4 @@
+import { useArrival } from '../motion/stagger'
 import { memo, useEffect, useState } from 'react'
 import { BottomSheet } from '../components/BottomSheet'
 import { RowActionsMenu } from '../components/RowActionsMenu'
@@ -35,14 +36,18 @@ function deliveryKind(row: MobileRow): { text: string; reason: string | null; to
 
 export const MobileHistoricoItem = memo(function MobileHistoricoItem({
   row,
+  index = -1,
   onOpenProduct,
   onRequestDelete,
 }: {
   row: MobileRow
+  /** Position when the row arrives (cascade only; never re-read). */
+  index?: number
   onOpenProduct: (productKey: string, trigger: HTMLElement) => void
   onRequestDelete: (matchId: number) => void
 }) {
   const delivery = deliveryKind(row)
+  const arrival = useArrival(index)
   const title =
     row.productKey !== null ? (
       <button
@@ -57,7 +62,7 @@ export const MobileHistoricoItem = memo(function MobileHistoricoItem({
       <span className="hist-m__title">{row.title}</span>
     )
   return (
-    <li className="hist-m__item">
+    <li className={`hist-m__item ${arrival.className}`.trim()} style={arrival.style}>
       <div className="hist-m__main">
         {title}
         <span className="hist-m__meta">

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import type { KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { POPOVER_PRESET, animateEnter, animateExit } from '../motion/waapi'
+import { usePresence } from '../motion/usePresence'
 import { BottomSheet } from './BottomSheet'
 import './RowActionsMenu.css'
 
@@ -51,6 +53,14 @@ export function RowActionsMenu({
   const menuId = useId()
   const phone = useMediaQuery(PHONE_QUERY)
   const phoneParent = phone ? items.find((item) => item.key === expandedKey && item.children) : undefined
+  const showMenu = open && !phone
+  // S25-M1: grows from the trigger, shrinks back into it.
+  const rendered = usePresence(showMenu, menuRef, (menu) => animateExit(menu, POPOVER_PRESET))
+
+  const openMenu = useCallback(() => {
+    setPosition(null)
+    setOpen(true)
+  }, [])
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
@@ -76,6 +86,18 @@ export function RowActionsMenu({
   useLayoutEffect(() => {
     if (open && !phone) place()
   }, [open, phone, place, expandedKey])
+
+  const placed = position !== null
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    const trigger = triggerRef.current
+    if (!showMenu || !placed || menu === null || trigger === null) return
+    const anchor = trigger.getBoundingClientRect()
+    const box = menu.getBoundingClientRect()
+    const originY = anchor.top > box.top ? box.height : 0
+    menu.style.transformOrigin = `${anchor.left + anchor.width / 2 - box.left}px ${originY}px`
+    animateEnter(menu, POPOVER_PRESET)
+  }, [showMenu, placed])
 
   const focusItem = useCallback((index: number) => {
     const nodes = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
@@ -169,7 +191,7 @@ export function RowActionsMenu({
   const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'ArrowDown' && !open) {
       event.preventDefault()
-      setOpen(true)
+      openMenu()
     }
   }
 
@@ -184,7 +206,7 @@ export function RowActionsMenu({
         aria-controls={open ? menuId : undefined}
         aria-label={label}
         title={label}
-        onClick={() => (open ? close(false) : setOpen(true))}
+        onClick={() => (open ? close(false) : openMenu())}
         onKeyDown={onTriggerKeyDown}
       >
         <span aria-hidden="true">⋯</span>
@@ -230,11 +252,11 @@ export function RowActionsMenu({
           </div>
         </BottomSheet>
       )}
-      {open &&
-        !phone &&
+      {rendered &&
         createPortal(
           <div
             ref={menuRef}
+            inert={!showMenu}
             id={menuId}
             role="menu"
             aria-label={label}

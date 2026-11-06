@@ -346,10 +346,15 @@ main.fontes-page {
   cursor: pointer;
 }
 
+/* S25-M1: the active tab's background is the sliding .motion-seg__thumb. */
+.fontes-tabs {
+  --seg-thumb-radius: 8px;
+  --seg-thumb-bg: var(--plane-action-secondary-bg);
+  --seg-thumb-shadow: 0 1px 3px color-mix(in srgb, var(--plane-text-heading) 22%, transparent);
+}
+
 .fontes-tabs__tab--active {
-  background: var(--plane-action-secondary-bg);
   color: var(--plane-text-heading);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--plane-text-heading) 22%, transparent);
 }
 
 .fontes-tabs__tab:focus-visible {

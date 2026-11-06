@@ -1,3 +1,4 @@
+import { staggerClass, staggerStyle } from '../motion/stagger'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
@@ -41,6 +42,9 @@ import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
 import { useListenerStatus } from '../hooks/useListenerStatus'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { useSpringFollow } from '../motion/useSpringFollow'
+import { SwapTransition, useSwapDirection } from '../motion/SwapTransition'
+import { useSegmentThumb } from '../motion/useSegmentThumb'
 import { useToast } from '../hooks/useToast'
 import { ruleTargetState } from '../utils/target'
 import { useFillOrigin } from '../utils/useFillOrigin'
@@ -202,12 +206,21 @@ function RuleRecipients({ rule, recipients }: { rule: Rule; recipients: Recipien
   )
 }
 
+const PHONE_TABS = [
+  ['regras', 'Regras'],
+  ['destinatarios', 'Destinatários'],
+  ['entrega', 'Entrega'],
+] as const
+
 export function RegrasPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
   const phone = useMediaQuery(PHONE_QUERY)
   const [phoneTab, setPhoneTab] = useState<'regras' | 'destinatarios' | 'entrega'>('regras')
   const showTab = (tab: string): boolean => !phone || phoneTab === tab
+  // S25-M1: the section switch slides (content) and glides (indicator) toward the chosen tab.
+  const tabDirection = useSwapDirection(PHONE_TABS.findIndex(([id]) => id === phoneTab))
+  const { containerRef: tabsRef, thumbRef: tabsThumbRef } = useSegmentThumb<HTMLDivElement>(`${phone}:${phoneTab}`)
   const { toast, showToast, dismiss } = useToast()
   // S13-06: the listener reads rules/sources/recipients itself; this is how the
   // panel asks it to reload, and how it learns there is something to apply.
@@ -243,6 +256,9 @@ export function RegrasPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  // S25-M1: the "Nova regra" / recipient rail trails the scroll on a spring.
+  const railRef = useRef<HTMLElement>(null)
+  useSpringFollow(railRef)
   const maxPriceInputRef = useRef<HTMLInputElement>(null)
   // S23-05: simple/advanced form mode, the picked template and the polite
   // announcement of the last change (mode switch or template applied).
@@ -1098,8 +1114,9 @@ export function RegrasPage() {
       </FirstTimeTip>
 
       {phone && (
-        <div className="regras-tabs" role="tablist" aria-label="Seções de Regras">
-          {([['regras', 'Regras'], ['destinatarios', 'Destinatários'], ['entrega', 'Entrega']] as const).map(([id, label]) => (
+        <div ref={tabsRef} className="regras-tabs motion-seg" role="tablist" aria-label="Seções de Regras">
+          <span ref={tabsThumbRef} className="motion-seg__thumb" aria-hidden="true" />
+          {PHONE_TABS.map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={phoneTab === id} onClick={() => setPhoneTab(id)}>
               {label}
             </button>
@@ -1109,6 +1126,7 @@ export function RegrasPage() {
 
       <div className="regras-page__grid">
         <div className="regras-page__main">
+          <SwapTransition swapKey={phoneTab} direction={tabDirection} contentClassName="regras-page__panes">
           <div hidden={!showTab('regras')}>
           {loading && phone && <RegrasMobileSkeleton />}
           {loading && !phone && (
@@ -1126,7 +1144,7 @@ export function RegrasPage() {
                 </thead>
                 <tbody>
                   {[0, 1, 2, 3, 4].map((key) => (
-                    <tr key={key} className="rules-table__row rules-table__row--skeleton">
+                    <tr key={key} className={`rules-table__row rules-table__row--skeleton ${staggerClass(key)}`} style={staggerStyle(key)}>
                       <td><span className="rules-table__bar rules-table__bar--wide" /></td>
                       <td className="rules-table__num"><span className="rules-table__bar" /></td>
                       <td className="rules-table__num"><span className="rules-table__bar" /></td>
@@ -1187,7 +1205,7 @@ export function RegrasPage() {
                     </th>
                   </tr>
                 </thead>
-                {rules.map((rule) => {
+                {rules.map((rule, index) => {
                   const expanded = expandedId === rule.id
                   const detailId = `rule-detail-${rule.id}`
                   const editing = formTarget.kind === 'edit' && formTarget.rule.id === rule.id
@@ -1198,7 +1216,7 @@ export function RegrasPage() {
                         .filter(Boolean)
                         .join(' ')}
                     >
-                      <tr className="rules-table__row">
+                      <tr className={`rules-table__row ${staggerClass(index)}`.trim()} style={staggerStyle(index)}>
                         <td className="rules-table__name" data-label="Regra">
                           <button
                             type="button"
@@ -1332,11 +1350,12 @@ export function RegrasPage() {
                           text="Uma regra diz o que procurar e até quanto pagar. Comece de um modelo ou preencha o formulário ao lado."
                         />
                         <div className="regras-page__empty-templates" role="group" aria-label="Modelos de regra">
-                          {RULE_TEMPLATES.map((template) => (
+                          {RULE_TEMPLATES.map((template, index) => (
                             <button
                               key={template.id}
                               type="button"
-                              className="regras-templates__chip"
+                              style={staggerStyle(index)}
+                              className={`regras-templates__chip ${staggerClass(index)}`.trim()}
                               onClick={() => applyTemplate(template.id)}
                             >
                               {template.label}
@@ -1531,9 +1550,10 @@ export function RegrasPage() {
               />
             )}
           </div>
+          </SwapTransition>
         </div>
 
-        <aside className="regras-page__rail" hidden={!showTab('regras')}>
+        <aside ref={railRef} className="regras-page__rail" hidden={!showTab('regras')}>
           {recipientTarget !== null && !phone ? (
             <RecipientRailForm
               key={recipientTarget.kind === 'edit' ? `edit-${recipientTarget.recipient.id}` : 'create'}

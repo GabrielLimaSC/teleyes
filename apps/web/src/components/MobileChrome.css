@@ -282,10 +282,13 @@
   cursor: pointer;
 }
 
+/* S25-M1: the chosen option's background is the sliding .motion-seg__thumb. */
+.mobile-more__segments {
+  --seg-thumb-radius: 10px;
+}
+
 .mobile-more__segment--on {
-  background: var(--plane-input-bg);
   color: var(--plane-text-primary);
-  box-shadow: var(--plane-pearl-shadow);
 }
 
 .mobile-more__segment:focus-visible {

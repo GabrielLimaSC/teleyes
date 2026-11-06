@@ -1,3 +1,4 @@
+import { staggerClass, staggerStyle } from '../motion/stagger'
 import type { ListenerStatus } from '../api/listener'
 import type { Match, Recipient, Rule } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
@@ -146,14 +147,15 @@ export function RegrasMobileList({
         />
       </div>
       <ul className="rules-m__list">
-        {rules.map((rule) => {
+        {rules.map((rule, index) => {
           const open = expandedId === rule.id
           const detailId = `rule-detail-${rule.id}`
           const own = recent !== null && recent.ruleId === rule.id ? recent : null
           return (
             <li
               key={rule.id}
-              className={['plane-pearl rules-m__card', rule.active ? '' : 'rules-m__card--paused', open ? 'rules-m__card--open' : '']
+              style={staggerStyle(index)}
+              className={[staggerClass(index), 'plane-pearl rules-m__card', rule.active ? '' : 'rules-m__card--paused', open ? 'rules-m__card--open' : '']
                 .filter(Boolean)
                 .join(' ')}
             >
