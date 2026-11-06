@@ -86,7 +86,7 @@ describe('results card privacy (S19-04)', () => {
     const aggregates = buildResultsAggregates(pollutedReport(), { showPieces: true, includeStores: false })
 
     expect(Object.keys(aggregates).sort()).toEqual(
-      ['black_friday', 'generated_at', 'methodology', 'noise', 'pieces', 'schema', 'totals'].sort(),
+      ['black_friday', 'generated_at', 'methodology', 'noise', 'period', 'pieces', 'schema', 'totals'].sort(),
     )
     expect(Object.keys(aggregates.pieces?.[0] ?? {}).sort()).toEqual(
       ['name', 'paid_cents', 'saving_vs_median_cents', 'saving_vs_median_pct'],
@@ -170,5 +170,51 @@ describe('results card content', () => {
 
     expect(svg).not.toContain('<script>')
     expect(svg).toContain('&lt;script&gt;')
+  })
+})
+
+describe('period (S25-F5)', () => {
+  const dated = () => {
+    const base = savingsReport() // generated 2026-10-26
+    const [a, b, c] = base.items
+    return savingsReport({
+      items: [
+        { ...a!, purchased_at: '2026-10-20T15:00:00Z' }, // this month, saving +35000
+        { ...b!, purchased_at: '2026-09-10T15:00:00Z' }, // 46 days ago, saving -10000
+        { ...c!, purchased_at: '2026-04-01T15:00:00Z' }, // old, no history
+      ],
+    })
+  }
+  const opts = (period: 'month' | '90d' | 'all') => ({ period, showPieces: true, includeStores: false })
+
+  it('recomputes the totals from the purchases inside the period', () => {
+    const month = buildResultsAggregates(dated(), opts('month'))
+    expect(month.totals).toMatchObject({ purchases: 1, pieces_with_data: 1, total_paid_cents: 120_000, estimated_saving_cents: 35_000 })
+    expect(month.pieces).toHaveLength(1)
+
+    const ninety = buildResultsAggregates(dated(), opts('90d'))
+    expect(ninety.totals).toMatchObject({ purchases: 2, pieces_with_data: 2, total_paid_cents: 180_000, estimated_saving_cents: 25_000 })
+
+    // "Tudo" is the report as the server computed it.
+    const all = buildResultsAggregates(dated(), opts('all'))
+    expect(all.totals).toMatchObject({ purchases: 3, pieces_with_data: 2, total_paid_cents: 300_000 })
+  })
+
+  it('keeps purchases without history as "sem dados", never as saving', () => {
+    const report = dated()
+    const noHistory = { ...report.items[2]!, purchased_at: '2026-10-22T15:00:00Z' }
+    const only = { ...report, items: [noHistory] }
+    const month = buildResultsAggregates(only, opts('month'))
+    expect(month.totals).toMatchObject({ purchases: 1, pieces_with_data: 0, total_paid_cents: 4_990, estimated_saving_cents: 0, estimated_saving_pct: null })
+    expect(buildResultsSvg(month, TEST_PALETTE)).toContain('sem dados')
+    const empty = buildResultsAggregates({ ...report, items: [report.items[2]!] }, opts('90d'))
+    expect(empty.totals).toMatchObject({ purchases: 0, total_paid_cents: 0 })
+  })
+
+  it('scales the goal to the period and names the period on the card', () => {
+    const goal = { amount_cents: 70_000, deadline: '2026-12-31', saved_cents: 25_000, pct: 35.7, remaining_cents: 45_000, days_left: 60, pace: 'on_track' as const }
+    const aggregates = buildResultsAggregates({ ...dated(), goal }, { period: 'month', showPieces: false, includeStores: false })
+    expect(aggregates.goal?.pct).toBe(50)
+    expect(buildResultsSvg(aggregates, TEST_PALETTE)).toContain('Este mês')
   })
 })
