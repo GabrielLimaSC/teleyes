@@ -1547,6 +1547,13 @@ export interface components {
             model_variant?: string | null;
             /** Price */
             price?: string | null;
+            /** Price Card */
+            price_card?: string | null;
+            /**
+             * Reevaluate
+             * @default false
+             */
+            reevaluate: boolean;
         };
         /** MeResponse */
         MeResponse: {
