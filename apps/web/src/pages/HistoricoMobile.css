@@ -83,3 +83,6 @@
   outline: none;
   box-shadow: var(--plane-focus-ring);
 }
+
+.hist-m__empty { display: grid; justify-items: center; text-align: center; gap: 8px; }
+.hist-m__empty .empty-state__action { min-height: 44px; }

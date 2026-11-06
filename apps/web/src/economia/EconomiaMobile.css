@@ -295,3 +295,19 @@
 .economia-card-panel--embedded {
   padding: 4px 16px 16px;
 }
+
+.eco-m__invite,
+.eco-m__goalinvite {
+  padding: 16px;
+  margin-bottom: 14px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.eco-m__invite h2 { margin: 0; font-size: 18px; }
+.eco-m__invite p,
+.eco-m__goalinvite p { margin: 0; color: var(--plane-text-secondary); font-size: 14px; }
+.eco-m__invite-actions { display: grid; gap: 8px; width: 100%; }
+.eco-m__invite-actions .plane-action { min-height: 44px; justify-content: center; }
+.eco-m__goalinvite .plane-action { min-height: 44px; }
+.eco-m__pair--single { grid-template-columns: 1fr; }
