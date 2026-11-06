@@ -237,7 +237,7 @@ describe('EconomiaPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText('Nenhuma compra registrada')).toBeInTheDocument()
+    expect(await screen.findByText('Registre sua primeira compra')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gerar cartão de resultados' })).toBeDisabled()
   })
 
@@ -324,14 +324,14 @@ describe('EconomiaPage', () => {
       ...overrides,
     })
 
-    it('without a goal shows the empty state and hides the "Parte da meta" column', async () => {
+    it('without a goal shows the invitation and an explained "Parte da meta" column', async () => {
       stub()
       renderPage()
 
       const tiles = await screen.findByRole('region', { name: 'Resumo' })
       expect(within(tiles).getByText('Meta de economia')).toBeInTheDocument()
       expect(within(tiles).getByRole('button', { name: 'Definir meta' })).toBeInTheDocument()
-      expect(screen.queryByRole('columnheader', { name: 'Parte da meta' })).toBeNull()
+      expect(screen.getByRole('columnheader', { name: 'Parte da meta' })).toHaveAttribute('title', 'Aparece quando houver uma meta')
     })
 
     it('with a positive goal shows progress, what is missing, the pace and each purchase share', async () => {

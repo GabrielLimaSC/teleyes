@@ -454,3 +454,57 @@
     overscroll-behavior: contain;
   }
 }
+
+/* S25-F1b: fieldset wrapper keeps the rail layout while letting `disabled` cascade. */
+.historico-rail__fields {
+  display: contents;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.historico-noresults {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.historico-noresults__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.historico-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.historico-chips__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--plane-divider-color);
+  border-radius: 999px;
+  background: var(--plane-surface-sunken);
+  color: var(--plane-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.historico-chips__chip:focus-visible {
+  outline: 2px solid var(--plane-focus-ring, currentColor);
+  outline-offset: 2px;
+}

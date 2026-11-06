@@ -638,6 +638,42 @@ export function HistoricoPage() {
   // not "your filters match nothing" (the plain message below).
   const hasActiveFilters = Object.keys(toApiFilters({ ...form, search: appliedSearch })).some((key) => key !== 'sort')
 
+  const nothingYet = !loading && !error && matches.length === 0 && !hasActiveFilters
+
+  // S25-F1b: the unfiltered total, remembered from the last load with no filter
+  // (null when the page opened already filtered: no extra request just for this).
+  const [totalUnfiltered, setTotalUnfiltered] = useState<number | null>(null)
+  useEffect(() => {
+    if (!loading && !error && !hasActiveFilters) setTotalUnfiltered(matches.length)
+  }, [loading, error, hasActiveFilters, matches.length])
+
+  const hasPriceRange = form.minPriceReais.trim() !== '' || form.maxPriceReais.trim() !== ''
+  const filterChips: { key: string; label: string; clear: () => void }[] = []
+  if (appliedSearch.trim() !== '' || form.search.trim() !== '') {
+    filterChips.push({ key: 'search', label: `“${(appliedSearch || form.search).trim()}”`, clear: () => updateField('search')('') })
+  }
+  const ruleName = rules.find((rule) => String(rule.id) === form.ruleId)?.name
+  if (form.ruleId !== '') filterChips.push({ key: 'rule', label: `Regra: ${ruleName ?? form.ruleId}`, clear: () => updateField('ruleId')('') })
+  const sourceName = sources.find((source) => String(source.id) === form.sourceId)?.name
+  if (form.sourceId !== '') filterChips.push({ key: 'source', label: `Grupo: ${sourceName ?? form.sourceId}`, clear: () => updateField('sourceId')('') })
+  const recipientName = recipients.find((recipient) => String(recipient.id) === form.recipientId)?.name
+  if (form.recipientId !== '') filterChips.push({ key: 'recipient', label: `Para: ${recipientName ?? form.recipientId}`, clear: () => updateField('recipientId')('') })
+  if (form.deliveryStatus !== '') {
+    const label = DELIVERY_STATUS_OPTIONS.find((option) => option.value === form.deliveryStatus)?.label ?? form.deliveryStatus
+    filterChips.push({ key: 'delivery', label: `Entrega: ${label.toLowerCase()}`, clear: () => updateField('deliveryStatus')('') })
+  }
+  if (hasPriceRange) {
+    const range = [form.minPriceReais.trim() || '0', form.maxPriceReais.trim() || '∞'].join('–')
+    filterChips.push({
+      key: 'price',
+      label: `R$ ${range}`,
+      clear: () => {
+        updateField('minPriceReais')('')
+        updateField('maxPriceReais')('')
+      },
+    })
+  }
+
   return (
     <main className="historico-page">
       <Toast toast={toast} onDismiss={dismiss} />
@@ -723,7 +759,7 @@ export function HistoricoPage() {
             type="button"
             className="plane-action plane-action--secondary"
             onClick={exportCsv}
-            disabled={rows.length === 0}
+            disabled={rows.length === 0 || nothingYet}
           >
             Exportar CSV
           </button>
@@ -751,6 +787,7 @@ export function HistoricoPage() {
               Limpar filtros
             </button>
           </div>
+          <fieldset className="historico-rail__fields" disabled={nothingYet}>
           <label>
             Buscar produto
             <input
@@ -887,6 +924,7 @@ export function HistoricoPage() {
               ))}
             </select>
           </label>
+          </fieldset>
         </form>
         )}
 
@@ -926,17 +964,47 @@ export function HistoricoPage() {
 
               {rows.length === 0 && !hasActiveFilters && (
                 <EmptyState
-                  title="O histórico ainda está vazio"
-                  text="Cada promoção que bate numa regra fica guardada aqui, com preço, grupo e entrega."
-                  action={{ label: 'Ver as regras', to: '/regras' }}
+                  title="Nenhum anúncio ainda"
+                  text="Quando uma regra encontrar uma oferta, ela fica registrada aqui por 90 dias, com preço, grupo e para quem foi."
+                  action={{ label: 'Ver regras', to: '/regras' }}
                 />
               )}
               {rows.length === 0 && hasActiveFilters && (
-                <p>
-                  {appliedSearch.trim() !== ''
-                    ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou limpe os filtros.`
-                    : 'Nenhuma oferta encontrada com esses filtros.'}
-                </p>
+                <div className="historico-noresults">
+                  {!phone && filterChips.length > 0 && (
+                    <ul className="historico-chips" aria-label="Filtros ativos">
+                      {filterChips.map((chip) => (
+                        <li key={chip.key}>
+                          <button type="button" className="historico-chips__chip" onClick={chip.clear} aria-label={`Remover filtro ${chip.label}`}>
+                            {chip.label} <span aria-hidden="true">✕</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <h3 className="empty-state__title">Nenhum anúncio com esses filtros</h3>
+                  <p className="empty-state__text">
+                    {totalUnfiltered !== null && totalUnfiltered > 0 ? `${totalUnfiltered} anúncios no total. ` : ''}
+                    {hasPriceRange
+                      ? 'Tente tirar a faixa de preço.'
+                      : appliedSearch.trim() !== ''
+                        ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou tire algum filtro.`
+                        : 'Tente tirar algum filtro ou ampliar a busca.'}
+                  </p>
+                  <div className="historico-noresults__actions">
+                    <button type="button" className="plane-action plane-action--secondary" onClick={() => resetForm()}>
+                      Limpar filtros
+                    </button>
+                    {hasPriceRange && (
+                      <button type="button" className="plane-action" onClick={() => {
+                        updateField('minPriceReais')('')
+                        updateField('maxPriceReais')('')
+                      }}>
+                        Tirar faixa de preço
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
               {rows.length > 0 && phone && (
                 <ul className="hist-m__list">
