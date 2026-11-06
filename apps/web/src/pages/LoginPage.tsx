@@ -185,7 +185,10 @@ export function LoginPage() {
             </p>
           </header>
         )}
-        {phone && health?.demo !== true && <FirstRunCard />}
+        {phone && health?.demo !== true && <FirstRunCard onVisibleChange={setFirstRunVisible} />}
+        {phone && (health?.demo === true || firstRunVisible === false) && latest !== null && (
+          <LatestOffers matches={latest.matches} rules={latest.rules} />
+        )}
         <div className="login-page__grid">
           <section className="plane-glass login-panel">
             <Brand />
@@ -204,13 +207,25 @@ export function LoginPage() {
                 <div className="login-stats__value">{stats ? stats.matchesToday : '…'}</div>
               </div>
             </div>
-            <div className="login-status">
-              <StatusRow label="Atualização ao vivo" state={SSE_STATE_LABELS[sseState]} />
-              {health && <StatusRow label="Bot do Telegram" state={botStateLabel(health.bot.state)} />}
-              {health && (
-                <StatusRow label="Ambiente" state={`${health.env} · v${health.version}`} />
-              )}
-            </div>
+            {phone ? (
+              <section className="login-status-card" aria-labelledby="login-status-card-title">
+                <div className="login-status-card__head">
+                  <h2 id="login-status-card-title">Status do sistema</h2>
+                  <StatusRow label="Ao vivo" state={SSE_STATE_LABELS[sseState]} />
+                </div>
+                <Link className="login-status-card__link" to="/saude">
+                  Ver saúde completa ›
+                </Link>
+              </section>
+            ) : (
+              <div className="login-status">
+                <StatusRow label="Atualização ao vivo" state={SSE_STATE_LABELS[sseState]} />
+                {health && <StatusRow label="Bot do Telegram" state={botStateLabel(health.bot.state)} />}
+                {health && (
+                  <StatusRow label="Ambiente" state={`${health.env} · v${health.version}`} />
+                )}
+              </div>
+            )}
           </section>
           <div className="login-page__side">
           {!phone && health?.demo !== true && <FirstRunCard onVisibleChange={setFirstRunVisible} />}
