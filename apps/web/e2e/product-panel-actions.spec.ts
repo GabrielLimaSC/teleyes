@@ -149,10 +149,11 @@ for (const [origin, openPanel] of [
       const panel = page.locator('.product-panel')
 
       await panel.getByRole('button', { name: 'Editar dados' }).click()
-      const priceInput = panel.getByRole('textbox', { name: 'Preço', exact: true })
+      // The correction opens as a modal (B2) or the sheet itself (07), not inside `.product-panel`.
+      const priceInput = page.getByRole('textbox', { name: 'À vista', exact: true })
       await expect(priceInput).toBeVisible()
       await priceInput.fill('5.749')
-      await panel.getByRole('button', { name: 'Salvar correção' }).click()
+      await page.getByRole('button', { name: 'Salvar correção' }).click()
 
       // The panel itself shows the corrected price…
       await expect(panel.getByText('R$ 5.749,00').first()).toBeVisible()

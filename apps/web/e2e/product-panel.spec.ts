@@ -239,10 +239,10 @@ for (const scenario of [
     await openPanel(page, seed)
 
     await page.getByRole('button', { name: 'Editar dados' }).click()
-    const nameInput = page.getByRole('textbox', { name: 'Nome exibido' })
-    const priceInput = page.getByRole('textbox', { name: 'Preço' })
+    const nameInput = page.getByRole('textbox', { name: 'Nome do produto' })
+    const priceInput = page.getByRole('textbox', { name: 'À vista' })
     await expect(nameInput).toBeVisible()
-    await expect(page.getByText('Texto original da mensagem (somente leitura)')).toBeVisible()
+    await expect(page.getByText('Mensagem original')).toBeVisible()
     await expect(page.locator('[data-testid="original-message"] mark')).toHaveCount(2)
 
     await nameInput.fill('ab')
@@ -264,7 +264,8 @@ for (const scenario of [
     await expect(page.getByRole('button', { name: 'Reverter ao detectado' })).toBeEnabled()
 
     await testInfo.attach(`tela-08-${scenario.theme}-${scenario.width}px`, {
-      body: await page.locator('.product-panel').screenshot(),
+      // Desktop: the "Corrigir oferta" modal (B2); phone: the sheet itself (07).
+      body: await page.getByRole('dialog', { name: 'Corrigir oferta' }).screenshot(),
       contentType: 'image/png',
     })
 
