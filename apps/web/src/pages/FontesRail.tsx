@@ -376,7 +376,7 @@ function ChatIdForm({
         <input
           value={form.telegramChatId}
           onChange={(event) => setForm({ ...form, telegramChatId: event.target.value })}
-          placeholder="-1001234567890"
+          placeholder="-100…"
           inputMode="numeric"
           required
         />
