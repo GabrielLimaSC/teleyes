@@ -26,27 +26,38 @@
   color: var(--plane-text-secondary);
 }
 
-/* S16-01: one glass capsule, three segments divided by hairlines — SSE /
-   Agrupar / Atualizar used to be three separate dark buttons with gaps
-   between them. 48px tall always (the measure the design calls fixed for
-   the collapsed bar); only its position changes between resting (here,
-   end of the title row) and docked (FeedPage.css's `@media (min-width:
-   1101px)` block below, FLIP-animated by chrome/scrollChrome.ts). */
+/* S25-F2 (B1): "Ao vivo" / "Atualizar" / "Agrupar duplicatas" as ONE glass
+   block (`plane-glass`) at the top of the right rail, above "Resumo". Rows are
+   divided by hairlines. Once the chrome is compact the very same element
+   docks into the top band as the horizontal 48px capsule it has always been
+   (the `@media (min-width: 1101px)` block below; FLIP in scrollChrome.ts), and
+   the explanation under "Agrupar duplicatas" folds away. */
+.feed-live-slot {
+  display: flow-root;
+}
+
 .feed-page__header-actions {
   display: flex;
+  flex-direction: column;
   align-items: stretch;
-  height: 48px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   overflow: hidden;
+}
+
+/* Standalone (loading / error): nothing to sit above, so no rail margin. */
+.feed-page__header > .feed-page__header-actions {
+  margin-bottom: 20px;
+  min-width: 260px;
 }
 
 .feed-page__toolbar-segment {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 0 14px;
+  padding: 0 16px;
+  min-height: 44px;
   border: 0;
-  border-left: 1px solid var(--glass-divider-bg);
+  border-top: 1px solid var(--glass-divider-bg);
   background: transparent;
   color: var(--plane-text-primary);
   font-size: 13px;
@@ -57,16 +68,36 @@
 }
 
 .feed-page__toolbar-segment:first-child {
-  border-left: 0;
+  border-top: 0;
 }
 
 .feed-page__toolbar-status {
   font-size: 12px;
 }
 
-.feed-page__toolbar-switch,
-.feed-page__toolbar-refresh {
+.feed-page__toolbar-refresh,
+.feed-page__toolbar-switch {
   cursor: pointer;
+}
+
+.feed-page__toolbar-switch {
+  width: 100%;
+  justify-content: space-between;
+  border-top: 0;
+}
+
+.feed-page__toolbar-group {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--glass-divider-bg);
+}
+
+.feed-page__toolbar-hint {
+  padding: 0 16px 12px;
+  margin-top: -4px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--plane-text-helper-on-glass);
 }
 
 .feed-page__toolbar-switch:hover,
@@ -87,27 +118,109 @@
   flex: none;
 }
 
-/* Below the width the three segments stop fitting on one line (390px,
-   S16-01's own check), the capsule stacks instead of overflowing — still
-   one piece, just tall instead of wide. Only reachable here: the compact,
-   fixed-width band (`@media (min-width: 1101px)` below) never gets this
-   narrow. */
-@media (max-width: 560px) {
+/* S25-F2 (B1): "↑ N ofertas novas" on the desktop. In the 3-column grid it is
+   a zero-height sticky row in the cards column (same grid cell as the list, so
+   it centres on the column whatever the rails are doing): it never takes room,
+   so new offers cannot push anything. Stacked layouts get a fixed pill. */
+.feed-new-offers {
+  position: fixed;
+  top: calc(var(--chrome-band-height, 84px) + 12px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+@container (min-width: 1101px) {
+  .feed-page__grid > .feed-rail {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .feed-page__grid > .feed-page__list {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .feed-page__grid > .feed-page__side-rail {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .feed-new-offers {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    left: auto;
+    right: auto;
+    height: 0;
+    align-self: start;
+  }
+}
+
+.feed-new-offers__pill {
+  pointer-events: auto;
+  min-height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--plane-action-primary-bg);
+  color: var(--plane-action-primary-color);
+  box-shadow: var(--popover-shadow);
+}
+
+.feed-new-offers__pill:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring), var(--popover-shadow);
+}
+
+/* Below the wide 3-column grid (tablet): the block leads the page as a row
+   (the rail's children join the page grid; its other boxes keep their order). */
+@media (max-width: 1100px) {
+  .feed-page__grid > .feed-page__side-rail {
+    display: contents;
+  }
+
+  .feed-page__side-rail > * {
+    order: 3;
+  }
+
+  .feed-page__side-rail > .feed-live-slot {
+    order: 0;
+  }
+
   .feed-page__header-actions {
-    flex-direction: column;
-    align-items: stretch;
-    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 0;
   }
 
   .feed-page__toolbar-segment {
-    justify-content: space-between;
-    height: 44px;
-    border-left: 0;
-    border-top: 1px solid var(--glass-divider-bg);
+    border-top: 0;
+    border-left: 1px solid var(--glass-divider-bg);
   }
 
   .feed-page__toolbar-segment:first-child {
+    border-left: 0;
+  }
+
+  .feed-page__toolbar-group {
     border-top: 0;
+    border-left: 1px solid var(--glass-divider-bg);
+  }
+
+  .feed-page__toolbar-switch {
+    border-left: 0;
+  }
+
+  .feed-page__toolbar-hint {
+    display: none;
   }
 }
 
@@ -141,6 +254,18 @@
 @container (max-width: 1100px) {
   .feed-page__grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feed-page__grid > .feed-page__side-rail {
+    display: contents;
+  }
+
+  .feed-page__side-rail > * {
+    order: 3;
+  }
+
+  .feed-page__side-rail > .feed-live-slot {
+    order: 0;
   }
 
   .feed-page__list {
@@ -681,6 +806,38 @@
     top: calc(var(--chrome-band-center) - 24px);
     right: var(--feed-toolbar-right, 80px);
     margin: 0;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    height: 48px;
+    width: auto;
+    min-width: 0;
+  }
+
+  :root[data-chrome='compact'] .feed-page__toolbar-segment {
+    min-height: 0;
+    border-top: 0;
+    border-left: 1px solid var(--glass-divider-bg);
+  }
+
+  :root[data-chrome='compact'] .feed-page__toolbar-segment:first-child,
+  :root[data-chrome='compact'] .feed-page__toolbar-switch {
+    border-left: 0;
+  }
+
+  :root[data-chrome='compact'] .feed-page__toolbar-group {
+    flex-direction: row;
+    align-items: stretch;
+    border-top: 0;
+    border-left: 1px solid var(--glass-divider-bg);
+  }
+
+  :root[data-chrome='compact'] .feed-page__toolbar-switch {
+    gap: 12px;
+    width: auto;
+  }
+
+  :root[data-chrome='compact'] .feed-page__toolbar-hint {
+    display: none;
   }
 
   /* S16-01: "sem faixa preta" — this repaints the page's own background
@@ -994,6 +1151,13 @@
     scrollbar-gutter: stable;
   }
 
+  /* A sticky rail is a stacking context: the docked "Ao vivo" block inside it
+     (z-index 50, fixed) must still rise above the band's scrim (45). */
+  .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail,
+  .feed-page__grid[data-right-rail='pinned'] .feed-page__side-rail {
+    z-index: 50;
+  }
+
   /* The right rail has no glass of its own: room for its boxes' shadows (and
      the same visual top as the left rail, hence the -12px on `top`). */
   .feed-page__grid[data-right-rail='collapsed'] .feed-page__side-rail,
@@ -1184,7 +1348,13 @@
 
 /* S24: on the phone, Ao vivo lives in the app bar and Agrupar/Atualizar in the filter sheet. */
 @media (max-width: 640px) {
-  .feed-page__header-actions {
+  .feed-page__header-actions,
+  .feed-new-offers {
     display: none;
+  }
+
+  /* The phone keeps the rail as one flex column (no tablet reordering). */
+  .feed-page__grid > .feed-page__side-rail {
+    display: flex;
   }
 }

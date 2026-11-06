@@ -51,4 +51,25 @@ describe('FeedMobileTop', () => {
     expect(props.onToggleGroupDuplicates).toHaveBeenCalled()
     expect(props.onRefresh).toHaveBeenCalled()
   })
+
+  it('refreshes when the list is pulled down past the threshold at the top (screen 32)', () => {
+    const props = setup()
+    const touch = (clientY: number) => ({ touches: [{ clientY }] })
+    fireEvent.touchStart(window, touch(100))
+    fireEvent.touchMove(window, touch(180))
+    expect(screen.getByText('Puxe para atualizar')).toBeTruthy()
+    fireEvent.touchMove(window, touch(300))
+    expect(screen.getByText('Solte para atualizar')).toBeTruthy()
+    fireEvent.touchEnd(window)
+    expect(props.onRefresh).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Atualizando…')).toBeTruthy()
+  })
+
+  it('does not refresh on a short pull', () => {
+    const props = setup()
+    fireEvent.touchStart(window, { touches: [{ clientY: 100 }] })
+    fireEvent.touchMove(window, { touches: [{ clientY: 140 }] })
+    fireEvent.touchEnd(window)
+    expect(props.onRefresh).not.toHaveBeenCalled()
+  })
 })

@@ -38,7 +38,8 @@ import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Sour
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { SetupBanner } from '../components/SetupBanner'
 import { EmptyState } from '../components/EmptyState'
-import { FeedMobileTop } from './FeedMobileTop'
+import { FeedMobileTop, NewOffersPill } from './FeedMobileTop'
+import { useNewOffersCount } from './useNewOffersCount'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { ConnectionLostNotice } from '../components/OfflineBanner'
@@ -180,6 +181,18 @@ const FeedMatchList = memo(function FeedMatchList({
     </div>
   )
 })
+
+/** S25-F2 (B1): desktop "↑ N ofertas novas". With the user scrolled, new offers
+ * are counted (and the reading position kept, see `useNewOffersCount`) instead
+ * of pushing the cards; the pill sticks to the top of the cards column. */
+function DesktopNewOffers({ matchIds, loading }: { matchIds: number[]; loading: boolean }) {
+  const [count, goTop] = useNewOffersCount(matchIds, loading)
+  return (
+    <div className="feed-new-offers">
+      <NewOffersPill count={count} onClick={goTop} className="feed-new-offers__pill" />
+    </div>
+  )
+}
 
 export function FeedPage() {
   const { matches, loading, error, connectionState, refresh } = useLiveMatches()
@@ -478,6 +491,8 @@ export function FeedPage() {
   // measured, not guessed from the viewport.
   const chromeMode = useScrollChrome(true)
   const headerActionsRef = useRef<HTMLDivElement>(null)
+  const liveSlotRef = useRef<HTMLDivElement>(null)
+  const liveSlotBefore = useRef<number | null>(null)
   const leftRailRef = useRef<HTMLElement>(null)
   const rightRailRef = useRef<HTMLDivElement>(null)
   const rightMorphRef = useRef<HTMLElement>(null)
@@ -525,7 +540,10 @@ export function FeedPage() {
     const band = 84
     const bottomOf = (element: HTMLElement | null) =>
       element ? element.getBoundingClientRect().bottom + window.scrollY - band : Infinity
-    const thresholds = { left: bottomOf(leftRailRef.current), right: bottomOf(rightRailRef.current) }
+    // The "Ao vivo" block has just docked into the band, so its slot is on
+    // its way to 0 (it springs, see liveSlotRef): leave its height out.
+    const slotHeight = liveSlotRef.current?.getBoundingClientRect().height ?? 0
+    const thresholds = { left: bottomOf(leftRailRef.current), right: bottomOf(rightRailRef.current) - slotHeight }
     let passed = { left: false, right: false }
     const check = () => {
       const y = window.scrollY
@@ -620,17 +638,21 @@ export function FeedPage() {
   )
 
   useEffect(() => {
-    const element = headerActionsRef.current
-    const unregisterFlip = element ? registerChromeFlip(element) : () => {}
     const unregisterAnchor = onBeforeChromeChange(() => {
       captureRailHeights()
+      liveSlotBefore.current = liveSlotRef.current?.getBoundingClientRect().height ?? null
       anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
     })
-    return () => {
-      unregisterFlip()
-      unregisterAnchor()
-    }
+    return unregisterAnchor
   }, [])
+
+  // The block is mounted in the header while loading/failed and in the right
+  // rail once the grid exists: register whichever element is there now.
+  const showingGrid = !loading && !error
+  useEffect(() => {
+    const element = headerActionsRef.current
+    return element ? registerChromeFlip(element) : undefined
+  }, [showingGrid])
 
   // S15-07: after the DOM took the new state, spring each box from the height
   // captured just before it to its new natural one (FeedPage.css owns the
@@ -645,6 +667,14 @@ export function FeedPage() {
     railHeightsBefore.current.right = null
     if (from !== null && rightMorphRef.current) springHeight(rightMorphRef.current, from)
   }, [rightState])
+
+  // S25-F2: the "Ao vivo" block docks into the band (or comes back): its slot
+  // in the rail springs between its height and 0 so "Resumo" glides with it.
+  useLayoutEffect(() => {
+    const from = liveSlotBefore.current
+    liveSlotBefore.current = null
+    if (from !== null && liveSlotRef.current) springHeight(liveSlotRef.current, from)
+  }, [chromeMode])
 
   function setRailOpen(side: 'left' | 'right', open: boolean, sectionId?: string) {
     captureRailHeights()
@@ -665,6 +695,50 @@ export function FeedPage() {
   // S16-02: collapsed-strip tooltips — "rótulo · contexto", the same live
   // numbers the expanded rail shows, so a collapsed rail never stops
   // informing (design note 04 in the S16 reference).
+  const liveBlock = (
+    <div
+      ref={headerActionsRef}
+      className="feed-page__header-actions plane-glass"
+      role="group"
+      aria-label="Atualização das ofertas"
+    >
+      <span
+        className="feed-page__toolbar-segment feed-page__toolbar-status"
+        role="status"
+        style={{ color: connectionLabel.color }}
+      >
+        <span className="feed-page__connection-dot" style={{ background: connectionLabel.dot }} />
+        {connectionLabel.label}
+      </span>
+      <button type="button" className="feed-page__toolbar-segment feed-page__toolbar-refresh" onClick={refresh}>
+        <span aria-hidden="true">↻</span> Atualizar
+      </button>
+      {feedSettings !== null && (
+        <div className="feed-page__toolbar-group">
+          <button
+            type="button"
+            className="feed-page__toolbar-segment feed-page__toolbar-switch"
+            role="switch"
+            aria-checked={feedSettings.group_duplicates}
+            aria-describedby="feed-group-hint"
+            onClick={handleToggleGroupDuplicates}
+          >
+            Agrupar duplicatas
+            <span
+              className={feedSettings.group_duplicates ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}
+              aria-hidden="true"
+            >
+              <span className="feed-toggle-switch__knob" />
+            </span>
+          </button>
+          <span id="feed-group-hint" className="feed-page__toolbar-hint">
+            mesma oferta vista em vários grupos vira 1 card
+          </span>
+        </div>
+      )}
+    </div>
+  )
+
   const activeRuleName = selectedRuleId === null ? 'Todas' : rules.find((rule) => rule.id === selectedRuleId)?.name ?? 'Todas'
   const activeSourcesCount = sources.filter((source) => source.active).length
   const targetsTooltip =
@@ -764,41 +838,7 @@ export function FeedPage() {
             {isPhone ? 'Encontradas pelas suas regras, em tempo real.' : 'Ofertas encontradas pelas suas regras, em tempo real.'}
           </p>
         </div>
-        {/* S16-01: one glass capsule, three segments — SSE / Agrupar / Atualizar
-            used to be three separate dark buttons. It's the same element at
-            rest (here, end of the title row) and docked into the band once
-            compact (FeedPage.css + chrome/scrollChrome.ts's FLIP already
-            wired to this ref — only its geometry changed, not the engine). */}
-        <div ref={headerActionsRef} className="feed-page__header-actions plane-glass">
-          <span
-            className="feed-page__toolbar-segment feed-page__toolbar-status"
-            role="status"
-            style={{ color: connectionLabel.color }}
-          >
-            <span className="feed-page__connection-dot" style={{ background: connectionLabel.dot }} />
-            {connectionLabel.label}
-          </span>
-          {feedSettings !== null && (
-            <button
-              type="button"
-              className="feed-page__toolbar-segment feed-page__toolbar-switch"
-              role="switch"
-              aria-checked={feedSettings.group_duplicates}
-              onClick={handleToggleGroupDuplicates}
-            >
-              Agrupar duplicatas
-              <span
-                className={feedSettings.group_duplicates ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}
-                aria-hidden="true"
-              >
-                <span className="feed-toggle-switch__knob" />
-              </span>
-            </button>
-          )}
-          <button type="button" className="feed-page__toolbar-segment feed-page__toolbar-refresh" onClick={refresh}>
-            <span aria-hidden="true">↻</span> Atualizar
-          </button>
-        </div>
+        {(loading || error) && liveBlock}
       </div>
 
       {isPhone && (
@@ -1069,6 +1109,8 @@ export function FeedPage() {
             </div>
           </aside>
 
+          {!isPhone && <DesktopNewOffers matchIds={matchIds} loading={loading} />}
+
           <FeedMatchList
             visibleMatches={visibleMatches}
             hasAnyMatch={matches.length > 0}
@@ -1084,6 +1126,16 @@ export function FeedPage() {
           />
 
           <div ref={rightRailRef} id="feed-rail-right" className="feed-page__side-rail">
+            {/* S16-01 → S25-F2 (B1): one glass block with "Ao vivo", "Atualizar" and
+                "Agrupar duplicatas". It lives at the top of the right rail at
+                rest; once the chrome is compact it is the same element docked
+                in the top band (FeedPage.css + chrome/scrollChrome.ts's FLIP
+                on this ref). Its slot keeps the rail from jumping: the slot's
+                height springs to 0 as the block leaves. */}
+            <div ref={liveSlotRef} className="feed-live-slot">
+              {liveBlock}
+            </div>
+
             {/* S15-07: "Resumo" is the box that folds into the strip; the two
                 boxes below it fold up into it first (`.feed-side__more`). */}
             <aside ref={rightMorphRef} id="feed-side-summary" className="plane-glass feed-summary feed-morph">
