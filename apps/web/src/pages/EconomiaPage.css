@@ -676,7 +676,82 @@
   margin-top: 6px;
 }
 
+.economia-card-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--session-expired-backdrop-bg);
+  animation: economia-card-fade 200ms ease-out;
+}
+
+.economia-card-panel--modal {
+  width: 100%;
+  max-width: 860px;
+  max-height: calc(100dvh - 32px);
+  margin-top: 0;
+  overflow-y: auto;
+  animation: economia-card-pop 680ms linear(0, 0.0265, 0.094, 0.1868, 0.2929, 0.4029, 0.5102, 0.6102, 0.7001, 0.7783, 0.8445, 0.8988, 0.942, 0.9754, 1, 1.0174, 1.0287, 1.0353, 1.0381, 1.0382, 1.0363, 1.0332, 1.0293, 1.0251, 1.0209, 1.0169, 1.0133, 1.01, 1.0072, 1.0049, 1.003, 1.0016, 1.0005, 0.9996, 0.9991, 0.9988, 1);
+}
+
+.economia-card-panel--modal:focus-visible {
+  outline: none;
+}
+
+.economia-card-panel--modal .economia-card-panel__body {
+  grid-template-columns: minmax(200px, 340px) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.economia-card-panel__periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.economia-card-panel__period {
+  cursor: pointer;
+}
+
+.economia-card-panel__label {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.economia-card-panel__notice {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+@keyframes economia-card-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes economia-card-pop {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .economia-card-panel__backdrop,
+  .economia-card-panel--modal {
+    animation: none;
+  }
+}
+
 .economia-card-panel__preview {
+  order: -1;
   width: 100%;
   max-width: 420px;
   height: auto;
@@ -699,7 +774,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .economia-card-panel__body {
+  .economia-card-panel__body,
+  .economia-card-panel--modal .economia-card-panel__body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
