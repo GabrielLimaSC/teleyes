@@ -6,11 +6,18 @@ import type { Snooze } from './types'
  * never duplicates it. */
 export const listSnoozes = (): Promise<Snooze[]> => apiRequest<Snooze[]>('/snoozes')
 
-export const snoozeRule = (csrfToken: string, ruleId: number, days = 7): Promise<Snooze> =>
+/** S25-F4: `1` = "Por 24 h", `7` = "Por 7 dias", `'indefinite'` = "Até reativar". */
+export type SnoozeDuration = number | 'indefinite'
+
+export const snoozeRule = (csrfToken: string, ruleId: number, duration: SnoozeDuration = 7): Promise<Snooze> =>
   apiRequest<Snooze>('/snoozes', {
     method: 'POST',
     headers: jsonHeaders(csrfToken),
-    body: JSON.stringify({ scope: 'rule', rule_id: ruleId, days }),
+    body: JSON.stringify({
+      scope: 'rule',
+      rule_id: ruleId,
+      ...(duration === 'indefinite' ? { indefinite: true } : { days: duration }),
+    }),
   })
 
 /** S14-07: the card's "Silenciar 7 dias" — same endpoint as `snoozeRule`,

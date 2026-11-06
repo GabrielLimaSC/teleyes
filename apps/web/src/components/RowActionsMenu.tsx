@@ -13,6 +13,9 @@ export interface RowActionsMenuItem {
   disabled?: boolean
   /** Draws a divider above this item. */
   separatorBefore?: boolean
+  /** S25-F4: a submenu. Selecting the item opens its choices (inline on the
+   * desktop, as a second step in the phone sheet) instead of calling `onSelect`. */
+  children?: RowActionsMenuItem[]
 }
 
 interface MenuPosition {
@@ -41,13 +44,17 @@ export function RowActionsMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<MenuPosition | null>(null)
+  // The key of the item whose submenu is open (desktop: inline; phone: second step).
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
   const phone = useMediaQuery(PHONE_QUERY)
+  const phoneParent = phone ? items.find((item) => item.key === expandedKey && item.children) : undefined
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
+    setExpandedKey(null)
     if (restoreFocus) triggerRef.current?.focus()
   }, [])
 
@@ -68,7 +75,7 @@ export function RowActionsMenu({
 
   useLayoutEffect(() => {
     if (open && !phone) place()
-  }, [open, phone, place])
+  }, [open, phone, place, expandedKey])
 
   const focusItem = useCallback((index: number) => {
     const nodes = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
@@ -80,6 +87,11 @@ export function RowActionsMenu({
     if (!open || phone || position === null) return
     focusItem(0)
   }, [open, phone, position, focusItem])
+
+  useEffect(() => {
+    if (expandedKey === null || phone) return
+    menuRef.current?.querySelector<HTMLButtonElement>('[data-submenu] [role="menuitem"]:not(:disabled)')?.focus()
+  }, [expandedKey, phone])
 
   useEffect(() => {
     if (!open || phone) return
@@ -124,9 +136,34 @@ export function RowActionsMenu({
     } else if (event.key === 'End') {
       event.preventDefault()
       focusItem(nodes.length - 1)
+    } else if (event.key === 'ArrowRight') {
+      const parent = items.find((item) => item.children && item.key === focusedKey(current, nodes))
+      if (parent && expandedKey !== parent.key) {
+        event.preventDefault()
+        setExpandedKey(parent.key)
+      }
+    } else if (event.key === 'ArrowLeft' && expandedKey !== null) {
+      event.preventDefault()
+      const parentKey = expandedKey
+      setExpandedKey(null)
+      requestAnimationFrame(() =>
+        menuRef.current?.querySelector<HTMLButtonElement>(`[data-item-key="${parentKey}"]`)?.focus(),
+      )
     } else if (event.key === 'Tab') {
       close(true)
     }
+  }
+
+  const focusedKey = (index: number, nodes: HTMLButtonElement[]): string | null =>
+    index < 0 ? null : (nodes[index]?.dataset.itemKey ?? null)
+
+  const choose = (item: RowActionsMenuItem) => {
+    if (item.children) {
+      setExpandedKey(expandedKey === item.key ? null : item.key)
+      return
+    }
+    close(true)
+    item.onSelect()
   }
 
   const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -153,21 +190,41 @@ export function RowActionsMenu({
         <span aria-hidden="true">⋯</span>
       </button>
       {phone && (
-        <BottomSheet open={open} onClose={() => setOpen(false)} title={label}>
-          <div className="bottom-sheet__list" role="menu" aria-label={label}>
-            {items.map((item) => (
+        <BottomSheet open={open} onClose={() => close(false)} title={phoneParent?.label ?? label}>
+          <div className="bottom-sheet__list" role="menu" aria-label={phoneParent?.label ?? label}>
+            {phoneParent && (
+              <button
+                type="button"
+                role="menuitem"
+                className="bottom-sheet__item bottom-sheet__item--back"
+                onClick={() => setExpandedKey(null)}
+              >
+                <span aria-hidden="true">‹</span> Voltar
+              </button>
+            )}
+            {(phoneParent?.children ?? items).map((item) => (
               <button
                 key={item.key}
                 type="button"
                 role="menuitem"
                 className={`bottom-sheet__item${item.danger ? ' bottom-sheet__item--danger' : ''}`}
                 disabled={item.disabled}
+                aria-haspopup={item.children ? 'menu' : undefined}
                 onClick={() => {
-                  setOpen(false)
+                  if (item.children) {
+                    setExpandedKey(item.key)
+                    return
+                  }
+                  close(false)
                   item.onSelect()
                 }}
               >
                 {item.label}
+                {item.children && (
+                  <span className="bottom-sheet__chevron" aria-hidden="true">
+                    ›
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -196,15 +253,38 @@ export function RowActionsMenu({
                   type="button"
                   role="menuitem"
                   tabIndex={-1}
+                  data-item-key={item.key}
                   className={`row-actions__item${item.danger ? ' row-actions__item--danger' : ''}`}
                   disabled={item.disabled}
-                  onClick={() => {
-                    close(true)
-                    item.onSelect()
-                  }}
+                  aria-haspopup={item.children ? 'menu' : undefined}
+                  aria-expanded={item.children ? expandedKey === item.key : undefined}
+                  onClick={() => choose(item)}
                 >
                   {item.label}
+                  {item.children && (
+                    <span className="row-actions__chevron" data-open={expandedKey === item.key || undefined} aria-hidden="true">
+                      ›
+                    </span>
+                  )}
                 </button>
+                {item.children && expandedKey === item.key && (
+                  <div className="row-actions__submenu" role="group" aria-label={item.label} data-submenu>
+                    {item.children.map((child) => (
+                      <button
+                        key={child.key}
+                        type="button"
+                        role="menuitem"
+                        tabIndex={-1}
+                        data-item-key={child.key}
+                        className="row-actions__item"
+                        disabled={child.disabled}
+                        onClick={() => choose(child)}
+                      >
+                        {child.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>,

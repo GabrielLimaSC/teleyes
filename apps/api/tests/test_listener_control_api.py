@@ -15,6 +15,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config_diff import build_snapshot
 from app.listener_control import (
     claim_reload,
     config_fingerprint,
@@ -58,6 +59,7 @@ class Panel:
                 rules_loaded=len(rules),
                 recipients_loaded=len(recipients),
                 config_hash=config_fingerprint(sources, rules, recipients),
+                snapshot=build_snapshot(sources, rules, recipients),
                 new_matches=3,
                 scan_failures=0,
                 now=now,
@@ -248,3 +250,87 @@ def test_a_change_made_while_applying_still_shows_as_unapplied(panel: Panel) -> 
     status = panel.status()
     assert status["state"] == "idle"
     assert status["has_unapplied_changes"] is True
+
+
+def _changes(panel: Panel) -> list[tuple[str, str, str, tuple[str, ...]]]:
+    body = panel.status()["unapplied_changes"]
+    assert isinstance(body, list)
+    return [(c["entity"], c["action"], c["name"], tuple(c["fields"])) for c in body]
+
+
+def _edit(panel: Panel, edit: Callable[[Session], object]) -> None:
+    with panel.factory() as session:
+        edit(session)
+        session.commit()
+
+
+def test_unapplied_changes_say_what_changed_since_the_last_apply(panel: Panel) -> None:
+    """S25-F4: the Regras banner names rules created, edited, paused and removed."""
+    _, rule_id, _ = _seed_config(panel)
+    with panel.factory() as session:
+        extra = Rule(name="Fone bluetooth", include_terms="fone")
+        gone = Rule(name="Monitor", include_terms="monitor")
+        session.add_all([extra, gone])
+        session.commit()
+        extra_id, gone_id = extra.id, gone.id
+    panel.listener_applies_current_config()
+    assert _changes(panel) == []
+
+    _edit(panel, lambda s: setattr(s.get(Rule, extra_id), "target_price_cents", 15_000))
+    _edit(panel, lambda s: s.add(Rule(name="SSD NVMe", include_terms="ssd")))
+    _edit(panel, lambda s: setattr(s.get(Rule, rule_id), "active", False))
+    _edit(panel, lambda s: s.delete(s.get(Rule, gone_id)))
+    _edit(panel, lambda s: setattr(s.get(Rule, extra_id), "name", "Fone BT"))  # rename: ignored
+
+    status = panel.status()
+    assert status["has_unapplied_changes"] is True
+    assert sorted(_changes(panel)) == sorted(
+        [
+            ("rule", "edited", "Fone BT", ("target_price",)),
+            ("rule", "created", "SSD NVMe", ()),
+            ("rule", "paused", "iPhone", ()),
+            ("rule", "deleted", "Monitor", ()),
+        ]
+    )
+
+    # Applying clears the list.
+    panel.listener_applies_current_config()
+    assert _changes(panel) == []
+    assert panel.status()["has_unapplied_changes"] is False
+
+
+def test_a_target_price_edit_alone_counts_as_unapplied(panel: Panel) -> None:
+    """The listener holds the rule in memory, so the target needs an apply too."""
+    _, rule_id, _ = _seed_config(panel)
+    panel.listener_applies_current_config()
+
+    _edit(panel, lambda s: setattr(s.get(Rule, rule_id), "target_price_cents", 100_000))
+
+    assert panel.status()["has_unapplied_changes"] is True
+
+
+def test_a_resumed_rule_is_activated_not_created(panel: Panel) -> None:
+    _, rule_id, _ = _seed_config(panel)
+    _edit(panel, lambda s: setattr(s.get(Rule, rule_id), "active", False))
+    panel.listener_applies_current_config(now=datetime.now(UTC) + timedelta(minutes=1))
+
+    _edit(panel, lambda s: setattr(s.get(Rule, rule_id), "active", True))
+
+    assert _changes(panel) == [("rule", "activated", "iPhone", ())]
+
+
+def test_without_a_snapshot_the_notice_stays_generic(panel: Panel) -> None:
+    """An apply made before this existed has a hash but no snapshot."""
+    _, rule_id, _ = _seed_config(panel)
+    panel.listener_applies_current_config()
+    with panel.factory() as session:
+        row = session.get(ListenerControl, 1)
+        assert row is not None
+        row.applied_snapshot = None
+        session.commit()
+
+    _edit(panel, lambda s: setattr(s.get(Rule, rule_id), "max_price_cents", 1_000))
+
+    status = panel.status()
+    assert status["has_unapplied_changes"] is True
+    assert status["unapplied_changes"] == []

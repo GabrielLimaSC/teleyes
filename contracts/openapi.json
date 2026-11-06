@@ -1128,6 +1128,13 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "unapplied_changes": {
+            "items": {
+              "$ref": "#/components/schemas/UnappliedChangeResponse"
+            },
+            "title": "Unapplied Changes",
+            "type": "array"
           }
         },
         "required": [
@@ -1141,6 +1148,7 @@
           "scan_failures",
           "error",
           "has_unapplied_changes",
+          "unapplied_changes",
           "listener_online",
           "listener_seen_at"
         ],
@@ -2794,6 +2802,11 @@
             "title": "Recipient Ids",
             "type": "array"
           },
+          "snoozed_indefinitely": {
+            "default": false,
+            "title": "Snoozed Indefinitely",
+            "type": "boolean"
+          },
           "snoozed_until": {
             "anyOf": [
               {
@@ -3469,6 +3482,11 @@
             ],
             "title": "Days"
           },
+          "indefinite": {
+            "default": false,
+            "title": "Indefinite",
+            "type": "boolean"
+          },
           "product_key": {
             "anyOf": [
               {
@@ -3523,6 +3541,11 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "indefinite": {
+            "default": false,
+            "title": "Indefinite",
+            "type": "boolean"
           },
           "label": {
             "title": "Label",
@@ -3879,6 +3902,50 @@
           "chat_id"
         ],
         "title": "TestNotificationResponse",
+        "type": "object"
+      },
+      "UnappliedChangeResponse": {
+        "description": "One thing that differs from what the listener runs (S25-F4).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "activated",
+              "edited",
+              "paused",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "entity": {
+            "enum": [
+              "rule",
+              "source",
+              "recipient"
+            ],
+            "title": "Entity",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity",
+          "action",
+          "name",
+          "fields"
+        ],
+        "title": "UnappliedChangeResponse",
         "type": "object"
       },
       "ValidationError": {

@@ -184,3 +184,36 @@ async def test_a_price_above_target_stays_snoozed(session: Session) -> None:
     assert result.reason == "snoozed"
     assert result.match is not None
     assert session.scalar(select(Delivery).where(Delivery.match_id == result.match.id)) is None
+
+
+# --- S25-F4: "Até reativar" is just a snooze that never expires ---------------
+
+INDEFINITE = datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
+
+
+async def test_an_indefinite_snooze_silences_the_delivery(session: Session) -> None:
+    source, rule, recipient = _seed(session)
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=INDEFINITE))
+    session.commit()
+
+    result = await _run(session, source, rule, recipient)
+    session.commit()
+
+    assert result.reason == "snoozed"
+    assert result.deliveries_sent == 0
+    assert result.match is not None  # still persisted
+
+
+async def test_a_target_hit_still_delivers_through_an_indefinite_snooze(
+    session: Session,
+) -> None:
+    source, rule, recipient = _seed(session)
+    rule.target_price_cents = 574_900
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=INDEFINITE))
+    session.commit()
+
+    result = await _run(session, source, rule, recipient)
+    session.commit()
+
+    assert result.target_hit is True
+    assert result.deliveries_sent == 1

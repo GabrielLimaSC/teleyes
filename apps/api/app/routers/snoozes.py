@@ -14,10 +14,13 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.delivery_policy import SNOOZE_INDEFINITE_UNTIL, is_indefinite
 from app.main import get_current_session, get_db, require_csrf
 from app.utc import UtcDatetime, utc_now
 from models import Match, Rule, Snooze
 from teleyes_core.rules.product import product_title
+
+MAX_SNOOZE_DAYS = 3650
 
 router = APIRouter(
     prefix="/snoozes",
@@ -34,6 +37,9 @@ class SnoozeCreate(BaseModel):
     # deadline. `until`, once parsed, is always aware UTC (`UtcDatetime`).
     days: int | None = None
     until: UtcDatetime | None = None
+    # S25-F4 "Até reativar": silenced until someone reactivates it (stored as
+    # `SNOOZE_INDEFINITE_UNTIL`). Exclusive with `days` and `until`.
+    indefinite: bool = False
 
 
 class SnoozeResponse(BaseModel):
@@ -42,6 +48,7 @@ class SnoozeResponse(BaseModel):
     rule_id: int | None
     product_key: str | None
     until: UtcDatetime
+    indefinite: bool = False
     label: str
 
 
@@ -94,6 +101,7 @@ def _to_response(
         rule_id=snooze.rule_id,
         product_key=snooze.product_key,
         until=snooze.until,
+        indefinite=is_indefinite(snooze.until),
         label=label,
     )
 
@@ -135,17 +143,20 @@ def create_snooze(
                 detail="scope 'product' requires product_key and no rule_id",
             )
 
-    if (payload.days is None) == (payload.until is None):
+    chosen = [payload.days is not None, payload.until is not None, payload.indefinite]
+    if sum(chosen) != 1:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="informe exatamente um entre days e until",
+            detail="informe exatamente um entre days, until e indefinite",
         )
 
-    if payload.days is not None:
-        if payload.days <= 0:
+    if payload.indefinite:
+        until = SNOOZE_INDEFINITE_UNTIL
+    elif payload.days is not None:
+        if not 0 < payload.days <= MAX_SNOOZE_DAYS:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="days must be positive",
+                detail=f"days must be between 1 and {MAX_SNOOZE_DAYS}",
             )
         until = now + timedelta(days=payload.days)
     else:

@@ -17,19 +17,22 @@ import { fetchMetrics } from '../api/metrics'
 import { fetchRuleSuggestion } from '../api/products'
 import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
+import type { SnoozeDuration } from '../api/snoozes'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
 import type { DigestSettings, Match, Recipient, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
 import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
-import { formatDayMonth, formatMatchedAt, isLater } from '../utils/dates'
+import { formatMatchedAt, isLater } from '../utils/dates'
+import { ruleSilenceLabel, snoozeToast } from '../utils/snooze'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState } from '../components/EmptyState'
 import { FirstTimeTip } from '../components/FirstTimeTip'
 import { AnchoredPopover } from '../components/AnchoredPopover'
 import { HelpTip } from '../components/HelpTip'
 import { ListenerApplyControl } from '../components/ListenerApplyControl'
+import { PendingChangesBanner, showsPendingBanner } from '../components/PendingChangesBanner'
 import { RuleHistoryChart } from '../components/RuleHistoryChart'
 import { settledToast } from '../components/listenerState'
 import { RowActionsMenu } from '../components/RowActionsMenu'
@@ -441,7 +444,7 @@ export function RegrasPage() {
     listener.refresh()
   }
 
-  const handleSnooze = (rule: Rule) => {
+  const handleSnooze = (rule: Rule, duration: SnoozeDuration = 7) => {
     if (csrfToken === null) {
       setListError(CSRF_MISSING_MESSAGE)
       return
@@ -450,11 +453,11 @@ export function RegrasPage() {
     setSnoozeBusyId(rule.id)
     const request = existing
       ? reactivateSnooze(csrfToken, existing.id)
-      : snoozeRule(csrfToken, rule.id, 7)
+      : snoozeRule(csrfToken, rule.id, duration)
     request
       .then(() => {
         configChanged()
-        showToast(existing ? 'Regra reativada.' : 'Regra silenciada por 7 dias.')
+        showToast(existing ? 'Regra reativada.' : snoozeToast(duration))
       })
       .catch((error: unknown) => reportFailure(error, 'Não foi possível alterar o silêncio da regra.', setListError))
       .finally(() => setSnoozeBusyId(null))
@@ -903,6 +906,16 @@ export function RegrasPage() {
               : 'Silenciar',
         onSelect: () => handleSnooze(rule),
         disabled: snoozeBusyId === rule.id,
+        // S25-F4: a silenced rule reactivates directly; otherwise pick how long.
+        ...(rule.snoozed_until || snoozeBusyId === rule.id
+          ? {}
+          : {
+              children: [
+                { key: 'snooze-24h', label: 'Por 24 h', onSelect: () => handleSnooze(rule, 1) },
+                { key: 'snooze-7d', label: 'Por 7 dias', onSelect: () => handleSnooze(rule, 7) },
+                { key: 'snooze-forever', label: 'Até reativar', onSelect: () => handleSnooze(rule, 'indefinite') },
+              ],
+            }),
       },
       {
         key: 'clear',
@@ -915,7 +928,7 @@ export function RegrasPage() {
       {
         key: 'delete',
         label: 'Excluir',
-        onSelect: () => (phone ? setDeleteConfirm(rule) : handleDelete(rule)),
+        onSelect: () => setDeleteConfirm(rule),
         disabled: deletingId === rule.id,
         danger: true,
       },
@@ -1062,6 +1075,7 @@ export function RegrasPage() {
               error={listener.error}
               requesting={listener.requesting}
               onApply={listener.apply}
+              hideButton={showsPendingBanner(listener.status)}
             />
           )}
           <button
@@ -1074,6 +1088,10 @@ export function RegrasPage() {
           </button>
         </div>
       </div>
+
+      {!phone && (
+        <PendingChangesBanner status={listener.status} requesting={listener.requesting} onApply={listener.apply} />
+      )}
 
       <FirstTimeTip id="regras">
         Uma regra define o que procurar e até quanto pagar. O teleyes lê os grupos e só avisa quando uma promoção bate.
@@ -1191,10 +1209,10 @@ export function RegrasPage() {
                               onPause={() => handlePause(rule)}
                               onResume={() => handleResume(rule)}
                             />
-                            {rule.snoozed_until && (
+                            {ruleSilenceLabel(rule) && (
                               <span className="rule-silence rule-silence--muted">
                                 <span aria-hidden="true" />
-                                silenciada até {formatDayMonth(rule.snoozed_until)}
+                                {ruleSilenceLabel(rule)}
                               </span>
                             )}
                           </div>
