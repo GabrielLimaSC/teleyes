@@ -1,3 +1,4 @@
+import { staggerClass, staggerStyle } from '../motion/stagger'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
@@ -442,7 +443,7 @@ export function EconomiaPage() {
                 </tr>
               </thead>
               <tbody>
-                {report.items.map((item) => {
+                {report.items.map((item, index) => {
                   const purchase = purchaseById.get(item.id)
                   const tone = savingTone(item.savings)
                   const pill = savingPill(item.savings)
@@ -450,7 +451,7 @@ export function EconomiaPage() {
                   const reference = item.reference ?? null
                   const noHistory = pill === 'sem histórico'
                   return (
-                    <tr key={item.id}>
+                    <tr key={item.id} className={staggerClass(index) || undefined} style={staggerStyle(index)}>
                       <td className="economia-table__piece" data-label="Peça">
                         <div className="economia-table__name">{item.name}</div>
                         <div className="economia-table__store">

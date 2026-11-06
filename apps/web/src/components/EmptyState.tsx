@@ -13,7 +13,7 @@ interface EmptyStateProps {
 /** S23-04: an empty list that teaches: what goes here, and the one next step. */
 export function EmptyState({ title, text, action, secondaryAction }: EmptyStateProps) {
   return (
-    <div className="empty-state">
+    <div className="empty-state motion-item">
       <h3 className="empty-state__title">{title}</h3>
       <p className="empty-state__text">{text}</p>
       {action !== undefined &&

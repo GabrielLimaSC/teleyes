@@ -10,6 +10,7 @@ import { formatClockMoment, formatDayMonth, formatMatchedAt } from '../utils/dat
 import { PHONE_QUERY, useIsProductPanelDrawer, useIsProductPanelSheet, useMediaQuery } from '../hooks/useMediaQuery'
 import { useAuth } from '../auth/AuthContext'
 import { parseOptionalPriceInput, parsePriceInput } from '../utils/priceInput'
+import { SwapTransition, useSwapDirection } from '../motion/SwapTransition'
 import { CONFIRM_DIALOG_ATTR } from './ConfirmDialog'
 import { CorrectOfferModal } from './CorrectOfferModal'
 import './ProductPanel.css'
@@ -665,6 +666,8 @@ export function ProductPanel({
   }
 
   const [range, setRange] = useState<ProductHistoryRange>('90d')
+  // S25-M1: the chart slides toward the period chosen (RANGES runs long → short).
+  const rangeDirection = useSwapDirection(RANGES.indexOf(range))
   const [product, setProduct] = useState<Product | null>(null)
   const [status, setStatus] = useState<Status>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -1075,6 +1078,7 @@ export function ProductPanel({
                 </div>
               </div>
 
+              <SwapTransition swapKey={range} direction={rangeDirection}>
               {chart ? (
                 <>
                   <svg
@@ -1100,6 +1104,7 @@ export function ProductPanel({
               ) : (
                 <p className="product-panel__status">Sem histórico de preço suficiente ainda.</p>
               )}
+              </SwapTransition>
             </div>
 
             <div className="product-panel__stats">

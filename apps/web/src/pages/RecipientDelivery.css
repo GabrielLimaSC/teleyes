@@ -22,10 +22,13 @@
   cursor: pointer;
 }
 
+/* S25-M1: the selected option's background is the sliding .motion-seg__thumb. */
+.delivery-seg {
+  --seg-thumb-radius: 7px;
+}
+
 .delivery-seg__opt--on {
-  background: var(--plane-input-bg);
   color: var(--plane-text-heading);
-  box-shadow: var(--plane-pearl-shadow);
 }
 
 .delivery-seg__opt:focus-visible,
@@ -343,7 +346,9 @@
 @media (max-width: 640px) {
   .regras-tabs { display: flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--plane-tint-bg); border: 1px solid var(--plane-tint-border-color); margin: 0 0 12px; }
   .regras-tabs button { flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--plane-text-secondary); font: inherit; font-weight: 600; font-size: 14px; }
-  .regras-tabs button[aria-selected='true'] { background: var(--plane-input-bg); color: var(--plane-text-heading); box-shadow: var(--plane-pearl-shadow); }
+  /* S25-M1: the selected tab's background is the sliding .motion-seg__thumb. */
+  .regras-tabs { --seg-thumb-radius: 9px; }
+  .regras-tabs button[aria-selected='true'] { color: var(--plane-text-heading); }
   .recipient-cards { grid-template-columns: minmax(0, 1fr); }
   .delivery-inline .delivery-panel__grid { max-height: none; overflow: visible; }
   .delivery-inline .delivery-panel__footer button { width: 100%; min-height: 44px; }

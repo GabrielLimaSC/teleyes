@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { useArrival } from '../motion/stagger'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
@@ -27,6 +28,7 @@ import { useStableCallback } from '../hooks/useStableCallback'
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { useSpringFollow } from '../motion/useSpringFollow'
 import { HistoricoMobileFilters, MobileHistoricoItem, MOBILE_SORT_OPTIONS, activeFilterChips } from './HistoricoMobile'
 import type { MobileRow } from './HistoricoMobile'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
@@ -248,14 +250,18 @@ interface HistoricoRow {
  * it (the row only depends on its own data and two stable callbacks). */
 const HistoricoTableRow = memo(function HistoricoTableRow({
   row,
+  index,
   onOpenProduct,
   onRequestDelete,
 }: {
   row: HistoricoRow
+  /** Position when the row arrives (cascade only; never re-read). */
+  index: number
   onOpenProduct: (productKey: string, trigger: HTMLElement) => void
   onRequestDelete: (matchId: number) => void
 }) {
   const category = categorize(row.match.message_text)
+  const arrival = useArrival(index)
   const openProduct = (trigger: HTMLElement) => {
     if (row.productKey !== null) onOpenProduct(row.productKey, trigger)
   }
@@ -273,7 +279,7 @@ const HistoricoTableRow = memo(function HistoricoTableRow({
       <span className="historico-table__title">{row.title}</span>
     )
   return (
-    <div className="historico-table__row">
+    <div className={`historico-table__row ${arrival.className}`.trim()} style={arrival.style}>
       <div className="historico-table__product">
         <span
           className="historico-table__icon"
@@ -365,6 +371,9 @@ const HistoricoTableRow = memo(function HistoricoTableRow({
 export function HistoricoPage() {
   const panel = useProductPanel()
   const phone = useMediaQuery(PHONE_QUERY)
+  // S25-M1: the filter rail trails the scroll on a spring.
+  const railRef = useRef<HTMLFormElement>(null)
+  useSpringFollow(railRef)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
@@ -777,7 +786,7 @@ export function HistoricoPage() {
             Destinatário/Entrega/Preço/Ordenar por), só restilizados pro
             plano vidro — nenhum campo novo, nenhum removido. */}
         {!phone && (
-        <form className="plane-glass historico-rail"onSubmit={(event) => event.preventDefault()}>
+        <form ref={railRef} className="plane-glass historico-rail" onSubmit={(event) => event.preventDefault()}>
           <div className="historico-rail__head">
             <span className="historico-rail__eyebrow">Filtros</span>
             {/* S15-06: also clears what's saved — reopening the page (or
@@ -970,7 +979,7 @@ export function HistoricoPage() {
                 />
               )}
               {rows.length === 0 && hasActiveFilters && (
-                <div className="historico-noresults">
+                <div className="historico-noresults motion-item">
                   {!phone && filterChips.length > 0 && (
                     <ul className="historico-chips" aria-label="Filtros ativos">
                       {filterChips.map((chip) => (
@@ -1008,9 +1017,10 @@ export function HistoricoPage() {
               )}
               {rows.length > 0 && phone && (
                 <ul className="hist-m__list">
-                  {mobileRows.map((row) => (
+                  {mobileRows.map((row, index) => (
                     <MobileHistoricoItem
                       key={row.id}
+                      index={index}
                       row={row}
                       onOpenProduct={panel.open}
                       onRequestDelete={stableRequestDeleteMatch}
@@ -1028,9 +1038,10 @@ export function HistoricoPage() {
                     <span className="historico-table__cell--right">Entrega</span>
                     <span className="historico-table__cell--right">Promoção</span>
                   </div>
-                  {rows.map((row) => (
+                  {rows.map((row, index) => (
                     <HistoricoTableRow
                       key={row.match.id}
+                      index={index}
                       row={row}
                       onOpenProduct={panel.open}
                       onRequestDelete={stableRequestDeleteMatch}

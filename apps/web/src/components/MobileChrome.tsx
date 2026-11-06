@@ -8,6 +8,7 @@ import { useMobileScrollChrome } from '../chrome/useMobileScrollChrome'
 import { useHealth } from '../hooks/useHealth'
 import type { SseState } from '../hooks/useHealth'
 import { useTheme } from '../hooks/useTheme'
+import { useSegmentThumb } from '../motion/useSegmentThumb'
 import { THEME_LABELS } from '../theme/theme'
 import type { ThemePreference } from '../theme/theme'
 import { telegramStateLabel } from './adapterStateLabel'
@@ -107,6 +108,8 @@ export function MobileChrome() {
   const [busy, setBusy] = useState(false)
   const { preference, setPreference } = useTheme()
   const { compact, scrolled } = useMobileScrollChrome()
+  // S25-M1: the chosen theme's background glides between the options.
+  const { containerRef: themeRef, thumbRef: themeThumbRef } = useSegmentThumb<HTMLDivElement>(`${moreOpen}:${preference}`)
 
   // Tells the stylesheet there is a tab bar: room under the content, and the
   // fixed demo strip moves into the "Mais" sheet.
@@ -189,7 +192,8 @@ export function MobileChrome() {
           <span className="mobile-more__theme-label" id="mobile-theme-label">
             Tema
           </span>
-          <div className="mobile-more__segments" role="radiogroup" aria-labelledby="mobile-theme-label">
+          <div ref={themeRef} className="mobile-more__segments motion-seg" role="radiogroup" aria-labelledby="mobile-theme-label">
+            <span ref={themeThumbRef} className="motion-seg__thumb" aria-hidden="true" />
             {THEME_SEGMENTS.map((value) => (
               <button
                 key={value}
