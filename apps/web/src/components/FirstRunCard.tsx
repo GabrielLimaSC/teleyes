@@ -5,7 +5,6 @@ import { listRules } from '../api/rules'
 import { listSources } from '../api/sources'
 import type { SetupStatus } from '../api/setup'
 import { useSetupStatus } from '../hooks/useSetupStatus'
-import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { FIRST_RUN_KEY, readFlag, writeFlag } from '../onboarding/storage'
 import './FirstRunCard.css'
 
@@ -73,13 +72,12 @@ export function resetFirstRunSession(): void {
  * panel already uses; shows nothing when the setup API is unavailable (demo) or
  * the person dismissed it.
  */
-export function FirstRunCard() {
+export function FirstRunCard({ onVisibleChange }: { onVisibleChange?: (visible: boolean) => void } = {}) {
   const { status: setup, unavailable, loading: setupLoading, refresh } = useSetupStatus()
   const [counts, setCounts] = useState<Counts | null>(null)
   const [dismissed, setDismissed] = useState(() => readFlag(FIRST_RUN_KEY) === 'dismissed')
   const [celebrate, setCelebrate] = useState(celebrating)
   const [announcement, setAnnouncement] = useState('')
-  const phone = useMediaQuery(PHONE_QUERY)
   const previous = useRef<Record<string, boolean> | null>(null)
 
   const loadCounts = useCallback(() => {
@@ -137,9 +135,13 @@ export function FirstRunCard() {
     writeFlag(FIRST_RUN_KEY, 'dismissed')
   }, [steps, allDone, setupLoading, dismissed])
 
-  if (unavailable !== null || setupLoading || steps === null) return null
-  if (allDone && !celebrate) return null
-  if (dismissed) return null
+  const hidden = unavailable !== null || setupLoading || steps === null || (allDone && !celebrate) || dismissed
+  // S25-F1a: Início swaps this card for "Últimas ofertas" once it is gone.
+  const settled = unavailable !== null || (!setupLoading && steps !== null)
+  useEffect(() => {
+    if (settled) onVisibleChange?.(!hidden)
+  }, [settled, hidden, onVisibleChange])
+  if (hidden) return null
 
   const dismiss = () => {
     celebrating = false
@@ -154,7 +156,7 @@ export function FirstRunCard() {
       <div className="first-run__head">
         <div>
           <h2 id="first-run-title">
-            {allDone ? 'Tudo pronto' : phone ? `Primeiros passos · ${doneCount} de ${steps.length}` : 'Comece por aqui'}
+            {allDone ? 'Tudo pronto' : `Primeiros passos · ${doneCount} de ${steps.length}`}
           </h2>
           <p className="first-run__lede">
             {allDone
@@ -163,7 +165,7 @@ export function FirstRunCard() {
           </p>
         </div>
         <button type="button" className="first-run__skip" onClick={dismiss}>
-          {allDone ? 'Fechar' : phone ? 'Ocultar' : 'Pular por agora'}
+          {allDone ? 'Fechar' : 'Ocultar'}
         </button>
       </div>
       <div

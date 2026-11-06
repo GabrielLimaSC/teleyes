@@ -14,6 +14,8 @@ import { listSources } from '../api/sources'
 import { fetchMatches } from '../api/matches'
 import { DEMO_PASSWORD } from '../api/demo'
 import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { LatestOffers } from '../components/LatestOffers'
+import type { Match, Rule } from '../api/types'
 import { FirstRunCard } from '../components/FirstRunCard'
 import { botStateLabel } from '../components/adapterStateLabel'
 import type { StateLabel } from '../components/adapterStateLabel'
@@ -136,6 +138,9 @@ export function LoginPage() {
   const { health, sseState } = useHealth(5000, status === 'authenticated')
 
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [latest, setLatest] = useState<{ matches: Match[]; rules: Rule[] } | null>(null)
+  // null until FirstRunCard has settled, so Início never flashes the wrong column.
+  const [firstRunVisible, setFirstRunVisible] = useState<boolean | null>(null)
   useEffect(() => {
     if (status !== 'authenticated') return
     let cancelled = false
@@ -143,6 +148,7 @@ export function LoginPage() {
       .then(([rules, sources, matches]) => {
         if (cancelled) return
         const now = new Date()
+        setLatest({ matches, rules })
         setStats({
           activeRules: rules.filter((rule) => rule.active).length,
           activeSources: sources.filter((source) => source.active).length,
@@ -179,7 +185,7 @@ export function LoginPage() {
             </p>
           </header>
         )}
-        {health?.demo !== true && <FirstRunCard />}
+        {phone && health?.demo !== true && <FirstRunCard />}
         <div className="login-page__grid">
           <section className="plane-glass login-panel">
             <Brand />
@@ -206,6 +212,11 @@ export function LoginPage() {
               )}
             </div>
           </section>
+          <div className="login-page__side">
+          {!phone && health?.demo !== true && <FirstRunCard onVisibleChange={setFirstRunVisible} />}
+          {!phone && (health?.demo === true || firstRunVisible === false) && latest !== null && (
+            <LatestOffers matches={latest.matches} rules={latest.rules} />
+          )}
           <section className="plane-pearl login-panel login-panel--form">
             <div className="login-panel__heading">
               <h2>Sessão ativa</h2>
@@ -230,6 +241,7 @@ export function LoginPage() {
               </p>
             )}
           </section>
+          </div>
         </div>
       </main>
     )

@@ -369,9 +369,17 @@ export function RegrasPage() {
   useEffect(() => {
     const url = new URL(window.location.href)
     if (url.searchParams.get('nova') !== '1') return
+    const modelo = url.searchParams.get('modelo')
     url.searchParams.delete('nova')
+    url.searchParams.delete('modelo')
     window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+    // S25-F1a: a template chip from the empty Ofertas lands with the form prefilled.
+    if (modelo !== null && RULE_TEMPLATES.some((template) => template.id === modelo)) {
+      applyTemplate(modelo)
+      return
+    }
     requestAnimationFrame(() => nameInputRef.current?.focus())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(loadStats, [])
   useEffect(loadSnoozes, [])

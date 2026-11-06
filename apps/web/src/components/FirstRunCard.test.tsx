@@ -66,7 +66,7 @@ describe('FirstRunCard', () => {
   it('shows three steps with progress and links for a brand new install', async () => {
     arrange({})
     renderCard()
-    expect(await screen.findByRole('heading', { name: 'Comece por aqui' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Primeiros passos/ })).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
     expect(screen.getByRole('link', { name: 'Conectar o Telegram' })).toHaveAttribute('href', '/configuracao')
     expect(screen.getByRole('link', { name: 'Conectar o bot' })).toHaveAttribute('href', '/configuracao')
@@ -85,7 +85,7 @@ describe('FirstRunCard', () => {
   it('ignores a recipient that is not authorized', async () => {
     arrange({ recipients: [{ allowlisted: false, active: true }] })
     renderCard()
-    await screen.findByRole('heading', { name: 'Comece por aqui' })
+    await screen.findByRole('heading', { name: /Primeiros passos/ })
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
   })
 
@@ -93,19 +93,19 @@ describe('FirstRunCard', () => {
     arrange({})
     const user = userEvent.setup()
     const first = renderCard()
-    await user.click(await screen.findByRole('button', { name: 'Pular por agora' }))
-    expect(screen.queryByRole('heading', { name: 'Comece por aqui' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Ocultar' }))
+    expect(screen.queryByRole('heading', { name: /Primeiros passos/ })).not.toBeInTheDocument()
     expect(window.localStorage.getItem(FIRST_RUN_KEY)).toBe('dismissed')
     first.unmount()
     renderCard()
     await waitFor(() => expect(api.listRules).toHaveBeenCalledTimes(2))
-    expect(screen.queryByRole('heading', { name: 'Comece por aqui' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /Primeiros passos/ })).not.toBeInTheDocument()
   })
 
   it('celebrates "Tudo pronto" once after finishing, then goes away on the next page load', async () => {
     arrange({})
     const first = renderCard()
-    await screen.findByRole('heading', { name: 'Comece por aqui' })
+    await screen.findByRole('heading', { name: /Primeiros passos/ })
     first.unmount()
 
     arrange({ sources: 1, rules: 1, recipients: [{ allowlisted: true, active: true }] })
@@ -140,7 +140,7 @@ describe('FirstRunCard', () => {
   it('announces nothing on load', async () => {
     arrange({})
     renderCard()
-    await screen.findByRole('heading', { name: 'Comece por aqui' })
+    await screen.findByRole('heading', { name: /Primeiros passos/ })
     expect(screen.getByRole('status')).toHaveTextContent('')
   })
 
@@ -154,8 +154,8 @@ describe('FirstRunCard', () => {
     })
     const user = userEvent.setup()
     renderCard()
-    await user.click(await screen.findByRole('button', { name: 'Pular por agora' }))
-    expect(screen.queryByRole('heading', { name: 'Comece por aqui' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Ocultar' }))
+    expect(screen.queryByRole('heading', { name: /Primeiros passos/ })).not.toBeInTheDocument()
     vi.restoreAllMocks()
   })
 })
