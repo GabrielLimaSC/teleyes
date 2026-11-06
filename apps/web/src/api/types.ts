@@ -166,6 +166,8 @@ export interface Rule {
   /** S14-03: `until` of the rule's active snooze, `null` when it is not
    * silenced. Computed fresh on every read, never stored. */
   snoozed_until: string | null
+  /** S25-F4: the active snooze is "Até reativar" (`snoozed_until` is a far-away sentinel). */
+  snoozed_indefinitely?: boolean
   /** Real daily minimum for this rule in the last 30 days, oldest first. */
   history_30d: PricePoint[]
   /** S21-06: ids of the active, allowlisted recipients that receive this rule
@@ -210,6 +212,8 @@ export interface Snooze {
   rule_id: number | null
   product_key: string | null
   until: string
+  /** S25-F4: "Até reativar" — `until` is a far-away sentinel, not a date to show. */
+  indefinite?: boolean
   /** The rule's name, or the product's title from its most recent posting. */
   label: string
 }

@@ -30,9 +30,10 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.config_diff import build_snapshot
 from app.demo_mode import DEMO_CHAT_PREFIX, DEMO_PASSWORD, DemoNotifier, is_demo_chat_id
 from app.demo_monitoring import seed_monitoring
-from app.listener_control import current_fingerprint
+from app.listener_control import current_fingerprint, load_active_config
 from app.pipeline import IncomingMessage, process_message
 from app.savings import Observation, median
 from app.utc import ensure_utc
@@ -563,6 +564,7 @@ def _finish(session: Session, now: datetime, rng: random.Random) -> None:
             last_new_matches=4,
             last_scan_failures=0,
             applied_config_hash=config_hash,
+            applied_snapshot=build_snapshot(*load_active_config(session)),
             listener_seen_at=now,
             updated_at=now,
         )

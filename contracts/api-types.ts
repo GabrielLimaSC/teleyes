@@ -1394,6 +1394,8 @@ export interface components {
              * @enum {string}
              */
             state: "idle" | "pending" | "applying" | "failed";
+            /** Unapplied Changes */
+            unapplied_changes: components["schemas"]["UnappliedChangeResponse"][];
         };
         /** LoginRequest */
         LoginRequest: {
@@ -1993,6 +1995,11 @@ export interface components {
              * @default []
              */
             recipient_ids: number[];
+            /**
+             * Snoozed Indefinitely
+             * @default false
+             */
+            snoozed_indefinitely: boolean;
             /** Snoozed Until */
             snoozed_until?: string | null;
             /** Target Price Cents */
@@ -2214,6 +2221,11 @@ export interface components {
         SnoozeCreate: {
             /** Days */
             days?: number | null;
+            /**
+             * Indefinite
+             * @default false
+             */
+            indefinite: boolean;
             /** Product Key */
             product_key?: string | null;
             /** Rule Id */
@@ -2230,6 +2242,11 @@ export interface components {
         SnoozeResponse: {
             /** Id */
             id: number;
+            /**
+             * Indefinite
+             * @default false
+             */
+            indefinite: boolean;
             /** Label */
             label: string;
             /** Product Key */
@@ -2359,6 +2376,26 @@ export interface components {
             recipient_id: number;
             /** Status */
             status: string;
+        };
+        /**
+         * UnappliedChangeResponse
+         * @description One thing that differs from what the listener runs (S25-F4).
+         */
+        UnappliedChangeResponse: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "created" | "activated" | "edited" | "paused" | "deleted";
+            /**
+             * Entity
+             * @enum {string}
+             */
+            entity: "rule" | "source" | "recipient";
+            /** Fields */
+            fields: string[];
+            /** Name */
+            name: string;
         };
         /** ValidationError */
         ValidationError: {

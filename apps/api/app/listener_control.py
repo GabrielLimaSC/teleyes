@@ -25,6 +25,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from app.config_diff import ConfigChange, diff_config
 from app.utc import ensure_utc
 from models import ListenerControl, Recipient, Rule, Source
 from models.listener_control import LISTENER_CONTROL_ID
@@ -66,7 +67,8 @@ def config_fingerprint(
     payload = {
         "sources": sorted((s.id, s.telegram_chat_id) for s in sources),
         "rules": sorted(
-            (r.id, r.include_terms, r.exclude_terms or "", r.max_price_cents) for r in rules
+            (r.id, r.include_terms, r.exclude_terms or "", r.max_price_cents, r.target_price_cents)
+            for r in rules
         ),
         "recipients": sorted((r.id, r.telegram_chat_id) for r in recipients),
     }
@@ -128,6 +130,7 @@ def record_applied(
     rules_loaded: int,
     recipients_loaded: int,
     config_hash: str,
+    snapshot: str | None = None,
     new_matches: int | None = None,
     scan_failures: int | None = None,
     now: datetime | None = None,
@@ -148,6 +151,7 @@ def record_applied(
             last_scan_failures=scan_failures,
             last_error=None,
             applied_config_hash=config_hash,
+            applied_snapshot=snapshot,
             listener_seen_at=moment,
             updated_at=moment,
         )
@@ -206,6 +210,8 @@ class ControlSnapshot:
     scan_failures: int | None
     error: str | None
     has_unapplied_changes: bool
+    # S25-F4: what differs from the applied snapshot (empty when unknown).
+    unapplied_changes: tuple[ConfigChange, ...]
     listener_online: bool
     listener_seen_at: datetime | None
 
@@ -225,6 +231,18 @@ def read_snapshot(session: Session, *, now: datetime | None = None) -> ControlSn
     state: ListenerState = "idle"
     if row is not None and row.state in ("idle", "pending", "applying", "failed"):
         state = row.state  # type: ignore[assignment]
+    live = load_active_config(session)
+    has_unapplied_changes = config_fingerprint(*live) != applied_hash
+    changes = (
+        diff_config(
+            session,
+            row.applied_snapshot if row else None,
+            applied_at=_utc_or_none(row.reload_applied_at) if row else None,
+            live=live,
+        )
+        if has_unapplied_changes
+        else []
+    )
     return ControlSnapshot(
         state=state,
         reload_requested_at=_utc_or_none(row.reload_requested_at) if row else None,
@@ -235,7 +253,8 @@ def read_snapshot(session: Session, *, now: datetime | None = None) -> ControlSn
         new_matches=row.last_new_matches if row else None,
         scan_failures=row.last_scan_failures if row else None,
         error=row.last_error if row else None,
-        has_unapplied_changes=current_fingerprint(session) != applied_hash,
+        has_unapplied_changes=has_unapplied_changes,
+        unapplied_changes=tuple(changes),
         listener_online=seen_at is not None and moment - seen_at <= LISTENER_STALE_AFTER,
         listener_seen_at=seen_at,
     )

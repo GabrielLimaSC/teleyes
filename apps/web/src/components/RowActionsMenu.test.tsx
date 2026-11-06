@@ -97,4 +97,38 @@ describe('RowActionsMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Mais ações' }))
     expect(screen.getByRole('menu').parentElement).toBe(document.body)
   })
+
+  it('opens a submenu inline and selects its choice (S25-F4)', async () => {
+    const onDay = vi.fn()
+    const parentSelect = vi.fn()
+    render(
+      <RowActionsMenu
+        label="Mais ações"
+        items={[
+          {
+            key: 'snooze',
+            label: 'Silenciar',
+            onSelect: parentSelect,
+            children: [
+              { key: 'd1', label: 'Por 24 h', onSelect: onDay },
+              { key: 'forever', label: 'Até reativar', onSelect: vi.fn() },
+            ],
+          },
+        ]}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+    const parent = screen.getByRole('menuitem', { name: /Silenciar/ })
+    expect(parent).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('menuitem', { name: 'Por 24 h' })).not.toBeInTheDocument()
+
+    await user.click(parent)
+    expect(parent).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('menuitem', { name: 'Por 24 h' }))
+
+    expect(onDay).toHaveBeenCalledTimes(1)
+    expect(parentSelect).not.toHaveBeenCalled()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
 })

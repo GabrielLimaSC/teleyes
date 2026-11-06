@@ -32,11 +32,14 @@ export function ListenerApplyControl({
   error,
   requesting,
   onApply,
+  hideButton = false,
 }: {
   status: ListenerStatus | null
   error: string | null
   requesting: boolean
   onApply: () => void
+  /** S25-F4: the amber banner carries "Aplicar regras" while there is something to apply. */
+  hideButton?: boolean
 }) {
   const fillOrigin = useFillOrigin()
 
@@ -63,17 +66,19 @@ export function ListenerApplyControl({
           {stateNote(view, status)}
         </span>
       </span>
-      <button
-        type="button"
-        className={`plane-action fill-button listener-apply__button${
-          view.needsApply ? '' : ' plane-action--secondary'
-        }`}
-        onClick={onApply}
-        onPointerDown={fillOrigin}
-        disabled={busy}
-      >
-        {applyButtonLabel({ ...view, busy })}
-      </button>
+      {!hideButton && (
+        <button
+          type="button"
+          className={`plane-action fill-button listener-apply__button${
+            view.needsApply ? '' : ' plane-action--secondary'
+          }`}
+          onClick={onApply}
+          onPointerDown={fillOrigin}
+          disabled={busy}
+        >
+          {applyButtonLabel({ ...view, busy })}
+        </button>
+      )}
       {view.failed && (
         <p role="alert" className="listener-apply__detail">
           {view.detail}
