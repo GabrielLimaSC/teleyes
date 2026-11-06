@@ -1381,3 +1381,48 @@ td.wide-table__num {
   align-items: center;
   gap: 6px;
 }
+
+/* S25-F1b: loading skeleton rows (same height as real rows) and template chips in the empty state. */
+.rules-table__row--skeleton > td {
+  padding: 12px 10px;
+  height: 56px;
+  vertical-align: middle;
+}
+
+.rules-table__row--skeleton + .rules-table__row--skeleton > td {
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.rules-table__bar {
+  display: inline-block;
+  height: 14px;
+  width: 64px;
+  max-width: 100%;
+  border-radius: 6px;
+  background: var(--plane-surface-sunken);
+  animation: rules-table-pulse 1.4s ease-in-out infinite;
+}
+
+.rules-table__bar--wide {
+  width: 55%;
+}
+
+@keyframes rules-table-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rules-table__bar {
+    animation: none;
+  }
+}
+
+.regras-page__empty-templates {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px 24px;
+}

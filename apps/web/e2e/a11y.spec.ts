@@ -166,8 +166,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
           ['/feed', 'Nenhuma regra ainda'],
           ['/regras', 'Nenhuma regra ainda'],
           ['/fontes', 'Nenhum grupo ainda'],
-          ['/historico', 'O histórico ainda está vazio'],
-          ['/economia', 'Nenhuma compra registrada'],
+          ['/historico', 'Nenhum anúncio ainda'],
+          ['/economia', /Nenhuma compra registrada|Registre sua primeira compra/],
         ] as const) {
           await page.goto(route)
           await expect(page.getByText(text).first()).toBeVisible()

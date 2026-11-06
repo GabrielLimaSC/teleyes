@@ -1111,7 +1111,34 @@ export function RegrasPage() {
         <div className="regras-page__main">
           <div hidden={!showTab('regras')}>
           {loading && phone && <RegrasMobileSkeleton />}
-          {loading && !phone && <p role="status" className="regras-page__loading">Carregando regras…</p>}
+          {loading && !phone && (
+            <div className="plane-pearl rules-table-wrap" role="status" aria-label="Carregando regras">
+              <table className="rules-table" aria-hidden="true">
+                <thead>
+                  <tr>
+                    <th>Regra</th>
+                    <th className="rules-table__num">Preço máximo</th>
+                    <th className="rules-table__num">Preço-alvo</th>
+                    <th className="rules-table__recipients">Destinatários</th>
+                    <th className="rules-table__status">Status</th>
+                    <th className="rules-table__actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {[0, 1, 2, 3, 4].map((key) => (
+                    <tr key={key} className="rules-table__row rules-table__row--skeleton">
+                      <td><span className="rules-table__bar rules-table__bar--wide" /></td>
+                      <td className="rules-table__num"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__num"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__recipients"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__status"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__actions" />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {listError && (
             <p role="alert" className="crud-page__error">
               {listError}
@@ -1302,9 +1329,20 @@ export function RegrasPage() {
                       <td colSpan={5} className="regras-page__empty">
                         <EmptyState
                           title="Nenhuma regra ainda"
-                          text="Uma regra diz o que procurar e até quanto pagar. O teleyes só avisa quando uma promoção bate nela."
-                          action={{ label: 'Criar a primeira regra', onClick: openCreate }}
+                          text="Uma regra diz o que procurar e até quanto pagar. Comece de um modelo ou preencha o formulário ao lado."
                         />
+                        <div className="regras-page__empty-templates" role="group" aria-label="Modelos de regra">
+                          {RULE_TEMPLATES.map((template) => (
+                            <button
+                              key={template.id}
+                              type="button"
+                              className="regras-templates__chip"
+                              onClick={() => applyTemplate(template.id)}
+                            >
+                              {template.label}
+                            </button>
+                          ))}
+                        </div>
                       </td>
                     </tr>
                   </tbody>

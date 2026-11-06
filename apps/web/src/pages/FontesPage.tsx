@@ -272,7 +272,7 @@ export function FontesPage() {
                       <td colSpan={6}>
                         <EmptyState
                           title="Nenhum grupo ainda"
-                          text="Grupos são as conversas e canais do Telegram que o teleyes acompanha. Sem grupo, nada é monitorado."
+                          text={phone ? 'O teleyes só lê os grupos e canais que você adicionar.' : 'O teleyes só lê os grupos e canais que você adicionar. Escolha na lista ao lado os que a sua conta já acompanha.'}
                           action={{
                             label: setupStatus?.configured === true ? 'Adicionar da minha conta' : 'Adicionar por chat_id',
                             onClick: () => {

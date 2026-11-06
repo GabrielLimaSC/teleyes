@@ -27,6 +27,24 @@ vi.mock('../auth/AuthContext', async (importOriginal) => {
 // S14-08: HistoricoPage now reads/writes `?produto=` via react-router-dom's
 // useSearchParams (the product panel's deep link) — it needs a Router in
 // its tree even when a given test has nothing to do with the panel itself.
+// S25-F1b: with nothing captured the filter rail is disabled; tests that drive
+// filters need one existing ad on the unfiltered load.
+const SEED_MATCH = {
+  id: 99,
+  source_id: 1,
+  rule_id: 1,
+  message_text: 'seed',
+  price_cents: 1000,
+  price_cash_cents: null,
+  price_card_cents: null,
+  message_link: null,
+  matched_at: '2026-01-01T12:00:00Z',
+  created_at: '2026-01-01T12:00:00Z',
+  deliveries: [],
+  is_lowest_price_ever: false,
+}
+const seededMatches = (url: string) => (/[?&](rule_id|source_id|recipient_id|min_price_cents|max_price_cents|delivery_status|q)=/.test(url) ? [] : [SEED_MATCH])
+
 function renderHistoricoPage() {
   return render(
     <MemoryRouter>
@@ -135,7 +153,7 @@ describe('HistoricoPage', () => {
       if (url.startsWith('/rules')) return Promise.resolve(jsonResponse(rules))
       if (url.startsWith('/sources')) return Promise.resolve(jsonResponse(sources))
       if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse(recipients))
-      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(seededMatches(url)))
       throw new Error(`unexpected fetch: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -172,7 +190,7 @@ describe('HistoricoPage', () => {
       if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([rule]))
       if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(seededMatches(url)))
       throw new Error(`unexpected fetch: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -197,7 +215,7 @@ describe('HistoricoPage', () => {
       if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(seededMatches(url)))
       throw new Error(`unexpected fetch: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -222,7 +240,7 @@ describe('HistoricoPage', () => {
       if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(seededMatches(url)))
       throw new Error(`unexpected fetch: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -253,7 +271,7 @@ describe('HistoricoPage', () => {
       if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(seededMatches(url)))
       throw new Error(`unexpected fetch: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -266,7 +284,7 @@ describe('HistoricoPage', () => {
     // text too, so scoping to the subtitle avoids matching those.
     const subtitle = () => container.querySelector('.historico-page__subtitle')
 
-    expect(await screen.findByText('O histórico ainda está vazio')).toBeInTheDocument()
+    expect(await screen.findByText(/^1 resultado/)).toBeInTheDocument()
     expect(subtitle()).toHaveTextContent('mais recentes primeiro')
 
     const sortSelect = screen.getByLabelText('Ordenar por')
@@ -284,14 +302,14 @@ describe('HistoricoPage', () => {
       if (url.startsWith('/rules')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/sources')) return Promise.resolve(jsonResponse([]))
       if (url.startsWith('/recipients')) return Promise.resolve(jsonResponse([]))
-      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse([]))
+      if (url.startsWith('/matches')) return Promise.resolve(jsonResponse(seededMatches(url)))
       throw new Error(`unexpected fetch: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
     renderHistoricoPage()
-    await screen.findByText('O histórico ainda está vazio')
+    await screen.findByText(/^1 resultado/)
 
     await user.click(screen.getByRole('button', { name: 'Atualizar' }))
 
@@ -655,7 +673,7 @@ describe('HistoricoPage', () => {
     )
 
     renderHistoricoPage()
-    await screen.findByText('O histórico ainda está vazio')
+    await screen.findByText('Nenhum anúncio ainda')
 
     expect(screen.queryByRole('button', { name: 'Aplicar filtros' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument()
@@ -664,12 +682,12 @@ describe('HistoricoPage', () => {
   it('shows a pt-BR error under an unparseable price filter, visibly, never silently (S14-13)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.resolve(jsonResponse([]))),
+      vi.fn((input: RequestInfo | URL) => Promise.resolve(jsonResponse(seededMatches(String(input))))),
     )
     const user = userEvent.setup()
 
     renderHistoricoPage()
-    await screen.findByText('O histórico ainda está vazio')
+    await screen.findByText(/^1 resultado/)
 
     await user.type(screen.getByLabelText('Preço mínimo (R$)'), '5,749')
 
@@ -953,7 +971,7 @@ describe('HistoricoPage', () => {
 
   describe('persisted filters (S15-06)', () => {
     function stubEmptyFetch() {
-      const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(jsonResponse([])))
+      const fetchMock = vi.fn((input: RequestInfo | URL) => Promise.resolve(jsonResponse(seededMatches(String(input)))))
       vi.stubGlobal('fetch', fetchMock)
       return fetchMock
     }
@@ -965,7 +983,7 @@ describe('HistoricoPage', () => {
       // No rule options loaded here (empty list), but the select itself
       // still carries whatever `form.ruleId` was set to underneath, and
       // that's what the query below asserts.
-      await screen.findByText('O histórico ainda está vazio')
+      await screen.findByText(/^1 resultado/)
 
       await userEvent.setup().type(screen.getByLabelText('Preço mínimo (R$)'), '100')
       await waitFor(() => {
@@ -994,13 +1012,13 @@ describe('HistoricoPage', () => {
       stubEmptyFetch()
       const user = userEvent.setup()
       const first = renderHistoricoPage()
-      await screen.findByText('O histórico ainda está vazio')
+      await screen.findByText(/^1 resultado/)
 
       await user.type(screen.getByLabelText('Preço mínimo (R$)'), '100')
       expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('100')
       expect(window.sessionStorage.getItem(HISTORICO_FILTERS_STORAGE_KEY)).not.toBeNull()
 
-      await user.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+      await user.click(screen.getAllByRole('button', { name: 'Limpar filtros' })[0])
       expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('')
       expect(window.sessionStorage.getItem(HISTORICO_FILTERS_STORAGE_KEY)).toBeNull()
 
@@ -1020,7 +1038,7 @@ describe('HistoricoPage', () => {
       const user = userEvent.setup()
 
       renderHistoricoPage()
-      await screen.findByText('O histórico ainda está vazio')
+      await screen.findByText(/^1 resultado/)
 
       await expect(user.type(screen.getByLabelText('Preço mínimo (R$)'), '100')).resolves.not.toThrow()
       expect(screen.getByLabelText('Preço mínimo (R$)')).toHaveValue('100')
@@ -1037,8 +1055,10 @@ describe('product search (S17-05)', () => {
     window.sessionStorage.clear()
   })
 
-  function stubFetch(matchesBody: unknown[] = []) {
-    const fetchMock = vi.fn((_input: RequestInfo | URL) => Promise.resolve(jsonResponse(matchesBody)))
+  function stubFetch(matchesBody?: unknown[]) {
+    const fetchMock = vi.fn((input: RequestInfo | URL) =>
+      Promise.resolve(jsonResponse(matchesBody ?? seededMatches(String(input)))),
+    )
     vi.stubGlobal('fetch', fetchMock)
     return fetchMock
   }
@@ -1055,7 +1075,7 @@ describe('product search (S17-05)', () => {
     const fetchMock = stubFetch()
     const user = userEvent.setup()
     renderHistoricoPage()
-    await screen.findByText('O histórico ainda está vazio')
+    await screen.findByText(/^1 resultado/)
     const before = matchCalls(fetchMock).length
 
     await user.type(screen.getByLabelText('Buscar produto'), 'b850m')
@@ -1071,7 +1091,7 @@ describe('product search (S17-05)', () => {
     stubFetch()
     const user = userEvent.setup()
     renderHistoricoPage()
-    await screen.findByText('O histórico ainda está vazio')
+    await screen.findByText(/^1 resultado/)
 
     await user.type(screen.getByLabelText('Buscar produto'), 'xyz')
     expect(await screen.findByText(/Nenhum resultado para “xyz”/)).toBeInTheDocument()
@@ -1081,7 +1101,7 @@ describe('product search (S17-05)', () => {
     const fetchMock = stubFetch()
     const user = userEvent.setup()
     const first = renderHistoricoPage()
-    await screen.findByText('O histórico ainda está vazio')
+    await screen.findByText(/^1 resultado/)
     await user.type(screen.getByLabelText('Buscar produto'), 'geladeira')
     await waitFor(() => expect(matchCalls(fetchMock).at(-1)).toBe('/matches?q=geladeira'))
 
@@ -1091,7 +1111,7 @@ describe('product search (S17-05)', () => {
     expect(await screen.findByLabelText('Buscar produto')).toHaveValue('geladeira')
     await waitFor(() => expect(matchCalls(secondFetch).at(-1)).toBe('/matches?q=geladeira'))
 
-    await user.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    await user.click(screen.getAllByRole('button', { name: 'Limpar filtros' })[0])
     expect(screen.getByLabelText('Buscar produto')).toHaveValue('')
     await waitFor(() => expect(matchCalls(secondFetch).at(-1)).toBe('/matches'))
     expect(window.sessionStorage.getItem(HISTORICO_FILTERS_STORAGE_KEY)).toBeNull()
@@ -1107,7 +1127,7 @@ describe('product search (S17-05)', () => {
     stubFetch()
     const user = userEvent.setup()
     renderHistoricoPage()
-    await screen.findByText('O histórico ainda está vazio')
+    await screen.findByText(/^1 resultado/)
     await user.type(screen.getByLabelText('Buscar produto'), 'abc')
     expect(screen.getByLabelText('Buscar produto')).toHaveValue('abc')
     getItemSpy.mockRestore()
