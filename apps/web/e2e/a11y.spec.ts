@@ -166,7 +166,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
           ['/feed', 'Nenhuma regra ainda'],
           ['/regras', 'Nenhuma regra ainda'],
           ['/fontes', 'Nenhum grupo ainda'],
-          ['/historico', 'O histórico ainda está vazio'],
+          ['/historico', 'Nenhum anúncio ainda'],
           ['/economia', 'Nenhuma compra registrada'],
         ] as const) {
           await page.goto(route)
