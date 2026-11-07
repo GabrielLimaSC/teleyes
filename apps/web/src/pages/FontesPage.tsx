@@ -15,6 +15,8 @@ import { useSetupStatus } from '../hooks/useSetupStatus'
 import { formatDayMonthClock, formatRelativeAgo } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { FontesRail } from './FontesRail'
+import type { RailTab } from './FontesRail'
+import { Mascot } from '../components/Mascot'
 import { barScale, buildBars, buildKpis, sourceHue, sourceInitial } from './sourceStats'
 import type { Bar } from './sourceStats'
 import '../components/FillButton.css'
@@ -97,7 +99,9 @@ export function FontesPage() {
 
   useEffect(reload, [reload])
 
-  const openRail = () => {
+  const [sheetTab, setSheetTab] = useState<RailTab | null>(null)
+  const openRail = (tab: RailTab | null = null) => {
+    setSheetTab(tab)
     setFocusSignal((value) => value + 1)
     setSheetOpen(true)
   }
@@ -171,6 +175,7 @@ export function FontesPage() {
         </button>
       </div>
 
+      {!(phone && !loading && sources.length === 0) && (
       <dl className="fontes-kpis">
         {kpiCards.map((card) => (
           <div key={card.label} className="plane-pearl fontes-kpi">
@@ -180,6 +185,7 @@ export function FontesPage() {
           </div>
         ))}
       </dl>
+      )}
 
       <div className="fontes-page__grid">
         <div className="fontes-page__main">
@@ -189,7 +195,33 @@ export function FontesPage() {
               {listError}
             </p>
           )}
-          {!loading && !listError && (
+          {phone && !loading && !listError && sources.length === 0 && (
+            <div className="fontes-empty-phone">
+              <Mascot width={96} height={96} />
+              <EmptyState
+                title="Nenhum grupo ainda"
+                text="O teleyes só lê os grupos e canais que você adicionar. Escolha entre os que sua conta já acompanha."
+                action={{
+                  label: 'Escolher da minha conta',
+                  onClick: () => {
+                    setEditTarget(null)
+                    openRail('account')
+                  },
+                }}
+              />
+              <button
+                type="button"
+                className="plane-action plane-action--secondary empty-state__action"
+                onClick={() => {
+                  setEditTarget(null)
+                  openRail('chat')
+                }}
+              >
+                Adicionar por chat_id
+              </button>
+            </div>
+          )}
+          {!(phone && sources.length === 0) && !loading && !listError && (
             <div className="plane-pearl fontes-table-wrap">
               <table className="fontes-table">
                 <thead>
@@ -331,6 +363,7 @@ export function FontesPage() {
           sources={sources}
           editTarget={editTarget}
           focusSignal={0}
+          initialTab={sheetTab}
           onChanged={reload}
           onCancelEdit={() => {
             setEditTarget(null)

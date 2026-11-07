@@ -45,12 +45,14 @@ interface RailProps {
   /** Phone: the rail lives in a BottomSheet (which has the title); called after a chat_id save. */
   embedded?: boolean
   onDone?: () => void
+  /** S26-a: tab to open on (phone empty state buttons). */
+  initialTab?: RailTab | null
 }
 
 /** S21-11: "Adicionar grupo" rail — pick from the account's groups, or register by chat_id. */
-export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusSignal, onChanged, onCancelEdit, embedded = false, onDone }: RailProps) {
+export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusSignal, onChanged, onCancelEdit, embedded = false, onDone, initialTab = null }: RailProps) {
   const configured = setupStatus?.configured === true
-  const [chosenTab, setChosenTab] = useState<RailTab | null>(null)
+  const [chosenTab, setChosenTab] = useState<RailTab | null>(initialTab)
   const tab: RailTab = editTarget !== null ? 'chat' : (chosenTab ?? (configured ? 'account' : 'chat'))
   const railRef = useRef<HTMLElement>(null)
   // S25-M1: the indicator glides and the panel slides toward the chosen tab.

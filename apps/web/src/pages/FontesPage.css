@@ -725,3 +725,17 @@ main.fontes-page {
     height: 44px;
   }
 }
+
+/* S26-a (38): Grupos vazio no celular. */
+.fontes-empty-phone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+.fontes-empty-phone .empty-state__action {
+  width: 100%;
+  min-height: 48px;
+}
