@@ -588,3 +588,34 @@
 .login-page__side > .login-panel--form {
   flex: none;
 }
+
+/* S26-a (33): cartão de status do Início no celular. */
+.login-status-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-status-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.login-status-card h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+}
+
+.login-status-card__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}

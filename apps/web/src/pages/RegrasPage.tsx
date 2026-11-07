@@ -51,6 +51,7 @@ import { useFillOrigin } from '../utils/useFillOrigin'
 import { readFormModePreference, usesAdvancedFields, writeFormModePreference } from '../rules/formMode'
 import type { RuleFormMode } from '../rules/formMode'
 import { RULE_TEMPLATES } from '../rules/templates'
+import { SnoozeSheet } from '../components/SnoozeSheet'
 import { RegrasMobileList, RegrasMobileSkeleton } from './RegrasMobileList'
 import { previewMessage, useRulePreview } from '../rules/useRulePreview'
 import { DeliveryAdjustments } from './DeliveryAdjustments'
@@ -236,6 +237,7 @@ export function RegrasPage() {
   const [listError, setListError] = useState<string | null>(null)
   const [snoozes, setSnoozes] = useState<Snooze[]>([])
   const [snoozeBusyId, setSnoozeBusyId] = useState<number | null>(null)
+  const [snoozeSheetRule, setSnoozeSheetRule] = useState<Rule | null>(null)
   const [digest, setDigest] = useState<DigestSettings | null>(null)
   const [digestError, setDigestError] = useState<string | null>(null)
   const [digestSaving, setDigestSaving] = useState(false)
@@ -928,10 +930,10 @@ export function RegrasPage() {
             : rule.snoozed_until
               ? 'Reativar'
               : 'Silenciar',
-        onSelect: () => handleSnooze(rule),
+        onSelect: () => (phone && !rule.snoozed_until ? setSnoozeSheetRule(rule) : handleSnooze(rule)),
         disabled: snoozeBusyId === rule.id,
         // S25-F4: a silenced rule reactivates directly; otherwise pick how long.
-        ...(rule.snoozed_until || snoozeBusyId === rule.id
+        ...(rule.snoozed_until || snoozeBusyId === rule.id || phone
           ? {}
           : {
               children: [
@@ -1695,6 +1697,17 @@ export function RegrasPage() {
           onCancel={() => setDeleteConfirm(null)}
         />
       )}
+      <SnoozeSheet
+        key={snoozeSheetRule?.id ?? 'none'}
+        ruleName={snoozeSheetRule?.name ?? ''}
+        open={snoozeSheetRule !== null}
+        busy={snoozeBusyId !== null}
+        onClose={() => setSnoozeSheetRule(null)}
+        onConfirm={(duration) => {
+          if (snoozeSheetRule !== null) handleSnooze(snoozeSheetRule, duration)
+          setSnoozeSheetRule(null)
+        }}
+      />
       <Toast toast={toast} onDismiss={dismiss} />
     </main>
   )
