@@ -73,7 +73,7 @@ test('rules: create, expand row and ⋯ menu with the keyboard', async ({ page }
   await page.goto('/regras')
 
   const name = `Teclado ${tag}`
-  await page.getByLabel(/Nome/).focus()
+  await page.getByLabel('Nome', { exact: true }).focus()
   await page.keyboard.type(name)
   await page.getByLabel(/O que você procura/).focus()
   await page.keyboard.type(`teclado${tag}`)

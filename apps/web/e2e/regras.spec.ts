@@ -23,7 +23,7 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
 
   // S11-05: the creation form is a permanent rail, and include terms are
   // chips — Enter or a comma closes one.
-  await page.getByLabel(/Nome/).fill('RTX 5070 E2E')
+  await page.getByLabel('Nome', { exact: true }).fill('RTX 5070 E2E')
   await page.getByLabel(/O que você procura/).fill('rtx 5070')
   await page.getByLabel(/O que você procura/).press('Enter')
   await page.getByLabel(/O que você procura/).fill('rtx 5070 super,')
@@ -46,7 +46,7 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   await expect(page.getByRole('heading', { name: 'Editar regra' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Remover termo rtx 5070 super' })).toBeVisible()
   await page.getByRole('button', { name: 'Remover termo rtx 5070 super' }).click()
-  await page.getByLabel(/Nome/).fill('RTX 5070 Ti E2E')
+  await page.getByLabel('Nome', { exact: true }).fill('RTX 5070 Ti E2E')
   await page.getByRole('button', { name: 'Salvar alterações' }).click()
   const editedRow = rowByExactName(page, 'RTX 5070 Ti E2E')
   await expect(editedRow).toBeVisible()
@@ -55,7 +55,7 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   // duplicate
   await clickRowMenuItem(page, editedRow, 'Duplicar')
   await expect(page.getByRole('heading', { name: 'Nova regra' })).toBeVisible()
-  await expect(page.getByLabel(/Nome/)).toHaveValue('RTX 5070 Ti E2E (cópia)')
+  await expect(page.getByLabel('Nome', { exact: true })).toHaveValue('RTX 5070 Ti E2E (cópia)')
   await page.getByRole('button', { name: 'Criar regra' }).click()
   await expect(rowByExactName(page, 'RTX 5070 Ti E2E (cópia)')).toBeVisible()
 
@@ -71,7 +71,7 @@ test('a term still typed when "Criar regra" is clicked is not lost (S11-05)', as
   await apiLogin(page)
   await page.goto('/regras')
 
-  await page.getByLabel(/Nome/).fill('Termo Pendente E2E')
+  await page.getByLabel('Nome', { exact: true }).fill('Termo Pendente E2E')
   await page.getByLabel(/O que você procura/).fill('termopendentee2e')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
@@ -394,7 +394,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
 
     await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
-    await expect(page.getByLabel(/Nome/)).toHaveValue(title)
+    await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(title)
     await expect(page.getByText(/Sugerido a partir do histórico/)).toBeVisible()
 
     // Scoped to the rail: every row also has its own "Testar" button.
@@ -412,7 +412,7 @@ test('/regras?produto=X prefills and saves at 390px, no clipping (S14-09)', asyn
 
   await page.goto(`/regras?produto=${encodeURIComponent(productKey)}`)
   await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
-  await expect(page.getByLabel(/Nome/)).toHaveValue(title)
+  await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(title)
 
   // Scoped to the rail: every row also has its own "Testar" button.
   await page.locator('.regras-form__test-button').click()
