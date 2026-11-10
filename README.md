@@ -14,7 +14,7 @@ sends a private alert through your own bot. Matching is deterministic and explai
 a good deal is. It is a single-admin tool you run on your own machine with Docker; the dashboard (in Brazilian
 Portuguese) shows the live feed, price history, your savings and the health of the system.
 
-![teleyes dashboard demo: live feed, product price chart, rules and dark/light theme](docs/media/demo.gif)
+![teleyes dashboard demo: live feed, product price chart, rules, savings and dark theme](docs/media/demo.gif)
 
 https://github.com/user-attachments/assets/de032e68-7cd9-45b5-98cf-49478bab3c65
 
