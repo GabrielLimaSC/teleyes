@@ -13,6 +13,10 @@ import { listRules } from '../api/rules'
 import { listSources } from '../api/sources'
 import { fetchMatches } from '../api/matches'
 import { DEMO_PASSWORD } from '../api/demo'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { LatestOffers } from '../components/LatestOffers'
+import type { Match, Rule } from '../api/types'
+import { FirstRunCard } from '../components/FirstRunCard'
 import { botStateLabel } from '../components/adapterStateLabel'
 import type { StateLabel } from '../components/adapterStateLabel'
 import '../styles/materials.css'
@@ -56,6 +60,11 @@ function DemoEntry() {
   )
 }
 
+function greeting(now: Date): string {
+  const hour = now.getHours()
+  return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
+}
+
 function Brand() {
   return (
     <div className="login-panel__brand">
@@ -95,6 +104,7 @@ function StatusRow({
 export function LoginPage() {
   const { status, adminId, logout, login } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -128,6 +138,9 @@ export function LoginPage() {
   const { health, sseState } = useHealth(5000, status === 'authenticated')
 
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [latest, setLatest] = useState<{ matches: Match[]; rules: Rule[] } | null>(null)
+  // null until FirstRunCard has settled, so Início never flashes the wrong column.
+  const [firstRunVisible, setFirstRunVisible] = useState<boolean | null>(null)
   useEffect(() => {
     if (status !== 'authenticated') return
     let cancelled = false
@@ -135,6 +148,7 @@ export function LoginPage() {
       .then(([rules, sources, matches]) => {
         if (cancelled) return
         const now = new Date()
+        setLatest({ matches, rules })
         setStats({
           activeRules: rules.filter((rule) => rule.active).length,
           activeSources: sources.filter((source) => source.active).length,
@@ -160,7 +174,21 @@ export function LoginPage() {
 
   if (status === 'authenticated') {
     return (
-      <main className="login-page">
+      <main className="login-page login-page--home">
+        {phone && (
+          <header className="login-greeting">
+            <h1>{greeting(new Date())}</h1>
+            <p>
+              {stats === null
+                ? 'Carregando as ofertas de hoje…'
+                : `${stats.matchesToday} ${stats.matchesToday === 1 ? 'oferta encontrada' : 'ofertas encontradas'} hoje.`}
+            </p>
+          </header>
+        )}
+        {phone && health?.demo !== true && <FirstRunCard onVisibleChange={setFirstRunVisible} />}
+        {phone && (health?.demo === true || firstRunVisible === false) && latest !== null && (
+          <LatestOffers matches={latest.matches} rules={latest.rules} />
+        )}
         <div className="login-page__grid">
           <section className="plane-glass login-panel">
             <Brand />
@@ -171,22 +199,39 @@ export function LoginPage() {
                 <div className="login-stats__value">{stats ? stats.activeRules : '…'}</div>
               </div>
               <div className="login-stats__tile">
-                <div className="login-stats__label">Fontes ouvindo</div>
+                <div className="login-stats__label">Grupos acompanhados</div>
                 <div className="login-stats__value">{stats ? stats.activeSources : '…'}</div>
               </div>
               <div className="login-stats__tile">
-                <div className="login-stats__label">Matches hoje</div>
+                <div className="login-stats__label">Ofertas hoje</div>
                 <div className="login-stats__value">{stats ? stats.matchesToday : '…'}</div>
               </div>
             </div>
-            <div className="login-status">
-              <StatusRow label="Feed em tempo real (SSE)" state={SSE_STATE_LABELS[sseState]} />
-              {health && <StatusRow label="Bot do Telegram" state={botStateLabel(health.bot.state)} />}
-              {health && (
-                <StatusRow label="Ambiente" state={`${health.env} · v${health.version}`} />
-              )}
-            </div>
+            {phone ? (
+              <section className="login-status-card" aria-labelledby="login-status-card-title">
+                <div className="login-status-card__head">
+                  <h2 id="login-status-card-title">Status do sistema</h2>
+                  <StatusRow label="Ao vivo" state={SSE_STATE_LABELS[sseState]} />
+                </div>
+                <Link className="login-status-card__link" to="/saude">
+                  Ver saúde completa ›
+                </Link>
+              </section>
+            ) : (
+              <div className="login-status">
+                <StatusRow label="Atualização ao vivo" state={SSE_STATE_LABELS[sseState]} />
+                {health && <StatusRow label="Bot do Telegram" state={botStateLabel(health.bot.state)} />}
+                {health && (
+                  <StatusRow label="Ambiente" state={`${health.env} · v${health.version}`} />
+                )}
+              </div>
+            )}
           </section>
+          <div className="login-page__side">
+          {!phone && health?.demo !== true && <FirstRunCard onVisibleChange={setFirstRunVisible} />}
+          {!phone && (health?.demo === true || firstRunVisible === false) && latest !== null && (
+            <LatestOffers matches={latest.matches} rules={latest.rules} />
+          )}
           <section className="plane-pearl login-panel login-panel--form">
             <div className="login-panel__heading">
               <h2>Sessão ativa</h2>
@@ -211,6 +256,7 @@ export function LoginPage() {
               </p>
             )}
           </section>
+          </div>
         </div>
       </main>
     )
@@ -239,7 +285,7 @@ export function LoginPage() {
             Lê os grupos de promoção do Telegram por você e só chama quando o preço vale a pena.
           </p>
           <ul className="login-v2__bullets">
-            <li data-tone="1">Regras por termo, teto e alvo de preço</li>
+            <li data-tone="1">Regras por termo, preço máximo e preço-alvo</li>
             <li data-tone="2">Histórico de 90 dias para cada produto</li>
             <li data-tone="3">Alerta no Telegram só quando é de verdade</li>
           </ul>

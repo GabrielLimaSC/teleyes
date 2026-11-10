@@ -10,7 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-from packages.rules.product import product_key
+from teleyes_core.rules.product import product_key
 
 
 # revision identifiers, used by Alembic.
@@ -26,7 +26,7 @@ def upgrade() -> None:
     """Add the indexed product identity and backfill it from every existing message.
 
     `message_text` is only read, never rewritten. Uses the live
-    `packages.rules.product.product_key`: a later change to that function needs
+    `teleyes_core.rules.product.product_key`: a later change to that function needs
     its own backfill migration, never an edit here.
     """
     with op.batch_alter_table("match", schema=None) as batch_op:

@@ -8,6 +8,8 @@ import type { Groups, SetupStatus } from '../api/setup'
 import { createSource, updateSource } from '../api/sources'
 import type { SourceInput } from '../api/sources'
 import type { Source } from '../api/types'
+import { SwapTransition, useSwapDirection } from '../motion/SwapTransition'
+import { useSegmentThumb } from '../motion/useSegmentThumb'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../components/FillButton.css'
 
@@ -36,18 +38,26 @@ interface RailProps {
   setupStatus: SetupStatus | null
   sources: Source[]
   editTarget: Source | null
-  /** Bumped by "+ Nova fonte": scrolls the rail into view and focuses its first field. */
+  /** Bumped by "+ Novo grupo": scrolls the rail into view and focuses its first field. */
   focusSignal: number
   onChanged: () => void
   onCancelEdit: () => void
+  /** Phone: the rail lives in a BottomSheet (which has the title); called after a chat_id save. */
+  embedded?: boolean
+  onDone?: () => void
+  /** S26-a: tab to open on (phone empty state buttons). */
+  initialTab?: RailTab | null
 }
 
-/** S21-11: "Adicionar fonte" rail — pick from the account's groups, or register by chat_id. */
-export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusSignal, onChanged, onCancelEdit }: RailProps) {
+/** S21-11: "Adicionar grupo" rail — pick from the account's groups, or register by chat_id. */
+export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusSignal, onChanged, onCancelEdit, embedded = false, onDone, initialTab = null }: RailProps) {
   const configured = setupStatus?.configured === true
-  const [chosenTab, setChosenTab] = useState<RailTab | null>(null)
+  const [chosenTab, setChosenTab] = useState<RailTab | null>(initialTab)
   const tab: RailTab = editTarget !== null ? 'chat' : (chosenTab ?? (configured ? 'account' : 'chat'))
   const railRef = useRef<HTMLElement>(null)
+  // S25-M1: the indicator glides and the panel slides toward the chosen tab.
+  const direction = useSwapDirection(tab === 'account' ? 0 : 1)
+  const { containerRef: tabsRef, thumbRef } = useSegmentThumb<HTMLDivElement>(tab)
 
   useEffect(() => {
     if (focusSignal === 0) return
@@ -61,9 +71,15 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
   }
 
   return (
-    <aside className="plane-glass fontes-rail" aria-label="Adicionar fonte" ref={railRef} id="fontes-rail">
-      <h2 className="fontes-rail__eyebrow">{editTarget !== null ? 'Editar fonte' : 'Adicionar fonte'}</h2>
-      <div className="fontes-tabs" role="tablist" aria-label="Como adicionar">
+    <aside
+      className={embedded ? 'fontes-rail fontes-rail--embedded' : 'plane-glass fontes-rail'}
+      aria-label="Adicionar grupo"
+      ref={railRef}
+      id="fontes-rail"
+    >
+      {!embedded && <h2 className="fontes-rail__eyebrow">{editTarget !== null ? 'Editar grupo' : 'Adicionar grupo'}</h2>}
+      <div ref={tabsRef} className="fontes-tabs motion-seg" role="tablist" aria-label="Como adicionar">
+        <span ref={thumbRef} className="motion-seg__thumb" aria-hidden="true" />
         {(
           [
             ['account', 'Da minha conta'],
@@ -85,6 +101,7 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
         ))}
       </div>
       <div role="tabpanel" id="fontes-tabpanel" aria-labelledby={`fontes-tab-${tab}`} className="fontes-rail__panel">
+        <SwapTransition swapKey={tab} direction={direction}>
         {tab === 'account' ? (
           <AccountTab csrfToken={csrfToken} configured={configured} sources={sources} onAdded={onChanged} />
         ) : (
@@ -92,11 +109,32 @@ export function FontesRail({ csrfToken, setupStatus, sources, editTarget, focusS
             key={editTarget === null ? 'create' : `edit-${editTarget.id}`}
             csrfToken={csrfToken}
             editTarget={editTarget}
-            onSaved={onChanged}
+            onSaved={() => {
+              onChanged()
+              onDone?.()
+            }}
             onCancelEdit={onCancelEdit}
           />
         )}
+        </SwapTransition>
       </div>
+      {embedded && (
+        <div className="fontes-rail__help">
+          <details>
+            <summary>Como adicionar</summary>
+            <p>
+              Na aba “Da minha conta” escolha um grupo que a conta já acessa; em “Por chat_id” informe o nome e o id do
+              chat.
+            </p>
+          </details>
+          <details>
+            <summary>Não aparece na lista?</summary>
+            <p>
+              A conta precisa estar no grupo. Para canais privados, use “Por chat_id” — o id começa com <code>-100</code>.
+            </p>
+          </details>
+        </div>
+      )}
     </aside>
   )
 }
@@ -192,13 +230,13 @@ function AccountTab({
         setSelected(new Set())
         setNotice(
           result.created > 0
-            ? `${result.created} fonte(s) adicionada(s). O monitor aplica a mudança em alguns segundos.`
-            : 'Essas fontes já estavam cadastradas.',
+            ? `${result.created} grupo(s) adicionado(s). O monitor aplica a mudança em alguns segundos.`
+            : 'Esses grupos já estavam cadastrados.',
         )
         load()
         onAdded()
       })
-      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível adicionar as fontes.')))
+      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível adicionar os grupos.')))
       .finally(() => setBusy(false))
   }
 
@@ -280,7 +318,7 @@ function AccountTab({
         onClick={add}
         disabled={count === 0 || busy}
       >
-        {busy ? 'Adicionando…' : count === 0 ? 'Adicionar fontes' : `Adicionar ${count} ${count === 1 ? 'fonte' : 'fontes'}`}
+        {busy ? 'Adicionando…' : count === 0 ? 'Adicionar grupos' : `Adicionar ${count} ${count === 1 ? 'grupo' : 'grupos'}`}
       </button>
       <button
         type="button"
@@ -328,7 +366,7 @@ function ChatIdForm({
         if (editTarget !== null) onCancelEdit()
         onSaved()
       })
-      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível salvar a fonte.')))
+      .catch((cause: unknown) => setError(failure(cause, 'Não foi possível salvar o grupo.')))
       .finally(() => setSubmitting(false))
   }
 
@@ -348,9 +386,12 @@ function ChatIdForm({
         <input
           value={form.telegramChatId}
           onChange={(event) => setForm({ ...form, telegramChatId: event.target.value })}
+          placeholder="-100…"
+          inputMode="numeric"
           required
         />
       </label>
+      <p className="fontes-note">O id começa com -100.</p>
       <button type="submit" className="plane-action fill-button fontes-rail__primary" disabled={submitting} onPointerDown={fillOrigin}>
         {submitting ? 'Salvando…' : 'Salvar'}
       </button>

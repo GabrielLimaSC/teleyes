@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "teleyes"
-version = "0.1.0"
+version = "1.0.0"
 description = "Monitor pessoal de promoções do Telegram"
 requires-python = ">=3.12"
 dependencies = [
@@ -21,6 +21,9 @@ dependencies = [
     # pull dev extras too. A production install without [dev] (docker/api.Dockerfile,
     # S5-01) crashes on import without this here.
     "httpx>=0.27",
+    # Local sibling package (./core, C0). Not on PyPI: install it in the same
+    # pip command, e.g. `pip install -e ./core -e .` (see README, Core library).
+    "teleyes-core>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -43,15 +46,15 @@ extend-exclude = ["apps/api/alembic/versions"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "models", "packages", "repositories", "auth"]
+known-first-party = ["app", "models", "packages", "repositories", "auth", "teleyes_core"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.params.Depends"]
 
 [tool.mypy]
 python_version = "3.12"
-mypy_path = "apps/api"
-files = ["apps/api", "packages", "scripts"]
+mypy_path = "apps/api:core/src"
+files = ["apps/api", "packages", "scripts", "core"]
 exclude = ["apps/api/alembic/versions"]
 explicit_package_bases = true
 disallow_untyped_defs = true
@@ -65,6 +68,6 @@ module = "telethon.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests", "packages"]
-pythonpath = ["apps/api", "."]
+testpaths = ["apps/api/tests", "packages", "core/tests"]
+pythonpath = ["apps/api", ".", "core/src"]
 asyncio_mode = "auto"

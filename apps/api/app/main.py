@@ -9,10 +9,11 @@ from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.body_limit import BodySizeLimitMiddleware
 from app.config import get_settings
 from app.demo_mode import DemoNotifier, DemoReadOnlyMiddleware, check_database_mode
 from app.setup_runtime import (
@@ -22,18 +23,18 @@ from app.setup_runtime import (
     session_path,
 )
 from auth.csrf import verify_csrf_token
-from auth.hashing import verify_password
+from auth.hashing import hash_password, verify_password
 from auth.rate_limit import LoginRateLimiter
 from auth.session import REMEMBER_TTL_SECONDS, SessionRecord, SessionStore
 from models import Admin
 from models.db import get_engine, get_sessionmaker
 from packages.events.broker import EventBroker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.http_client import HttpBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.setup.bot_api import HttpBotApi
 from packages.setup.telegram_login import TelegramLoginService
 from packages.telegram.adapter import AdapterState, TelegramAdapter
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.http_client import HttpBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 SESSION_COOKIE_NAME = "teleyes_session"
 
@@ -70,7 +71,7 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
             await application.state.telegram_login.shutdown()
 
 
-app = FastAPI(title="teleyes", version="0.1.0", lifespan=_lifespan)
+app = FastAPI(title="teleyes", version="1.0.0", lifespan=_lifespan)
 app.state.session_factory = get_sessionmaker(get_engine())
 app.state.session_store = SessionStore(app.state.session_factory)
 app.state.rate_limiter = LoginRateLimiter()
@@ -142,6 +143,8 @@ def _demo_readonly_active() -> bool:
 
 
 app.add_middleware(DemoReadOnlyMiddleware, is_active=_demo_readonly_active)
+# S23-01: outermost, so an oversized body is refused before anything else looks at it.
+app.add_middleware(BodySizeLimitMiddleware)
 
 
 def get_db(request: Request) -> Iterator[Session]:
@@ -180,8 +183,11 @@ def _session_cookie_secure() -> bool:
     return settings.session_cookie_secure and not settings.teleyes_demo
 
 
+_DUMMY_PASSWORD_HASH = hash_password("not-a-real-password")
+
+
 class LoginRequest(BaseModel):
-    password: str
+    password: str = Field(max_length=1024)
     # S21-12: "Manter conectado". Off: browser-session cookie, sliding 24h inactivity.
     # On: the cookie and the server-side session both last 30 days from login.
     remember: bool = False
@@ -198,11 +204,20 @@ def login(
     rate_limiter: LoginRateLimiter = request.app.state.rate_limiter
     client_key = request.client.host if request.client else "unknown"
 
-    if rate_limiter.is_locked(client_key):
-        raise HTTPException(status_code=429, detail="too many attempts, try again later")
+    retry_after = rate_limiter.retry_after(client_key)
+    if retry_after > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Muitas tentativas de entrada. Tente de novo em {retry_after} segundos.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
     admin = db.scalar(select(Admin))
-    if admin is None or not verify_password(payload.password, admin.password_hash):
+    # Same work and same answer whether or not an administrator exists, so the response
+    # (and its timing) never says which of the two was wrong.
+    password_hash = admin.password_hash if admin is not None else _DUMMY_PASSWORD_HASH
+    password_ok = verify_password(payload.password, password_hash)
+    if admin is None or not password_ok:
         rate_limiter.record_failure(client_key)
         raise HTTPException(status_code=401, detail="invalid credentials")
 

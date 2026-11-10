@@ -48,7 +48,7 @@ test('capture Login, Feed, Histórico, Regras, Fontes and Saúde from the demo',
 
   await page.goto('/feed')
   await expect(page.getByText('Alvo atingido').first()).toBeVisible()
-  await expect(page.getByText('SSE conectando...')).toHaveCount(0, { timeout: 15_000 })
+  await expect(page.getByText('Conectando…')).toHaveCount(0, { timeout: 15_000 })
   await shoot(page, 'feed')
 
   await page.goto('/historico')

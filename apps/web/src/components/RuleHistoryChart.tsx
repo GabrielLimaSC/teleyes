@@ -76,17 +76,17 @@ export function RuleHistoryChart({
       <figcaption className="rule-chart__legend">
         <span>Menor preço por dia · {points.length === 1 ? '1 dia' : `${points.length} dias`}</span>
         {ceilingCents !== null && (
-          <span className="rule-chart__key rule-chart__key--ceiling">teto {formatBrl(ceilingCents)}</span>
+          <span className="rule-chart__key rule-chart__key--ceiling">preço máximo {formatBrl(ceilingCents)}</span>
         )}
         {targetCents !== null && (
-          <span className="rule-chart__key rule-chart__key--target">alvo {formatBrl(targetCents)}</span>
+          <span className="rule-chart__key rule-chart__key--target">preço-alvo {formatBrl(targetCents)}</span>
         )}
       </figcaption>
       <div
         className="rule-chart__plot"
         role="group"
         tabIndex={0}
-        aria-label={`Histórico real de ${points.length} ${points.length === 1 ? 'dia' : 'dias'}, de ${formatBrl(values[0])} a ${formatBrl(values[values.length - 1])}. Use as setas para ler cada dia.`}
+        aria-label={`Histórico real de ${points.length} ${points.length === 1 ? 'dia' : 'dias'}: menor ${formatBrl(Math.min(...values))}, maior ${formatBrl(Math.max(...values))}, último ${formatBrl(values[values.length - 1])}. Use as setas para ler cada dia.`}
         aria-describedby={tooltipId}
         onKeyDown={move}
         onBlur={() => setActive(null)}

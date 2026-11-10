@@ -1,5 +1,6 @@
+import { staggerClass, staggerStyle } from '../motion/stagger'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
@@ -17,43 +18,48 @@ import {
 import type { Purchase, PurchaseInput, SavingsGoalInput, SavingsReport } from '../api/purchases'
 import { listRules } from '../api/rules'
 import type { Rule } from '../api/types'
+import { BottomSheet } from '../components/BottomSheet'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { cardTitle } from '../components/matchTitle'
+import { FirstTimeTip } from '../components/FirstTimeTip'
 import { EMPTY_DRAFT, valuesFromDraft } from '../economia/purchaseDraft'
 import type { EconomiaNavState, LinkOption, PurchaseDraft } from '../economia/purchaseDraft'
+import { EconomiaMobile, dayMonth, shareLabel } from '../economia/EconomiaMobile'
 import { PurchaseForm } from '../economia/PurchaseForm'
 import { PriceRangeBar } from '../economia/PriceRangeBar'
+import { ReferenceMarker } from '../economia/ReferenceMarker'
 import { ResultsCardPanel } from '../economia/ResultsCardPanel'
 import { GoalCard, GoalDialog } from '../economia/GoalCard'
 import { PaidCard, SavingsCard } from '../economia/SummaryCards'
-import { apiDateToInput, parseApiDate, toDateInputValue } from '../utils/dates'
-import { formatCount, formatCurrency, savingPill, savingTone } from '../utils/savings'
+import { apiDateToInput, toDateInputValue } from '../utils/dates'
+import {
+  formatCount,
+  formatCurrency,
+  historyOrigin,
+  referencePill,
+  savingPill,
+  savingTone,
+} from '../utils/savings'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import '../styles/materials.css'
 import '../components/FillButton.css'
 import '../components/CrudTable.css'
 import './EconomiaPage.css'
 
-type FormTarget = { kind: 'create'; draft: PurchaseDraft } | { kind: 'edit'; purchase: Purchase; label: string | null }
+type FormTarget =
+  | { kind: 'create'; draft: PurchaseDraft }
+  | { kind: 'edit'; purchase: Purchase; label: string | null; focusLink?: boolean }
 
 function normalize(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 }
 
-function dayMonth(iso: string): string {
-  return parseApiDate(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-}
-
-/** "+8,3%" / "−2,0%" of the goal; the sign matters (an overpayment subtracts). */
-function shareLabel(share: number): string {
-  const text = `${Math.abs(share).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
-  return share > 0 ? `+${text}` : share < 0 ? `−${text}` : text
-}
-
 export function EconomiaPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
   const navigate = useNavigate()
   const location = useLocation()
   const [purchases, setPurchases] = useState<Purchase[]>([])
@@ -128,8 +134,8 @@ export function EconomiaPage() {
     setFormError(null)
   }
 
-  const openEdit = (purchase: Purchase) => {
-    setFormTarget({ kind: 'edit', purchase, label: null })
+  const openEdit = (purchase: Purchase, focusLink = false) => {
+    setFormTarget({ kind: 'edit', purchase, label: null, focusLink })
     setFormError(null)
     const rule = rules.find((candidate) => candidate.id === purchase.rule_id)
     if (purchase.product_key !== null) {
@@ -143,7 +149,7 @@ export function EconomiaPage() {
         )
         .catch(() => undefined)
     } else if (rule) {
-      setFormTarget({ kind: 'edit', purchase, label: rule.name })
+      setFormTarget({ kind: 'edit', purchase, label: rule.name, focusLink })
     }
   }
 
@@ -258,6 +264,7 @@ export function EconomiaPage() {
       },
       apiDateToInput(purchase.purchased_at),
       purchase.store ?? '',
+      { cents: purchase.reference_price_cents, note: purchase.reference_note },
     )
   }, [formTarget])
 
@@ -280,7 +287,7 @@ export function EconomiaPage() {
             onClick={() => setShowCard((open) => !open)}
             disabled={report === null || report.totals.purchases === 0}
           >
-            Gerar cartão de resultados
+            {phone ? 'Gerar cartão' : 'Gerar cartão de resultados'}
           </button>
           <button type="button" className="plane-action fill-button" onClick={openCreate} onPointerDown={fillOrigin}>
             <span aria-hidden="true" className="economia-page__plus">+</span>
@@ -289,7 +296,11 @@ export function EconomiaPage() {
         </div>
       </div>
 
-      {formTarget && formInitial && (
+      <FirstTimeTip id="economia">
+        Registre o que você comprou e veja quanto economizou em relação ao preço que o teleyes viu para o mesmo produto.
+      </FirstTimeTip>
+
+      {formTarget && formInitial && !phone && (
         <PurchaseForm
           key={formTarget.kind === 'edit' ? `edit-${formTarget.purchase.id}-${formTarget.label ?? ''}` : 'create'}
           title={formTarget.kind === 'create' ? 'Registrar compra' : 'Editar compra'}
@@ -299,8 +310,49 @@ export function EconomiaPage() {
           onSearch={search}
           onSubmit={submitForm}
           onCancel={closeForm}
+          focusLink={formTarget.kind === 'edit' && formTarget.focusLink === true}
         />
       )}
+
+      <BottomSheet
+        open={phone && formTarget !== null && formInitial !== null}
+        onClose={closeForm}
+        title={formTarget?.kind === 'edit' ? formTarget.purchase.name : 'Registrar compra'}
+      >
+        {formTarget && formInitial && (
+          <>
+            {formTarget.kind === 'edit' && (
+              <p className="eco-m__sheetnote">
+                {[formTarget.purchase.store, dayMonth(formTarget.purchase.purchased_at)].filter(Boolean).join(' · ')}
+                {' · '}
+                Sem preços vistos suficientes o item fica fora da conta; vincule uma regra ou informe uma referência sua
+                (mostrada separada).
+              </p>
+            )}
+            <PurchaseForm
+              key={formTarget.kind === 'edit' ? `edit-${formTarget.purchase.id}-${formTarget.label ?? ''}` : 'create'}
+              embedded
+              title={formTarget.kind === 'create' ? 'Registrar compra' : 'Editar compra'}
+              initial={formInitial}
+              submitting={submitting}
+              error={formError}
+              onSearch={search}
+              onSubmit={submitForm}
+              onCancel={closeForm}
+              focusLink={formTarget.kind === 'edit' && formTarget.focusLink === true}
+            />
+            {formTarget.kind === 'edit' && (
+              <button
+                type="button"
+                className="plane-action plane-action--secondary eco-m__danger"
+                onClick={() => setPendingDelete(formTarget.purchase)}
+              >
+                Excluir compra
+              </button>
+            )}
+          </>
+        )}
+      </BottomSheet>
 
       {loading && <p>Carregando…</p>}
       {listError && (
@@ -309,8 +361,41 @@ export function EconomiaPage() {
         </p>
       )}
 
-      {report && totals && (
+      {report && totals && phone && (
+        <EconomiaMobile
+          report={report}
+          purchaseById={purchaseById}
+          onEditGoal={() => setGoalDialog(true)}
+          onEdit={openEdit}
+          onDelete={setPendingDelete}
+          onCreate={openCreate}
+        />
+      )}
+
+      {report && totals && !phone && (
         <>
+          {report.items.length === 0 ? (
+            <section className="economia-empty" aria-label="Resumo">
+              <div className="plane-pearl economia-empty__hero">
+                <h2>Registre sua primeira compra</h2>
+                <p>
+                  Diga o que comprou e quanto pagou. Se o teleyes já viu esse produto, ele compara com a mediana dos 90
+                  dias anteriores e mostra quanto você economizou.
+                </p>
+                <div className="economia-empty__actions">
+                  <button type="button" className="plane-action fill-button" onClick={openCreate}>
+                    <span aria-hidden="true" className="economia-page__plus">+</span>
+                    Registrar compra
+                  </button>
+                  <Link className="plane-action plane-action--secondary" to="/ofertas">
+                    Marcar oferta como comprada
+                  </Link>
+                </div>
+              </div>
+              <GoalCard goal={goal} onDefine={() => setGoalDialog(true)} onEdit={() => setGoalDialog(true)} />
+            </section>
+          ) : (
+          <>
           <section className="economia-tiles" aria-label="Resumo">
             <SavingsCard report={report} />
             <PaidCard report={report} />
@@ -346,39 +431,61 @@ export function EconomiaPage() {
                   <th className="economia-table__num">Pago</th>
                   <th>Onde o preço caiu na faixa vista</th>
                   <th>Economia</th>
-                  {goal && <th className="economia-table__num">Parte da meta</th>}
+                  <th
+                    className="economia-table__num"
+                    title={goal ? undefined : 'Aparece quando houver uma meta'}
+                  >
+                    Parte da meta
+                  </th>
                   <th>
                     <span className="sr-only">Ações</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {report.items.map((item) => {
+                {report.items.map((item, index) => {
                   const purchase = purchaseById.get(item.id)
                   const tone = savingTone(item.savings)
                   const pill = savingPill(item.savings)
+                  const origin = historyOrigin(item)
+                  const reference = item.reference ?? null
+                  const noHistory = pill === 'sem histórico'
                   return (
-                    <tr key={item.id}>
+                    <tr key={item.id} className={staggerClass(index) || undefined} style={staggerStyle(index)}>
                       <td className="economia-table__piece" data-label="Peça">
                         <div className="economia-table__name">{item.name}</div>
                         <div className="economia-table__store">
                           {[item.store, dayMonth(item.purchased_at)].filter(Boolean).join(' · ')}
                         </div>
+                        {origin && <div className="economia-table__origin">{origin}</div>}
                       </td>
                       <td className="economia-table__num" data-label="Pago">
                         {formatCurrency(item.price_cents)}
                       </td>
                       <td className="economia-table__range" data-label="Faixa vista">
-                        <PriceRangeBar item={item} />
+                        {reference ? <ReferenceMarker item={item} /> : <PriceRangeBar item={item} />}
                       </td>
                       <td data-label="Economia">
-                        <span className={`economia-pill economia-pill--${tone}`}>{pill}</span>
+                        {reference ? (
+                          <span className="economia-pill economia-pill--reference">
+                            {referencePill(reference)}
+                            <span className="economia-pill__tag">pela sua referência</span>
+                          </span>
+                        ) : noHistory && purchase && item.link_kind == null ? (
+                          <button
+                            type="button"
+                            className="economia-pill economia-pill--action"
+                            onClick={() => openEdit(purchase, true)}
+                          >
+                            Vincular regra
+                          </button>
+                        ) : (
+                          <span className={`economia-pill economia-pill--${tone}`}>{pill}</span>
+                        )}
                       </td>
-                      {goal && (
-                        <td className="economia-table__num" data-label="Parte da meta">
-                          {item.share_of_goal == null ? '—' : shareLabel(item.share_of_goal)}
-                        </td>
-                      )}
+                      <td className="economia-table__num" data-label="Parte da meta">
+                        {!goal || item.share_of_goal == null ? '—' : shareLabel(item.share_of_goal)}
+                      </td>
                       <td className="economia-table__actions">
                         {purchase && (
                           <RowActionsMenu
@@ -393,17 +500,12 @@ export function EconomiaPage() {
                     </tr>
                   )
                 })}
-                {report.items.length === 0 && (
-                  <tr>
-                    <td colSpan={goal ? 6 : 5} className="economia-table__empty">
-                      Nenhuma compra registrada ainda. Use “Registrar compra” ou “Marcar como comprado” em um card
-                      do Feed.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </section>
+
+          </>
+          )}
 
           <section className="plane-pearl economia-noise" aria-label="Ruído evitado">
             <h2>Ruído evitado</h2>
@@ -428,7 +530,7 @@ export function EconomiaPage() {
                 <dd className="economia-noise__detail">
                   {formatCount(report.noise.discarded.sem_termo)} sem termo ·{' '}
                   {formatCount(report.noise.discarded.bloqueado)} bloqueadas ·{' '}
-                  {formatCount(report.noise.discarded.preco_acima_teto)} acima do teto
+                  {formatCount(report.noise.discarded.preco_acima_teto)} acima do preço máximo
                 </dd>
               </div>
               <div>
@@ -447,7 +549,11 @@ export function EconomiaPage() {
         </>
       )}
 
-      {goalDialog && (
+      <BottomSheet open={phone && showCard && report !== null} onClose={() => setShowCard(false)} title="Cartão de resultados">
+        {report && <ResultsCardPanel embedded report={report} onClose={() => setShowCard(false)} />}
+      </BottomSheet>
+
+      {goalDialog && !phone && (
         <GoalDialog
           current={goal}
           submitting={goalSaving}
@@ -457,6 +563,17 @@ export function EconomiaPage() {
           onCancel={closeGoal}
         />
       )}
+      <BottomSheet open={phone && goalDialog} onClose={closeGoal} title="Meta de economia">
+        <GoalDialog
+          sheet
+          current={goal}
+          submitting={goalSaving}
+          error={goalError}
+          onSubmit={submitGoal}
+          onRemove={removeGoal}
+          onCancel={closeGoal}
+        />
+      </BottomSheet>
 
       {pendingDelete && (
         <ConfirmDialog

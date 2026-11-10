@@ -18,9 +18,9 @@ test('registers a purchase, sees the report and exports the results card (S19-04
   await page.goto('/economia')
 
   await expect(page.getByRole('heading', { name: 'Economia' })).toBeVisible()
-  await expect(page.getByText(/Estimativa baseada só nos preços que o próprio teleyes viu/)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Registrar compra' }).click()
+  // The empty state has two "Registrar compra" buttons (header + hero): the header one is first.
+  await page.getByRole('button', { name: 'Registrar compra' }).first().click()
   const form = page.getByRole('form', { name: 'Registrar compra' })
   await form.getByLabel('Peça ou categoria').fill('Placa-mãe E2E B850M')
   await form.getByLabel('Preço pago (R$)').fill('1.199,90')
@@ -29,9 +29,11 @@ test('registers a purchase, sees the report and exports the results card (S19-04
 
   const row = page.getByRole('row', { name: /Placa-mãe E2E B850M/ })
   await expect(row).toBeVisible()
+  // The methodology note only exists once there is at least one purchase (tiles view).
+  await expect(page.getByText(/Estimativa baseada só nos preços que o próprio teleyes viu/)).toBeVisible()
   await expect(row).toContainText('1.199,90')
   // No link to a product: only the amount paid is reported, never an invented saving.
-  await expect(row.locator('[data-label="Economia"]')).toHaveText('sem histórico')
+  await expect(row.locator('[data-label="Economia"]')).toHaveText('Vincular regra')
   await expect(page.getByRole('region', { name: 'Resumo' })).toContainText('sem dados')
 
   // Editing goes through the same form.
@@ -76,11 +78,49 @@ test('registers a purchase, sees the report and exports the results card (S19-04
   ])
   expect(readFileSync(await hiddenDownload.path(), 'utf8')).not.toContain('Placa-mãe E2E B850M')
 
+  // The results card is a modal on desktop: close it before touching the table.
+  await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click()
+
   // Deleting needs a confirmation.
   await page.getByRole('row', { name: /Placa-mãe E2E B850M/ }).getByRole('button', { name: /Mais ações da compra/ }).click()
   await page.getByRole('menuitem', { name: 'Excluir' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir compra' }).click()
   await expect(page.getByRole('row', { name: /Placa-mãe E2E B850M/ })).toHaveCount(0)
+})
+
+test('links a rule from the row and keeps a typed reference apart (S22-01)', async ({ page }) => {
+  await page.goto('/')
+  await apiLogin(page)
+  await page.goto('/economia')
+
+  await page.getByRole('button', { name: 'Registrar compra' }).first().click()
+  const form = page.getByRole('form', { name: 'Registrar compra' })
+  await form.getByLabel('Peça ou categoria').fill('SSD E2E referência')
+  await form.getByLabel('Preço pago (R$)').fill('400')
+  await form.getByRole('button', { name: 'Salvar compra' }).click()
+
+  const row = page.getByRole('row', { name: /SSD E2E referência/ })
+  await row.getByRole('button', { name: 'Vincular regra' }).click()
+  const editForm = page.getByRole('form', { name: 'Editar compra' })
+  await expect(editForm.getByRole('combobox')).toBeFocused()
+
+  await editForm.getByLabel('Preço de referência (R$)').fill('500')
+  await editForm.getByLabel('De onde veio').fill('média do Google Shopping')
+  await editForm.getByRole('button', { name: 'Salvar compra' }).click()
+
+  const updated = page.getByRole('row', { name: /SSD E2E referência/ })
+  await expect(updated).toContainText('Referência sua: R$ 500,00 (média do Google Shopping)')
+  await expect(updated).toContainText('pela sua referência')
+  await expect(updated).toContainText('+R$ 100,00')
+  const summary = page.getByRole('region', { name: 'Resumo' })
+  await expect(summary.getByTestId('reference-saving')).toContainText('pelas suas referências')
+  // The teleyes estimate itself stays empty: the reference never feeds it.
+  await expect(summary).toContainText('sem dados')
+
+  await updated.getByRole('button', { name: /Mais ações da compra/ }).click()
+  await page.getByRole('menuitem', { name: 'Excluir' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir compra' }).click()
+  await expect(page.getByRole('row', { name: /SSD E2E referência/ })).toHaveCount(0)
 })
 
 test('sets, edits and removes the savings goal (S21-08)', async ({ page }) => {
@@ -131,7 +171,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
       csrfToken,
     )
     await page.goto('/economia')
-    await expect(page.getByRole('row', { name: /SSD NVMe 2 TB/ }).first()).toBeVisible()
+    // Phone layout renders purchases as a list (EconomiaMobile), not a table.
+    await expect(page.getByRole('listitem').filter({ hasText: /SSD NVMe 2 TB/ }).first()).toBeVisible()
     await noHorizontalScroll(page)
 
     await page.getByRole('button', { name: 'Registrar compra' }).click()
@@ -139,7 +180,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await noHorizontalScroll(page)
 
     await page.getByRole('button', { name: 'Cancelar' }).click()
-    await page.getByRole('button', { name: 'Gerar cartão de resultados' }).click()
+    await page.getByRole('button', { name: 'Gerar cartão', exact: true }).click()
     await expect(page.getByRole('img', { name: 'Prévia do cartão de resultados' })).toBeVisible()
     await noHorizontalScroll(page)
 

@@ -1,0 +1,59 @@
+.snooze-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.snooze-sheet__sub,
+.snooze-sheet__note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plane-text-secondary);
+}
+
+.snooze-sheet__options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.snooze-sheet__option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+
+.snooze-sheet__option input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.snooze-sheet__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.snooze-sheet__label {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.snooze-sheet__hint {
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.snooze-sheet__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.snooze-sheet__actions .plane-action {
+  min-height: 48px;
+}

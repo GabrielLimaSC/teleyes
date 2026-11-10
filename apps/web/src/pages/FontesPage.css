@@ -106,6 +106,7 @@ main.fontes-page {
 
 /* ---- Table ---- */
 .fontes-table-wrap {
+  position: relative; /* contains the visually-hidden cells, so they cannot widen the page */
   overflow-x: auto;
 }
 
@@ -345,10 +346,15 @@ main.fontes-page {
   cursor: pointer;
 }
 
+/* S25-M1: the active tab's background is the sliding .motion-seg__thumb. */
+.fontes-tabs {
+  --seg-thumb-radius: 8px;
+  --seg-thumb-bg: var(--plane-action-secondary-bg);
+  --seg-thumb-shadow: 0 1px 3px color-mix(in srgb, var(--plane-text-heading) 22%, transparent);
+}
+
 .fontes-tabs__tab--active {
-  background: var(--plane-action-secondary-bg);
   color: var(--plane-text-heading);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--plane-text-heading) 22%, transparent);
 }
 
 .fontes-tabs__tab:focus-visible {
@@ -638,8 +644,8 @@ main.fontes-page {
     grid-row: 1;
   }
 
-  .fontes-table td[data-label='Avaliações · 7d'],
-  .fontes-table td[data-label='Matches · 7d'],
+  .fontes-table td[data-label='Mensagens analisadas · 7d'],
+  .fontes-table td[data-label='Ofertas · 7d'],
   .fontes-table td[data-label='Último match'],
   .fontes-table td[data-label='Status'] {
     grid-column: 1 / -1;
@@ -669,4 +675,67 @@ main.fontes-page {
   .fontes-when__date {
     text-align: right;
   }
+}
+
+/* S22-02: the "Adicionar fonte" rail and help card follow the scroll. */
+@media (min-width: 1101px) {
+  .fontes-page__side {
+    position: sticky;
+    top: calc(var(--chrome-band-height) + 4px);
+    align-self: start;
+    max-height: calc(100dvh - var(--chrome-band-height) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* S24-04c: "Adicionar grupo" inside a BottomSheet (phone). */
+.fontes-rail--embedded {
+  padding: 4px 16px 16px;
+}
+
+.fontes-rail__help {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.fontes-rail__help summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.fontes-rail__help p {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .fontes-tabs__tab,
+  .fontes-rail--embedded input,
+  .fontes-rail--embedded .plane-action {
+    min-height: 44px;
+  }
+
+  .fontes-page__new {
+    height: 44px;
+  }
+}
+
+/* S26-a (38): Grupos vazio no celular. */
+.fontes-empty-phone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+.fontes-empty-phone .empty-state__action {
+  width: 100%;
+  min-height: 48px;
 }

@@ -19,6 +19,8 @@ export function PurchaseForm({
   onSearch,
   onSubmit,
   onCancel,
+  focusLink = false,
+  embedded = false,
 }: {
   title: string
   initial: PurchaseFormValues
@@ -27,6 +29,10 @@ export function PurchaseForm({
   onSearch: (query: string) => Promise<LinkOption[]>
   onSubmit: (input: PurchaseInput) => void
   onCancel: () => void
+  /** "Vincular regra": opens the form with the link search focused. */
+  focusLink?: boolean
+  /** Phone: inside a BottomSheet, which already shows the title. */
+  embedded?: boolean
 }) {
   const [values, setValues] = useState(initial)
   const [fieldError, setFieldError] = useState<string | null>(null)
@@ -94,8 +100,18 @@ export function PurchaseForm({
       setFieldError('A data da compra não pode estar no futuro.')
       return
     }
+    let referenceCents: number | null = null
+    if (values.referencePrice.trim() !== '') {
+      const reference = parsePriceInput(values.referencePrice)
+      if (reference.error !== null) {
+        setFieldError(`Referência: ${reference.error}`)
+        return
+      }
+      referenceCents = reference.cents
+    }
     setFieldError(null)
     const store = values.store.trim()
+    const note = values.referenceNote.trim()
     onSubmit({
       name,
       price_cents: price.cents,
@@ -103,14 +119,20 @@ export function PurchaseForm({
       store: store === '' ? null : store,
       product_key: values.productKey,
       rule_id: values.ruleId,
+      reference_price_cents: referenceCents,
+      reference_note: referenceCents === null || note === '' ? null : note,
     })
   }
 
   const shownError = fieldError ?? error
 
   return (
-    <form className="plane-pearl economia-form" onSubmit={submit} aria-label={title}>
-      <h2>{title}</h2>
+    <form
+      className={embedded ? 'economia-form economia-form--embedded' : 'plane-pearl economia-form'}
+      onSubmit={submit}
+      aria-label={title}
+    >
+      {!embedded && <h2>{title}</h2>}
       <div className="economia-form__grid">
         <label>
           Peça ou categoria
@@ -173,6 +195,7 @@ export function PurchaseForm({
             <input
               value={query}
               role="combobox"
+              autoFocus={focusLink}
               aria-expanded={options.length > 0}
               aria-controls={listId}
               aria-autocomplete="list"
@@ -198,6 +221,34 @@ export function PurchaseForm({
           Sem vínculo, só o valor pago entra no relatório; com vínculo, comparamos com os preços que o teleyes viu.
         </p>
       </div>
+
+      <fieldset className="economia-form__reference">
+        <legend>Sem histórico no teleyes? Informe uma referência</legend>
+        <div className="economia-form__grid">
+          <label>
+            Preço de referência (R$)
+            <input
+              value={values.referencePrice}
+              inputMode="decimal"
+              placeholder="529,00"
+              onChange={(event) => setValues({ ...values, referencePrice: event.target.value })}
+            />
+          </label>
+          <label>
+            De onde veio
+            <input
+              value={values.referenceNote}
+              maxLength={120}
+              placeholder="média do Google Shopping em 25/10"
+              onChange={(event) => setValues({ ...values, referenceNote: event.target.value })}
+            />
+          </label>
+        </div>
+        <p className="economia-form__hint">
+          Este valor é seu, não um preço visto pelo teleyes. Ele aparece separado e só vale para compras sem
+          histórico.
+        </p>
+      </fieldset>
 
       <div className="economia-form__actions">
         <button type="submit" className="plane-action" disabled={submitting}>

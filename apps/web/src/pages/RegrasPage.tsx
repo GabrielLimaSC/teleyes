@@ -1,3 +1,4 @@
+import { staggerClass, staggerStyle } from '../motion/stagger'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
@@ -17,15 +18,22 @@ import { fetchMetrics } from '../api/metrics'
 import { fetchRuleSuggestion } from '../api/products'
 import { fetchDigestSettings, updateDigestSettings } from '../api/digest'
 import { listSnoozes, reactivateSnooze, snoozeRule } from '../api/snoozes'
+import type { SnoozeDuration } from '../api/snoozes'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
 import type { DigestSettings, Match, Recipient, Rule, RuleSuggestion, RuleTestResult, Snooze } from '../api/types'
 import { previewRuleMatch, termsError } from '../utils/ruleMatchPreview'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { parseTermList } from '../utils/termList'
-import { formatDayMonth, formatMatchedAt, isLater } from '../utils/dates'
+import { formatMatchedAt, isLater } from '../utils/dates'
+import { ruleSilenceLabel, snoozeToast } from '../utils/snooze'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { EmptyState } from '../components/EmptyState'
+import { FirstTimeTip } from '../components/FirstTimeTip'
 import { AnchoredPopover } from '../components/AnchoredPopover'
+import { HelpTip } from '../components/HelpTip'
 import { ListenerApplyControl } from '../components/ListenerApplyControl'
+import { PendingChangesBanner, showsPendingBanner } from '../components/PendingChangesBanner'
 import { RuleHistoryChart } from '../components/RuleHistoryChart'
 import { settledToast } from '../components/listenerState'
 import { RowActionsMenu } from '../components/RowActionsMenu'
@@ -33,10 +41,22 @@ import { StatusToggle } from '../components/StatusToggle'
 import { TermChipsInput } from '../components/TermChipsInput'
 import { Toast } from '../components/Toast'
 import { useListenerStatus } from '../hooks/useListenerStatus'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { useSpringFollow } from '../motion/useSpringFollow'
+import { SwapTransition, useSwapDirection } from '../motion/SwapTransition'
+import { useSegmentThumb } from '../motion/useSegmentThumb'
 import { useToast } from '../hooks/useToast'
 import { ruleTargetState } from '../utils/target'
 import { useFillOrigin } from '../utils/useFillOrigin'
+import { readFormModePreference, usesAdvancedFields, writeFormModePreference } from '../rules/formMode'
+import type { RuleFormMode } from '../rules/formMode'
+import { RULE_TEMPLATES } from '../rules/templates'
+import { SnoozeSheet } from '../components/SnoozeSheet'
+import { RegrasMobileList, RegrasMobileSkeleton } from './RegrasMobileList'
+import { previewMessage, useRulePreview } from '../rules/useRulePreview'
 import { DeliveryAdjustments } from './DeliveryAdjustments'
+import { BottomSheet } from '../components/BottomSheet'
+import { RegraFormMobile } from './RegraFormMobile'
 import { DestinatariosSection } from './DestinatariosSection'
 import { RecipientRailForm } from './RecipientRailForm'
 import type { RecipientFormTarget } from './RecipientRailForm'
@@ -103,7 +123,7 @@ function formToTestInput(form: RuleForm): RuleTestInput {
 }
 
 function formatPriceLimit(cents: number | null): string {
-  if (cents === null) return 'Sem teto'
+  if (cents === null) return 'Sem preço máximo'
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
@@ -187,9 +207,21 @@ function RuleRecipients({ rule, recipients }: { rule: Rule; recipients: Recipien
   )
 }
 
+const PHONE_TABS = [
+  ['regras', 'Regras'],
+  ['destinatarios', 'Destinatários'],
+  ['entrega', 'Entrega'],
+] as const
+
 export function RegrasPage() {
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
+  const [phoneTab, setPhoneTab] = useState<'regras' | 'destinatarios' | 'entrega'>('regras')
+  const showTab = (tab: string): boolean => !phone || phoneTab === tab
+  // S25-M1: the section switch slides (content) and glides (indicator) toward the chosen tab.
+  const tabDirection = useSwapDirection(PHONE_TABS.findIndex(([id]) => id === phoneTab))
+  const { containerRef: tabsRef, thumbRef: tabsThumbRef } = useSegmentThumb<HTMLDivElement>(`${phone}:${phoneTab}`)
   const { toast, showToast, dismiss } = useToast()
   // S13-06: the listener reads rules/sources/recipients itself; this is how the
   // panel asks it to reload, and how it learns there is something to apply.
@@ -205,6 +237,7 @@ export function RegrasPage() {
   const [listError, setListError] = useState<string | null>(null)
   const [snoozes, setSnoozes] = useState<Snooze[]>([])
   const [snoozeBusyId, setSnoozeBusyId] = useState<number | null>(null)
+  const [snoozeSheetRule, setSnoozeSheetRule] = useState<Rule | null>(null)
   const [digest, setDigest] = useState<DigestSettings | null>(null)
   const [digestError, setDigestError] = useState<string | null>(null)
   const [digestSaving, setDigestSaving] = useState(false)
@@ -218,10 +251,22 @@ export function RegrasPage() {
   // half-typed term never leaks from one rule into the next.
   const [formTarget, setFormTarget] = useState<FormTarget>({ kind: 'create' })
   const [form, setForm] = useState<RuleForm>(EMPTY_FORM)
+  // S24-03c: on the phone the form is a full-screen modal instead of the rail.
+  const [mobileFormOpen, setMobileFormOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<Rule | null>(null)
   const [formVersion, setFormVersion] = useState(0)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  // S25-M1: the "Nova regra" / recipient rail trails the scroll on a spring.
+  const railRef = useRef<HTMLElement>(null)
+  useSpringFollow(railRef)
+  const maxPriceInputRef = useRef<HTMLInputElement>(null)
+  // S23-05: simple/advanced form mode, the picked template and the polite
+  // announcement of the last change (mode switch or template applied).
+  const [formMode, setFormMode] = useState<RuleFormMode>(readFormModePreference)
+  const [templateId, setTemplateId] = useState<string>('blank')
+  const [formAnnouncement, setFormAnnouncement] = useState('')
 
   // S13-07: real-history dry-run section shared by both "Testar" entry
   // points below — cleared whenever the tester panel target changes (a
@@ -321,6 +366,23 @@ export function RegrasPage() {
   }
 
   useEffect(reload, [])
+
+  // S23-04: `/regras?nova=1` (from "Comece por aqui") lands with the form focused.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('nova') !== '1') return
+    const modelo = url.searchParams.get('modelo')
+    url.searchParams.delete('nova')
+    url.searchParams.delete('modelo')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+    // S25-F1a: a template chip from the empty Ofertas lands with the form prefilled.
+    if (modelo !== null && RULE_TEMPLATES.some((template) => template.id === modelo)) {
+      applyTemplate(modelo)
+      return
+    }
+    requestAnimationFrame(() => nameInputRef.current?.focus())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(loadStats, [])
   useEffect(loadSnoozes, [])
   useEffect(loadDigest, [])
@@ -388,6 +450,8 @@ export function RegrasPage() {
             targetPriceReais: priceToInput(next.target_price_cents),
           },
         )
+        // The phone has no rail: the form lives in a sheet that only opens on request.
+        if (phone) setMobileFormOpen(true)
         requestAnimationFrame(() => nameInputRef.current?.focus())
       })
       .catch((error: unknown) =>
@@ -408,7 +472,7 @@ export function RegrasPage() {
     listener.refresh()
   }
 
-  const handleSnooze = (rule: Rule) => {
+  const handleSnooze = (rule: Rule, duration: SnoozeDuration = 7) => {
     if (csrfToken === null) {
       setListError(CSRF_MISSING_MESSAGE)
       return
@@ -417,11 +481,11 @@ export function RegrasPage() {
     setSnoozeBusyId(rule.id)
     const request = existing
       ? reactivateSnooze(csrfToken, existing.id)
-      : snoozeRule(csrfToken, rule.id, 7)
+      : snoozeRule(csrfToken, rule.id, duration)
     request
       .then(() => {
         configChanged()
-        showToast(existing ? 'Regra reativada.' : 'Regra silenciada por 7 dias.')
+        showToast(existing ? 'Regra reativada.' : snoozeToast(duration))
       })
       .catch((error: unknown) => reportFailure(error, 'Não foi possível alterar o silêncio da regra.', setListError))
       .finally(() => setSnoozeBusyId(null))
@@ -454,6 +518,11 @@ export function RegrasPage() {
     }
     setFormTarget(target)
     setForm(next)
+    setTemplateId('blank')
+    setFormAnnouncement('')
+    // A rule already using blocked terms or `a + b` opens straight in the
+    // advanced mode; anything else follows the remembered preference.
+    setFormMode(usesAdvancedFields(next) ? 'advanced' : readFormModePreference())
     setFormVersion((version) => version + 1)
     setFormError(null)
     // The still-unsaved "Nova regra" tester never survives a form reload —
@@ -480,17 +549,45 @@ export function RegrasPage() {
     setSuggestion(null)
     setSuggestionError(null)
     loadForm({ kind: 'create' }, EMPTY_FORM)
+    if (phone) setMobileFormOpen(true)
     focusRuleName()
   }
 
   const openEdit = (rule: Rule) => {
     loadForm({ kind: 'edit', rule }, ruleToForm(rule, { asCopy: false }))
+    if (phone) setMobileFormOpen(true)
     focusRuleName()
   }
 
   const openDuplicate = (rule: Rule) => {
     loadForm({ kind: 'create' }, ruleToForm(rule, { asCopy: true }))
+    if (phone) setMobileFormOpen(true)
     focusRuleName()
+  }
+
+  const changeFormMode = (mode: RuleFormMode) => {
+    setFormMode(mode)
+    writeFormModePreference(mode)
+    setFormAnnouncement(mode === 'advanced' ? 'Modo avançado: mais opções disponíveis.' : 'Modo simples.')
+  }
+
+  const applyTemplate = (id: string) => {
+    setTemplateId(id)
+    const template = RULE_TEMPLATES.find((candidate) => candidate.id === id)
+    setForm(
+      template
+        ? { name: template.name, includeTerms: template.includeTerms, excludeTerms: template.excludeTerms, maxPriceReais: '', targetPriceReais: '' }
+        : EMPTY_FORM,
+    )
+    setFormVersion((version) => version + 1)
+    setFormError(null)
+    if (template) {
+      setFormAnnouncement(`Modelo ${template.label} aplicado. Agora diga até quanto você paga.`)
+      requestAnimationFrame(() => maxPriceInputRef.current?.focus())
+    } else {
+      setFormAnnouncement('Formulário em branco.')
+      requestAnimationFrame(() => nameInputRef.current?.focus())
+    }
   }
 
   const openRecipientCreate = () => setRecipientTarget({ kind: 'create' })
@@ -510,6 +607,7 @@ export function RegrasPage() {
   }
 
   const resetForm = () => {
+    setMobileFormOpen(false)
     setSuggestion(null)
     loadForm({ kind: 'create' }, EMPTY_FORM)
   }
@@ -622,7 +720,7 @@ export function RegrasPage() {
     fetchMatches({ ruleId: rule.id })
       .then((matches) => {
         if (matches.length === 0) {
-          showToast(`Nenhum match encontrado pra "${rule.name}".`)
+          showToast(`Nenhuma oferta encontrada pra "${rule.name}".`)
           return
         }
         setClearConfirm({ rule, count: matches.length })
@@ -650,7 +748,7 @@ export function RegrasPage() {
         setRecentVersion((version) => version + 1)
         setClearConfirm(null)
         showToast(
-          deleted === 1 ? '1 match apagado.' : `${deleted} matches apagados.`,
+          deleted === 1 ? '1 oferta apagada.' : `${deleted} ofertas apagadas.`,
         )
       })
       .catch((error: unknown) => {
@@ -701,6 +799,9 @@ export function RegrasPage() {
       maxPriceCents: context.rule.max_price_cents,
     }
   }
+
+  const preview = useRulePreview(csrfToken, formToTestInput(form), recipientTarget === null)
+  const previewText = previewMessage(preview)
 
   const currentTesterTerms = effectiveTesterTerms(testerContext)
 
@@ -801,7 +902,7 @@ export function RegrasPage() {
     >
       <p className="regras-how__text">
         Basta um dos termos incluídos aparecer na mensagem; qualquer termo bloqueado descarta.
-        Se o preço achado passa do teto da regra, a mensagem também é descartada.
+        Se o preço achado passa do preço máximo da regra, a mensagem também é descartada.
       </p>
       <dl className="regras-how__stats">
         <div className="regras-how__stat">
@@ -809,7 +910,7 @@ export function RegrasPage() {
           <dd>{matchedCount ?? '—'}</dd>
         </div>
         <div className="regras-how__stat">
-          <dt>Descartadas por teto</dt>
+          <dt>Descartadas por preço máximo</dt>
           <dd>{ceilingDiscards ?? '—'}</dd>
         </div>
       </dl>
@@ -819,10 +920,174 @@ export function RegrasPage() {
     </AnchoredPopover>
   )
 
+  const ruleMenuItems = (rule: Rule) => [
+      { key: 'edit', label: 'Editar', onSelect: () => openEdit(rule) },
+      { key: 'test', label: 'Testar', onSelect: () => toggleRowTester(rule) },
+      { key: 'duplicate', label: 'Duplicar', onSelect: () => openDuplicate(rule) },
+      {
+        key: 'snooze',
+        label:
+          snoozeBusyId === rule.id
+            ? 'Salvando…'
+            : rule.snoozed_until
+              ? 'Reativar'
+              : 'Silenciar',
+        onSelect: () => (phone && !rule.snoozed_until ? setSnoozeSheetRule(rule) : handleSnooze(rule)),
+        disabled: snoozeBusyId === rule.id,
+        // S25-F4: a silenced rule reactivates directly; otherwise pick how long.
+        ...(rule.snoozed_until || snoozeBusyId === rule.id || phone
+          ? {}
+          : {
+              children: [
+                { key: 'snooze-24h', label: 'Por 24 h', onSelect: () => handleSnooze(rule, 1) },
+                { key: 'snooze-7d', label: 'Por 7 dias', onSelect: () => handleSnooze(rule, 7) },
+                { key: 'snooze-forever', label: 'Até reativar', onSelect: () => handleSnooze(rule, 'indefinite') },
+              ],
+            }),
+      },
+      {
+        key: 'clear',
+        label: checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico',
+        onSelect: () => openClearConfirm(rule),
+        disabled: checkingClearId === rule.id,
+        danger: true,
+        separatorBefore: true,
+      },
+      {
+        key: 'delete',
+        label: 'Excluir',
+        onSelect: () => setDeleteConfirm(rule),
+        disabled: deletingId === rule.id,
+        danger: true,
+      },
+  ]
+
   const subtitleParts = [rules.length === 1 ? '1 regra' : `${rules.length} regras`]
   if (recipientCount !== null) {
     subtitleParts.push(recipientCount === 1 ? '1 destinatário' : `${recipientCount} destinatários`)
   }
+
+  const formFields = (
+    <>
+    {suggestionLoading && <p role="status" className="regras-form__helper">Buscando sugestão do histórico…</p>}
+    {suggestionError && <p role="alert" className="regras-form__error">{suggestionError}</p>}
+    {!isEditing && (
+      <div role="group" aria-labelledby="rule-templates-label" className="regras-templates">
+        <p id="rule-templates-label" className="regras-templates__label">Começar de um modelo</p>
+        <div className="regras-templates__list">
+          {[{ id: 'blank', label: 'Em branco' }, ...RULE_TEMPLATES].map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="regras-templates__chip"
+              aria-pressed={templateId === template.id}
+              onClick={() => applyTemplate(template.id)}
+            >
+              {template.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+    <label className="regras-form__field">
+      Nome
+      <input
+        ref={nameInputRef}
+        value={form.name}
+        onChange={(event) => setForm({ ...form, name: event.target.value })}
+        placeholder='ex.: Monitor 27" 165Hz'
+        required
+      />
+    </label>
+    <TermChipsInput
+      key={formVersion}
+      id="rule-include-terms"
+      label={phone ? 'Termos incluídos' : 'O que você procura'}
+      labelAction={matchHelp}
+      value={form.includeTerms}
+      onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
+      helper={
+        formMode === 'advanced'
+          ? 'Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb.'
+          : 'Enter ou vírgula pra adicionar cada palavra ou produto.'
+      }
+    />
+    {(formMode === 'advanced' || phone) && (
+      <>
+        <div className="help-field">
+          <div className="help-field__row">
+            <label htmlFor="rule-exclude-terms">Termos bloqueados</label>
+            <HelpTip term="Termos bloqueados" align="right">
+              Se a mensagem tiver qualquer uma dessas palavras, ela é ignorada, mesmo que tenha um termo
+              incluído. Bom para afastar “usado” ou “caixa aberta”.
+            </HelpTip>
+          </div>
+          <input
+            id="rule-exclude-terms"
+            value={form.excludeTerms}
+            onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
+            placeholder="usado, caixa aberta…"
+            aria-describedby="rule-exclude-terms-hint"
+          />
+        </div>
+        <p id="rule-exclude-terms-hint" className="regras-form__helper">
+          Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
+        </p>
+        <p className="regras-form__helper regras-form__plus-help">
+          <strong>a + b</strong> só casa quando a mensagem tem as duas palavras (em qualquer ordem). Termos
+          separados por vírgula funcionam como alternativas: basta um aparecer.
+        </p>
+      </>
+    )}
+    {formMode === 'simple' && parseTermList(form.excludeTerms).length > 0 && (
+      <p className="regras-form__helper">
+        Já bloqueamos termos comuns ({parseTermList(form.excludeTerms).slice(0, 3).join(', ')}…). Veja e
+        edite em Mais opções.
+      </p>
+    )}
+    <div className="regras-form__price-grid">
+      <div className="help-field">
+        <div className="help-field__row">
+          <label htmlFor="rule-max-price">{phone ? 'Preço máximo (R$)' : 'Até quanto você paga (R$)'}</label>
+          <HelpTip term="Preço máximo" align="right">
+            O valor mais alto que você aceita pagar. Ofertas acima dele são ignoradas.
+          </HelpTip>
+        </div>
+        <input
+          id="rule-max-price"
+          ref={maxPriceInputRef}
+          type="text"
+          inputMode="decimal"
+          value={form.maxPriceReais}
+          onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
+          placeholder="sem preço máximo"
+        />
+      </div>
+      <div className="help-field">
+        <div className="help-field__row">
+          <label htmlFor="rule-target-price">{phone ? 'Preço-alvo (R$)' : 'Avisar na hora se cair abaixo de (R$)'}</label>
+          <HelpTip term="Preço-alvo" align="right">
+            O preço dos sonhos: se uma oferta chegar nele, você é avisado na hora, sem esperar o resumo diário.
+          </HelpTip>
+        </div>
+        <input
+          id="rule-target-price"
+          type="text"
+          inputMode="decimal"
+          value={form.targetPriceReais}
+          onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
+          placeholder="sem preço-alvo"
+        />
+      </div>
+    </div>
+    {suggestion && (
+      <p className="regras-form__suggestion-note">
+        <span aria-hidden="true" />
+        Sugerido a partir do histórico: preço máximo = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; preço-alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
+      </p>
+    )}
+    </>
+  )
 
   return (
     <main className="crud-page regras-page">
@@ -832,40 +1097,119 @@ export function RegrasPage() {
           {!loading && !listError && <p className="regras-page__subtitle">{subtitleParts.join(' · ')}</p>}
         </div>
         <div className="regras-page__header-actions">
-          <ListenerApplyControl
-            status={listener.status}
-            error={listener.error}
-            requesting={listener.requesting}
-            onApply={listener.apply}
-          />
+          {!phone && (
+            <ListenerApplyControl
+              status={listener.status}
+              error={listener.error}
+              requesting={listener.requesting}
+              onApply={listener.apply}
+              hideButton={showsPendingBanner(listener.status)}
+            />
+          )}
           <button
             type="button"
             className="plane-action fill-button regras-page__new-button"
             onClick={openCreate}
             onPointerDown={fillOrigin}
           >
-            + Nova regra
+            {phone ? '+ Nova' : '+ Nova regra'}
           </button>
         </div>
       </div>
 
+      {!phone && (
+        <PendingChangesBanner status={listener.status} requesting={listener.requesting} onApply={listener.apply} />
+      )}
+
+      <FirstTimeTip id="regras">
+        Uma regra define o que procurar e até quanto pagar. O teleyes lê os grupos e só avisa quando uma promoção bate.
+      </FirstTimeTip>
+
+      {phone && (
+        <div ref={tabsRef} className="regras-tabs motion-seg" role="tablist" aria-label="Seções de Regras">
+          <span ref={tabsThumbRef} className="motion-seg__thumb" aria-hidden="true" />
+          {PHONE_TABS.map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={phoneTab === id} onClick={() => setPhoneTab(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="regras-page__grid">
         <div className="regras-page__main">
-          {loading && <p role="status" className="regras-page__loading">Carregando regras…</p>}
+          <SwapTransition swapKey={phoneTab} direction={tabDirection} contentClassName="regras-page__panes">
+          <div hidden={!showTab('regras')}>
+          {loading && phone && <RegrasMobileSkeleton />}
+          {loading && !phone && (
+            <div className="plane-pearl rules-table-wrap" role="status" aria-label="Carregando regras">
+              <table className="rules-table" aria-hidden="true">
+                <thead>
+                  <tr>
+                    <th>Regra</th>
+                    <th className="rules-table__num">Preço máximo</th>
+                    <th className="rules-table__num">Preço-alvo</th>
+                    <th className="rules-table__recipients">Destinatários</th>
+                    <th className="rules-table__status">Status</th>
+                    <th className="rules-table__actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {[0, 1, 2, 3, 4].map((key) => (
+                    <tr key={key} className={`rules-table__row rules-table__row--skeleton ${staggerClass(key)}`} style={staggerStyle(key)}>
+                      <td><span className="rules-table__bar rules-table__bar--wide" /></td>
+                      <td className="rules-table__num"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__num"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__recipients"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__status"><span className="rules-table__bar" /></td>
+                      <td className="rules-table__actions" />
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {listError && (
             <p role="alert" className="crud-page__error">
               {listError}
             </p>
           )}
 
-          {!loading && !listError && (
+          {!loading && !listError && phone && (
+            <RegrasMobileList
+              rules={rules}
+              recipients={recipients}
+              listener={{
+                status: listener.status,
+                error: listener.error,
+                requesting: listener.requesting,
+                onApply: listener.apply,
+              }}
+              expandedId={expandedId}
+              onToggleExpand={setExpandedId}
+              pausingId={pausingId}
+              onPause={handlePause}
+              onResume={handleResume}
+              menuItems={ruleMenuItems}
+              recent={recent}
+              onEdit={openEdit}
+              onTest={toggleRowTester}
+              onCreate={openCreate}
+              onTemplate={(id) => {
+                openCreate()
+                applyTemplate(id)
+              }}
+            />
+          )}
+
+          {!loading && !listError && !phone && (
             <div className="plane-pearl rules-table-wrap">
               <table className="rules-table">
                 <thead>
                   <tr>
                     <th>Regra</th>
-                    <th className="rules-table__num">Teto</th>
-                    <th className="rules-table__num">Alvo</th>
+                    <th className="rules-table__num">Preço máximo</th>
+                    <th className="rules-table__num">Preço-alvo</th>
                     <th className="rules-table__recipients">Destinatários</th>
                     <th className="rules-table__status">Status</th>
                     <th className="rules-table__actions">
@@ -873,7 +1217,7 @@ export function RegrasPage() {
                     </th>
                   </tr>
                 </thead>
-                {rules.map((rule) => {
+                {rules.map((rule, index) => {
                   const expanded = expandedId === rule.id
                   const detailId = `rule-detail-${rule.id}`
                   const editing = formTarget.kind === 'edit' && formTarget.rule.id === rule.id
@@ -884,7 +1228,7 @@ export function RegrasPage() {
                         .filter(Boolean)
                         .join(' ')}
                     >
-                      <tr className="rules-table__row">
+                      <tr className={`rules-table__row ${staggerClass(index)}`.trim()} style={staggerStyle(index)}>
                         <td className="rules-table__name" data-label="Regra">
                           <button
                             type="button"
@@ -903,10 +1247,10 @@ export function RegrasPage() {
                             </span>
                           </button>
                         </td>
-                        <td className="rules-table__num" data-label="Teto">
+                        <td className="rules-table__num" data-label="Preço máximo">
                           {formatPriceLimit(rule.max_price_cents)}
                         </td>
-                        <td className="rules-table__num" data-label="Alvo">
+                        <td className="rules-table__num" data-label="Preço-alvo">
                           {/* S15-02: one box, so the stacked phone card keeps value and
                               gap together on the right instead of spreading them. */}
                           <RuleTargetCell rule={rule} />
@@ -922,10 +1266,10 @@ export function RegrasPage() {
                               onPause={() => handlePause(rule)}
                               onResume={() => handleResume(rule)}
                             />
-                            {rule.snoozed_until && (
+                            {ruleSilenceLabel(rule) && (
                               <span className="rule-silence rule-silence--muted">
                                 <span aria-hidden="true" />
-                                silenciada até {formatDayMonth(rule.snoozed_until)}
+                                {ruleSilenceLabel(rule)}
                               </span>
                             )}
                           </div>
@@ -933,37 +1277,7 @@ export function RegrasPage() {
                         <td className="rules-table__actions">
                           <RowActionsMenu
                             label={`Mais ações da regra ${rule.name}`}
-                            items={[
-                              { key: 'edit', label: 'Editar', onSelect: () => openEdit(rule) },
-                              { key: 'test', label: 'Testar', onSelect: () => toggleRowTester(rule) },
-                              { key: 'duplicate', label: 'Duplicar', onSelect: () => openDuplicate(rule) },
-                              {
-                                key: 'snooze',
-                                label:
-                                  snoozeBusyId === rule.id
-                                    ? 'Salvando…'
-                                    : rule.snoozed_until
-                                      ? 'Reativar'
-                                      : 'Silenciar',
-                                onSelect: () => handleSnooze(rule),
-                                disabled: snoozeBusyId === rule.id,
-                              },
-                              {
-                                key: 'clear',
-                                label: checkingClearId === rule.id ? 'Checando…' : 'Limpar histórico',
-                                onSelect: () => openClearConfirm(rule),
-                                disabled: checkingClearId === rule.id,
-                                danger: true,
-                                separatorBefore: true,
-                              },
-                              {
-                                key: 'delete',
-                                label: 'Excluir',
-                                onSelect: () => handleDelete(rule),
-                                disabled: deletingId === rule.id,
-                                danger: true,
-                              },
-                            ]}
+                            items={ruleMenuItems(rule)}
                           />
                         </td>
                       </tr>
@@ -984,15 +1298,15 @@ export function RegrasPage() {
                                       : `${recipientsMissingRule(recipients, rule).length} destinatários não recebem esta regra`}
                                   </p>
                                 )}
-                                <h3 className="rule-detail__heading">Últimos matches</h3>
+                                <h3 className="rule-detail__heading">Últimas ofertas</h3>
                                 {(recent === null || recent.ruleId !== rule.id || (recent.matches === null && !recent.failed)) && (
-                                  <p role="status" className="rule-detail__muted">Carregando matches…</p>
+                                  <p role="status" className="rule-detail__muted">Carregando ofertas…</p>
                                 )}
                                 {recent?.ruleId === rule.id && recent.failed && (
-                                  <p role="alert" className="rule-detail__muted">Não foi possível carregar os matches.</p>
+                                  <p role="alert" className="rule-detail__muted">Não foi possível carregar as ofertas.</p>
                                 )}
                                 {recent?.ruleId === rule.id && recent.matches !== null && recent.matches.length === 0 && (
-                                  <p className="rule-detail__muted">Nenhum match ainda para esta regra.</p>
+                                  <p className="rule-detail__muted">Nenhuma oferta ainda para esta regra.</p>
                                 )}
                                 {recent?.ruleId === rule.id && recent.matches !== null && recent.matches.length > 0 && (
                                   <ul className="rule-detail__matches">
@@ -1043,7 +1357,23 @@ export function RegrasPage() {
                   <tbody>
                     <tr>
                       <td colSpan={5} className="regras-page__empty">
-                        Nenhuma regra cadastrada. Use “Nova regra” para começar com termos específicos.
+                        <EmptyState
+                          title="Nenhuma regra ainda"
+                          text="Uma regra diz o que procurar e até quanto pagar. Comece de um modelo ou preencha o formulário ao lado."
+                        />
+                        <div className="regras-page__empty-templates" role="group" aria-label="Modelos de regra">
+                          {RULE_TEMPLATES.map((template, index) => (
+                            <button
+                              key={template.id}
+                              type="button"
+                              style={staggerStyle(index)}
+                              className={`regras-templates__chip ${staggerClass(index)}`.trim()}
+                              onClick={() => applyTemplate(template.id)}
+                            >
+                              {template.label}
+                            </button>
+                          ))}
+                        </div>
                       </td>
                     </tr>
                   </tbody>
@@ -1161,14 +1491,14 @@ export function RegrasPage() {
             </div>
           )}
 
-          {clearConfirm && (
+          {!phone && clearConfirm && (
             <div className="plane-pearl regras-panel">
               <h2>Limpar histórico: {clearConfirm.rule.name}</h2>
               <p className="regras-panel__note">
                 Isso apaga{' '}
-                {clearConfirm.count === 1 ? '1 match' : `${clearConfirm.count} matches`} desta
+                {clearConfirm.count === 1 ? '1 oferta' : `${clearConfirm.count} ofertas`} desta
                 regra (e as entregas registradas neles) do Feed/Histórico — a regra em si continua
-                ativa e pronta pra gerar matches novos. Essa ação não pode ser desfeita.
+                ativa e pronta pra encontrar ofertas novas. Essa ação não pode ser desfeita.
               </p>
               <div className="regras-panel__actions">
                 <button
@@ -1196,6 +1526,9 @@ export function RegrasPage() {
             </div>
           )}
 
+          </div>
+
+          <div hidden={!showTab('destinatarios')}>
           <DestinatariosSection
             onChanged={recipientsChanged}
             rules={rules}
@@ -1205,7 +1538,7 @@ export function RegrasPage() {
             onAdd={openRecipientCreate}
             onEdit={openRecipientEdit}
             onLoaded={setRecipients}
-            headerExtra={
+            headerExtra={phone ? null : (
               <DeliveryAdjustments
                 digest={digest}
                 error={digestError}
@@ -1213,12 +1546,27 @@ export function RegrasPage() {
                 onChange={setDigest}
                 onSave={saveDigest}
               />
-            }
+            )}
           />
+          </div>
+
+          <div hidden={!showTab('entrega')}>
+            {phone && (
+              <DeliveryAdjustments
+                inline
+                digest={digest}
+                error={digestError}
+                saving={digestSaving}
+                onChange={setDigest}
+                onSave={saveDigest}
+              />
+            )}
+          </div>
+          </SwapTransition>
         </div>
 
-        <aside className="regras-page__rail">
-          {recipientTarget !== null ? (
+        <aside ref={railRef} className="regras-page__rail" hidden={!showTab('regras')}>
+          {recipientTarget !== null && !phone ? (
             <RecipientRailForm
               key={recipientTarget.kind === 'edit' ? `edit-${recipientTarget.recipient.id}` : 'create'}
               target={recipientTarget}
@@ -1226,73 +1574,17 @@ export function RegrasPage() {
               onSaved={recipientSaved}
               onCancel={closeRecipientForm}
             />
-          ) : (
+          ) : phone ? null : (
             <form className="plane-glass regras-form" onSubmit={submitForm}>
             <div className="regras-form__title-row">
               <h2 className="regras-rail__eyebrow">{isEditing ? 'Editar regra' : 'Nova regra'}</h2>
               {suggestion && !isEditing && <span className="regras-form__badge">pré-preenchida do produto</span>}
             </div>
-            {suggestionLoading && <p role="status" className="regras-form__helper">Buscando sugestão do histórico…</p>}
-            {suggestionError && <p role="alert" className="regras-form__error">{suggestionError}</p>}
-            <label className="regras-form__field">
-              Nome
-              <input
-                ref={nameInputRef}
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                placeholder='ex.: Monitor 27" 165Hz'
-                required
-              />
-            </label>
-            <TermChipsInput
-              key={formVersion}
-              id="rule-include-terms"
-              label="Termos incluídos"
-              labelAction={matchHelp}
-              value={form.includeTerms}
-              onChange={(includeTerms) => setForm((current) => ({ ...current, includeTerms }))}
-              helper="Enter ou vírgula pra adicionar. Use + para exigir várias palavras, ex.: memoria ram + 16gb."
-            />
-            <label className="regras-form__field">
-              Termos bloqueados
-              <input
-                value={form.excludeTerms}
-                onChange={(event) => setForm({ ...form, excludeTerms: event.target.value })}
-                placeholder="usado, caixa aberta…"
-                aria-describedby="rule-exclude-terms-hint"
-              />
-            </label>
-            <p id="rule-exclude-terms-hint" className="regras-form__helper">
-              Vírgula separa termos; + exige várias palavras, ex.: ssd + 512.
+            {formFields}
+            <p aria-live="polite" className="regras-form__preview" data-testid="rule-preview">
+              {previewText}
             </p>
-            <div className="regras-form__price-grid">
-              <label className="regras-form__field">
-                Teto (R$)
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={form.maxPriceReais}
-                  onChange={(event) => setForm({ ...form, maxPriceReais: event.target.value })}
-                  placeholder="sem teto"
-                />
-              </label>
-              <label className="regras-form__field">
-                Alvo (R$)
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={form.targetPriceReais}
-                  onChange={(event) => setForm({ ...form, targetPriceReais: event.target.value })}
-                  placeholder="sem alvo"
-                />
-              </label>
-            </div>
-            {suggestion && (
-              <p className="regras-form__suggestion-note">
-                <span aria-hidden="true" />
-                Sugerido a partir do histórico: teto = média 30d ({formatLowestPrice(suggestion.average_30d_cents)}) −3%; alvo = menor 90d ({formatLowestPrice(suggestion.lowest_90d_cents)}).
-              </p>
-            )}
+            <p aria-live="polite" className="regras-form__sr">{formAnnouncement}</p>
             <div className="regras-form__actions">
               <button
                 type="submit"
@@ -1325,6 +1617,14 @@ export function RegrasPage() {
                 {createTesterOpen ? 'Fechar teste' : 'Testar'}
               </button>
             )}
+            <button
+              type="button"
+              className="regras-form__mode-link"
+              aria-expanded={formMode === 'advanced'}
+              onClick={() => changeFormMode(formMode === 'advanced' ? 'simple' : 'advanced')}
+            >
+              {formMode === 'advanced' ? 'Menos opções' : 'Mais opções'}
+            </button>
             {formError && (
               <p role="alert" className="regras-form__error">
                 {formError}
@@ -1334,6 +1634,83 @@ export function RegrasPage() {
           )}
         </aside>
       </div>
+      {phone && recipientTarget !== null && (
+        <BottomSheet
+          open
+          onClose={closeRecipientForm}
+          title={recipientTarget.kind === 'edit' ? 'Editar destinatário' : 'Novo destinatário'}
+        >
+          <RecipientRailForm
+            key={recipientTarget.kind === 'edit' ? `edit-${recipientTarget.recipient.id}` : 'create'}
+            target={recipientTarget}
+            rules={rules}
+            onSaved={recipientSaved}
+            onCancel={closeRecipientForm}
+          />
+        </BottomSheet>
+      )}
+      <RegraFormMobile
+        open={phone && mobileFormOpen}
+        isEditing={isEditing}
+        csrfToken={csrfToken}
+        testInput={formToTestInput(form)}
+        preview={preview}
+        submitting={submitting}
+        error={formError}
+        onClose={resetForm}
+        onSubmit={submitForm}
+        badge={suggestion && !isEditing ? <span className="regras-form__badge">pré-preenchida do produto</span> : null}
+        modeLink={
+          <>
+            <button
+              type="button"
+              className="regras-form__mode-link"
+              aria-expanded={formMode === 'advanced'}
+              onClick={() => changeFormMode(formMode === 'advanced' ? 'simple' : 'advanced')}
+            >
+              {formMode === 'advanced' ? 'Menos opções' : 'Mais opções'}
+            </button>
+            <p aria-live="polite" className="regras-form__sr">{formAnnouncement}</p>
+          </>
+        }
+      >
+        {formFields}
+      </RegraFormMobile>
+      {phone && clearConfirm && (
+        <ConfirmDialog
+          title={`Limpar histórico de ${clearConfirm.rule.name}?`}
+          message={`Isso apaga ${clearConfirm.count === 1 ? '1 oferta' : `${clearConfirm.count} ofertas`} desta regra do Feed/Histórico. A regra continua ativa. Essa ação não pode ser desfeita.`}
+          confirmLabel="Apagar histórico"
+          busyLabel="Apagando…"
+          busy={clearing}
+          onConfirm={confirmClear}
+          onCancel={closeClearConfirm}
+        />
+      )}
+      {deleteConfirm && (
+        <ConfirmDialog
+          title={`Excluir a regra ${deleteConfirm.name}?`}
+          message="A regra deixa de procurar ofertas. Essa ação não pode ser desfeita."
+          confirmLabel="Excluir"
+          busy={deletingId === deleteConfirm.id}
+          onConfirm={() => {
+            handleDelete(deleteConfirm)
+            setDeleteConfirm(null)
+          }}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
+      <SnoozeSheet
+        key={snoozeSheetRule?.id ?? 'none'}
+        ruleName={snoozeSheetRule?.name ?? ''}
+        open={snoozeSheetRule !== null}
+        busy={snoozeBusyId !== null}
+        onClose={() => setSnoozeSheetRule(null)}
+        onConfirm={(duration) => {
+          if (snoozeSheetRule !== null) handleSnooze(snoozeSheetRule, duration)
+          setSnoozeSheetRule(null)
+        }}
+      />
       <Toast toast={toast} onDismiss={dismiss} />
     </main>
   )

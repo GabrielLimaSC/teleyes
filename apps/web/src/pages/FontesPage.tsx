@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CSRF_MISSING_MESSAGE, useAuth } from '../auth/AuthContext'
 import { deleteSource, fetchSourcesActivity, listSources, pauseSource } from '../api/sources'
 import { ApiError } from '../api/auth'
 import { reportFailure } from '../api/demo'
 import type { Source, SourceActivity, SourcesActivity } from '../api/types'
+import { BottomSheet } from '../components/BottomSheet'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { EmptyState } from '../components/EmptyState'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { StatusToggle } from '../components/StatusToggle'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { useSpringFollow } from '../motion/useSpringFollow'
 import { useSetupStatus } from '../hooks/useSetupStatus'
 import { formatDayMonthClock, formatRelativeAgo } from '../utils/dates'
 import { useFillOrigin } from '../utils/useFillOrigin'
 import { FontesRail } from './FontesRail'
+import type { RailTab } from './FontesRail'
+import { Mascot } from '../components/Mascot'
 import { barScale, buildBars, buildKpis, sourceHue, sourceInitial } from './sourceStats'
 import type { Bar } from './sourceStats'
 import '../components/FillButton.css'
@@ -34,7 +40,7 @@ function formatDay(day: string): string {
 
 function barsLabel(bars: Bar[]): string {
   if (bars.length === 0) return 'Sem dados de atividade'
-  return `Avaliações por dia: ${bars
+  return `Mensagens analisadas por dia: ${bars
     .map((bar) => `${formatDay(bar.day)} ${bar.value === null ? 'coletando' : bar.value}`)
     .join(', ')}`
 }
@@ -57,8 +63,13 @@ function MiniBars({ bars, hue }: { bars: Bar[]; hue: number }) {
 }
 
 export function FontesPage() {
+  // S25-M1: the "Adicionar grupo" rail trails the scroll on a spring.
+  const sideRef = useRef<HTMLDivElement>(null)
+  useSpringFollow(sideRef)
   const { csrfToken } = useAuth()
   const fillOrigin = useFillOrigin()
+  const phone = useMediaQuery(PHONE_QUERY)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const now = useNow()
   const { status: setupStatus } = useSetupStatus()
   const [sources, setSources] = useState<Source[]>([])
@@ -82,11 +93,18 @@ export function FontesPage() {
         setActivity(activityData)
         setListError(null)
       })
-      .catch(() => setListError('Não foi possível carregar as fontes.'))
+      .catch(() => setListError('Não foi possível carregar os grupos.'))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(reload, [reload])
+
+  const [sheetTab, setSheetTab] = useState<RailTab | null>(null)
+  const openRail = (tab: RailTab | null = null) => {
+    setSheetTab(tab)
+    setFocusSignal((value) => value + 1)
+    setSheetOpen(true)
+  }
 
   const handlePause = (source: Source) => {
     if (csrfToken === null) {
@@ -96,7 +114,7 @@ export function FontesPage() {
     setPausingId(source.id)
     pauseSource(csrfToken, source.id)
       .then(reload)
-      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar a fonte.', setListError))
+      .catch((error: unknown) => reportFailure(error, 'Não foi possível pausar o grupo.', setListError))
       .finally(() => setPausingId(null))
   }
 
@@ -114,7 +132,7 @@ export function FontesPage() {
         reload()
       })
       .catch((error: unknown) => {
-        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir a fonte.', setListError)
+        reportFailure(error, error instanceof ApiError ? error.message : 'Não foi possível excluir o grupo.', setListError)
       })
       .finally(() => {
         setDeleting(false)
@@ -127,9 +145,9 @@ export function FontesPage() {
   const activityById = new Map<number, SourceActivity>((activity?.sources ?? []).map((row) => [row.source_id, row]))
 
   const kpiCards: { label: string; value: string; sub: string }[] = [
-    { label: 'Fontes ativas', ...kpis.active },
-    { label: 'Avaliações · hoje', ...kpis.evaluated },
-    { label: 'Matches · 7d', ...kpis.matches },
+    { label: 'Grupos ativos', ...kpis.active },
+    { label: 'Mensagens analisadas · hoje', ...kpis.evaluated },
+    { label: 'Ofertas · 7d', ...kpis.matches },
     {
       label: 'Último match',
       value: kpis.lastMatch.at === null ? '—' : formatRelativeAgo(kpis.lastMatch.at, now),
@@ -141,7 +159,7 @@ export function FontesPage() {
     <main className="crud-page fontes-page">
       <div className="fontes-page__header">
         <div>
-          <h1>Fontes</h1>
+          <h1>Grupos</h1>
           <p className="fontes-page__subtitle">Grupos e canais do Telegram que o teleyes escuta.</p>
         </div>
         <button
@@ -149,14 +167,15 @@ export function FontesPage() {
           className="plane-action fill-button fontes-page__new"
           onClick={() => {
             setEditTarget(null)
-            setFocusSignal((value) => value + 1)
+            openRail()
           }}
           onPointerDown={fillOrigin}
         >
-          + Nova fonte
+          {phone ? '+ Novo' : '+ Novo grupo'}
         </button>
       </div>
 
+      {!(phone && !loading && sources.length === 0) && (
       <dl className="fontes-kpis">
         {kpiCards.map((card) => (
           <div key={card.label} className="plane-pearl fontes-kpi">
@@ -166,6 +185,7 @@ export function FontesPage() {
           </div>
         ))}
       </dl>
+      )}
 
       <div className="fontes-page__grid">
         <div className="fontes-page__main">
@@ -175,14 +195,40 @@ export function FontesPage() {
               {listError}
             </p>
           )}
-          {!loading && !listError && (
+          {phone && !loading && !listError && sources.length === 0 && (
+            <div className="fontes-empty-phone">
+              <Mascot width={96} height={96} />
+              <EmptyState
+                title="Nenhum grupo ainda"
+                text="O teleyes só lê os grupos e canais que você adicionar. Escolha entre os que sua conta já acompanha."
+                action={{
+                  label: 'Escolher da minha conta',
+                  onClick: () => {
+                    setEditTarget(null)
+                    openRail('account')
+                  },
+                }}
+              />
+              <button
+                type="button"
+                className="plane-action plane-action--secondary empty-state__action"
+                onClick={() => {
+                  setEditTarget(null)
+                  openRail('chat')
+                }}
+              >
+                Adicionar por chat_id
+              </button>
+            </div>
+          )}
+          {!(phone && sources.length === 0) && !loading && !listError && (
             <div className="plane-pearl fontes-table-wrap">
               <table className="fontes-table">
                 <thead>
                   <tr>
                     <th>Fonte</th>
-                    <th>Avaliações · 7d</th>
-                    <th className="fontes-table__num">Matches · 7d</th>
+                    <th>Mensagens analisadas · 7d</th>
+                    <th className="fontes-table__num">Ofertas · 7d</th>
                     <th>Último match</th>
                     <th>Status</th>
                     <th>
@@ -207,10 +253,10 @@ export function FontesPage() {
                             </span>
                           </div>
                         </td>
-                        <td data-label="Avaliações · 7d">
+                        <td data-label="Mensagens analisadas · 7d">
                           <MiniBars bars={buildBars(row, scale)} hue={hue} />
                         </td>
-                        <td className="fontes-table__num" data-label="Matches · 7d">
+                        <td className="fontes-table__num" data-label="Ofertas · 7d">
                           {row === undefined ? '—' : row.matches}
                         </td>
                         <td data-label="Último match">
@@ -221,7 +267,7 @@ export function FontesPage() {
                             </>
                           ) : (
                             <span className="fontes-when__date">
-                              {row === undefined ? '—' : 'Nenhum match ainda'}
+                              {row === undefined ? '—' : 'Nenhuma oferta ainda'}
                             </span>
                           )}
                         </td>
@@ -234,14 +280,14 @@ export function FontesPage() {
                         </td>
                         <td className="fontes-table__actions" data-label="Ações">
                           <RowActionsMenu
-                            label={`Mais ações da fonte ${source.name}`}
+                            label={`Mais ações do grupo ${source.name}`}
                             items={[
                               {
                                 key: 'edit',
                                 label: 'Editar',
                                 onSelect: () => {
                                   setEditTarget(source)
-                                  setFocusSignal((value) => value + 1)
+                                  openRail()
                                 },
                               },
                               {
@@ -259,7 +305,19 @@ export function FontesPage() {
                   })}
                   {sources.length === 0 && (
                     <tr className="fontes-table__empty">
-                      <td colSpan={6}>Nenhuma fonte cadastrada ainda. Adicione a primeira ao lado.</td>
+                      <td colSpan={6}>
+                        <EmptyState
+                          title="Nenhum grupo ainda"
+                          text={phone ? 'O teleyes só lê os grupos e canais que você adicionar.' : 'O teleyes só lê os grupos e canais que você adicionar. Escolha na lista ao lado os que a sua conta já acompanha.'}
+                          action={{
+                            label: setupStatus?.configured === true ? 'Adicionar da minha conta' : 'Adicionar por chat_id',
+                            onClick: () => {
+                              setEditTarget(null)
+                              openRail()
+                            },
+                          }}
+                        />
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -268,29 +326,56 @@ export function FontesPage() {
           )}
         </div>
 
-        <div className="fontes-page__side">
-          <FontesRail
-            csrfToken={csrfToken}
-            setupStatus={setupStatus}
-            sources={sources}
-            editTarget={editTarget}
-            focusSignal={focusSignal}
-            onChanged={reload}
-            onCancelEdit={() => setEditTarget(null)}
-          />
-          <section className="plane-pearl fontes-help">
-            <h2>Não aparece na lista?</h2>
-            <p>
-              A conta precisa estar no grupo. Para canais privados, use “Por chat_id” — o id começa com{' '}
-              <code>-100</code>.
-            </p>
-          </section>
-        </div>
+        {!phone && (
+          <div ref={sideRef} className="fontes-page__side">
+            <FontesRail
+              csrfToken={csrfToken}
+              setupStatus={setupStatus}
+              sources={sources}
+              editTarget={editTarget}
+              focusSignal={focusSignal}
+              onChanged={reload}
+              onCancelEdit={() => setEditTarget(null)}
+            />
+            <section className="plane-pearl fontes-help">
+              <h2>Não aparece na lista?</h2>
+              <p>
+                A conta precisa estar no grupo. Para canais privados, use “Por chat_id” — o id começa com{' '}
+                <code>-100</code>.
+              </p>
+            </section>
+          </div>
+        )}
       </div>
+
+      <BottomSheet
+        open={phone && sheetOpen}
+        onClose={() => {
+          setSheetOpen(false)
+          setEditTarget(null)
+        }}
+        title={editTarget !== null ? 'Editar grupo' : 'Adicionar grupo'}
+      >
+        <FontesRail
+          embedded
+          csrfToken={csrfToken}
+          setupStatus={setupStatus}
+          sources={sources}
+          editTarget={editTarget}
+          focusSignal={0}
+          initialTab={sheetTab}
+          onChanged={reload}
+          onCancelEdit={() => {
+            setEditTarget(null)
+            setSheetOpen(false)
+          }}
+          onDone={() => setSheetOpen(false)}
+        />
+      </BottomSheet>
 
       {deleteTarget !== null && (
         <ConfirmDialog
-          title="Excluir fonte?"
+          title="Excluir grupo?"
           message={`“${deleteTarget.name}” deixa de ser monitorada. Esta ação não pode ser desfeita.`}
           confirmLabel="Excluir"
           busy={deleting}

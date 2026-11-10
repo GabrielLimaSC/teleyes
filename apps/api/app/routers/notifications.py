@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.main import get_current_session, get_db, require_csrf
 from models import Recipient
 from packages.metrics.hourly import EventKind, log_system_event
-from packages.notifications.bot import BotNotifier
+from teleyes_core.notifications.bot import BotNotifier
 
 BotNotifierFactory = Callable[[set[str]], BotNotifier]
 

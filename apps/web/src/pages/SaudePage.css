@@ -558,3 +558,20 @@
     grid-column: 1 / -1;
   }
 }
+
+/* S24-04a: celular. */
+@media (max-width: 640px) {
+  .saude-reverify {
+    min-height: 44px;
+  }
+
+  .saude-panel__field select,
+  .saude-panel__field input,
+  .saude-panel__send {
+    min-height: 44px;
+  }
+
+  .saude-panel__send {
+    width: 100%;
+  }
+}

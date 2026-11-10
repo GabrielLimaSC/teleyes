@@ -33,6 +33,21 @@ authenticated administrator, protected by CSRF and rate limits, disabled in demo
 logs a secret. The threat model, the storage decision and the residual risks are in
 [`docs/SECURITY_SETUP.md`](docs/SECURITY_SETUP.md).
 
+## Hardening and audit
+
+The pre-1.0 audit (tools, findings, fixes and accepted risks) is in
+[`docs/SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md), with the commands to repeat it. In short:
+
+- every route except `/health`, the login and the API docs needs a session, and every
+  state-changing route also needs the CSRF token (a test walks the whole API to keep it so);
+- the login is rate limited (5 wrong passwords in 5 minutes, then an increasing lock-out);
+- the dashboard is served with a Content-Security-Policy and the usual hardening headers;
+- the containers run as unprivileged users with `no-new-privileges`;
+- the history export neutralises spreadsheet formulas, and the bot token never appears in an error.
+
+Dependencies and the git history are scanned with pip-audit, npm audit and gitleaks; run them
+again before a release.
+
 ## Scope
 
 teleyes is designed as a single-administrator, self-hosted tool reachable only on a private network

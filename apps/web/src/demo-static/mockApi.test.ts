@@ -194,3 +194,21 @@ describe('S21-13 endpoints of the v2 interface', () => {
     expect(none.alerts_per_week).toBe(0)
   })
 })
+
+describe('POST /rules/test (S23-09)', () => {
+  it('answers the dry run from the recorded matches, without refusing it', () => {
+    const response = api().handle('POST', '/rules/test', new Date(), { include_terms: 'rtx' })
+    expect(response.status).toBe(200)
+    const body = response.body as { total_matched: number; messages: { matched_term: string }[] }
+    expect(body.total_matched).toBeGreaterThan(0)
+    expect(body.messages.every((message) => message.matched_term === 'rtx')).toBe(true)
+  })
+
+  it('honours blocked terms and the maximum price', () => {
+    const run = (input: object) =>
+      (api().handle('POST', '/rules/test', new Date(), input).body as { total_matched: number }).total_matched
+    expect(run({ include_terms: 'rtx' })).toBeGreaterThan(0)
+    expect(run({ include_terms: 'rtx', max_price_cents: 1 })).toBe(0)
+    expect(run({ include_terms: 'rtx', exclude_terms: 'rtx' })).toBe(0)
+  })
+})

@@ -13,7 +13,7 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ csrfToken: 'test-csrf' }),
 }))
 
-const purchase = (id: number, name: string): Purchase => ({
+const purchase = (id: number, name: string, reference?: { cents: number; note: string } | null): Purchase => ({
   id,
   name,
   price_cents: 120_000,
@@ -21,6 +21,8 @@ const purchase = (id: number, name: string): Purchase => ({
   store: null,
   product_key: id === 1 ? 'b850m' : null,
   rule_id: null,
+  reference_price_cents: reference?.cents ?? null,
+  reference_note: reference?.note ?? null,
   created_at: '2026-10-20T15:00:00Z',
 })
 
@@ -42,7 +44,11 @@ function stub(report = savingsReport()) {
       if (url === '/savings/goal' && method === 'PUT') return Promise.resolve(json({}))
       if (method === 'DELETE') return Promise.resolve(json(null, 204))
       if (url.startsWith('/purchases')) {
-        return Promise.resolve(json(report.items.map((item) => purchase(item.id, item.name))))
+        return Promise.resolve(json(
+            report.items.map((item) =>
+              purchase(item.id, item.name, item.reference ? { cents: item.reference.price_cents, note: item.reference.note ?? '' } : null),
+            ),
+          ))
       }
       if (url.startsWith('/savings/report')) return Promise.resolve(json(report))
       if (url.startsWith('/rules')) return Promise.resolve(json([]))
@@ -88,7 +94,7 @@ describe('EconomiaPage', () => {
             savings: { ...reportItem().savings!, saving_vs_median_cents: -10_000, saving_vs_median_pct: -20 },
           }),
           reportItem({ id: 3, name: 'Fone', savings: savingsNoData() }),
-          reportItem({ id: 4, name: 'Cabo HDMI', linked: false, savings: null }),
+          reportItem({ id: 4, name: 'Cabo HDMI', linked: false, link_kind: null, savings: null }),
         ],
       }),
     )
@@ -100,8 +106,86 @@ describe('EconomiaPage', () => {
     expect(rowOf('SSD NVMe').querySelector('.economia-pill--bad')).not.toBeNull()
     expect(rowOf('Fone')).toHaveTextContent('sem histórico')
     expect(rowOf('Fone').querySelector('.price-range--empty')).toHaveTextContent('menos de 3 preços vistos — fora da conta')
-    expect(rowOf('Cabo HDMI').querySelector('[data-label="Economia"]')).toHaveTextContent('sem histórico')
+    // Unlinked: the pill is an action to link a rule, not a figure.
+    expect(within(rowOf('Cabo HDMI')).getByRole('button', { name: 'Vincular regra' })).toBeInTheDocument()
     expect(rowOf('Cabo HDMI').querySelector('.economia-pill--good, .economia-pill--bad')).toBeNull()
+  })
+
+  it('"Vincular regra" opens the edit form with the link search focused', async () => {
+    stub(savingsReport({ items: [reportItem({ id: 4, name: 'Cabo HDMI', linked: false, link_kind: null, savings: null })] }))
+    renderPage()
+    const user = userEvent.setup()
+    const row = (await screen.findByText('Cabo HDMI')).closest('tr')!
+
+    await user.click(within(row).getByRole('button', { name: 'Vincular regra' }))
+
+    const form = await screen.findByRole('form', { name: 'Editar compra' })
+    expect(within(form).getByRole('combobox')).toHaveFocus()
+  })
+
+  it('shows where the history comes from when the purchase is linked', async () => {
+    stub(
+      savingsReport({
+        items: [
+          reportItem({ id: 1, name: 'Placa', link_kind: 'rule', link_label: 'RTX 5070' }),
+          reportItem({ id: 2, name: 'SSD', link_kind: 'rule', link_label: 'SSD', savings: savingsNoData() }),
+        ],
+      }),
+    )
+    renderPage()
+    const row = (await screen.findByText('Placa')).closest('tr')!
+    expect(row).toHaveTextContent('pela regra RTX 5070')
+    // Linked but with fewer than 3 prices: still "sem histórico", with the same text as before.
+    expect(screen.getByText('SSD', { selector: '.economia-table__name' }).closest('tr')).toHaveTextContent('sem histórico')
+  })
+
+  it('keeps the user reference separate and labelled, outside the teleyes saving', async () => {
+    stub(
+      savingsReport({
+        totals: {
+          purchases: 2,
+          linked_with_data: 1,
+          total_paid_cents: 160_000,
+          estimated_saving_cents: 35_000,
+          reference_total_cents: 155_000,
+          estimated_saving_pct: 22.6,
+          reference_saving_cents: 10_000,
+          reference_purchases: 1,
+        },
+        items: [
+          reportItem({ id: 1, name: 'Placa' }),
+          reportItem({
+            id: 2,
+            name: 'SSD NVMe',
+            price_cents: 40_000,
+            linked: false,
+            link_kind: null,
+            savings: null,
+            reference: { price_cents: 50_000, note: 'média do Google Shopping', saving_cents: 10_000, pct: 20 },
+          }),
+        ],
+      }),
+    )
+    renderPage()
+    const row = (await screen.findByText('SSD NVMe')).closest('tr')!
+
+    expect(row).toHaveTextContent('Referência sua: R$ 500,00 (média do Google Shopping)')
+    expect(row).toHaveTextContent('+R$ 100,00 · 20,0%')
+    expect(row).toHaveTextContent('pela sua referência')
+    expect(within(row).queryByRole('button', { name: 'Vincular regra' })).toBeNull()
+    expect(row.querySelector('.economia-pill--good')).toBeNull()
+    const tiles = screen.getByRole('region', { name: 'Resumo' })
+    expect(within(tiles).getByText('+R$ 350,00')).toBeInTheDocument() // teleyes only
+    expect(within(tiles).getByTestId('reference-saving')).toHaveTextContent(
+      '+R$ 100,00 pelas suas referências (1 compra)',
+    )
+  })
+
+  it('hides the reference line when there is no reference', async () => {
+    stub()
+    renderPage()
+    await screen.findByText('Placa-mãe B850M')
+    expect(screen.queryByTestId('reference-saving')).toBeNull()
   })
 
   it('shows the saving card with the percentage badge and keeps the methodology visible', async () => {
@@ -153,7 +237,7 @@ describe('EconomiaPage', () => {
     )
     renderPage()
 
-    expect(await screen.findByText(/Nenhuma compra registrada ainda/)).toBeInTheDocument()
+    expect(await screen.findByText('Registre sua primeira compra')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gerar cartão de resultados' })).toBeDisabled()
   })
 
@@ -240,14 +324,14 @@ describe('EconomiaPage', () => {
       ...overrides,
     })
 
-    it('without a goal shows the empty state and hides the "Parte da meta" column', async () => {
+    it('without a goal shows the invitation and an explained "Parte da meta" column', async () => {
       stub()
       renderPage()
 
       const tiles = await screen.findByRole('region', { name: 'Resumo' })
       expect(within(tiles).getByText('Meta de economia')).toBeInTheDocument()
       expect(within(tiles).getByRole('button', { name: 'Definir meta' })).toBeInTheDocument()
-      expect(screen.queryByRole('columnheader', { name: 'Parte da meta' })).toBeNull()
+      expect(screen.getByRole('columnheader', { name: 'Parte da meta' })).toHaveAttribute('title', 'Aparece quando houver uma meta')
     })
 
     it('with a positive goal shows progress, what is missing, the pace and each purchase share', async () => {

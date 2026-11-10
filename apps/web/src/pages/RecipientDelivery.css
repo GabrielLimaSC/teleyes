@@ -22,10 +22,13 @@
   cursor: pointer;
 }
 
+/* S25-M1: the selected option's background is the sliding .motion-seg__thumb. */
+.delivery-seg {
+  --seg-thumb-radius: 7px;
+}
+
 .delivery-seg__opt--on {
-  background: var(--plane-input-bg);
   color: var(--plane-text-heading);
-  box-shadow: var(--plane-pearl-shadow);
 }
 
 .delivery-seg__opt:focus-visible,
@@ -329,4 +332,25 @@
     justify-content: space-between;
     gap: 12px;
   }
+}
+
+/* S24-03b: phone tabs, inline delivery, stepper */
+.delivery-stepper { display: inline-flex; align-items: center; gap: 6px; }
+.delivery-stepper button {
+  min-width: 44px; min-height: 44px; border-radius: 10px; font: inherit; font-size: 18px;
+  border: 1px solid var(--plane-divider-color); background: var(--plane-input-bg);
+  color: var(--plane-text-heading); cursor: pointer;
+}
+.delivery-stepper button:disabled { opacity: 0.4; cursor: default; }
+.regras-tabs { display: none; }
+@media (max-width: 640px) {
+  .regras-tabs { display: flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--plane-tint-bg); border: 1px solid var(--plane-tint-border-color); margin: 0 0 12px; }
+  .regras-tabs button { flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--plane-text-secondary); font: inherit; font-weight: 600; font-size: 14px; }
+  /* S25-M1: the selected tab's background is the sliding .motion-seg__thumb. */
+  .regras-tabs { --seg-thumb-radius: 9px; }
+  .regras-tabs button[aria-selected='true'] { color: var(--plane-text-heading); }
+  .recipient-cards { grid-template-columns: minmax(0, 1fr); }
+  .delivery-inline .delivery-panel__grid { max-height: none; overflow: visible; }
+  .delivery-inline .delivery-panel__footer button { width: 100%; min-height: 44px; }
+  .recipient-card__footer .plane-action, .recipient-card__actions .plane-action { min-height: 44px; }
 }

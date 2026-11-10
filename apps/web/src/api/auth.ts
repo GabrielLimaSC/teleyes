@@ -30,6 +30,14 @@ export async function login(password: string, remember?: boolean): Promise<Login
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password, remember }),
   })
+  if (response.status === 429) {
+    // S23-01: too many wrong passwords; the server says how long to wait.
+    const seconds = Number(response.headers.get('Retry-After'))
+    const wait = Number.isFinite(seconds) && seconds > 0 ? ` Tente de novo em ${Math.ceil(seconds)} segundos.` : ' Tente de novo em instantes.'
+    throw new ApiError(`Muitas tentativas de entrada.${wait}`, 429, {
+      retryAfterSeconds: Number.isFinite(seconds) && seconds > 0 ? seconds : undefined,
+    })
+  }
   if (!response.ok) {
     throw new ApiError(
       response.status === 401 ? 'Senha incorreta.' : 'Não foi possível entrar agora.',

@@ -71,6 +71,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+  margin-bottom: 24px;
 }
 
 .economia-tile {
@@ -675,7 +676,105 @@
   margin-top: 6px;
 }
 
+.economia-card-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--session-expired-backdrop-bg);
+  animation: economia-card-fade 200ms ease-out;
+}
+
+.economia-card-panel--modal {
+  width: 100%;
+  max-width: 860px;
+  max-height: calc(100dvh - 32px);
+  margin-top: 0;
+  overflow-y: auto;
+  animation: economia-card-pop 680ms linear(0, 0.0265, 0.094, 0.1868, 0.2929, 0.4029, 0.5102, 0.6102, 0.7001, 0.7783, 0.8445, 0.8988, 0.942, 0.9754, 1, 1.0174, 1.0287, 1.0353, 1.0381, 1.0382, 1.0363, 1.0332, 1.0293, 1.0251, 1.0209, 1.0169, 1.0133, 1.01, 1.0072, 1.0049, 1.003, 1.0016, 1.0005, 0.9996, 0.9991, 0.9988, 1);
+}
+
+.economia-card-panel--modal:focus-visible {
+  outline: none;
+}
+
+.economia-card-panel--modal .economia-card-panel__body {
+  grid-template-columns: minmax(200px, 340px) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.economia-card-panel__periods {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--plane-input-border-color);
+  border-radius: 12px;
+  background: var(--plane-surface-sunken);
+}
+
+.economia-card-panel__period {
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--plane-text-secondary);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.economia-card-panel__period[aria-checked='true'] {
+  color: var(--plane-text-primary);
+}
+
+.economia-card-panel__period:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.economia-card-panel__label {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+.economia-card-panel__notice {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+@keyframes economia-card-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes economia-card-pop {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .economia-card-panel__backdrop,
+  .economia-card-panel--modal {
+    animation: none;
+  }
+}
+
 .economia-card-panel__preview {
+  order: -1;
   width: 100%;
   max-width: 420px;
   height: auto;
@@ -698,7 +797,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .economia-card-panel__body {
+  .economia-card-panel__body,
+  .economia-card-panel--modal .economia-card-panel__body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -845,4 +945,141 @@
   border: 1px solid var(--plane-input-border-color);
   background: var(--plane-input-bg);
   color: var(--plane-text-primary);
+}
+
+/* ---- S22-01: link action, origin and user-typed reference ---- */
+.economia-table__origin {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--plane-text-helper);
+}
+
+button.economia-pill--action {
+  border: 1px dashed var(--plane-divider-color);
+  background: transparent;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.economia-pill--action:hover,
+button.economia-pill--action:focus-visible {
+  background: var(--plane-tint-bg);
+}
+
+.economia-pill--reference {
+  background: transparent;
+  border: 1px solid var(--plane-divider-color);
+  color: var(--plane-text-secondary);
+}
+
+.economia-pill__tag {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--plane-text-helper);
+}
+
+.price-range__reference {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 0;
+  margin-left: -1px;
+  border-left: 2px dashed var(--plane-text-secondary);
+}
+
+.price-range__note--reference {
+  color: var(--plane-text-secondary);
+}
+
+.economia-hero__reference {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--plane-text-secondary);
+}
+
+.economia-form__reference {
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.economia-form__reference legend {
+  padding: 0 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-secondary);
+}
+
+/* S24-04c: phone header: the two actions side by side, 44px touch targets. */
+@media (max-width: 640px) {
+  .economia-page__header-actions {
+    width: 100%;
+  }
+
+  .economia-page__header-actions .plane-action {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .economia-page__header-actions .fill-button {
+    order: -1;
+  }
+}
+
+/* S25-F1b: no purchases yet: first-purchase hero beside the goal invitation. */
+.economia-empty {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.economia-empty__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 28px;
+}
+
+.economia-empty__hero h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.economia-empty__hero p {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--plane-text-secondary);
+}
+
+.economia-empty > * {
+  animation: motion-item-in 210ms var(--chrome-spring) both;
+}
+
+.economia-empty > :nth-child(2) {
+  animation-delay: 30ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .economia-empty > * {
+    animation: none;
+  }
+}
+
+.economia-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 1100px) {
+  .economia-empty {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

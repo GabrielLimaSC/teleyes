@@ -149,7 +149,7 @@ describe('RegrasPage — destinatários por regra (S21-07)', () => {
     expect(within(card).getByRole('button', { name: 'Monitor', pressed: false })).toBeInTheDocument()
     expect(within(card).getByText('ping imediato')).toBeInTheDocument()
     expect(within(card).getByText('desligado')).toBeInTheDocument()
-    expect(await within(card).findByText('2 de 3 regras · só alvos atingidos · ~4 alertas/semana')).toBeInTheDocument()
+    expect(await within(card).findByText('2 de 3 regras · só preços-alvo atingidos · ~4 alertas/semana')).toBeInTheDocument()
     expect(previewCalls(calls)).toHaveLength(1)
   })
 
@@ -158,7 +158,7 @@ describe('RegrasPage — destinatários por regra (S21-07)', () => {
     render(<RegrasPage />)
 
     const card = await screen.findByRole('article', { name: 'Destinatário Alex' })
-    expect(within(card).getByText('no digest 09:00')).toBeInTheDocument()
+    expect(within(card).getByText('no resumo diário 09:00')).toBeInTheDocument()
   })
 
   it('warns "não recebe nada" when choosing rules with none selected', async () => {
@@ -183,7 +183,7 @@ describe('RegrasPage — destinatários por regra (S21-07)', () => {
     const card = await screen.findByRole('article', { name: 'Destinatário Alex' })
     await user.click(within(card).getByRole('button', { name: 'Escolher regras' }))
     await user.click(within(card).getByRole('button', { name: 'iPhone' }))
-    await user.click(within(card).getByRole('switch', { name: 'Match comum para Alex' }))
+    await user.click(within(card).getByRole('switch', { name: 'Oferta comum para Alex' }))
     await user.click(within(card).getByRole('button', { name: 'Salvar alterações' }))
 
     const patch = calls.find((call) => call.method === 'PATCH')
@@ -246,16 +246,16 @@ describe('RegrasPage — destinatários por regra (S21-07)', () => {
 
     await user.click(within(form).getByRole('checkbox', { name: 'iPhone' }))
     await user.click(within(form).getByRole('checkbox', { name: 'RTX 5070' }))
-    await user.click(within(form).getByRole('switch', { name: 'Match comum' }))
+    await user.click(within(form).getByRole('switch', { name: 'Oferta comum' }))
     expect(await within(form).findByText(
-      'Jordan vai receber 2 regras, só quando o alvo for atingido — cerca de 4 alertas por semana no ritmo atual.',
+      'Jordan vai receber 2 regras, só quando o preço-alvo for atingido — cerca de 4 alertas por semana no ritmo atual.',
     )).toBeInTheDocument()
     expect(within(form).getAllByText('2/sem')).toHaveLength(2)
 
-    await user.click(within(form).getByRole('switch', { name: 'Alvo atingido' }))
+    await user.click(within(form).getByRole('switch', { name: 'Preço-alvo atingido' }))
     expect(within(form).getByText('Ligue ao menos um tipo de alerta para continuar.')).toBeInTheDocument()
     expect(within(form).getByRole('button', { name: 'Adicionar' })).toBeDisabled()
-    await user.click(within(form).getByRole('switch', { name: 'Alvo atingido' }))
+    await user.click(within(form).getByRole('switch', { name: 'Preço-alvo atingido' }))
 
     await user.click(within(form).getByRole('button', { name: 'Adicionar' }))
     const post = calls.find((call) => call.method === 'POST')

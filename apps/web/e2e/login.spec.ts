@@ -26,9 +26,9 @@ test('logs in against the real API, navigates the shell, and logs out', async ({
 
   // The desktop capsule keeps its links visible at rest.
   await expect(page.locator('.nav-capsule__glass')).toHaveCSS('opacity', '1')
-  await nav.getByRole('link', { name: 'Feed' }).click()
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
-  await expect(nav.getByRole('link', { name: 'Feed' })).toHaveClass(/nav-tab--active/)
+  await nav.getByRole('link', { name: 'Ofertas' }).click()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
+  await expect(nav.getByRole('link', { name: 'Ofertas' })).toHaveClass(/nav-tab--active/)
 
   await nav.getByRole('link', { name: 'Início' }).click()
   await page.getByRole('button', { name: 'Sair' }).click()
@@ -42,24 +42,19 @@ test('redirects an anonymous visitor away from a gated page back to login', asyn
   await expect(page.getByLabel('Senha')).toBeVisible()
 })
 
-test('mobile menu navigates and closes after choosing a page', async ({ page }) => {
+test('phone "Mais" sheet navigates and closes after choosing a page', async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 900 })
   await page.goto('/')
   await page.getByLabel('Senha').fill('e2e-test-password')
   await page.getByRole('button', { name: 'Entrar' }).click()
 
-  await page.getByRole('button', { name: 'Expandir navegação' }).click()
-  await expect(page.locator('.nav-capsule__menu')).toBeVisible()
-  // Every tab (the 7th, 'Saúde', is the lowest) must be clickable, not covered by the page.
-  await page.getByRole('link', { name: 'Saúde' }).click()
+  // S24-01: on a phone the capsule gives way to the tab bar; the rest lives in "Mais".
+  await page.getByRole('button', { name: 'Mais', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Mais' }).getByRole('link', { name: 'Saúde' }).click()
 
   await expect(page).toHaveURL('/saude')
   await expect(page.getByRole('heading', { name: 'Saúde' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Expandir navegação' })).toHaveAttribute(
-    'aria-expanded',
-    'false',
-  )
-  await expect(page.locator('.nav-capsule__menu')).toBeHidden()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 test('shows an error and stays logged out on a wrong password', async ({ page }) => {

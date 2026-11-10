@@ -5,9 +5,11 @@ import type { GoalPace, GoalReport, SavingsGoalInput } from '../api/purchases'
 import { parsePriceInput } from '../utils/priceInput'
 import { toDateInputValue } from '../utils/dates'
 import { formatCurrency, formatSigned } from '../utils/savings'
+import { useModalMotion } from '../motion/modalMotion'
+import { DIALOG_PRESET } from '../motion/waapi'
 import '../components/ConfirmDialog.css'
 
-const PACE_LABEL: Record<GoalPace, string> = {
+export const PACE_LABEL: Record<GoalPace, string> = {
   done: 'concluída',
   on_track: 'no prazo',
   behind: 'atrasado',
@@ -43,8 +45,9 @@ export function GoalCard({
     return (
       <div className="plane-pearl economia-tile economia-goal">
         <div className="economia-tile__label">Meta de economia</div>
+        <div className="economia-tile__value">Sem meta definida</div>
         <p className="economia-tile__detail">
-          Defina quanto quer economizar e até quando: o teleyes mostra o quanto já foi e se o ritmo cabe no prazo.
+          Defina quanto quer economizar e até quando. O teleyes mostra o ritmo e quanto cada compra contribuiu.
         </p>
         <button type="button" className="plane-action plane-action--secondary" onClick={onDefine}>
           Definir meta
@@ -103,7 +106,10 @@ export function GoalDialog({
   onSubmit,
   onRemove,
   onCancel,
+  sheet = false,
 }: {
+  /** Phone: render only the form (the BottomSheet provides backdrop, title and Esc). */
+  sheet?: boolean
   current: GoalReport | null
   submitting: boolean
   error: string | null
@@ -113,6 +119,10 @@ export function GoalDialog({
 }) {
   const titleId = useId()
   const amountRef = useRef<HTMLInputElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLFormElement>(null)
+  // S25-M1: no backdrop in the phone sheet (the BottomSheet moves it).
+  useModalMotion(backdropRef, panelRef, DIALOG_PRESET, !sheet)
   const [amount, setAmount] = useState(
     current === null ? '' : (current.amount_cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
   )
@@ -128,9 +138,10 @@ export function GoalDialog({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && !submitting) onCancel()
     }
+    if (sheet) return
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [submitting, onCancel])
+  }, [submitting, onCancel, sheet])
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -156,17 +167,22 @@ export function GoalDialog({
   }
 
   const shownError = fieldError ?? error
-  return createPortal(
-    <div className="confirm-dialog__backdrop" role="presentation">
+  const formClass = sheet
+    ? 'economia-goal-dialog economia-goal-dialog--sheet'
+    : 'plane-pearl confirm-dialog economia-goal-dialog'
+  const dialog = (
       <form
-        className="plane-pearl confirm-dialog economia-goal-dialog"
-        role="dialog"
-        aria-modal="true"
+        ref={panelRef}
+        className={formClass}
+        role={sheet ? undefined : 'dialog'}
+        aria-modal={sheet ? undefined : true}
         aria-labelledby={titleId}
         onSubmit={submit}
         noValidate
       >
-        <h2 id={titleId}>{current === null ? 'Definir meta de economia' : 'Editar meta de economia'}</h2>
+        <h2 id={titleId} className={sheet ? 'sr-only' : undefined}>
+          {current === null ? 'Definir meta de economia' : 'Editar meta de economia'}
+        </h2>
         <label>
           Quanto quer economizar (R$)
           <input
@@ -200,6 +216,11 @@ export function GoalDialog({
           </button>
         </div>
       </form>
+  )
+  if (sheet) return dialog
+  return createPortal(
+    <div ref={backdropRef} className="confirm-dialog__backdrop" role="presentation">
+      {dialog}
     </div>,
     document.body,
   )

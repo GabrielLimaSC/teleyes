@@ -33,12 +33,12 @@ test('Histórico shows real stat tiles matching known matches (S11-04)', async (
   })
 
   await page.goto('/historico')
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Stats' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Stats' })
   await expect(page.getByText('statsitem um por R$ 100')).toBeVisible()
   await expect(page.getByText('statsitem dois por R$ 300')).toBeVisible()
 
   // 2 matches conhecidos, preços R$ 100 e R$ 300 — média R$ 200, menor R$ 100.
-  const countTile = page.locator('.historico-stats__tile', { hasText: 'Matches no período' })
+  const countTile = page.locator('.historico-stats__tile', { hasText: 'Ofertas no período' })
   await expect(countTile).toContainText('2')
   const avgTile = page.locator('.historico-stats__tile', { hasText: 'Preço médio' })
   await expect(avgTile).toContainText('200,00')
@@ -72,7 +72,7 @@ test('Histórico exports a CSV whose rows match the real matches on screen (S11-
   })
 
   await page.goto('/historico')
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E CSV' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E CSV' })
   await expect(page.getByText('csvitem exportado por R$ 250')).toBeVisible()
 
   const [download] = await Promise.all([
@@ -146,8 +146,18 @@ test('Histórico row opens the promotion, with a named link, a touch target and 
       await page.setViewportSize({ width: viewport.width, height: viewport.height })
       await page.goto('/historico')
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
-      await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Abrir' })
-      const rows = page.locator('.historico-table__row:not(.historico-table__row--head)')
+      const isPhoneViewport = viewport.width <= 640
+      if (isPhoneViewport) {
+        // Phone: filters live in a bottom sheet and rows are a list (HistoricoMobile).
+        await page.getByRole('button', { name: /^Filtros/ }).click()
+        await page.getByRole('dialog', { name: 'Filtros' }).getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Abrir' })
+        await page.getByRole('dialog', { name: 'Filtros' }).getByRole('button', { name: /^Ver / }).click()
+      } else {
+        await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Abrir' })
+      }
+      const rows = isPhoneViewport
+        ? page.locator('.hist-m__item')
+        : page.locator('.historico-table__row:not(.historico-table__row--head)')
       await expect(rows).toHaveCount(2)
 
       const link = page.getByRole('link', { name: `Abrir promoção: ${withLinkText}` })
@@ -164,12 +174,15 @@ test('Histórico row opens the promotion, with a named link, a touch target and 
 
       // The row without a link says so, and offers no link of its own.
       const noLinkRow = rows.filter({ hasText: noLinkText })
-      await expect(noLinkRow.locator('.historico-table__no-link', { hasText: 'Sem link' })).toBeVisible()
       await expect(noLinkRow.getByRole('link')).toHaveCount(0)
-      await expect(noLinkRow.locator('.historico-table__no-link')).toHaveAttribute(
-        'title',
-        /Telegram não forneceu/,
-      )
+      if (!isPhoneViewport) {
+        // The phone list simply omits the open button when there is no link.
+        await expect(noLinkRow.locator('.historico-table__no-link', { hasText: 'Sem link' })).toBeVisible()
+        await expect(noLinkRow.locator('.historico-table__no-link')).toHaveAttribute(
+          'title',
+          /Telegram não forneceu/,
+        )
+      }
 
       await page.screenshot({ path: `${SHOTS_DIR}/s13-03-historico-${theme}-${viewport.name}.png` })
 
@@ -177,7 +190,11 @@ test('Histórico row opens the promotion, with a named link, a touch target and 
       await page.keyboard.press('Shift')
       await link.focus()
       await expect(link).toBeFocused()
-      const ring = await link.evaluate((el) => getComputedStyle(el).boxShadow)
+      const ring = await link.evaluate((el) => {
+        const style = getComputedStyle(el)
+        // The phone icon button has no custom ring: it relies on the browser's default focus outline.
+        return style.boxShadow !== 'none' ? style.boxShadow : style.outlineStyle !== 'none' ? style.outlineStyle : 'none'
+      })
       expect(ring).not.toBe('none')
 
       await page.screenshot({ path: `${SHOTS_DIR}/s13-03-historico-${theme}-${viewport.name}-focus.png` })
@@ -187,7 +204,7 @@ test('Histórico row opens the promotion, with a named link, a touch target and 
   // Click really opens the promotion in a new tab.
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/historico')
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Abrir' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Abrir' })
   await context.route('https://t.me/**', (route) => route.fulfill({ status: 200, body: '' }))
   const [newPage] = await Promise.all([
     context.waitForEvent('page'),
@@ -236,7 +253,7 @@ test('the tooltip of the FIRST Histórico row is not cut off by the table edge (
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/historico')
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Tooltip' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Tooltip' })
   const firstTitle = page.locator('.historico-table__row:not(.historico-table__row--head) .tooltip').first()
   await firstTitle.hover()
   const bubble = firstTitle.locator('.tooltip__bubble')
@@ -269,7 +286,7 @@ test('the tooltip of the FIRST Histórico row is not cut off by the table edge (
 // the selected one). Harmless with a couple of options, but with a
 // realistic rule/source/recipient count (this is real data shape, not a
 // test-only edge case — Gabriel's own account has this many) the name
-// balloons past readability and `getByLabel('Regra')` starts resolving the
+// balloons past readability and `getByLabel('Regra', { exact: true })` starts resolving the
 // wrong `<select>` (Fonte's, Destinatário's) instead of — or alongside —
 // Regra's own. Fixed with an explicit `aria-label` on each select
 // (`HistoricoPage.tsx`), which pins the accessible name regardless of how
@@ -321,7 +338,7 @@ test('the Regra/Fonte/Destinatário filters stay independently selectable with m
   // check inside `selectOption` already asserts single-element strict mode,
   // so simply not throwing here is the real assertion.
   await page.getByLabel('Regra', { exact: true }).selectOption({ label: `Regra ${tag}-0` })
-  await page.getByLabel('Fonte', { exact: true }).selectOption({ label: `Fonte ${tag}-0` })
+  await page.getByLabel('Grupo', { exact: true }).selectOption({ label: `Fonte ${tag}-0` })
   await expect(page.getByText(`${tag}item0 achado por R$ 321`)).toBeVisible()
   await page.getByLabel('Destinatário', { exact: true }).selectOption({ label: `Alvo ${tag}` })
 })
@@ -353,7 +370,7 @@ test('Histórico search by product shows only matching results and the CSV follo
   }
 
   await page.goto('/historico')
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Busca' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Busca' })
   await expect(page.getByText('Geladeira Brastemp por R$ 3000')).toBeVisible()
   await expect(page.getByText('Placa-mãe ASUS B850M-AYW por R$ 1200')).toBeVisible()
 
@@ -374,6 +391,7 @@ test('Histórico search by product shows only matching results and the CSV follo
   await page.getByLabel('Buscar produto').fill('zzzinexistente')
   await expect(page.getByText(/Nenhum resultado para “zzzinexistente”/)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Limpar filtros' }).click()
+  // Desktop shows "Limpar filtros" in the rail and in the no-results state: use the latter.
+  await page.locator('.historico-noresults__actions').getByRole('button', { name: 'Limpar filtros' }).click()
   await expect(page.getByLabel('Buscar produto')).toHaveValue('')
 })

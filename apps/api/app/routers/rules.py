@@ -1,4 +1,3 @@
-
 from datetime import UTC, datetime, timedelta
 from datetime import date as LocalDate
 from zoneinfo import ZoneInfo
@@ -8,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.delivery_policy import is_indefinite
 from app.main import get_current_session, get_db, require_csrf
 from app.pipeline import HISTORICAL_WINDOW, evaluate_rule, parse_terms
 from app.product_history import daily_lowest, get_display_timezone
@@ -15,9 +15,9 @@ from app.recipient_rules import load_selected_rule_ids, recipient_gets_rule
 from app.target_window import target_window_start
 from app.utc import UtcDatetime, ensure_utc, utc_now
 from models import Match, Recipient, Rule, Snooze, Source
-from packages.rules.match import MatchRule, terms_error
 from repositories import rule_repo
 from repositories.errors import NotFoundError, ValidationError
+from teleyes_core.rules.match import MatchRule, terms_error
 
 router = APIRouter(
     prefix="/rules",
@@ -69,6 +69,8 @@ class RuleResponse(BaseModel):
     # S14-03: `until` of the rule's active snooze (`until > now`), `None`
     # when it is not silenced. Computed fresh on every read, never stored.
     snoozed_until: UtcDatetime | None = None
+    # S25-F4: the active snooze is "Até reativar" (no end date to show).
+    snoozed_indefinitely: bool = False
     history_30d: list[RuleHistoryPointResponse] = []
     # S21-06 (F8): ids of the recipients that currently receive this rule
     # (active + allowlisted, rule in scope, at least one alert type on).
@@ -208,6 +210,8 @@ def list_rules(
                 "lowest_price_cents": lowest_by_rule.get(rule.id),
                 "lowest_price_24h_cents": lowest_24h_by_rule.get(rule.id),
                 "snoozed_until": snoozed_until_by_rule.get(rule.id),
+                "snoozed_indefinitely": rule.id in snoozed_until_by_rule
+                and is_indefinite(snoozed_until_by_rule[rule.id]),
                 "history_30d": history_by_rule.get(rule.id, []),
             }
         )

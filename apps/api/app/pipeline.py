@@ -22,13 +22,6 @@ from models import Delivery, Match, Recipient, Rule, Source, SuppressedMessage
 from packages.events.broker import EventBroker
 from packages.metrics.counters import MetricReason, increment_counter
 from packages.metrics.hourly import EventKind, record_system_event
-from packages.notifications.bot import BotNotifier, DeliveryResult
-from packages.notifications.formatting import format_price_cents
-from packages.rules.dedupe import DedupeCache, compute_signature
-from packages.rules.match import MatchRule
-from packages.rules.price import extract_price
-from packages.rules.product import product_key, product_title
-from packages.rules.target import target_hit
 from packages.telegram.cursor import (
     MessageFetcherProtocol,
     TelegramMessage,
@@ -41,7 +34,14 @@ from packages.telegram.historical import (
     fetch_messages_since,
     latest_message_id,
 )
-from packages.telegram.links import build_message_link
+from teleyes_core.notifications.bot import BotNotifier, DeliveryResult
+from teleyes_core.notifications.formatting import format_price_cents
+from teleyes_core.rules.dedupe import DedupeCache, compute_signature
+from teleyes_core.rules.match import MatchRule
+from teleyes_core.rules.price import extract_price
+from teleyes_core.rules.product import product_key, product_title
+from teleyes_core.rules.target import target_hit
+from teleyes_core.telegram.links import build_message_link
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,14 @@ DIGEST_ATTEMPTED_DELIVERY_STATUS = "digest_attempted"
 # description ("1 a 10 minutos de diferença") suggested 15 minutes as a
 # margin over that.
 GROUPED_DELIVERY_STATUS = "grouped"
+# Feed cards ("visto em N grupos") and the digest queue still collapse the same
+# promotion over 15 minutes: that only changes how it is shown.
 GROUPING_WINDOW = timedelta(minutes=15)
+# S23-11: a Telegram alert is only held back for a cross-post in the same
+# minute. Flash sales sell out and come back minutes later, re-announced in
+# the groups; that second announcement must alert again (Gabriel, 05/11).
+# Production data: of 112 held alerts, only 15 were within 60 s of the sent one.
+ALERT_GROUPING_WINDOW = timedelta(minutes=1)
 # S13-05: how far back the non-notifying historical scan looks (S6-02/S7-04),
 # widened from 7 to 15 days at Gabriel's request. The single source of truth:
 # `run_historical_scan`, `ListenerLifecycle` and `scripts/run_listener.py` all
@@ -177,7 +184,7 @@ class RuleEvaluation:
     price_cents: int | None
     discard_reason: MetricReason | None
     # S7-05: only ever both set together, and only when extract_price found
-    # two explicit, distinct textual anchors — see packages.rules.price.
+    # two explicit, distinct textual anchors — see teleyes_core.rules.price.
     price_cash_cents: int | None = None
     price_card_cents: int | None = None
 
@@ -497,7 +504,7 @@ async def process_message(
                 rule.id,
                 evaluation.price_cents,
                 message.received_at,
-                GROUPING_WINDOW,
+                ALERT_GROUPING_WINDOW,
                 kind=kind,
             )
         )
@@ -511,7 +518,7 @@ async def process_message(
                 rule.id,
                 evaluation.price_cents,
                 message.received_at,
-                GROUPING_WINDOW,
+                ALERT_GROUPING_WINDOW,
                 kind=DELIVERY_KIND_IMMEDIATE,
             )
         )

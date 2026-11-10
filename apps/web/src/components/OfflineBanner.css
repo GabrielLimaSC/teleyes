@@ -6,3 +6,57 @@
   font-weight: 600;
   padding: 8px 16px;
 }
+
+.connection-lost {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--plane-status-danger);
+  background: var(--plane-tint-bg);
+}
+
+.connection-lost__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.connection-lost__text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.connection-lost__retry {
+  height: 44px;
+}
+
+.feed-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feed-skeleton__card {
+  height: 176px;
+  border-radius: 16px;
+  background: var(--plane-tint-bg);
+  border: 1px solid var(--plane-divider-color);
+  animation: feed-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes feed-skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-skeleton__card {
+    animation: none;
+  }
+}

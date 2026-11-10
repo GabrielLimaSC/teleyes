@@ -1,0 +1,155 @@
+/* S24-01: bottom sheet (phone). Portal on <body>, above the tab bar (z 70) and
+   below the confirm dialog (z 300). */
+.bottom-sheet__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--session-expired-backdrop-bg);
+  /* S25-M1: fades in and out through WAAPI (motion/waapi.ts). */
+}
+
+.bottom-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88dvh;
+  border-radius: 24px 24px 0 0;
+  background: var(--plane-input-bg);
+  border: var(--plane-pearl-border);
+  border-bottom: none;
+  box-shadow: var(--popover-shadow);
+  color: var(--plane-text-primary);
+  font-family: var(--font-body);
+  padding-bottom: env(safe-area-inset-bottom);
+  /* S25-M1: rises on the Feed's spring and sinks on close (motion/waapi.ts);
+     the finger drives `transform` directly while dragging. */
+  position: relative;
+}
+
+/* The spring overshoots ~4% past its resting place: this skirt keeps the sheet
+   from showing a gap under it for those few frames (it is off-screen at rest). */
+.bottom-sheet::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 72px;
+  background: var(--plane-input-bg);
+  pointer-events: none;
+}
+
+.bottom-sheet:focus-visible {
+  outline: none;
+}
+
+.bottom-sheet__grab {
+  flex: none;
+  padding: 8px 16px 4px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.bottom-sheet__handle {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 8px;
+  border-radius: 2px;
+  background: var(--plane-border-color);
+}
+
+.bottom-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.bottom-sheet__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.bottom-sheet__close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--plane-tint-bg);
+  color: var(--plane-text-primary);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.bottom-sheet__close:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.bottom-sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 16px 20px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Action lists inside a sheet (RowActionsMenu, "Mais"). */
+.bottom-sheet__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.bottom-sheet__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 4px;
+  border: none;
+  border-bottom: 1px solid var(--plane-divider-color);
+  background: transparent;
+  color: var(--plane-text-primary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.bottom-sheet__item:last-child {
+  border-bottom: none;
+}
+
+.bottom-sheet__item:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: 8px;
+}
+
+.bottom-sheet__item:disabled {
+  color: var(--plane-text-helper);
+  cursor: default;
+}
+
+.bottom-sheet__item--danger {
+  color: var(--plane-action-danger-color);
+}

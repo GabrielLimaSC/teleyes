@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
@@ -41,6 +41,10 @@ class ListenerControl(Base):
     # Fingerprint of the configuration the listener is running with; the panel
     # compares it with a fresh one to say "há mudanças ainda não aplicadas".
     applied_config_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # S25-F4: JSON of the active rules/sources/recipients the listener loaded
+    # (names + the fields that matter, never message text) — what the panel
+    # diffs against to say what is still unapplied. See `app.listener_control`.
+    applied_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     listener_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

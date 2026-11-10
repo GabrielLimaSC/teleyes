@@ -81,8 +81,8 @@
   --plane-text-eyebrow: #47566e; /* uppercase small labels ("PLANO 3 — VIDRO") */
   --plane-text-eyebrow-on-glass: #47566e; /* the same on a stat tile inside a glass rail */
   --plane-text-secondary: #525866; /* body/paragraph secondary */
-  --plane-text-helper: #606875; /* smallest helper/caption text */
-  --plane-text-helper-on-glass: #606875; /* the same, when it sits on a glass rail */
+  --plane-text-helper: #586070; /* smallest helper/caption text */
+  --plane-text-helper-on-glass: #586070; /* the same, when it sits on a glass rail */
 
   /* ---- Status (dot + word, never color alone) ---- */
   --plane-status-good: #176945;
@@ -114,7 +114,7 @@
   --text-strong: #08060d;
   --text-body: #17181c;
   --text-muted: #4b4b52;
-  --text-faint: #8a8a92;
+  --text-faint: #686870;
   --text-violet: #6a3fbf; /* "Menor preço já visto" on the card */
   --text-violet-quiet: #5b4d88; /* the same note in Histórico's price cell */
 
@@ -212,6 +212,7 @@
   --nav-tab-text: #4b4b52;
   --nav-tab-hover-text: #171717;
   --nav-tab-hover-bg: rgba(255, 255, 255, 0.62);
+  --mobile-top-scrolled-veil: rgba(255, 255, 255, 0.14);
   /* S21-01: the active tab is a raised white glass pill, not a solid block. */
   --nav-tab-active-text: #0a0a0a;
   --nav-tab-active-bg: #ffffff;
@@ -242,11 +243,11 @@
   --source-hue-5: #f0a3b8;
   --source-hue-ink: #14171c;
   /* Adapter / SSE state word and its dot (Saúde, Login's bot row). */
-  --state-neutral-text: #8a8a92;
+  --state-neutral-text: #686870;
   --state-neutral-dot: #8a8a92;
-  --state-good-text: #1c8a4b;
+  --state-good-text: #17743f;
   --state-good-dot: #1c8a4b;
-  --state-warn-text: #8a6d00;
+  --state-warn-text: #7a5f00;
   --state-warn-dot: #8a6d00;
   --state-danger-text: #b3261e;
   --state-danger-dot: #b3261e;
@@ -293,6 +294,8 @@
       rgba(211, 214, 221, 0.66) 100%
     ),
     rgba(232, 234, 239, 0.62);
+  /* S23-09: solid fill of the mobile sheet (the glass stays in border/shadow). */
+  --product-panel-sheet-bg: #eceef2;
   --product-panel-border-color: rgba(255, 255, 255, 0.88);
   --product-panel-shadow:
     inset 0 2px 2px rgba(255, 255, 255, 0.92), inset 0 -2px 3px rgba(58, 61, 70, 0.16),
@@ -591,6 +594,7 @@
   --nav-tab-text: #c4cbd8;
   --nav-tab-hover-text: #ffffff;
   --nav-tab-hover-bg: rgba(255, 255, 255, 0.08);
+  --mobile-top-scrolled-veil: rgba(255, 255, 255, 0.08);
   --nav-tab-active-text: #ffffff;
   --nav-tab-active-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
   --nav-tab-active-shadow:
@@ -621,6 +625,7 @@
       rgba(255, 255, 255, 0.13) 100%
     ),
     rgba(26, 29, 36, 0.82);
+  --product-panel-sheet-bg: #15181e;
   --product-panel-border-color: rgba(255, 255, 255, 0.2);
   --product-panel-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.24), inset 0 -2px 3px rgba(0, 0, 0, 0.6),

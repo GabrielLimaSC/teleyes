@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -183,6 +183,30 @@ def test_reads_login_logout_and_the_dry_run_are_allowed(demo_client: TestClient)
     assert dry_run.json()["total_matched"] > 0
     logout = demo_client.post("/auth/logout", headers={"X-CSRF-Token": csrf})
     assert logout.status_code == 200
+
+
+def test_the_allowed_dry_run_writes_nothing_to_the_database(
+    demo_client: TestClient, demo_factory: sessionmaker[Session]
+) -> None:
+    def snapshot() -> dict[str, list[Any]]:
+        with demo_factory() as session:
+            tables = inspect(session.get_bind()).get_table_names()
+            return {
+                table: sorted(
+                    map(tuple, session.execute(text(f'SELECT * FROM "{table}"')).fetchall())  # noqa: S608
+                )
+                for table in tables
+            }
+
+    csrf = _login(demo_client)
+    before = snapshot()
+    response = demo_client.post(
+        "/rules/test",
+        json={"include_terms": "ssd nvme exemplo", "max_price_cents": 100000},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 200
+    assert snapshot() == before
 
 
 async def test_middleware_lets_sse_and_other_non_mutating_requests_through() -> None:

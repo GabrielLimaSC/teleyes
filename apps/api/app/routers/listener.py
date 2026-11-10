@@ -15,6 +15,16 @@ router = APIRouter(
 )
 
 
+class UnappliedChangeResponse(BaseModel):
+    """One thing that differs from what the listener runs (S25-F4)."""
+
+    entity: Literal["rule", "source", "recipient"]
+    action: Literal["created", "activated", "edited", "paused", "deleted"]
+    name: str
+    # Only for `edited`: terms | max_price | target_price | chat.
+    fields: list[str]
+
+
 class ListenerStatusResponse(BaseModel):
     """What the panel shows about "Aplicar regras" (S13-06).
 
@@ -34,6 +44,9 @@ class ListenerStatusResponse(BaseModel):
     # True when an active source/rule/recipient differs from what the listener
     # loaded — including pause, delete and edit, not only "created after".
     has_unapplied_changes: bool
+    # What differs, by name. Empty when unknown (never applied since this was
+    # added) even if `has_unapplied_changes` is true: show the generic notice.
+    unapplied_changes: list[UnappliedChangeResponse]
     # The listener writes a heartbeat; False means it has not been heard from
     # for a while (down, restarting, or without Telegram credentials).
     listener_online: bool
@@ -52,6 +65,15 @@ def _to_response(snapshot: ControlSnapshot) -> ListenerStatusResponse:
         scan_failures=snapshot.scan_failures,
         error=snapshot.error,
         has_unapplied_changes=snapshot.has_unapplied_changes,
+        unapplied_changes=[
+            UnappliedChangeResponse(
+                entity=change.entity,
+                action=change.action,
+                name=change.name,
+                fields=list(change.fields),
+            )
+            for change in snapshot.unapplied_changes
+        ],
         listener_online=snapshot.listener_online,
         listener_seen_at=snapshot.listener_seen_at,
     )

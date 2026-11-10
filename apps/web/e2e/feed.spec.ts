@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { apiLogin, apiPost, clickRuleFilter } from './helpers'
 
 test('feed shows a match live via SSE, without a page refresh', async ({ page }) => {
+  const tag = Math.random().toString(36).slice(2, 8)
   await page.goto('/')
   const csrfToken = await apiLogin(page)
 
@@ -20,20 +21,22 @@ test('feed shows a match live via SSE, without a page refresh', async ({ page })
   })
 
   await page.goto('/feed')
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
-  await expect(page.getByText('Nenhum match ainda.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
+  // The e2e backend is shared (and may already hold offers from other specs): assert on this
+  // test's own unique text instead of an empty feed.
+  const text = `Promoção iPhone 15 ${tag} por R$ 3.899`
+  await expect(page.getByText(text)).toHaveCount(0)
 
   await apiPost(page, '/demo/messages', csrfToken, {
     source_id: source.id,
     rule_id: rule.id,
     recipient_ids: [recipient.id],
-    text: 'Promoção iPhone 15 por R$ 3.899',
+    text,
   })
 
-  const card = page.getByRole('article')
-  await expect(card.getByText('Promoção iPhone 15 por R$ 3.899')).toBeVisible()
-  // S11-03: the Resumo rail's "Menor preço" tile shows the same real value
-  // when there's only one match, so scope this to the card itself.
+  const card = page.getByRole('article').filter({ hasText: text })
+  await expect(card.getByText(text)).toBeVisible()
+  // The Resumo rail's "Menor preço" tile may show the same value: scope this to the card itself.
   await expect(card.getByText('R$ 3.899,00')).toBeVisible()
   await expect(card.getByText('Notificação desativada')).toBeVisible()
 })
@@ -77,7 +80,7 @@ test('historico filters matches by rule', async ({ page }) => {
   await expect(page.getByText('produtoa e2e em oferta')).toBeVisible()
   await expect(page.getByText('produtob e2e em oferta')).toBeVisible()
 
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E A' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E A' })
 
   await expect(page.getByText('produtoa e2e em oferta')).toBeVisible()
   await expect(page.getByText('produtob e2e em oferta')).not.toBeVisible()
@@ -121,7 +124,7 @@ test('historico sorts matches by price within a rule (S7-07)', async ({ page }) 
   })
 
   await page.goto('/historico')
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Ranking' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Ranking' })
   await expect(page.getByText('gadget e2e caro por R$ 900')).toBeVisible()
 
   await page.getByLabel('Ordenar por').selectOption({ label: 'Menor preço primeiro' })
@@ -221,7 +224,7 @@ test('two sources posting the exact same promotion collapse into one card (S7-11
   })
 
   await page.goto('/historico')
-  await page.getByLabel('Regra').selectOption({ label: 'Regra E2E Duplicado' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra E2E Duplicado' })
 
   // Only the first source's card stays, now naming the other source too —
   // the second message is a real, persisted Match (never lost, S6-01), just
@@ -289,6 +292,6 @@ test('feed rail filters by rule and shows real counts, sources and a Resumo (S11
   await expect(page.getByText('trilhaa e2e por R$ 100')).toBeVisible()
   await expect(page.getByText('trilhab e2e por R$ 200')).not.toBeVisible()
 
-  const matchesTile = page.locator('.feed-summary__tile', { hasText: 'Matches' })
+  const matchesTile = page.locator('.feed-summary__tile', { hasText: 'Ofertas' })
   await expect(matchesTile).toContainText('1')
 })

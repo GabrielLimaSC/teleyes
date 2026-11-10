@@ -5,6 +5,8 @@ import { testNotification } from '../api/notifications'
 import { updateRecipient } from '../api/recipients'
 import type { DigestSettings, Recipient, Rule, RulesMode } from '../api/types'
 import { useRecipientPreview } from '../hooks/useRecipientPreview'
+import { RowActionsMenu } from '../components/RowActionsMenu'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { StatusToggle } from '../components/StatusToggle'
 import { Avatar, DeliverySwitch, ModeSegmented, RuleChips } from './RecipientDeliveryParts'
 import { commonLine, initial, ruleCountLabel, targetLine, typesLabel, weeklyLabel } from './recipientDelivery'
@@ -157,6 +159,7 @@ export function RecipientCard({
       .finally(() => setTesting(false))
   }
 
+  const phone = useMediaQuery(PHONE_QUERY)
   const summary = [
     draft.mode === 'all'
       ? `Todas as regras (${rules.length})`
@@ -196,11 +199,11 @@ export function RecipientCard({
 
       <div className="recipient-card__line">
         <span>
-          Alvo atingido → <strong>{targetLine(draft.notifyTarget)}</strong>
+          Preço-alvo atingido → <strong>{targetLine(draft.notifyTarget)}</strong>
         </span>
         <DeliverySwitch
           checked={draft.notifyTarget}
-          label={`Alvo atingido para ${recipient.name}`}
+          label={`Preço-alvo atingido para ${recipient.name}`}
           onChange={(next) => {
             setFeedback(null)
             setDraft({ ...draft, notifyTarget: next })
@@ -209,11 +212,11 @@ export function RecipientCard({
       </div>
       <div className="recipient-card__line">
         <span>
-          Match comum → <strong>{commonLine(draft.notifyCommon, digest)}</strong>
+          Oferta comum → <strong>{commonLine(draft.notifyCommon, digest)}</strong>
         </span>
         <DeliverySwitch
           checked={draft.notifyCommon}
-          label={`Match comum para ${recipient.name}`}
+          label={`Oferta comum para ${recipient.name}`}
           onChange={(next) => {
             setFeedback(null)
             setDraft({ ...draft, notifyCommon: next })
@@ -263,14 +266,21 @@ export function RecipientCard({
         <button type="button" className="plane-action plane-action--secondary plane-action--compact" onClick={onEdit}>
           Editar
         </button>
-        <button
-          type="button"
-          className="plane-action plane-action--danger plane-action--compact"
-          onClick={onDelete}
-          disabled={deleting}
-        >
-          Excluir
-        </button>
+        {phone ? (
+          <RowActionsMenu
+            label={`Mais ações de ${recipient.name}`}
+            items={[{ key: 'delete', label: 'Excluir', danger: true, disabled: deleting, onSelect: onDelete }]}
+          />
+        ) : (
+          <button
+            type="button"
+            className="plane-action plane-action--danger plane-action--compact"
+            onClick={onDelete}
+            disabled={deleting}
+          >
+            Excluir
+          </button>
+        )}
       </div>
       {feedback && (
         <p

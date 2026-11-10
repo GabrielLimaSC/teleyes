@@ -42,7 +42,7 @@ test('a real change raises the notice, and the button sends a real request', asy
   await page.goto('/regras')
 
   await expect(page.locator('.listener-apply')).toContainText('mudanças pendentes')
-  const button = page.getByRole('button', { name: 'Aplicar regras' })
+  const button = page.getByRole('button', { name: 'Aplicar regras', exact: true })
   await expect(button).toBeEnabled()
 
   await button.click()
@@ -88,7 +88,7 @@ for (const scheme of ['light', 'dark'] as const) {
           text: 'falha ao aplicar',
         },
         { key: 'applied', status: APPLIED, text: 'aplicado' },
-        { key: 'offline', status: { ...APPLIED, listener_online: false }, text: 'listener sem sinal' },
+        { key: 'offline', status: { ...APPLIED, listener_online: false }, text: 'leitor do Telegram sem sinal' },
       ] as const
 
       for (const state of states) {
@@ -98,7 +98,11 @@ for (const scheme of ['light', 'dark'] as const) {
 
         const panel = page.locator('.listener-apply')
         await expect(panel).toContainText(state.text)
-        await expect(panel.getByRole('button')).toBeVisible()
+        // S25-F4: while changes are pending the "Aplicar regras" button lives in the amber banner;
+        // otherwise (applied, offline, failed) it stays in the status control.
+        await expect(
+          panel.locator('.listener-apply__button').or(page.locator('.pending-banner__button')).first(),
+        ).toBeVisible()
         const [scrollWidth, clientWidth] = await page.evaluate(() => [
           document.documentElement.scrollWidth,
           document.documentElement.clientWidth,
@@ -121,8 +125,8 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.unroute('**/listener/status')
       await serveStatus(page, { ...APPLIED, has_unapplied_changes: true })
       await page.goto('/saude')
-      const tile = page.locator('.saude-tile', { hasText: 'Listener' })
-      await expect(tile).toContainText('Mudanças pendentes')
+      const tile = page.locator('.saude-service', { hasText: 'Leitor do Telegram' })
+      await expect(tile).toContainText('ainda usa a configuração carregada')
       await expect(tile).toContainText('Aplique na página Regras.')
       await page.screenshot({
         path: `test-results/aplicar-regras/${scheme}-${viewport.name}-saude.png`,
@@ -138,7 +142,7 @@ test('keyboard: the apply button takes focus and shows the focus ring', async ({
   await serveStatus(page, { ...APPLIED, has_unapplied_changes: true })
   await page.goto('/regras')
 
-  const button = page.getByRole('button', { name: 'Aplicar regras' })
+  const button = page.getByRole('button', { name: 'Aplicar regras', exact: true })
   await button.focus()
 
   await expect(button).toBeFocused()

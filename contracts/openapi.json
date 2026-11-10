@@ -1128,6 +1128,13 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "unapplied_changes": {
+            "items": {
+              "$ref": "#/components/schemas/UnappliedChangeResponse"
+            },
+            "title": "Unapplied Changes",
+            "type": "array"
           }
         },
         "required": [
@@ -1141,6 +1148,7 @@
           "scan_failures",
           "error",
           "has_unapplied_changes",
+          "unapplied_changes",
           "listener_online",
           "listener_seen_at"
         ],
@@ -1150,6 +1158,7 @@
       "LoginRequest": {
         "properties": {
           "password": {
+            "maxLength": 1024,
             "title": "Password",
             "type": "string"
           },
@@ -1502,7 +1511,7 @@
         "type": "object"
       },
       "MatchUpdate": {
-        "description": "`PATCH /matches/{id}` (F7). Every field is optional \u2014 only the ones\nactually sent are validated and applied, same \"if provided\" shape as\n`RuleUpdate` (`app.routers.rules`). `price` is free text\n(`packages.rules.manual_price.parse_manual_price_cents` parses it);\nthere is no way to clear `display_name`/`model_variant` back to `None`\nthrough this endpoint on purpose \u2014 that is exactly what `POST\n/matches/{id}/revert` (\"Reverter ao detectado\") does.",
+        "description": "`PATCH /matches/{id}` (F7). Every field is optional \u2014 only the ones\nactually sent are validated and applied, same \"if provided\" shape as\n`RuleUpdate` (`app.routers.rules`). `price` is free text\n(`teleyes_core.rules.manual_price.parse_manual_price_cents` parses it);\nthere is no way to clear `display_name`/`model_variant` back to `None`\nthrough this endpoint on purpose \u2014 that is exactly what `POST\n/matches/{id}/revert` (\"Reverter ao detectado\") does.",
         "properties": {
           "apply_name_to_product": {
             "default": false,
@@ -1541,6 +1550,22 @@
               }
             ],
             "title": "Price"
+          },
+          "price_card": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Card"
+          },
+          "reevaluate": {
+            "default": false,
+            "title": "Reevaluate",
+            "type": "boolean"
           }
         },
         "title": "MatchUpdate",
@@ -2046,6 +2071,31 @@
             "title": "Purchased At",
             "type": "string"
           },
+          "reference_note": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Note"
+          },
+          "reference_price_cents": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100000000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Price Cents"
+          },
           "rule_id": {
             "anyOf": [
               {
@@ -2113,6 +2163,28 @@
             "title": "Purchased At",
             "type": "string"
           },
+          "reference_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Note"
+          },
+          "reference_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Price Cents"
+          },
           "rule_id": {
             "anyOf": [
               {
@@ -2144,6 +2216,8 @@
           "store",
           "product_key",
           "rule_id",
+          "reference_price_cents",
+          "reference_note",
           "created_at"
         ],
         "title": "PurchaseResponse",
@@ -2364,6 +2438,49 @@
         "title": "RecipientUpdate",
         "type": "object"
       },
+      "ReferenceResponse": {
+        "description": "A price reference typed by the user (S22-01); not a price the teleyes saw.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "saving_cents": {
+            "title": "Saving Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "price_cents",
+          "note",
+          "saving_cents",
+          "pct"
+        ],
+        "title": "ReferenceResponse",
+        "type": "object"
+      },
       "ReportItemResponse": {
         "properties": {
           "days_before_black_friday": {
@@ -2373,6 +2490,32 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "link_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "product",
+                  "rule"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Kind"
+          },
+          "link_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Label"
           },
           "linked": {
             "title": "Linked",
@@ -2390,6 +2533,16 @@
             "format": "date-time",
             "title": "Purchased At",
             "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "savings": {
             "anyOf": [
@@ -2431,9 +2584,12 @@
           "price_cents",
           "purchased_at",
           "linked",
+          "link_kind",
+          "link_label",
           "days_before_black_friday",
           "savings",
-          "share_of_goal"
+          "share_of_goal",
+          "reference"
         ],
         "title": "ReportItemResponse",
         "type": "object"
@@ -2463,6 +2619,14 @@
             "title": "Purchases",
             "type": "integer"
           },
+          "reference_purchases": {
+            "title": "Reference Purchases",
+            "type": "integer"
+          },
+          "reference_saving_cents": {
+            "title": "Reference Saving Cents",
+            "type": "integer"
+          },
           "reference_total_cents": {
             "title": "Reference Total Cents",
             "type": "integer"
@@ -2478,7 +2642,9 @@
           "total_paid_cents",
           "estimated_saving_cents",
           "reference_total_cents",
-          "estimated_saving_pct"
+          "estimated_saving_pct",
+          "reference_saving_cents",
+          "reference_purchases"
         ],
         "title": "ReportTotalsResponse",
         "type": "object"
@@ -2635,6 +2801,11 @@
             },
             "title": "Recipient Ids",
             "type": "array"
+          },
+          "snoozed_indefinitely": {
+            "default": false,
+            "title": "Snoozed Indefinitely",
+            "type": "boolean"
           },
           "snoozed_until": {
             "anyOf": [
@@ -3311,6 +3482,11 @@
             ],
             "title": "Days"
           },
+          "indefinite": {
+            "default": false,
+            "title": "Indefinite",
+            "type": "boolean"
+          },
           "product_key": {
             "anyOf": [
               {
@@ -3365,6 +3541,11 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "indefinite": {
+            "default": false,
+            "title": "Indefinite",
+            "type": "boolean"
           },
           "label": {
             "title": "Label",
@@ -3723,6 +3904,50 @@
         "title": "TestNotificationResponse",
         "type": "object"
       },
+      "UnappliedChangeResponse": {
+        "description": "One thing that differs from what the listener runs (S25-F4).",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "activated",
+              "edited",
+              "paused",
+              "deleted"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "entity": {
+            "enum": [
+              "rule",
+              "source",
+              "recipient"
+            ],
+            "title": "Entity",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity",
+          "action",
+          "name",
+          "fields"
+        ],
+        "title": "UnappliedChangeResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3767,7 +3992,7 @@
   },
   "info": {
     "title": "teleyes",
-    "version": "0.1.0"
+    "version": "1.0.0"
   },
   "openapi": "3.1.0",
   "paths": {

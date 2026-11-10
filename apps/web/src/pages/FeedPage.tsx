@@ -1,3 +1,4 @@
+import { HelpTip } from '../components/HelpTip'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MatchCard } from '../components/MatchCard'
@@ -36,15 +37,22 @@ import { robustLowestPriceCents } from '../utils/robustLowestPrice'
 import type { DigestSettings, FeedSettings, Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { SetupBanner } from '../components/SetupBanner'
+import { EmptyState } from '../components/EmptyState'
+import { FeedMobileTop, NewOffersPill } from './FeedMobileTop'
+import { useNewOffersCount } from './useNewOffersCount'
+import { FeedLoadingSkeleton, NoRulesWide } from './FeedStates'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { FirstTimeTip } from '../components/FirstTimeTip'
+import { ConnectionLostNotice } from '../components/OfflineBanner'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import './FeedPage.css'
 
 const CONNECTION_LABELS: Record<FeedConnectionState, { label: string; color: string; dot: string }> = {
-  connecting: { label: 'SSE conectando…', color: 'var(--plane-status-warn)', dot: 'var(--plane-status-warn-dot)' },
-  open: { label: 'SSE conectado', color: 'var(--plane-status-good)', dot: 'var(--plane-status-good-dot)' },
+  connecting: { label: 'Conectando…', color: 'var(--plane-status-warn)', dot: 'var(--plane-status-warn-dot)' },
+  open: { label: 'Ao vivo', color: 'var(--plane-status-good)', dot: 'var(--plane-status-good-dot)' },
   error: {
-    label: 'SSE caiu — tentando reconectar…',
+    label: 'Desconectado',
     color: 'var(--plane-status-danger)',
     dot: 'var(--plane-status-danger-dot)',
   },
@@ -124,10 +132,34 @@ const FeedMatchList = memo(function FeedMatchList({
   onDelete: (match: Match) => void
   onMarkPurchased: (match: Match) => void
 }) {
+  const phone = useMediaQuery(PHONE_QUERY)
   return (
     <div className="feed-page__list">
-      {visibleMatches.length === 0 && !hasAnyMatch && <p>Nenhum match ainda.</p>}
-      {visibleMatches.length === 0 && hasAnyMatch && <p>Nenhum match para esta regra ainda.</p>}
+      {visibleMatches.length === 0 && !hasAnyMatch && rules.length === 0 && (
+        <EmptyState
+          title="Nenhuma regra ainda"
+          text={
+            phone
+              ? 'Crie uma regra dizendo o que procurar e até quanto pagar. As ofertas aparecem aqui sozinhas.'
+              : 'As ofertas mostram as promoções que batem com as suas regras. Crie a primeira para começar.'
+          }
+          action={{ label: phone ? 'Criar primeira regra' : 'Criar a primeira regra', to: '/regras?nova=1' }}
+          secondaryAction={phone ? { label: 'Começar de um modelo', to: '/regras?nova=1' } : undefined}
+        />
+      )}
+      {visibleMatches.length === 0 && !hasAnyMatch && rules.length > 0 && (
+        <EmptyState
+          title="Nenhuma oferta ainda"
+          text={
+            phone
+              ? `Suas ${rules.length} ${rules.length === 1 ? 'regra está' : 'regras estão'} de olho. Assim que uma promoção bater, ela aparece aqui.`
+              : 'Assim que uma promoção bater numa regra, ela aparece aqui.'
+          }
+          action={phone ? { label: 'Ver as regras', to: '/regras' } : { label: 'Testar uma regra', to: '/regras?nova=1' }}
+          secondaryAction={phone ? undefined : { label: 'Ver regras', to: '/regras' }}
+        />
+      )}
+      {visibleMatches.length === 0 && hasAnyMatch && <p>Nenhuma oferta para esta regra ainda.</p>}
       {visibleMatches.map((match) => (
         <div key={match.id} className="feed-page__card">
           <MatchCard
@@ -152,9 +184,23 @@ const FeedMatchList = memo(function FeedMatchList({
   )
 })
 
+/** S25-F2 (B1): desktop "↑ N ofertas novas". With the user scrolled, new offers
+ * are counted (and the reading position kept, see `useNewOffersCount`) instead
+ * of pushing the cards; the pill sticks to the top of the cards column. */
+function DesktopNewOffers({ matchIds, loading }: { matchIds: number[]; loading: boolean }) {
+  const [count, goTop] = useNewOffersCount(matchIds, loading)
+  return (
+    <div className="feed-new-offers">
+      <NewOffersPill count={count} onClick={goTop} className="feed-new-offers__pill" />
+    </div>
+  )
+}
+
 export function FeedPage() {
   const { matches, loading, error, connectionState, refresh } = useLiveMatches()
   const panel = useProductPanel()
+  const phone = useMediaQuery(PHONE_QUERY)
+  const isPhone = phone
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
   const { toast, showToast, dismiss } = useToast()
@@ -167,6 +213,22 @@ export function FeedPage() {
     },
   })
 
+  // S23-02: new alerts arriving over SSE are announced politely (one message
+  // per batch, never for the first load) through a visually hidden live region.
+  const [announcement, setAnnouncement] = useState('')
+  const seenMatchIdsRef = useRef<Set<number> | null>(null)
+  useEffect(() => {
+    if (loading) return
+    const seen = seenMatchIdsRef.current
+    seenMatchIdsRef.current = new Set(matches.map((match) => match.id))
+    if (seen === null) return
+    const added = matches.filter((match) => !seen.has(match.id)).length
+    if (added === 0) return
+    setAnnouncement(added === 1 ? '1 nova oferta.' : `${added} novas ofertas.`)
+    const timer = setTimeout(() => setAnnouncement(''), 5000)
+    return () => clearTimeout(timer)
+  }, [matches, loading])
+
   const [rules, setRules] = useState<Rule[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [recipients, setRecipients] = useState<Recipient[]>([])
@@ -178,7 +240,12 @@ export function FeedPage() {
   const [digest, setDigest] = useState<DigestSettings | null>(null)
   const [feedSettings, setFeedSettings] = useState<FeedSettings | null>(null)
 
-  const loadRules = () => fetchRules().then(setRules).catch(() => setRules([]))
+  const [rulesLoaded, setRulesLoaded] = useState(false)
+  const loadRules = () =>
+    fetchRules()
+      .then(setRules)
+      .catch(() => setRules([]))
+      .finally(() => setRulesLoaded(true))
   const loadSnoozes = () => listSnoozes().then(setSnoozes).catch(() => setSnoozes([]))
   const loadDigest = () => fetchDigestSettings().then(setDigest).catch(() => setDigest(null))
   const loadFeedSettings = () => fetchFeedSettings().then(setFeedSettings).catch(() => setFeedSettings(null))
@@ -194,7 +261,7 @@ export function FeedPage() {
   }, [])
 
   // S14-07 revisão 1 (bloqueio 2): `rules` carries each rule's own
-  // `history_30d`/`snoozed_until` (the sidebar's "Alvos de preço" and
+  // `history_30d`/`snoozed_until` (the sidebar's "Preços-alvo" and
   // "Filtrar por regra" source) — `useLiveMatches` already reloads `matches`
   // on every SSE `match`/`resync` event (or "Atualizar"), but never touched
   // `rules`, so a brand-new match's rule kept showing yesterday's history
@@ -275,14 +342,14 @@ export function FeedPage() {
     }
   }
 
-  // S14-07: "Definir alvo" — edits the match's own rule via the Regras CRUD
+  // S14-07: "Definir preço-alvo" — edits the match's own rule via the Regras CRUD
   // (`PATCH /rules/{id}`), sending only `target_price_cents`.
   async function handleSetTarget(ruleId: number, targetCents: number) {
     const token = requireCsrf()
     if (token === null) return
     try {
       await updateRule(token, ruleId, { target_price_cents: targetCents })
-      showToast('Alvo de preço salvo.')
+      showToast('Preço-alvo salvo.')
       await loadRules()
       refresh()
     } catch (err) {
@@ -319,7 +386,7 @@ export function FeedPage() {
       })
       setDigest(result)
     } catch (err) {
-      reportError(err, 'Não foi possível salvar o digest.')
+      reportError(err, 'Não foi possível salvar o resumo diário.')
     }
   }
 
@@ -333,6 +400,8 @@ export function FeedPage() {
     }
     return counts
   }, [matches])
+
+  const matchIds = useMemo(() => matches.map((match) => match.id), [matches])
 
   const visibleMatches: Match[] = useMemo(
     () => (selectedRuleId === null ? matches : matches.filter((match) => match.rule_id === selectedRuleId)),
@@ -366,7 +435,7 @@ export function FeedPage() {
     }
   }, [visibleMatches])
 
-  // S14-07 (barra lateral): "Alvos de preço" — every rule with a target.
+  // S14-07 (barra lateral): "Preços-alvo" — every rule with a target.
   // S17-10: hit/gap are judged on the rule's lowest offer of the LAST 24 H
   // (`Rule.lowest_price_24h_cents`), the same window the backend applies to
   // a card's own `target_hit`/`target_gap_pct`, so the rail never disagrees
@@ -429,6 +498,8 @@ export function FeedPage() {
   // measured, not guessed from the viewport.
   const chromeMode = useScrollChrome(true)
   const headerActionsRef = useRef<HTMLDivElement>(null)
+  const liveSlotRef = useRef<HTMLDivElement>(null)
+  const liveSlotBefore = useRef<number | null>(null)
   const leftRailRef = useRef<HTMLElement>(null)
   const rightRailRef = useRef<HTMLDivElement>(null)
   const rightMorphRef = useRef<HTMLElement>(null)
@@ -476,7 +547,10 @@ export function FeedPage() {
     const band = 84
     const bottomOf = (element: HTMLElement | null) =>
       element ? element.getBoundingClientRect().bottom + window.scrollY - band : Infinity
-    const thresholds = { left: bottomOf(leftRailRef.current), right: bottomOf(rightRailRef.current) }
+    // The "Ao vivo" block has just docked into the band, so its slot is on
+    // its way to 0 (it springs, see liveSlotRef): leave its height out.
+    const slotHeight = liveSlotRef.current?.getBoundingClientRect().height ?? 0
+    const thresholds = { left: bottomOf(leftRailRef.current), right: bottomOf(rightRailRef.current) - slotHeight }
     let passed = { left: false, right: false }
     const check = () => {
       const y = window.scrollY
@@ -571,17 +645,21 @@ export function FeedPage() {
   )
 
   useEffect(() => {
-    const element = headerActionsRef.current
-    const unregisterFlip = element ? registerChromeFlip(element) : () => {}
     const unregisterAnchor = onBeforeChromeChange(() => {
       captureRailHeights()
+      liveSlotBefore.current = liveSlotRef.current?.getBoundingClientRect().height ?? null
       anchorScrollDuring('.feed-page__card', CHROME_SPRING_MS + 80)
     })
-    return () => {
-      unregisterFlip()
-      unregisterAnchor()
-    }
+    return unregisterAnchor
   }, [])
+
+  // The block is mounted in the header while loading/failed and in the right
+  // rail once the grid exists: register whichever element is there now.
+  const showingGrid = !loading && !error
+  useEffect(() => {
+    const element = headerActionsRef.current
+    return element ? registerChromeFlip(element) : undefined
+  }, [showingGrid])
 
   // S15-07: after the DOM took the new state, spring each box from the height
   // captured just before it to its new natural one (FeedPage.css owns the
@@ -596,6 +674,14 @@ export function FeedPage() {
     railHeightsBefore.current.right = null
     if (from !== null && rightMorphRef.current) springHeight(rightMorphRef.current, from)
   }, [rightState])
+
+  // S25-F2: the "Ao vivo" block docks into the band (or comes back): its slot
+  // in the rail springs between its height and 0 so "Resumo" glides with it.
+  useLayoutEffect(() => {
+    const from = liveSlotBefore.current
+    liveSlotBefore.current = null
+    if (from !== null && liveSlotRef.current) springHeight(liveSlotRef.current, from)
+  }, [chromeMode])
 
   function setRailOpen(side: 'left' | 'right', open: boolean, sectionId?: string) {
     captureRailHeights()
@@ -616,18 +702,62 @@ export function FeedPage() {
   // S16-02: collapsed-strip tooltips — "rótulo · contexto", the same live
   // numbers the expanded rail shows, so a collapsed rail never stops
   // informing (design note 04 in the S16 reference).
+  const liveBlock = (
+    <div
+      ref={headerActionsRef}
+      className="feed-page__header-actions plane-glass"
+      role="group"
+      aria-label="Atualização das ofertas"
+    >
+      <span
+        className="feed-page__toolbar-segment feed-page__toolbar-status"
+        role="status"
+        style={{ color: connectionLabel.color }}
+      >
+        <span className="feed-page__connection-dot" style={{ background: connectionLabel.dot }} />
+        {connectionLabel.label}
+      </span>
+      <button type="button" className="feed-page__toolbar-segment feed-page__toolbar-refresh" onClick={refresh}>
+        <span aria-hidden="true">↻</span> Atualizar
+      </button>
+      {feedSettings !== null && (
+        <div className="feed-page__toolbar-group">
+          <button
+            type="button"
+            className="feed-page__toolbar-segment feed-page__toolbar-switch"
+            role="switch"
+            aria-checked={feedSettings.group_duplicates}
+            aria-describedby="feed-group-hint"
+            onClick={handleToggleGroupDuplicates}
+          >
+            Agrupar duplicatas
+            <span
+              className={feedSettings.group_duplicates ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}
+              aria-hidden="true"
+            >
+              <span className="feed-toggle-switch__knob" />
+            </span>
+          </button>
+          <span id="feed-group-hint" className="feed-page__toolbar-hint">
+            mesma oferta vista em vários grupos vira 1 card
+          </span>
+        </div>
+      )}
+    </div>
+  )
+
   const activeRuleName = selectedRuleId === null ? 'Todas' : rules.find((rule) => rule.id === selectedRuleId)?.name ?? 'Todas'
   const activeSourcesCount = sources.filter((source) => source.active).length
   const targetsTooltip =
     targetRows.length === 0
-      ? 'Alvos de preço · nenhum'
-      : `Alvos de preço · ${targetRows.length} ${targetRows.length === 1 ? 'ativo' : 'ativos'}` +
-        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : targetRows.some((row) => row.hit) ? ', alvo atingido' : ', sem oferta nas últimas 24 h')
+      ? 'Preços-alvo · nenhum'
+      : `Preços-alvo · ${targetRows.length} ${targetRows.length === 1 ? 'ativo' : 'ativos'}` +
+        (nearestTargetGapPct !== null ? `, o mais perto falta ${nearestTargetGapPct}%` : targetRows.some((row) => row.hit) ? ', preço-alvo atingido' : ', sem oferta nas últimas 24 h')
 
   const leftStripItems: RailStripItem[] = [
     {
       sectionId: 'feed-rail-targets',
-      label: 'Alvos de preço',
+      label: 'Preços-alvo',
       icon: 'target',
       badge: targetRows.length,
       tooltip: targetsTooltip,
@@ -648,9 +778,9 @@ export function FeedPage() {
     },
     {
       sectionId: 'feed-rail-sources',
-      label: 'Fontes',
+      label: 'Grupos',
       icon: 'sources',
-      tooltip: `Fontes · ${activeSourcesCount} ${activeSourcesCount === 1 ? 'ativa' : 'ativas'}`,
+      tooltip: `Grupos · ${activeSourcesCount} ${activeSourcesCount === 1 ? 'ativa' : 'ativas'}`,
     },
   ]
   const rightStripItems: RailStripItem[] = [
@@ -663,7 +793,7 @@ export function FeedPage() {
       label: 'Resumo',
       icon: 'summary',
       badge: summary.matches,
-      tooltip: `Matches · ${summary.matches}`,
+      tooltip: `Ofertas · ${summary.matches}`,
     },
     {
       id: 'summary-sent',
@@ -678,17 +808,23 @@ export function FeedPage() {
           {
             id: 'digest',
             sectionId: 'feed-side-digest',
-            label: 'Digest diário',
+            label: 'Resumo diário',
             icon: 'digest' as const,
-            tooltip: `Digest diário · ${digest.queue_count === 0 ? 'fila vazia' : `${digest.queue_count} na fila`}`,
+            tooltip: `Resumo diário · ${digest.queue_count === 0 ? 'fila vazia' : `${digest.queue_count} na fila`}`,
           },
         ]
       : []),
   ]
 
+  // S25-F1a (A2): no rules and nothing to show — the rails go away and the empty state takes the width.
+  const noRulesWide = !phone && !loading && !error && rulesLoaded && rules.length === 0 && matches.length === 0
+
   return (
     <main className="feed-page">
       <Toast toast={toast} onDismiss={dismiss} />
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
       {deleteDialog}
       {/* S16-01: no gradient/blur band anymore — this repaints the page's
           own background (color-paper + body-wash, same as index.css's
@@ -697,66 +833,120 @@ export function FeedPage() {
           dark strip. Only the bar's own pieces (mascote, cápsula, toolbar,
           tema) carry glass. */}
       <div className="feed-chrome-scrim" aria-hidden="true" />
-      {/* S16-01: "Feed ao vivo · N matches" — compact-only context next to
+      {/* S16-01: "Ofertas ao vivo · N matches" — compact-only context next to
           the mascot disc; the `summary.matches` already shown accessibly
           by "Resumo" below, so this is decorative (aria-hidden). Hides
           itself (FeedPage.css, a `:has()` off `.nav-shell`) the instant the
           navbar grows over it — never a double, unreadable glass surface. */}
       <div className="feed-page__context-capsule plane-glass" aria-hidden="true">
-        Feed ao vivo · {summary.matches} matches
+        Ofertas ao vivo · {summary.matches} ofertas
       </div>
       <div className="feed-page__header">
         <div className="feed-page__title">
-          <h1>Feed ao vivo</h1>
-          <p className="feed-page__subtitle">Ofertas encontradas pelas suas regras, em tempo real.</p>
+          <h1>{isPhone ? 'Ofertas' : 'Ofertas ao vivo'}</h1>
+          <p className="feed-page__subtitle">
+            {isPhone ? 'Encontradas pelas suas regras, em tempo real.' : 'Ofertas encontradas pelas suas regras, em tempo real.'}
+          </p>
         </div>
-        {/* S16-01: one glass capsule, three segments — SSE / Agrupar / Atualizar
-            used to be three separate dark buttons. It's the same element at
-            rest (here, end of the title row) and docked into the band once
-            compact (FeedPage.css + chrome/scrollChrome.ts's FLIP already
-            wired to this ref — only its geometry changed, not the engine). */}
-        <div ref={headerActionsRef} className="feed-page__header-actions plane-glass">
-          <span
-            className="feed-page__toolbar-segment feed-page__toolbar-status"
-            role="status"
-            style={{ color: connectionLabel.color }}
-          >
-            <span className="feed-page__connection-dot" style={{ background: connectionLabel.dot }} />
-            {connectionLabel.label}
-          </span>
-          {feedSettings !== null && (
-            <button
-              type="button"
-              className="feed-page__toolbar-segment feed-page__toolbar-switch"
-              role="switch"
-              aria-checked={feedSettings.group_duplicates}
-              onClick={handleToggleGroupDuplicates}
-            >
-              Agrupar duplicatas
-              <span
-                className={feedSettings.group_duplicates ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}
-                aria-hidden="true"
-              >
-                <span className="feed-toggle-switch__knob" />
-              </span>
-            </button>
-          )}
-          <button type="button" className="feed-page__toolbar-segment feed-page__toolbar-refresh" onClick={refresh}>
-            <span aria-hidden="true">↻</span> Atualizar
-          </button>
-        </div>
+        {(loading || error || noRulesWide) && liveBlock}
       </div>
 
+      {isPhone && (
+        <FeedMobileTop
+          rules={rules}
+          ruleCounts={ruleCounts}
+          totalCount={matches.length}
+          matchIds={matchIds}
+          loading={loading}
+          selectedRuleId={selectedRuleId}
+          onSelectRule={setSelectedRuleId}
+          snoozes={snoozes}
+          snoozeRemaining={(snooze) => formatSnoozeRemaining(snooze.until, new Date())}
+          onReactivate={handleReactivateSnooze}
+          groupDuplicates={feedSettings === null ? null : feedSettings.group_duplicates}
+          onToggleGroupDuplicates={handleToggleGroupDuplicates}
+          onRefresh={refresh}
+          targetsCount={targetRows.length}
+          targets={
+            <>
+              {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum preço-alvo definido ainda.</p>}
+              <div className="feed-rail__list">
+                {targetRows.map(({ rule, latestPriceCents, hit, gapPct, progressPct }) => (
+                  <div key={rule.id} className="feed-target">
+                    <div className="feed-target__head">
+                      <span className="feed-target__name">{rule.name}</span>
+                      <span className={hit ? 'feed-target__status feed-target__status--hit' : 'feed-target__status'}>
+                        {hit ? 'atingido' : gapPct === null ? 'sem oferta' : `falta ${gapPct}%`}
+                      </span>
+                    </div>
+                    <div className="feed-target__bar">
+                      <div
+                        className={hit ? 'feed-target__bar-fill feed-target__bar-fill--hit' : 'feed-target__bar-fill'}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <div className="feed-target__foot">
+                      <span>preço-alvo {formatCurrency(rule.target_price_cents as number)}</span>
+                      {latestPriceCents !== null ? (
+                        <span>{formatCurrency(latestPriceCents)}</span>
+                      ) : (
+                        <span className="feed-target__foot-muted">últimas 24 h</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          }
+          sourcesCount={sources.length}
+          sourcesList={
+            <div className="feed-rail__sources">
+              {sources.map((source) => (
+                <div key={source.id} className="feed-rail__source">
+                  <span>{source.name}</span>
+                  <span
+                    className="feed-rail__status"
+                    style={{ color: source.active ? 'var(--plane-status-good)' : 'var(--plane-status-neutral)' }}
+                  >
+                    <span
+                      className="feed-rail__status-dot"
+                      style={{
+                        background: source.active ? 'var(--plane-status-good-dot)' : 'var(--plane-status-neutral-dot)',
+                      }}
+                    />
+                    {source.active ? 'ativa' : 'inativa'}
+                  </span>
+                </div>
+              ))}
+              {sources.length === 0 && <p className="feed-rail__empty">Nenhum grupo cadastrado.</p>}
+            </div>
+          }
+        />
+      )}
       <SetupBanner />
+      <FirstTimeTip id="feed">
+        As ofertas mostram, em tempo real, as promoções que batem com as suas regras. Abra um card para ver o histórico de
+        preço do produto.
+      </FirstTimeTip>
 
-      {loading && <p>Carregando…</p>}
+      {connectionState === 'error' && !loading && <ConnectionLostNotice onRetry={refresh} />}
+      {loading &&
+        (phone ? (
+          <div className="feed-skeleton" aria-busy="true" aria-label="Carregando ofertas">
+            <div className="feed-skeleton__card" />
+            <div className="feed-skeleton__card" />
+          </div>
+        ) : (
+          <FeedLoadingSkeleton />
+        ))}
+      {noRulesWide && <NoRulesWide />}
       {error && (
         <p role="alert" className="feed-page__error">
           {error}
         </p>
       )}
 
-      {!loading && !error && (
+      {!loading && !error && !noRulesWide && (
         <div className="product-panel-layout" data-panel-phase={panel.phase}>
           <div className="product-panel-layout__content">
         <div
@@ -790,8 +980,8 @@ export function FeedPage() {
               </button>
             )}
             <div id="feed-rail-targets">
-              <div className="feed-rail__eyebrow">Alvos de preço</div>
-              {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum alvo definido ainda.</p>}
+              <div className="feed-rail__eyebrow">Preços-alvo</div>
+              {targetRows.length === 0 && <p className="feed-rail__empty">Nenhum preço-alvo definido ainda.</p>}
               <div className="feed-rail__list">
                 {targetRows.map(({ rule, latestPriceCents, hit, gapPct, progressPct }) => (
                   <div
@@ -815,7 +1005,7 @@ export function FeedPage() {
                       />
                     </div>
                     <div className="feed-target__foot">
-                      <span>alvo {formatCurrency(rule.target_price_cents as number)}</span>
+                      <span>preço-alvo {formatCurrency(rule.target_price_cents as number)}</span>
                       {latestPriceCents !== null ? (
                         <span>{formatCurrency(latestPriceCents)}</span>
                       ) : (
@@ -903,7 +1093,7 @@ export function FeedPage() {
             </div>
             <div className="feed-rail__divider" />
             <div id="feed-rail-sources">
-              <div className="feed-rail__eyebrow">Fontes</div>
+              <div className="feed-rail__eyebrow">Grupos</div>
               <div className="feed-rail__sources">
                 {sources.map((source) => (
                   <div key={source.id} className="feed-rail__source">
@@ -924,11 +1114,13 @@ export function FeedPage() {
                     </span>
                   </div>
                 ))}
-                {sources.length === 0 && <p className="feed-rail__empty">Nenhuma fonte cadastrada.</p>}
+                {sources.length === 0 && <p className="feed-rail__empty">Nenhum grupo cadastrado.</p>}
               </div>
             </div>
             </div>
           </aside>
+
+          {!isPhone && <DesktopNewOffers matchIds={matchIds} loading={loading} />}
 
           <FeedMatchList
             visibleMatches={visibleMatches}
@@ -945,6 +1137,16 @@ export function FeedPage() {
           />
 
           <div ref={rightRailRef} id="feed-rail-right" className="feed-page__side-rail">
+            {/* S16-01 → S25-F2 (B1): one glass block with "Ao vivo", "Atualizar" and
+                "Agrupar duplicatas". It lives at the top of the right rail at
+                rest; once the chrome is compact it is the same element docked
+                in the top band (FeedPage.css + chrome/scrollChrome.ts's FLIP
+                on this ref). Its slot keeps the rail from jumping: the slot's
+                height springs to 0 as the block leaves. */}
+            <div ref={liveSlotRef} className="feed-live-slot">
+              {liveBlock}
+            </div>
+
             {/* S15-07: "Resumo" is the box that folds into the strip; the two
                 boxes below it fold up into it first (`.feed-side__more`). */}
             <aside ref={rightMorphRef} id="feed-side-summary" className="plane-glass feed-summary feed-morph">
@@ -972,7 +1174,7 @@ export function FeedPage() {
                   (never "hoje" — the number isn't scoped to today). */}
               <div className="feed-summary__grid">
                 <div className="feed-summary__tile">
-                  <div className="feed-summary__label">Matches</div>
+                  <div className="feed-summary__label">Ofertas</div>
                   <div className="feed-summary__value">{summary.matches}</div>
                 </div>
                 <div className="feed-summary__tile">
@@ -996,13 +1198,18 @@ export function FeedPage() {
             {/* S16-02: "Resumo de hoje" (a separate pearl panel) is gone —
                 the design has no such second panel; its real-data coverage
                 moved into "Resumo" above (Falhas, Menor preço robusto) and
-                into e2e/feed-rails-content.spec.ts. Only "Digest diário"
+                into e2e/feed-rails-content.spec.ts. Only "Resumo diário"
                 still folds up into "Resumo" here. */}
             <div className="feed-side__more" inert={rightCollapsed}>
             <div className="feed-side__more-inner">
             {digest !== null && (
               <aside id="feed-side-digest" className="plane-glass feed-digest">
-                <div className="feed-rail__eyebrow">Digest diário</div>
+                <div className="feed-rail__eyebrow help-inline">
+                  Resumo diário
+                  <HelpTip term="Resumo diário" align="right">
+                    Em vez de vários avisos, você recebe uma mensagem por dia com as melhores ofertas.
+                  </HelpTip>
+                </div>
                 <p className="feed-digest__description">
                   Um resumo por dia com os melhores preços. Alvos atingidos continuam avisando na hora.
                 </p>
@@ -1030,7 +1237,7 @@ export function FeedPage() {
                   </label>
                 </div>
                 {/* S16-02: the two toggles grouped into one bordered block
-                    (design), shorter labels ("Ativar digest"/"Silenciar
+                    (design), shorter labels ("Ativar resumo diário"/"Silenciar
                     pings" — the field above it already says "digest"/"pings
                     individuais" once, no need to repeat in each row). */}
                 <div className="feed-digest__toggles">
@@ -1040,7 +1247,7 @@ export function FeedPage() {
                     aria-pressed={digest.enabled}
                     onClick={() => saveDigest({ enabled: !digest.enabled })}
                   >
-                    <span>Ativar digest</span>
+                    <span>Ativar resumo diário</span>
                     <span className={digest.enabled ? 'feed-toggle-switch feed-toggle-switch--on' : 'feed-toggle-switch'}>
                       <span className="feed-toggle-switch__knob" />
                     </span>
@@ -1076,7 +1283,7 @@ export function FeedPage() {
           </div>
           {panel.phase !== 'closed' && panel.productKey !== null && (() => {
             // S14-08 parte 2 (rodada 2): the panel only knows a
-            // `product_key` — the rule its "Alvo de preço"/"Silenciar"
+            // `product_key` — the rule its "Preço-alvo"/"Silenciar"
             // blocks act on is the product's most-recently-matched match
             // (never the historical minimum or an arbitrary rule), read
             // straight from the live `matches` already loaded here, same as

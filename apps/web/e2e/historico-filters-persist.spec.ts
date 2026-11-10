@@ -65,7 +65,7 @@ test('Histórico filters survive navigating to Feed and back via the navbar, and
 
   await page.goto('/historico')
   await expect(historicoHeading).toBeVisible()
-  await filterForm.getByLabel('Regra').selectOption({ label: `Regra ${tag}` })
+  await filterForm.getByLabel('Regra', { exact: true }).selectOption({ label: `Regra ${tag}` })
   await filterForm.getByLabel('Preço mínimo (R$)').fill('100')
   await filterForm.getByLabel('Ordenar por').selectOption('price_desc')
 
@@ -75,8 +75,8 @@ test('Histórico filters survive navigating to Feed and back via the navbar, and
   // The flow Gabriel described: to the Feed, then back, both via the navbar
   // (never the URL bar) — NavCapsule links `/feed` and `/historico` bare.
   const nav = page.getByRole('navigation', { name: 'Navegação principal' })
-  await nav.getByRole('link', { name: 'Feed' }).click()
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
+  await nav.getByRole('link', { name: 'Ofertas' }).click()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
 
   await nav.getByRole('link', { name: 'Histórico' }).click()
   // Wait for the Histórico page (and its filter form) to actually be back
@@ -84,7 +84,7 @@ test('Histórico filters survive navigating to Feed and back via the navbar, and
   // is a brief moment mid-route-transition where a value check can resolve
   // to something not yet an <input>/<select>.
   await expect(historicoHeading).toBeVisible()
-  await expect(filterForm.getByLabel('Regra')).toHaveValue(String(rule.id))
+  await expect(filterForm.getByLabel('Regra', { exact: true })).toHaveValue(String(rule.id))
   await expect(filterForm.getByLabel('Preço mínimo (R$)')).toHaveValue('100')
   await expect(filterForm.getByLabel('Ordenar por')).toHaveValue('price_desc')
   await expect(page.getByText(expensiveText)).toBeVisible()
@@ -94,7 +94,7 @@ test('Histórico filters survive navigating to Feed and back via the navbar, and
   // component state (a full reload really re-reads sessionStorage).
   await page.reload()
   await expect(historicoHeading).toBeVisible()
-  await expect(filterForm.getByLabel('Regra')).toHaveValue(String(rule.id))
+  await expect(filterForm.getByLabel('Regra', { exact: true })).toHaveValue(String(rule.id))
   await expect(filterForm.getByLabel('Preço mínimo (R$)')).toHaveValue('100')
   await expect(filterForm.getByLabel('Ordenar por')).toHaveValue('price_desc')
   await expect(page.getByText(expensiveText)).toBeVisible()
@@ -102,14 +102,14 @@ test('Histórico filters survive navigating to Feed and back via the navbar, and
 
   // "Limpar filtros" also clears what's saved — a later visit stays empty.
   await filterForm.getByRole('button', { name: 'Limpar filtros' }).click()
-  await expect(filterForm.getByLabel('Regra')).toHaveValue('')
+  await expect(filterForm.getByLabel('Regra', { exact: true })).toHaveValue('')
   await expect(filterForm.getByLabel('Preço mínimo (R$)')).toHaveValue('')
   await expect(page.getByText(cheapText)).toBeVisible()
 
-  await nav.getByRole('link', { name: 'Feed' }).click()
-  await expect(page.getByRole('heading', { name: 'Feed ao vivo' })).toBeVisible()
+  await nav.getByRole('link', { name: 'Ofertas' }).click()
+  await expect(page.getByRole('heading', { name: 'Ofertas ao vivo' })).toBeVisible()
   await nav.getByRole('link', { name: 'Histórico' }).click()
   await expect(historicoHeading).toBeVisible()
-  await expect(filterForm.getByLabel('Regra')).toHaveValue('')
+  await expect(filterForm.getByLabel('Regra', { exact: true })).toHaveValue('')
   await expect(filterForm.getByLabel('Preço mínimo (R$)')).toHaveValue('')
 })

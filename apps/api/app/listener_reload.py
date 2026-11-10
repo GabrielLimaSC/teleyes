@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.config_diff import build_snapshot
 from app.db_retry import retry_when_locked_async
 from app.listener_control import (
     claim_reload,
@@ -98,6 +99,7 @@ class ReloadWorker:
                 rules_loaded=len(rules),
                 recipients_loaded=len(recipients),
                 config_hash=fingerprint,
+                snapshot=build_snapshot(sources, rules, recipients),
                 new_matches=outcome.new_matches,
                 scan_failures=outcome.scan_failures,
                 now=self._now(),

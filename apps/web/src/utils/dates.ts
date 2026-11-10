@@ -151,3 +151,8 @@ export function formatRelativeAgo(iso: string, now: Date = new Date()): string {
   const days = Math.floor(hours / 24)
   return days === 1 ? 'há 1 dia' : `há ${days} dias`
 }
+
+/** The moment `hours` after `from` (date arithmetic lives here, see dates.guard.test). */
+export function addHours(from: Date, hours: number): Date {
+  return new Date(from.getTime() + hours * 3600 * 1000)
+}

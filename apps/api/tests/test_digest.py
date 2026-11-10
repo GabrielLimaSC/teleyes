@@ -29,8 +29,8 @@ from app.pipeline import (
 )
 from models import Delivery, DigestRun, Match, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
 
 SP = ZoneInfo("America/Sao_Paulo")
 

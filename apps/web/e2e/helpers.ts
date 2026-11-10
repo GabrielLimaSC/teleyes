@@ -66,6 +66,15 @@ export async function apiPut<T>(page: Page, path: string, csrfToken: string, dat
  * 1100px)`), but the fold itself isn't gated by viewport width.
  */
 export async function clickRuleFilter(page: Page, name: string | RegExp): Promise<void> {
+  // S26-c: on a phone (<= 640px) the rail is gone; the rule filter is a bottom sheet
+  // opened by the "Filtro" button at the top of the Feed (FeedMobileTop).
+  const viewport = page.viewportSize()
+  if (viewport !== null && viewport.width <= 640) {
+    await page.locator('.feed-mobile-top__filter').click()
+    await page.locator('.feed-mobile-sheet').getByRole('button', { name }).click()
+    await page.locator('.feed-mobile-sheet').waitFor({ state: 'hidden' })
+    return
+  }
   // Waits for the rail's own data (rules) to have rendered at all, so an
   // `isVisible()` check right after `page.goto` never reads a false
   // negative from a still-loading rail.
@@ -99,4 +108,29 @@ export async function clickRuleFilter(page: Page, name: string | RegExp): Promis
 export async function clickRowMenuItem(page: Page, row: Locator, name: string): Promise<void> {
   await row.getByRole('button', { name: /^Mais ações da regra/ }).click()
   await page.getByRole('menuitem', { name, exact: true }).click()
+}
+
+/**
+ * S23-02: deletes the matches whose source name contains `sourceFragment`, so a
+ * spec that seeds matches (a11y, keyboard) leaves the shared e2e backend's feed
+ * as empty as it found it: feed.spec/states.spec assume "Nenhuma oferta ainda.".
+ */
+export async function deleteMatchesFrom(page: Page, sourceFragment: string): Promise<void> {
+  await page.goto('/')
+  const csrfToken = await apiLogin(page)
+  await page.evaluate(
+    async ({ fragment, token }) => {
+      const sources = (await (await fetch('/sources', { credentials: 'same-origin' })).json()) as { id: number; name: string }[]
+      const ids = new Set(sources.filter((source) => source.name.includes(fragment)).map((source) => source.id))
+      const matches = (await (await fetch('/matches', { credentials: 'same-origin' })).json()) as { id: number; source_id: number }[]
+      for (const match of matches.filter((item) => ids.has(item.source_id))) {
+        await fetch(`/matches/${match.id}`, {
+          method: 'DELETE',
+          headers: { 'x-csrf-token': token },
+          credentials: 'same-origin',
+        })
+      }
+    },
+    { fragment: sourceFragment, token: csrfToken },
+  )
 }

@@ -10,6 +10,8 @@ export interface Purchase {
   store: string | null
   product_key: string | null
   rule_id: number | null
+  reference_price_cents: number | null
+  reference_note: string | null
   created_at: string
 }
 
@@ -20,6 +22,9 @@ export interface PurchaseInput {
   store: string | null
   product_key: string | null
   rule_id: number | null
+  /** S22-01: typed by the user; not a price the teleyes saw. */
+  reference_price_cents?: number | null
+  reference_note?: string | null
 }
 
 export interface ItemSavings {
@@ -40,6 +45,14 @@ export interface ItemSavings {
   saving_vs_usual_pct: number | null
 }
 
+/** S22-01: a price reference typed by the user. Only present without teleyes history. */
+export interface ItemReference {
+  price_cents: number
+  note: string | null
+  saving_cents: number
+  pct: number | null
+}
+
 export interface ReportItem {
   id: number
   name: string
@@ -47,11 +60,16 @@ export interface ReportItem {
   price_cents: number
   purchased_at: string
   linked: boolean
+  /** How the history is found (S22-01); `link_label` is the rule name. */
+  link_kind?: 'product' | 'rule' | null
+  link_label?: string | null
   days_before_black_friday: number
   /** `null` for a purchase with no product/rule link: only the amount paid. */
   savings: ItemSavings | null
   /** Saving of this purchase / goal amount in % (negative when overpaid); `null` without goal or history. */
   share_of_goal?: number | null
+  /** The user's own reference; kept apart from `savings` (the teleyes estimate). */
+  reference?: ItemReference | null
 }
 
 export interface ReportTotals {
@@ -61,6 +79,9 @@ export interface ReportTotals {
   estimated_saving_cents: number
   reference_total_cents: number
   estimated_saving_pct: number | null
+  /** Saving against the user's own references; never added to `estimated_saving_cents`. */
+  reference_saving_cents?: number
+  reference_purchases?: number
 }
 
 export interface BlackFridaySummary {

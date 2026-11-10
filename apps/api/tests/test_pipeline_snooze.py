@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.pipeline import IncomingMessage, ProcessResult, build_match_event, process_message
 from models import Delivery, Match, Recipient, Rule, Snooze, Source
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 PALIT = "Placa de Vídeo Palit RTX 5070 Ti 16GB\n\nR$ 5.749,00 no pix\nhttps://x.example/1"
 NOW = datetime(2026, 9, 23, 12, 0, tzinfo=UTC)
@@ -184,3 +184,36 @@ async def test_a_price_above_target_stays_snoozed(session: Session) -> None:
     assert result.reason == "snoozed"
     assert result.match is not None
     assert session.scalar(select(Delivery).where(Delivery.match_id == result.match.id)) is None
+
+
+# --- S25-F4: "Até reativar" is just a snooze that never expires ---------------
+
+INDEFINITE = datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
+
+
+async def test_an_indefinite_snooze_silences_the_delivery(session: Session) -> None:
+    source, rule, recipient = _seed(session)
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=INDEFINITE))
+    session.commit()
+
+    result = await _run(session, source, rule, recipient)
+    session.commit()
+
+    assert result.reason == "snoozed"
+    assert result.deliveries_sent == 0
+    assert result.match is not None  # still persisted
+
+
+async def test_a_target_hit_still_delivers_through_an_indefinite_snooze(
+    session: Session,
+) -> None:
+    source, rule, recipient = _seed(session)
+    rule.target_price_cents = 574_900
+    session.add(Snooze(scope="rule", rule_id=rule.id, until=INDEFINITE))
+    session.commit()
+
+    result = await _run(session, source, rule, recipient)
+    session.commit()
+
+    assert result.target_hit is True
+    assert result.deliveries_sent == 1

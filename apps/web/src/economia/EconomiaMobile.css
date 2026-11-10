@@ -1,0 +1,313 @@
+/* S24-04c: phone layout of Economia. Only rendered at <= 640px (PHONE_QUERY). */
+.eco-m__hero,
+.eco-m__tile,
+.eco-m__noise,
+.eco-m__item {
+  padding: 16px;
+  min-width: 0;
+}
+
+.eco-m__hero,
+.eco-m__pair,
+.eco-m__section,
+.eco-m__noise {
+  margin-bottom: 14px;
+}
+
+.eco-m__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--plane-text-secondary);
+}
+
+.eco-m__big {
+  margin-top: 6px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.eco-m__badge {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.eco-m__pairs,
+.eco-m__noisegrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0 0;
+}
+
+.eco-m__pairs dt,
+.eco-m__noisegrid dt {
+  font-size: 12px;
+  color: var(--plane-text-secondary);
+}
+
+.eco-m__pairs dd,
+.eco-m__noisegrid dd {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.eco-m__noisegrid dd.eco-m__sub {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.eco-m__ref {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--plane-text-secondary);
+}
+
+.eco-m__how {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.eco-m__how summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+}
+
+.eco-m__how p {
+  margin: 0 0 4px;
+  line-height: 1.5;
+}
+
+.eco-m__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.eco-m__tilehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eco-m__value {
+  margin: 4px 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+  overflow-wrap: anywhere;
+}
+
+.eco-m__sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.eco-m__link {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  color: var(--plane-text-eyebrow);
+  cursor: pointer;
+}
+
+.eco-m__section h2,
+.eco-m__noise h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--plane-text-heading);
+}
+
+.eco-m__legend {
+  display: flex;
+  gap: 14px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.eco-m__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eco-m__lg--range {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--plane-status-neutral-dot);
+}
+
+.eco-m__lg--median {
+  width: 2px;
+  height: 12px;
+  background: var(--plane-text-secondary);
+}
+
+.eco-m__lg--paid {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--plane-status-good-dot);
+}
+
+.eco-m__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eco-m__itemhead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.eco-m__itemname {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eco-m__itemname strong {
+  color: var(--plane-text-heading);
+  overflow-wrap: anywhere;
+}
+
+.eco-m__itemname span {
+  font-size: 12px;
+  color: var(--plane-text-helper);
+}
+
+.eco-m__paid {
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--plane-text-heading);
+}
+
+.eco-m__range {
+  margin: 12px 0;
+}
+
+.eco-m__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eco-m__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eco-m__actions .economia-pill {
+  min-height: 44px;
+}
+
+.eco-m__share {
+  font-size: 12.5px;
+  color: var(--plane-text-secondary);
+}
+
+/* sheets */
+.eco-m__sheetnote {
+  margin: 0;
+  padding: 0 16px 8px;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+.eco-m__danger {
+  width: calc(100% - 32px);
+  min-height: 44px;
+  margin: 0 16px 16px;
+}
+
+.economia-form--embedded,
+.economia-goal-dialog--sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 16px 16px;
+}
+
+.economia-form--embedded input,
+.economia-goal-dialog--sheet input {
+  min-height: 44px;
+}
+
+.economia-goal-dialog--sheet label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.economia-goal-dialog--sheet input {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--plane-input-border-color);
+  background: var(--plane-input-bg);
+  color: var(--plane-text-primary);
+}
+
+.economia-goal-dialog--sheet .confirm-dialog__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.economia-goal-dialog--sheet .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.economia-card-panel--embedded {
+  padding: 4px 16px 16px;
+}
+
+.eco-m__invite,
+.eco-m__goalinvite {
+  padding: 16px;
+  margin-bottom: 14px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.eco-m__invite h2 { margin: 0; font-size: 18px; }
+.eco-m__invite p,
+.eco-m__goalinvite p { margin: 0; color: var(--plane-text-secondary); font-size: 14px; }
+.eco-m__invite-actions { display: grid; gap: 8px; width: 100%; }
+.eco-m__invite-actions .plane-action { min-height: 44px; justify-content: center; }
+.eco-m__goalinvite .plane-action { min-height: 44px; }
+.eco-m__pair--single { grid-template-columns: 1fr; }

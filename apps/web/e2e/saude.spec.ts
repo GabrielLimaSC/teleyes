@@ -54,8 +54,8 @@ test('saude summary shows the real totals from the API (S11-06)', async ({ page 
     await expect(stat(label).locator('dd')).toHaveText(/^\d/)
     return Number((await stat(label).locator('dd').innerText()).replace(/\D/g, ''))
   }
-  const shownSources = await shown('Fontes ativas')
-  const shownMatches = await shown('Matches gerados')
+  const shownSources = await shown('Grupos ativos')
+  const shownMatches = await shown('Ofertas encontradas')
   const after = await readTotals()
   expect(shownSources).toBeGreaterThanOrEqual(before.sources)
   expect(shownSources).toBeLessThanOrEqual(after.sources)
@@ -77,12 +77,12 @@ test('saude v2 shows the verdict, five service cards with 24 bars and the collec
 
   const cards = page.locator('.saude-service')
   await expect(cards).toHaveCount(5)
-  for (const name of ['Telegram', 'Bot', 'Listener', 'Feed (SSE)', 'Banco']) {
+  for (const name of ['Telegram', 'Bot', 'Leitor do Telegram', 'Atualização ao vivo', 'Banco']) {
     await expect(cards.filter({ has: page.getByRole('heading', { name, exact: true }) })).toHaveCount(1)
     await expect(cards.filter({ has: page.getByRole('heading', { name, exact: true }) }).locator('.saude-bar')).toHaveCount(24)
   }
   await expect(page.getByRole('heading', { name: 'Coletor' })).toBeVisible()
-  await expect(page.getByText(/Avaliações por hora · últimas 24h/)).toBeVisible()
+  await expect(page.getByText(/Mensagens analisadas por hora · últimas 24h/)).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Eventos recentes' })).toBeVisible()
 })
 

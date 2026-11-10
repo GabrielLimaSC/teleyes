@@ -90,6 +90,13 @@ test('saving something shows the demo message and nothing changes', async ({ pag
   await expect(row.getByRole('switch', { name: 'ativa' })).toBeVisible()
 })
 
+test('the rule preview answers from the fixtures, without the demo toast (S23-09)', async ({ page }) => {
+  await page.goto('regras')
+  await page.getByRole('button', { name: 'SSD', exact: true }).click()
+  await expect(page.getByTestId('rule-preview')).toContainText(/nos últimos \d+ dias/)
+  await expect(page.locator('.toast')).toHaveCount(0)
+})
+
 for (const width of [390, 1440]) {
   test(`no horizontal scroll at ${width}px on every page`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })

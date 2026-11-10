@@ -6,12 +6,22 @@ caller today is `app.pipeline.process_message`, right before it would
 otherwise create or enqueue a `Delivery`.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.utc import ensure_utc
 from models import Snooze
+
+# S25-F4 "Até reativar": no schema change and no special-casing in any
+# `until > now` query — an indefinite snooze is just one whose `until` is this
+# far-away sentinel. Only "Reativar" (DELETE /snoozes/{id}) ends it.
+SNOOZE_INDEFINITE_UNTIL = datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
+
+
+def is_indefinite(until: datetime) -> bool:
+    return ensure_utc(until) >= SNOOZE_INDEFINITE_UNTIL
 
 
 def is_snoozed(

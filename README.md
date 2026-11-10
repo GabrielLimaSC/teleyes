@@ -4,15 +4,33 @@
 
 [![CI](https://github.com/GabrielLimaSC/teleyes/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielLimaSC/teleyes/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/GabrielLimaSC/teleyes?include_prereleases&sort=semver)](https://github.com/GabrielLimaSC/teleyes/releases)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/typescript-React%20%2B%20Vite-3178C6?logo=typescript&logoColor=white)
 
+teleyes reads the Telegram groups your account can already see, applies rules you write in plain terms
+(include words, exclude words, a maximum price, a target price), removes duplicates, stores only the matches and
+sends a private alert through your own bot. Matching is deterministic and explainable, not an AI guessing what
+a good deal is. It is a single-admin tool you run on your own machine with Docker; the dashboard (in Brazilian
+Portuguese) shows the live feed, price history, your savings and the health of the system.
+
 ![teleyes dashboard demo: live feed, product price chart, rules and dark/light theme](docs/media/demo.gif)
 
-<!-- TODO(author): add promo video link -->
+https://github.com/user-attachments/assets/de032e68-7cd9-45b5-98cf-49478bab3c65
 
-> The GIF is recorded from the [demo stack](#try-the-demo-in-one-command): every store, product, price and
-> group in it is fictional. The dashboard is in Brazilian Portuguese (see [Features](#features)).
+> Everything in the GIF and the screenshots comes from the [demo stack](#try-the-demo-in-one-command): every
+> store, product, price and group is fictional.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/feed.png" alt="Ofertas: live feed of matches with price badges"></td>
+    <td><img src="docs/screenshots/regras.png" alt="Regras: rules table with price ceiling, target and recipient"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/fontes.png" alt="Grupos: per-group activity over the last 7 days"></td>
+    <td><img src="docs/screenshots/saude.png" alt="Saude: listener, notifier, database and event log"></td>
+  </tr>
+</table>
 
 ## Live demo
 
@@ -94,27 +112,36 @@ Two processes share one SQLite file: the **listener** (Telethon session, rules, 
 
 ## Features
 
-- Live feed over SSE, with price-target cards pinned and "Apply rules" that reloads the listener without a
+The interface is in Brazilian Portuguese; the names below are the ones you see on screen.
+
+- **Ofertas (live feed).** Matches appear over SSE as the listener finds them, with price badges (cash vs
+  card price, lowest price seen, target hit). Target hits from the last 24 hours are pinned. Duplicates of
+  the same product and price across groups can be grouped. "Aplicar regras" reloads the listener without a
   restart.
-- Rules with include/exclude terms, price ceiling and price target, plus a rule tester.
-- Match history with filters and CSV export.
-- A per-product price chart and per-rule price history (in each rule's expanded row).
-- Per-recipient delivery settings: all rules or a chosen subset, target hits and/or common offers, with an
-  estimated alerts-per-week preview.
-- Snooze for a product, and an optional daily digest instead of immediate alerts (target hits still alert
-  immediately).
-- Savings report: register what you actually bought and see an honest estimate against the prices the app itself saw
-  (median of the 90 days before the purchase, "no data" when history is thin), plus a shareable results card
-  (PNG + aggregates JSON) that never includes group names, messages or links. An optional savings goal shows
-  your progress.
-- Overview page, and a Sources page with per-group activity over the last 7 days.
-- Retry of failed alert deliveries (recent failures are resent, never duplicated).
-- Health page: listener, notifier, event feed and database state, with 24 h uptime history and collector
-  throughput, reporting `not_configured` honestly when credentials are missing.
-- Automatic SQLite backups, with a documented restore.
-- Dark and light themes.
-- Dashboard UI in Brazilian Portuguese (pt-BR). That is the current version's language, not a hard limit:
-  translations (i18n) are welcome as a contribution.
+- **Regras (rules).** Include and exclude terms, a **Preço máximo** (price ceiling) and a **Preço-alvo**
+  (target: "alert me at or below this"), a pause switch, an expandable 30-day history per rule and a rule
+  tester that runs against your stored history before you save.
+- **Modelos de regra.** Start from a template (for example "RTX 5070 up to R$ X") in a simple mode, and switch
+  to the advanced mode when you need `+` (all words, any order) or exclusions. A live preview shows what the
+  rule would have matched.
+- **Destinatário por regra.** Each rule can alert all recipients or a chosen one; each recipient chooses
+  target hits only or all offers, with an estimated alerts-per-week preview.
+- **Resumo diário.** An optional daily digest instead of immediate alerts (target hits still alert at once),
+  and snooze for a product.
+- **Histórico.** Every match with filters, search by product, a per-product price chart (lowest, average,
+  highest) and CSV export.
+- **Economia (savings).** Register what you actually bought and see an honest estimate against the prices the
+  app itself saw (median of the 90 days before the purchase, "no data" when history is thin), an optional
+  savings goal, and a shareable results card (PNG and aggregates JSON) that never includes group names,
+  messages or links.
+- **Grupos (sources).** Per-group activity for the last 7 days and an "Adicionar fonte" rail.
+- **Saúde (health).** Listener, notifier, event feed and database state, 24 h uptime, hourly collector
+  throughput and an event log. It reports `not_configured` honestly when credentials are missing.
+- **Guided first run.** A setup wizard connects Telegram, the bot, groups and a first rule from the
+  dashboard, a "Comece por aqui" card tracks the three first steps, and empty screens explain what to do next.
+- **Reliability.** Retry of failed alert deliveries (never duplicated), automatic SQLite backups with a
+  documented restore, persistent sessions ("Manter conectado") and dark and light themes.
+- **Language.** The UI is pt-BR today; translations (i18n) are welcome as a contribution.
 
 ## Engineering decisions
 
@@ -138,7 +165,7 @@ Two processes share one SQLite file: the **listener** (Telethon session, rules, 
 - **Honest states.** Without credentials the app still starts and reports `not_configured`; nothing pretends
   to be connected.
 
-## Quick start (self-hosting)
+## Quick start
 
 A five-minute guide for macOS and Linux. Windows works through WSL2 (see the note below).
 
@@ -280,43 +307,64 @@ Environment variables are documented one by one in [`.env.example`](.env.example
 guide (diagnostics, Windows boot automation, the author's production setup) is in
 [`docs/OPERATIONS.md`](docs/OPERATIONS.md), written in Portuguese.
 
-## Security
+## Core library
 
-- Remote access is meant to go through Tailscale Serve (private HTTPS); the app is not designed to be
-  exposed to the public internet.
-- Dashboard login uses an Argon2 password hash and a server-side session in an HttpOnly, Secure,
-  SameSite cookie. Configuration endpoints never return a secret in full.
-- The Telegram session file, API hash and bot token must never reach Git, logs, screenshots or issues.
+The deterministic heart of teleyes lives in [`core/`](core/) as a standalone, installable package, `teleyes-core`.
+It has no database, web framework or Telegram session code, and its only runtime dependency is `httpx`:
+
+- `teleyes_core.rules`: text normalization, price extraction, rule matching, product identity, target prices and deduplication.
+- `teleyes_core.notifications`: Telegram Bot API client, alert formatting and test fakes.
+- `teleyes_core.telegram.links`: builds the original-message link from Telegram protocol IDs.
+
+The app imports it directly (`from teleyes_core.rules.price import ...`). Install it from a checkout with
+`pip install -e ./core`, or from another project with
+`pip install "teleyes-core @ git+https://github.com/GabrielLimaSC/teleyes@<ref>#subdirectory=core"`.
+Its tests run with the rest of the suite (`pytest`) or on their own with `pytest core/tests`.
+
+## Security and privacy
+
+- Self-hosted only. Remote access is meant to go through a private network such as Tailscale Serve; the app is
+  not designed to be exposed to the public internet.
+- Dashboard login uses an Argon2 password hash and a server-side session in an HttpOnly, SameSite cookie, with
+  CSRF protection on writes. Configuration endpoints never return a secret in full.
+- The Telegram session, API hash and bot token live in their own private volume (`0600`), outside the database
+  and its backups, and never reach the logs.
 - The Telegram client is read-only: it never replies, reacts, joins groups or forwards messages.
+- Rejected messages are never stored, only aggregate counters.
+- Before 1.0 the project had a dedicated security review: [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md).
+  The wizard's threat model is in [docs/SECURITY_SETUP.md](docs/SECURITY_SETUP.md).
 
-Details and how to report a vulnerability privately: [SECURITY.md](SECURITY.md).
+Never share a `.session` file, `.env`, database or token. How to report a vulnerability privately:
+[SECURITY.md](SECURITY.md).
 
-## Tests and quality
+## Accessibility
 
-Numbers from a run on 2026-10-21 against a fresh install:
+The panel targets WCAG 2.2 level AA in both themes from phone to desktop width, with an automated axe audit
+and keyboard coverage in CI-run end-to-end specs. What is covered and the known limits:
+[docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
-| Check | Result |
-|---|---|
-| `pytest` | 804 tests passed |
-| `ruff check .` | clean |
-| `mypy .` | clean (170 source files) |
-| `npm run test` (Vitest) | 607 tests passed |
-| `npx tsc -b` | clean |
-| `npm run lint` (Oxlint) | runs; a few existing React warnings, no errors |
-| Playwright (`npm run test:e2e`) | 139 tests in 29 files; run locally against a real backend, not in CI yet |
+## Development and tests
 
-GitHub Actions runs ruff, mypy, pytest, tsc, Oxlint and Vitest on every push and pull request to `dev` and
-`main` ([workflow](.github/workflows/ci.yml)). CI installs Python dependencies pinned by `constraints-ci.txt`
-(the exact versions of a known-green run). To bump them, install without the constraints file on a branch, copy the versions from the green run's `Successfully installed` line, and update the file.
+Full guide: [CONTRIBUTING.md](CONTRIBUTING.md). The documentation index is [docs/README.md](docs/README.md).
 
 ```bash
 # Backend (Python 3.12+)
-python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+python3.12 -m venv .venv && .venv/bin/pip install -e ./core -e ".[dev]"
 .venv/bin/pytest && .venv/bin/ruff check . && .venv/bin/mypy .
 
 # Frontend
-cd apps/web && npm ci && npm run test && npx tsc -b && npm run lint
+cd apps/web && npm ci && npm run test && npx tsc -b && npm run lint && npm run build
+
+# End-to-end (Playwright, starts an isolated backend and the Vite dev server)
+cd apps/web && npx playwright install chromium && npm run test:e2e
 ```
+
+GitHub Actions ([workflow](.github/workflows/ci.yml)) runs on every push and pull request to `dev` and
+`main`: ruff, mypy and pytest; tsc, Oxlint, Vitest and the production build; shellcheck; compose-file
+validation; a build of both Docker images; and a Playwright smoke run (login, feed, rule templates, first run
+and the axe accessibility audit) against a real backend. The wider Playwright suite runs locally. CI installs
+Python dependencies pinned by `constraints-ci.txt` (the versions of a known-green run); to bump them, install
+without the file on a branch and copy the versions from the green run.
 
 ## Tech stack
 
@@ -327,9 +375,8 @@ cd apps/web && npm ci && npm run test && npx tsc -b && npm run lint
 
 ## Roadmap
 
-Honest and undated:
-
-- A savings report built from price history.
+Honest and undated: the first stable release is 1.0.0 (see [CHANGELOG.md](CHANGELOG.md)). Beyond it, UI
+translations are the most welcome contribution.
 
 Out of scope for now: multi-tenant use, channels other than Telegram, automatic replies or reactions in
 groups, public exposure, and fuzzy or ML matching.
@@ -337,6 +384,6 @@ groups, public exposure, and fuzzy or ML matching.
 ## Contributing and license
 
 Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) first and open an issue before anything
-large. More context: [PRODUCT.md](PRODUCT.md), [DESIGN.md](DESIGN.md), [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md).
+large. More context: [PRODUCT.md](PRODUCT.md), [DESIGN.md](DESIGN.md), [docs/](docs/README.md).
 
 Released under the [MIT License](LICENSE).

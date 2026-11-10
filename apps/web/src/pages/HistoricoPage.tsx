@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { useArrival } from '../motion/stagger'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND } from '../components/matchCategory'
@@ -19,15 +20,21 @@ import { updateRule } from '../api/rules'
 import { listSnoozes, reactivateSnooze, snoozeProduct } from '../api/snoozes'
 import type { Match, Recipient, Rule, Snooze, Source } from '../api/types'
 import { formatDateTime, formatMatchedAt, localDateStamp } from '../utils/dates'
+import { csvField } from '../utils/csv'
 import { parseOptionalPriceInput } from '../utils/priceInput'
 import { latestMatchForProduct } from '../utils/productMatch'
 import { useProductPanel } from '../hooks/useProductPanel'
 import { useStableCallback } from '../hooks/useStableCallback'
 import { useDeleteListing } from '../hooks/useDeleteListing'
 import { RowActionsMenu } from '../components/RowActionsMenu'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { useSpringFollow } from '../motion/useSpringFollow'
+import { HistoricoMobileEmpty, HistoricoMobileFilters, MobileHistoricoItem, MOBILE_SORT_OPTIONS, activeFilterChips } from './HistoricoMobile'
+import type { MobileRow } from './HistoricoMobile'
 import { usePersistentFilters } from '../hooks/usePersistentFilters'
 import { useToast } from '../hooks/useToast'
 import { useAuth, CSRF_MISSING_MESSAGE } from '../auth/AuthContext'
+import { EmptyState } from '../components/EmptyState'
 import '../styles/materials.css'
 import '../styles/productPanelLayout.css'
 import '../styles/productOpenTrigger.css'
@@ -158,11 +165,6 @@ function formatPrice(cents: number | null): string {
   return formatCurrency(cents)
 }
 
-function csvField(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
-  return value
-}
-
 /** S11-04: gera o CSV a partir do que já está calculado pra tela — os mesmos
  * textos exibidos (título cortado, nomes de regra/fonte/destinatário, preço +
  * detalhe de preço, status de entrega), não os campos crus da API. A exceção é
@@ -248,14 +250,18 @@ interface HistoricoRow {
  * it (the row only depends on its own data and two stable callbacks). */
 const HistoricoTableRow = memo(function HistoricoTableRow({
   row,
+  index,
   onOpenProduct,
   onRequestDelete,
 }: {
   row: HistoricoRow
+  /** Position when the row arrives (cascade only; never re-read). */
+  index: number
   onOpenProduct: (productKey: string, trigger: HTMLElement) => void
   onRequestDelete: (matchId: number) => void
 }) {
   const category = categorize(row.match.message_text)
+  const arrival = useArrival(index)
   const openProduct = (trigger: HTMLElement) => {
     if (row.productKey !== null) onOpenProduct(row.productKey, trigger)
   }
@@ -273,7 +279,7 @@ const HistoricoTableRow = memo(function HistoricoTableRow({
       <span className="historico-table__title">{row.title}</span>
     )
   return (
-    <div className="historico-table__row">
+    <div className={`historico-table__row ${arrival.className}`.trim()} style={arrival.style}>
       <div className="historico-table__product">
         <span
           className="historico-table__icon"
@@ -364,6 +370,11 @@ const HistoricoTableRow = memo(function HistoricoTableRow({
 
 export function HistoricoPage() {
   const panel = useProductPanel()
+  const phone = useMediaQuery(PHONE_QUERY)
+  // S25-M1: the filter rail trails the scroll on a spring.
+  const railRef = useRef<HTMLFormElement>(null)
+  useSpringFollow(railRef)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const navigate = useNavigate()
   const { csrfToken } = useAuth()
   const { toast, showToast, dismiss } = useToast()
@@ -471,14 +482,14 @@ export function HistoricoPage() {
   }
 
   // S14-08 parte 2 (rodada 2): same `PATCH /rules/{id}` as FeedPage's
-  // `handleSetTarget` and MatchCard's "Definir alvo" — only
+  // `handleSetTarget` and MatchCard's "Definir preço-alvo" — only
   // `target_price_cents` in the body.
   async function handleSetTarget(ruleId: number, targetCents: number) {
     const token = requireCsrf()
     if (token === null) return
     try {
       await updateRule(token, ruleId, { target_price_cents: targetCents })
-      showToast('Alvo de preço salvo.')
+      showToast('Preço-alvo salvo.')
       await loadRules()
       loadMatches()
     } catch (err) {
@@ -546,7 +557,7 @@ export function HistoricoPage() {
         if (match.is_lowest_price_ever) {
           priceDetails.push('Menor já visto')
         } else if (rule?.max_price_cents != null) {
-          priceDetails.push(`Teto ${formatCurrency(rule.max_price_cents)}`)
+          priceDetails.push(`Preço máximo ${formatCurrency(rule.max_price_cents)}`)
         }
         return {
           match,
@@ -597,7 +608,27 @@ export function HistoricoPage() {
     }
   }, [matches])
 
-  const exportCsv = () => downloadCsv(buildCsv(rows))
+  const chips = useMemo(() => activeFilterChips(form, rules, sources, recipients), [form, rules, sources, recipients])
+  const mobileRows: MobileRow[] = useMemo(
+    () =>
+      rows.map((row) => ({
+        id: row.match.id,
+        title: row.title,
+        productKey: row.productKey,
+        priceText: row.priceText,
+        priceDetails: row.priceDetails,
+        ruleName: row.ruleName,
+        sourceName: row.sourceName,
+        time: row.time,
+        link: row.match.message_link,
+        deliveries: row.match.deliveries,
+        deliveryLabel: row.deliveryLabel,
+        recipientNames: row.recipientNames,
+      })),
+    [rows],
+  )
+
+  const exportCsv =() => downloadCsv(buildCsv(rows))
 
   // S14-13: inline pt-BR error for an unparseable, non-blank price filter —
   // `toApiFilters` already drops it from the query instead of sending `NaN`,
@@ -612,10 +643,123 @@ export function HistoricoPage() {
   const panelMatch = panel.productKey !== null ? latestMatchForProduct(matches, panel.productKey) : null
   const panelRule = panelMatch ? rules.find((rule) => rule.id === panelMatch.rule_id) : undefined
 
+  // S23-04: an empty list with no filter on means "nothing captured yet" (teach),
+  // not "your filters match nothing" (the plain message below).
+  const hasActiveFilters = Object.keys(toApiFilters({ ...form, search: appliedSearch })).some((key) => key !== 'sort')
+
+  const nothingYet = !loading && !error && matches.length === 0 && !hasActiveFilters
+
+  // S25-F1b: the unfiltered total, remembered from the last load with no filter
+  // (null when the page opened already filtered: no extra request just for this).
+  const [totalUnfiltered, setTotalUnfiltered] = useState<number | null>(null)
+  useEffect(() => {
+    if (!loading && !error && !hasActiveFilters) setTotalUnfiltered(matches.length)
+  }, [loading, error, hasActiveFilters, matches.length])
+
+  const hasPriceRange = form.minPriceReais.trim() !== '' || form.maxPriceReais.trim() !== ''
+  const filterChips: { key: string; label: string; clear: () => void }[] = []
+  if (appliedSearch.trim() !== '' || form.search.trim() !== '') {
+    filterChips.push({ key: 'search', label: `“${(appliedSearch || form.search).trim()}”`, clear: () => updateField('search')('') })
+  }
+  const ruleName = rules.find((rule) => String(rule.id) === form.ruleId)?.name
+  if (form.ruleId !== '') filterChips.push({ key: 'rule', label: `Regra: ${ruleName ?? form.ruleId}`, clear: () => updateField('ruleId')('') })
+  const sourceName = sources.find((source) => String(source.id) === form.sourceId)?.name
+  if (form.sourceId !== '') filterChips.push({ key: 'source', label: `Grupo: ${sourceName ?? form.sourceId}`, clear: () => updateField('sourceId')('') })
+  const recipientName = recipients.find((recipient) => String(recipient.id) === form.recipientId)?.name
+  if (form.recipientId !== '') filterChips.push({ key: 'recipient', label: `Para: ${recipientName ?? form.recipientId}`, clear: () => updateField('recipientId')('') })
+  if (form.deliveryStatus !== '') {
+    const label = DELIVERY_STATUS_OPTIONS.find((option) => option.value === form.deliveryStatus)?.label ?? form.deliveryStatus
+    filterChips.push({ key: 'delivery', label: `Entrega: ${label.toLowerCase()}`, clear: () => updateField('deliveryStatus')('') })
+  }
+  if (hasPriceRange) {
+    const range = [form.minPriceReais.trim() || '0', form.maxPriceReais.trim() || '∞'].join('–')
+    filterChips.push({
+      key: 'price',
+      label: `R$ ${range}`,
+      clear: () => {
+        updateField('minPriceReais')('')
+        updateField('maxPriceReais')('')
+      },
+    })
+  }
+
   return (
     <main className="historico-page">
       <Toast toast={toast} onDismiss={dismiss} />
       {deleteDialog}
+      {phone ? (
+        <>
+          <div className="historico-page__header hist-m__head">
+            <div>
+              <h1>Histórico</h1>
+              <p className="historico-page__subtitle">
+                {hasActiveFilters && matches.length === 0 && totalUnfiltered !== null
+                  ? `${totalUnfiltered} ${totalUnfiltered === 1 ? 'anúncio' : 'anúncios'} · 0 com os filtros`
+                  : `${matches.length} ${matches.length === 1 ? 'anúncio' : 'anúncios'} · últimos 90 dias`}
+              </p>
+            </div>
+            <button type="button" className="plane-action plane-action--secondary" onClick={exportCsv} disabled={rows.length === 0 || nothingYet}>
+              CSV ↓
+            </button>
+          </div>
+          <div className="hist-m__tools">
+            <input
+              type="search"
+              className="hist-m__search"
+              aria-label="Buscar produto"
+              placeholder="Buscar produto"
+              maxLength={200}
+              disabled={nothingYet}
+              autoComplete="off"
+              value={form.search}
+              onChange={(event) => updateField('search')(event.target.value)}
+            />
+            <div className="hist-m__bar">
+              <button type="button" className="plane-action plane-action--secondary" onClick={() => setFiltersOpen(true)} disabled={nothingYet}>
+                Filtros{chips.length > 0 ? ` (${chips.length})` : ''}
+              </button>
+              <select
+                className="hist-m__sort"
+                aria-label="Ordenação"
+                disabled={nothingYet}
+                value={form.sort}
+                onChange={(event) => updateField('sort')(event.target.value)}
+              >
+                {MOBILE_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {chips.length > 0 && (
+              <div className="hist-m__chips">
+                {chips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className="hist-m__chip"
+                    aria-label={`Remover filtro ${chip.label}`}
+                    onClick={() => updateField(chip.key)('')}
+                  >
+                    {chip.label} <span aria-hidden="true">✕</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <HistoricoMobileFilters
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
+            form={form}
+            onApply={(next) => setForm((current) => ({ ...current, ...next, search: current.search, sort: current.sort }))}
+            rules={rules}
+            sources={sources}
+            recipients={recipients}
+            toApi={(draft) => toApiFilters({ ...draft, search: appliedSearch, sort: form.sort })}
+          />
+        </>
+      ) : (
       <div className="historico-page__header">
         <div>
           <h1>Histórico</h1>
@@ -628,7 +772,7 @@ export function HistoricoPage() {
             type="button"
             className="plane-action plane-action--secondary"
             onClick={exportCsv}
-            disabled={rows.length === 0}
+            disabled={rows.length === 0 || nothingYet}
           >
             Exportar CSV
           </button>
@@ -637,6 +781,7 @@ export function HistoricoPage() {
           </button>
         </div>
       </div>
+      )}
 
       <div className="product-panel-layout" data-panel-phase={panel.phase}>
       <div className="product-panel-layout__content">
@@ -644,7 +789,8 @@ export function HistoricoPage() {
         {/* S10-07: mesmos campos de filtro de sempre (Regra/Fonte/
             Destinatário/Entrega/Preço/Ordenar por), só restilizados pro
             plano vidro — nenhum campo novo, nenhum removido. */}
-        <form className="plane-glass historico-rail" onSubmit={(event) => event.preventDefault()}>
+        {!phone && (
+        <form ref={railRef} className="plane-glass historico-rail" onSubmit={(event) => event.preventDefault()}>
           <div className="historico-rail__head">
             <span className="historico-rail__eyebrow">Filtros</span>
             {/* S15-06: also clears what's saved — reopening the page (or
@@ -654,6 +800,7 @@ export function HistoricoPage() {
               Limpar filtros
             </button>
           </div>
+          <fieldset className="historico-rail__fields" disabled={nothingYet}>
           <label>
             Buscar produto
             <input
@@ -693,9 +840,9 @@ export function HistoricoPage() {
             </select>
           </label>
           <label>
-            Fonte
+            Grupo
             <select
-              aria-label="Fonte"
+              aria-label="Grupo"
               value={form.sourceId}
               onChange={(event) => updateField('sourceId')(event.target.value)}
             >
@@ -790,7 +937,9 @@ export function HistoricoPage() {
               ))}
             </select>
           </label>
+          </fieldset>
         </form>
+        )}
 
         <div className="historico-page__results">
           {loading && <p>Carregando…</p>}
@@ -801,9 +950,10 @@ export function HistoricoPage() {
           )}
           {!loading && !error && (
             <>
+              {!phone && (
               <div className="historico-stats">
                 <div className="historico-stats__tile">
-                  <div className="historico-stats__label">Matches no período</div>
+                  <div className="historico-stats__label">Ofertas no período</div>
                   <div className="historico-stats__value">{stats.count}</div>
                 </div>
                 <div className="historico-stats__tile">
@@ -823,27 +973,80 @@ export function HistoricoPage() {
                   <div className="historico-stats__value">{stats.deliveriesDone}</div>
                 </div>
               </div>
-
-              {rows.length === 0 && (
-                <p>
-                  {appliedSearch.trim() !== ''
-                    ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou limpe os filtros.`
-                    : 'Nenhum match encontrado com esses filtros.'}
-                </p>
               )}
-              {rows.length > 0 && (
+
+              {rows.length === 0 && !hasActiveFilters && phone && <HistoricoMobileEmpty />}
+              {rows.length === 0 && !hasActiveFilters && !phone && (
+                <EmptyState
+                  title="Nenhum anúncio ainda"
+                  text="Quando uma regra encontrar uma oferta, ela fica registrada aqui por 90 dias, com preço, grupo e para quem foi."
+                  action={{ label: 'Ver regras', to: '/regras' }}
+                />
+              )}
+              {rows.length === 0 && hasActiveFilters && (
+                <div className="historico-noresults motion-item">
+                  {!phone && filterChips.length > 0 && (
+                    <ul className="historico-chips" aria-label="Filtros ativos">
+                      {filterChips.map((chip) => (
+                        <li key={chip.key}>
+                          <button type="button" className="historico-chips__chip" onClick={chip.clear} aria-label={`Remover filtro ${chip.label}`}>
+                            {chip.label} <span aria-hidden="true">✕</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <h3 className="empty-state__title">Nenhum anúncio com esses filtros</h3>
+                  <p className="empty-state__text">
+                    {totalUnfiltered !== null && totalUnfiltered > 0 ? `${totalUnfiltered} anúncios no total. ` : ''}
+                    {hasPriceRange
+                      ? 'Tente tirar a faixa de preço.'
+                      : appliedSearch.trim() !== ''
+                        ? `Nenhum resultado para “${appliedSearch.trim()}”. Confira a grafia ou tire algum filtro.`
+                        : 'Tente tirar algum filtro ou ampliar a busca.'}
+                  </p>
+                  <div className="historico-noresults__actions">
+                    <button type="button" className="plane-action plane-action--secondary" onClick={() => resetForm()}>
+                      Limpar filtros
+                    </button>
+                    {hasPriceRange && (
+                      <button type="button" className="plane-action" onClick={() => {
+                        updateField('minPriceReais')('')
+                        updateField('maxPriceReais')('')
+                      }}>
+                        Tirar faixa de preço
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {rows.length > 0 && phone && (
+                <ul className="hist-m__list">
+                  {mobileRows.map((row, index) => (
+                    <MobileHistoricoItem
+                      key={row.id}
+                      index={index}
+                      row={row}
+                      onOpenProduct={panel.open}
+                      onRequestDelete={stableRequestDeleteMatch}
+                    />
+                  ))}
+                </ul>
+              )}
+              {rows.length > 0 && !phone && (
                 <div className="plane-pearl historico-table">
                   <div className="historico-table__row historico-table__row--head">
                     <span>Produto</span>
-                    <span>Regra · fonte</span>
+                    <span>Regra · grupo</span>
                     <span>Hora</span>
                     <span className="historico-table__cell--right">Preço</span>
                     <span className="historico-table__cell--right">Entrega</span>
                     <span className="historico-table__cell--right">Promoção</span>
                   </div>
-                  {rows.map((row) => (
+                  {rows.map((row, index) => (
                     <HistoricoTableRow
                       key={row.match.id}
+                      index={index}
                       row={row}
                       onOpenProduct={panel.open}
                       onRequestDelete={stableRequestDeleteMatch}

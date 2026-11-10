@@ -1,11 +1,66 @@
-/* Route content stays in the live DOM while this short fade runs. The former
- * native View Transition captured the whole document into a top-layer
- * snapshot: its diagonal polygon stopped before the lower-right corner, and
- * captured navigation links could not receive rapid follow-up clicks. A
- * simple enter fade avoids both failure modes and degrades to a plain swap
- * when motion is reduced. */
-main {
-  animation: teleyes-page-fade 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+/* S25-M1: page changes use the View Transitions API (motion/routeTransition.ts
+ * sets the flag on navigations that change the pathname). A short crossfade of
+ * the page; the navigation bars are named, so they are NOT part of it and stay
+ * where they are.
+ *
+ * The former native transition (S4) was dropped for two defects, handled here:
+ * a clipped diagonal reveal (gone: this is a plain crossfade) and navigation
+ * links that ignored fast follow-up clicks (the pseudo-element tree sits on top
+ * of the page and swallowed them: `pointer-events: none` lets them through).
+ *
+ * Browsers without the API keep the old enter fade of <main> (below). */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(root) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Navigation bars: no snapshot crossfade; the live element (its own active-tab
+ * motion included) is what shows through the transition. */
+::view-transition-group(teleyes-nav),
+::view-transition-group(teleyes-mobile-top),
+::view-transition-group(teleyes-mobile-tabs) {
+  animation: none;
+}
+
+::view-transition-old(teleyes-nav),
+::view-transition-old(teleyes-mobile-top),
+::view-transition-old(teleyes-mobile-tabs) {
+  display: none;
+}
+
+::view-transition-new(teleyes-nav),
+::view-transition-new(teleyes-mobile-top),
+::view-transition-new(teleyes-mobile-tabs) {
+  animation: none;
+}
+
+.nav-capsule {
+  view-transition-name: teleyes-nav;
+}
+
+.mobile-top {
+  view-transition-name: teleyes-mobile-top;
+}
+
+.mobile-tabs {
+  view-transition-name: teleyes-mobile-tabs;
+}
+
+/* Fallback: no View Transitions, a plain fade of the new page. */
+@supports not (view-transition-name: none) {
+  main {
+    animation: teleyes-page-fade 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
 @keyframes teleyes-page-fade {

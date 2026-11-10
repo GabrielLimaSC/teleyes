@@ -102,6 +102,8 @@ class SecretStore:
         if not directory.exists():
             directory.mkdir(parents=True, exist_ok=True, mode=DIR_MODE)
             # mkdir's mode is masked by the umask; make it exact for a directory we made.
+            # DIR_MODE is 0o700 (owner only), the opposite of what the semgrep rule worries about.
+            # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions  # noqa: E501
             os.chmod(directory, DIR_MODE)
 
     def _write(self, data: dict[str, Any]) -> None:

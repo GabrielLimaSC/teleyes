@@ -23,12 +23,13 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
 
   // S11-05: the creation form is a permanent rail, and include terms are
   // chips — Enter or a comma closes one.
-  await page.getByLabel(/Nome/).fill('RTX 5070 E2E')
-  await page.getByLabel(/Termos incluídos/).fill('rtx 5070')
-  await page.getByLabel(/Termos incluídos/).press('Enter')
-  await page.getByLabel(/Termos incluídos/).fill('rtx 5070 super,')
-  await page.getByLabel('Termos bloqueados').fill('usada')
-  await page.getByLabel(/Teto \(R\$\)/).fill('5500')
+  await page.getByLabel('Nome', { exact: true }).fill('RTX 5070 E2E')
+  await page.getByLabel(/O que você procura/).fill('rtx 5070')
+  await page.getByLabel(/O que você procura/).press('Enter')
+  await page.getByLabel(/O que você procura/).fill('rtx 5070 super,')
+  await page.getByRole('button', { name: 'Mais opções' }).click()
+  await page.getByLabel('Termos bloqueados', { exact: true }).fill('usada')
+  await page.getByLabel(/Até quanto você paga/).fill('5500')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   const createdRow = rowByExactName(page, 'RTX 5070 E2E')
@@ -45,7 +46,7 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   await expect(page.getByRole('heading', { name: 'Editar regra' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Remover termo rtx 5070 super' })).toBeVisible()
   await page.getByRole('button', { name: 'Remover termo rtx 5070 super' }).click()
-  await page.getByLabel(/Nome/).fill('RTX 5070 Ti E2E')
+  await page.getByLabel('Nome', { exact: true }).fill('RTX 5070 Ti E2E')
   await page.getByRole('button', { name: 'Salvar alterações' }).click()
   const editedRow = rowByExactName(page, 'RTX 5070 Ti E2E')
   await expect(editedRow).toBeVisible()
@@ -54,7 +55,7 @@ test('creates, edits, duplicates and pauses a rule against the real API', async 
   // duplicate
   await clickRowMenuItem(page, editedRow, 'Duplicar')
   await expect(page.getByRole('heading', { name: 'Nova regra' })).toBeVisible()
-  await expect(page.getByLabel(/Nome/)).toHaveValue('RTX 5070 Ti E2E (cópia)')
+  await expect(page.getByLabel('Nome', { exact: true })).toHaveValue('RTX 5070 Ti E2E (cópia)')
   await page.getByRole('button', { name: 'Criar regra' }).click()
   await expect(rowByExactName(page, 'RTX 5070 Ti E2E (cópia)')).toBeVisible()
 
@@ -70,8 +71,8 @@ test('a term still typed when "Criar regra" is clicked is not lost (S11-05)', as
   await apiLogin(page)
   await page.goto('/regras')
 
-  await page.getByLabel(/Nome/).fill('Termo Pendente E2E')
-  await page.getByLabel(/Termos incluídos/).fill('termopendentee2e')
+  await page.getByLabel('Nome', { exact: true }).fill('Termo Pendente E2E')
+  await page.getByLabel(/O que você procura/).fill('termopendentee2e')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 
   await expect(rowByExactName(page, 'Termo Pendente E2E').locator('.wide-table__terms')).toHaveText(
@@ -122,7 +123,7 @@ test('the "Como uma regra casa" numbers are the real totals from the API (S11-05
   await page.getByRole('button', { name: 'Como uma regra casa' }).click()
   const panel = page.getByRole('dialog', { name: 'Como uma regra casa' })
   await expect(panel.locator('.regras-how__stat', { hasText: 'Casaram' })).toContainText(String(real.matches))
-  await expect(panel.locator('.regras-how__stat', { hasText: 'Descartadas por teto' })).toContainText(
+  await expect(panel.locator('.regras-how__stat', { hasText: 'Descartadas por preço máximo' })).toContainText(
     String(real.ceiling),
   )
   await expect(panel).toContainText('acumulados')
@@ -133,13 +134,13 @@ test('creating a source with a duplicate chat id shows the real 409 as feedback'
   await apiLogin(page)
   await page.goto('/fontes')
 
-  await page.getByRole('button', { name: '+ Nova fonte' }).click()
+  await page.getByRole('button', { name: '+ Novo grupo' }).click()
   await page.getByLabel('Nome').fill('Grupo E2E Conflito')
   await page.getByLabel('Chat ID do Telegram').fill('-100555')
   await page.getByRole('button', { name: 'Salvar' }).click()
   await expect(rowByExactName(page, 'Grupo E2E Conflito')).toBeVisible()
 
-  await page.getByRole('button', { name: '+ Nova fonte' }).click()
+  await page.getByRole('button', { name: '+ Novo grupo' }).click()
   await page.getByLabel('Nome').fill('Outro grupo')
   await page.getByLabel('Chat ID do Telegram').fill('-100555')
   await page.getByRole('button', { name: 'Salvar' }).click()
@@ -227,13 +228,13 @@ test('clears a rule\'s match history against the real API, with a confirmation s
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
   ).toBeVisible()
-  await expect(page.getByText('Isso apaga 1 match desta')).toBeVisible()
+  await expect(page.getByText('Isso apaga 1 oferta desta')).toBeVisible()
 
   await page.getByRole('button', { name: 'Apagar histórico' }).click()
 
   // `.toast`, not the bare `role="status"`: reload()'s own "Carregando
   // regras…" status paragraph is briefly on screen at the same time.
-  await expect(page.locator('.toast')).toHaveText('1 match apagado.×')
+  await expect(page.locator('.toast')).toHaveText('1 oferta apagada.×')
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: RTX 5070 Limpeza E2E' }),
   ).not.toBeVisible()
@@ -260,7 +261,7 @@ test('clearing a rule with no matches shows a toast directly, no confirmation di
   const row = rowByExactName(page, 'Regra Sem Match E2E')
   await clickRowMenuItem(page, row, 'Limpar histórico')
 
-  await expect(page.getByRole('status')).toContainText('Nenhum match encontrado')
+  await expect(page.getByRole('status').filter({ hasText: 'Nenhuma oferta' })).toContainText('Nenhuma oferta encontrada')
   await expect(
     page.getByRole('heading', { name: 'Limpar histórico: Regra Sem Match E2E' }),
   ).not.toBeVisible()
@@ -286,6 +287,10 @@ for (const width of [1280, 1440]) {
     })
     await page.goto('/regras')
 
+    // O esqueleto de carregamento também usa .rules-table-wrap; espera ele sair.
+    await expect(page.locator('.rule-row__title', { hasText: `Placa de vídeo RTX 5070 Ti ${width}` }).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: `Destinatário com nome bem comprido ${width}`, level: 3 })).toBeVisible()
+    await expect(page.getByRole('status', { name: 'Carregando regras' })).toHaveCount(0)
     const wraps = page.locator('.rules-table-wrap, .recipient-card')
     await expect(wraps).not.toHaveCount(0)
     await expect(page.locator('.rules-table-wrap')).toHaveCount(1)
@@ -393,7 +398,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
 
     await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
-    await expect(page.getByLabel(/Nome/)).toHaveValue(title)
+    await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(title)
     await expect(page.getByText(/Sugerido a partir do histórico/)).toBeVisible()
 
     // Scoped to the rail: every row also has its own "Testar" button.
@@ -411,14 +416,16 @@ test('/regras?produto=X prefills and saves at 390px, no clipping (S14-09)', asyn
 
   await page.goto(`/regras?produto=${encodeURIComponent(productKey)}`)
   await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
-  await expect(page.getByLabel(/Nome/)).toHaveValue(title)
+  await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(title)
 
-  // Scoped to the rail: every row also has its own "Testar" button.
-  await page.locator('.regras-form__test-button').click()
-  await expect(page.getByRole('heading', { name: /Testar regra: nova regra/ })).toBeVisible()
+  // The phone has no rail: the form is the "Nova regra" sheet, with its own footer.
+  const sheet = page.getByRole('dialog', { name: 'Nova regra' })
+  await sheet.getByRole('button', { name: 'Testar' }).click()
+  await expect(sheet.getByRole('region', { name: 'Testar regra' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Criar regra' }).click()
-  await expect(rowByExactName(page, title)).toBeVisible()
+  await sheet.getByRole('button', { name: 'Salvar regra' }).click()
+  // Phone renders rules as cards, not table rows.
+  await expect(page.locator('li.rules-m__card', { has: page.getByText(title, { exact: true }) })).toBeVisible()
 
   const [scrollWidth, clientWidth] = await page.evaluate(() => [
     document.documentElement.scrollWidth,
@@ -437,7 +444,7 @@ test('the "Ajustes de entrega" popover shows real digest settings and "Próximo 
   await page.getByRole('button', { name: 'Ajustes de entrega' }).click()
   const panel = page.getByRole('dialog', { name: 'Entrega dos alertas' })
   await expect(panel).toContainText('Próximo envio:')
-  await expect(panel).toContainText('fura o digest e o silêncio')
+  await expect(panel).toContainText('fura o resumo diário e o silêncio')
 
   const topN = panel.getByLabel('Máximo de itens')
   await topN.fill('9')
@@ -459,6 +466,8 @@ test('silencing a rule for 7 days shows "silenciada até" in its status, and Rea
 
   const row = rowByExactName(page, 'Regra Silêncio E2E')
   await clickRowMenuItem(page, row, 'Silenciar')
+  // S25-F4: no desktop "Silenciar" abre um submenu de duração.
+  await page.getByRole('menuitem', { name: 'Por 7 dias', exact: true }).click()
   await expect(row).toContainText('silenciada até')
   await row.getByRole('button', { name: /^Mais ações da regra/ }).click()
   await expect(page.getByRole('menuitem', { name: 'Reativar' })).toBeVisible()

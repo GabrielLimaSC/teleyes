@@ -30,9 +30,10 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.config_diff import build_snapshot
 from app.demo_mode import DEMO_CHAT_PREFIX, DEMO_PASSWORD, DemoNotifier, is_demo_chat_id
 from app.demo_monitoring import seed_monitoring
-from app.listener_control import current_fingerprint
+from app.listener_control import current_fingerprint, load_active_config
 from app.pipeline import IncomingMessage, process_message
 from app.savings import Observation, median
 from app.utc import ensure_utc
@@ -55,9 +56,9 @@ from models import (
 from models.digest_settings import DIGEST_SETTINGS_ID
 from models.listener_control import LISTENER_CONTROL_ID
 from packages.metrics.counters import MetricCounter, MetricReason
-from packages.notifications.formatting import format_price_cents
-from packages.rules.dedupe import DedupeCache
 from repositories import recipient_repo, rule_repo, source_repo
+from teleyes_core.notifications.formatting import format_price_cents
+from teleyes_core.rules.dedupe import DedupeCache
 
 SEED = 20260514
 HISTORY_DAYS = 90
@@ -292,7 +293,8 @@ def plan_events(now: datetime, rng: random.Random) -> list[Event]:
         text, link = message_for(spec, cents, rng, serial, variant=variant)
         events.append(Event(when, spec, source_index, text, link, cents))
         if repost:
-            delay = timedelta(minutes=rng.randint(2, 12), seconds=rng.randint(0, 59))
+            # Same-minute cross-posts, so they group as one alert (S23-11).
+            delay = timedelta(seconds=rng.randint(2, 12) * 4 + rng.randint(0, 59) % 8)
             if when + delay < now - timedelta(minutes=1):
                 serial += 1
                 other = (source_index + rng.randrange(1, len(SOURCE_NAMES))) % len(SOURCE_NAMES)
@@ -562,6 +564,7 @@ def _finish(session: Session, now: datetime, rng: random.Random) -> None:
             last_new_matches=4,
             last_scan_failures=0,
             applied_config_hash=config_hash,
+            applied_snapshot=build_snapshot(*load_active_config(session)),
             listener_seen_at=now,
             updated_at=now,
         )
@@ -582,6 +585,17 @@ PURCHASE_SCRIPT: tuple[tuple[str, int, float, str, str | None], ...] = (
 )
 UNLINKED_PURCHASES: tuple[tuple[int, int, str, str | None], ...] = (
     (33, 4_990, "Cabo HDMI 2.1 (exemplo)", "Mercado Demo"),
+)
+# S22-01: a fictional purchase with a reference typed by the user (no teleyes history).
+REFERENCE_PURCHASES: tuple[tuple[int, int, str, str | None, int, str], ...] = (
+    (
+        23,
+        41_990,
+        "Memória RAM DDR5 32 GB (exemplo)",
+        "Tech Fictícia",
+        52_900,
+        "média em um comparador de preços, 25/10 (exemplo)",
+    ),
 )
 
 
@@ -640,6 +654,19 @@ def _seed_purchases(session: Session, now: datetime) -> None:
                 price_cents=cents,
                 purchased_at=purchased_at,
                 store=store,
+                created_at=purchased_at,
+            )
+        )
+    for days_ago, cents, name, store, reference_cents, note in REFERENCE_PURCHASES:
+        purchased_at = now - timedelta(days=days_ago)
+        session.add(
+            Purchase(
+                name=name,
+                price_cents=cents,
+                purchased_at=purchased_at,
+                store=store,
+                reference_price_cents=reference_cents,
+                reference_note=note,
                 created_at=purchased_at,
             )
         )

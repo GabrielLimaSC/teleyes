@@ -1,5 +1,5 @@
 """S7-11 — mechanism 1: a different source posting the exact same rule+price
-within GROUPING_WINDOW of another match that was already really sent gets
+within ALERT_GROUPING_WINDOW of another match that was already really sent gets
 persisted normally (S6-01 identity intact) but is never re-notified.
 """
 
@@ -8,11 +8,16 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.pipeline import GROUPED_DELIVERY_STATUS, GROUPING_WINDOW, IncomingMessage, process_message
+from app.pipeline import (
+    ALERT_GROUPING_WINDOW,
+    GROUPED_DELIVERY_STATUS,
+    IncomingMessage,
+    process_message,
+)
 from models import Delivery, Match, Recipient, Rule, Source
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 
 def _seed_two_sources(session: Session) -> tuple[Source, Source, Rule, Recipient]:
@@ -57,7 +62,7 @@ async def test_second_source_within_the_window_is_grouped_not_renotified(session
         _msg(
             source_b.id,
             text="RTX 5070 por R$ 4000 no Mercado Livre",
-            minutes_offset=5,
+            minutes_offset=0.5,
             message_id=2,
         ),
         rule,
@@ -99,7 +104,7 @@ async def test_different_price_in_the_same_window_never_groups(session: Session)
         _msg(
             source_b.id,
             text="RTX 5070 por R$ 4200 no Mercado Livre",
-            minutes_offset=5,
+            minutes_offset=0.5,
             message_id=2,
         ),
         rule,
@@ -120,7 +125,7 @@ async def test_outside_the_window_never_groups(session: Session) -> None:
     client = FakeBotClient()
     notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
     dedupe_cache = DedupeCache()
-    past_window_minutes = (GROUPING_WINDOW + timedelta(minutes=1)).total_seconds() / 60
+    past_window_minutes = (ALERT_GROUPING_WINDOW + timedelta(minutes=1)).total_seconds() / 60
 
     await process_message(
         session,
@@ -186,3 +191,33 @@ async def test_a_match_with_no_extractable_price_is_never_grouped(session: Sessi
     assert len(client.sent) == 2
     statuses = {d.status for d in session.scalars(select(Delivery))}
     assert statuses == {"sent"}
+
+
+async def test_a_restock_reannounced_two_minutes_later_alerts_again(session: Session) -> None:
+    """S23-11: flash sales sell out in seconds and come back minutes later.
+    The re-announcement (same rule, same price, any group) must alert again."""
+    source_a, source_b, rule, recipient = _seed_two_sources(session)
+    client = FakeBotClient()
+    notifier = BotNotifier(bot_token="token", client=client, allowlisted_chat_ids={"999"})
+    dedupe_cache = DedupeCache()
+
+    for message_id, (source, offset) in enumerate(
+        [(source_a, 0), (source_b, 2), (source_a, 4)], start=1
+    ):
+        await process_message(
+            session,
+            _msg(
+                source.id,
+                text=f"Voltou! RTX 5070 por R$ 4000 (lote {message_id})",
+                minutes_offset=offset,
+                message_id=message_id,
+            ),
+            rule,
+            [recipient],
+            notifier,
+            dedupe_cache,
+        )
+        session.commit()
+
+    assert len(client.sent) == 3
+    assert {d.status for d in session.scalars(select(Delivery))} == {"sent"}

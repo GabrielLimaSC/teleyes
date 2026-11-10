@@ -31,10 +31,10 @@ from app.listener_lifecycle import ListenerLifecycle, build_listener_sources
 from app.listener_reload import ReloadWorker
 from models import Delivery, ListenerControl, Match, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.telegram.cursor import TelegramMessage, get_cursor, has_cursor
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 CHAT_A = "-1001"
 CHAT_B = "-1002"

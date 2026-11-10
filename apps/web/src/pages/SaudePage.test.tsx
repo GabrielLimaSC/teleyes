@@ -41,7 +41,7 @@ const recipient = {
 const health = {
   status: 'ok',
   env: 'development',
-  version: '0.1.0',
+  version: '1.0.0',
   uptime_seconds: 90,
   telegram: { configured: false, state: 'not_configured' },
   bot: { configured: false, state: 'not_configured' },
@@ -176,9 +176,9 @@ describe('SaudePage', () => {
 
     // health.uptime_seconds is 90 → "1min 30s"
     expect(await screen.findByText('1min 30s')).toBeInTheDocument()
-    expect(screen.getByText('v0.1.0')).toBeInTheDocument()
+    expect(screen.getByText('v1.0.0')).toBeInTheDocument()
     expect(screen.getByText('development')).toBeInTheDocument()
-    for (const label of ['Telegram', 'Bot', 'Listener', 'Feed (SSE)', 'Banco']) {
+    for (const label of ['Telegram', 'Bot', 'Leitor do Telegram', 'Atualização ao vivo', 'Banco']) {
       expect(screen.getByRole('heading', { name: label })).toBeInTheDocument()
     }
     // The names the backend actually reads (config.py), not the concept's "API_ID".
@@ -211,8 +211,8 @@ describe('SaudePage', () => {
     render(<SaudePage />)
 
     const panel = (await screen.findByRole('heading', { name: 'Coletor' })).closest('section') as HTMLElement
-    await waitFor(() => expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('2'))
-    expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('4')
+    await waitFor(() => expect(within(panel).getByText('Grupos ativos').nextElementSibling).toHaveTextContent('2'))
+    expect(within(panel).getByText('Ofertas encontradas').nextElementSibling).toHaveTextContent('4')
     // No label claims a per-message count nor any number the app does not track.
     for (const invented of [
       'Mensagens lidas',
@@ -250,7 +250,7 @@ describe('SaudePage', () => {
     render(<SaudePage />)
 
     const panel = (await screen.findByRole('heading', { name: 'Coletor' })).closest('section') as HTMLElement
-    await waitFor(() => expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('4'))
+    await waitFor(() => expect(within(panel).getByText('Ofertas encontradas').nextElementSibling).toHaveTextContent('4'))
   })
 
   it('shows "—" instead of a made-up number when the summary cannot load (S11-06)', async () => {
@@ -267,8 +267,8 @@ describe('SaudePage', () => {
     render(<SaudePage />)
 
     const panel = (await screen.findByRole('heading', { name: 'Coletor' })).closest('section') as HTMLElement
-    await waitFor(() => expect(within(panel).getByText('Fontes ativas').nextElementSibling).toHaveTextContent('—'))
-    expect(within(panel).getByText('Matches gerados').nextElementSibling).toHaveTextContent('—')
+    await waitFor(() => expect(within(panel).getByText('Grupos ativos').nextElementSibling).toHaveTextContent('—'))
+    expect(within(panel).getByText('Ofertas encontradas').nextElementSibling).toHaveTextContent('—')
   })
 
   it('hints why the send button is off, from the real state only (S11-06)', async () => {
@@ -380,7 +380,7 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    expect(await screen.findByRole('heading', { name: 'Atenção: Feed (SSE) fora' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Atenção: Atualização ao vivo fora' })).toBeInTheDocument()
   })
 
   it('reflects the typed message in the Telegram preview (S21-10)', async () => {
@@ -433,9 +433,9 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    const tile = (await screen.findByRole('heading', { name: 'Listener' })).closest('.saude-service') as HTMLElement
+    const tile = (await screen.findByRole('heading', { name: 'Leitor do Telegram' })).closest('.saude-service') as HTMLElement
     await waitFor(() => expect(within(tile).getByText('ativo')).toBeInTheDocument())
-    expect(tile).toHaveTextContent('2 fontes · 6 regras · 1 destinatário')
+    expect(tile).toHaveTextContent('2 grupos · 6 regras · 1 destinatário')
     expect(within(tile).getByText('ativo')).toBeInTheDocument()
   })
 
@@ -455,7 +455,7 @@ describe('SaudePage', () => {
 
     render(<SaudePage />)
 
-    const tile = (await screen.findByRole('heading', { name: 'Listener' })).closest('.saude-service') as HTMLElement
+    const tile = (await screen.findByRole('heading', { name: 'Leitor do Telegram' })).closest('.saude-service') as HTMLElement
     await waitFor(() => expect(tile).toHaveTextContent('Aplique na página Regras.'))
   })
 })

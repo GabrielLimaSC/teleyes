@@ -8,6 +8,8 @@ services:
       context: .
       dockerfile: docker/api.Dockerfile
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - path: .env
         required: false
@@ -26,6 +28,8 @@ services:
       dockerfile: docker/api.Dockerfile
     entrypoint: ["/listener-entrypoint.sh"]
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - path: .env
         required: false
@@ -48,6 +52,8 @@ services:
       dockerfile: docker/api.Dockerfile
     entrypoint: ["/backup-entrypoint.sh"]
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - path: .env
         required: false
@@ -73,18 +79,20 @@ services:
       context: .
       dockerfile: docker/web.Dockerfile
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8080:8080"
     healthcheck:
       # 127.0.0.1, not localhost: nginx only listens on IPv4 (docker/web-nginx.conf
       # has no `listen [::]:80`), but `localhost` inside the container resolves to
       # ::1 first — that mismatch made this healthcheck fail with "connection
       # refused" even while nginx served real requests fine (found in the S5-01
       # PR review with a working Docker daemon, not reproducible in this worktree).
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
       interval: 30s
       timeout: 5s
       retries: 3

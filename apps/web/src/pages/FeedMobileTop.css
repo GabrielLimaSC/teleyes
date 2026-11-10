@@ -1,0 +1,279 @@
+/* S24-02b: phone-only list top (screens 03 and 05). The component only renders
+   at <= 640px; the desktop never sees these rules. */
+.feed-mobile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.feed-mobile-top__filter,
+.feed-mobile-top__muted {
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--plane-text-primary);
+}
+
+.feed-mobile-top__filter {
+  font-weight: 700;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.feed-mobile-top__filter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-mobile-top__count,
+.feed-mobile-top__muted {
+  color: var(--plane-text-secondary);
+}
+
+.feed-mobile-top__filter:focus-visible,
+.feed-mobile-top__muted:focus-visible,
+.feed-mobile-top__pill:focus-visible,
+.feed-mobile-sheet__rule:focus-visible,
+.feed-mobile-sheet__switch:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+}
+
+.feed-mobile-top__pill {
+  position: fixed;
+  top: calc(72px + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
+  z-index: 60;
+  min-height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--plane-action-primary-bg);
+  color: var(--plane-action-primary-color);
+  box-shadow: var(--popover-shadow);
+}
+
+.feed-mobile-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 16px 16px;
+}
+
+.feed-mobile-sheet__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feed-mobile-sheet__rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-inner-border-color);
+  background: var(--glass-chip-bg);
+  color: var(--plane-text-primary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.feed-mobile-sheet__rule span:last-child {
+  font-variant-numeric: tabular-nums;
+  color: var(--plane-text-eyebrow);
+}
+
+.feed-mobile-sheet__rule--active {
+  background: var(--plane-action-primary-bg);
+  color: var(--plane-action-primary-color);
+  border-color: transparent;
+}
+
+.feed-mobile-sheet__rule--active span:last-child {
+  color: inherit;
+  opacity: 0.86;
+}
+
+.feed-mobile-sheet__eyebrow {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+}
+
+.feed-mobile-sheet__snooze {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.feed-mobile-sheet__snooze-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.feed-mobile-sheet__snooze-meta {
+  font-size: 12px;
+  color: var(--plane-text-secondary);
+}
+
+.feed-mobile-sheet__reactivate,
+.feed-mobile-sheet__refresh {
+  min-height: 44px;
+  flex: none;
+}
+
+.feed-mobile-sheet__fold summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--plane-text-eyebrow);
+}
+
+.feed-mobile-sheet__fold[open] > summary {
+  margin-bottom: 8px;
+}
+
+.feed-mobile-sheet__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-border-color);
+}
+
+.feed-mobile-sheet__switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--plane-text-primary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Phone: the left rail (filter, silenced, targets, groups) and the desktop
+   Ao vivo / Agrupar / Atualizar block move to the top row and the sheet. */
+@media (max-width: 640px) {
+  .feed-page {
+    overflow-anchor: auto;
+  }
+
+  .feed-page__header-actions,
+  .feed-page__grid > .feed-rail {
+    display: none;
+  }
+
+  .feed-page__header {
+    gap: 0;
+  }
+}
+
+.feed-mobile-sheet__refresh span[aria-hidden='true'] {
+  margin-right: 6px;
+}
+
+/* S25-F2 (screen 32): pull to refresh. The indicator hangs under the app bar;
+   The gesture writes transform/opacity inline, so only the compositor moves. */
+.feed-pull {
+  --pull-progress: 0;
+  position: fixed;
+  top: calc(60px + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  z-index: 55;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-52px);
+}
+
+.feed-pull__bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  background: var(--glass-tile-bg);
+  box-shadow: var(--popover-shadow);
+  border: 1px solid var(--glass-inner-border-color);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+
+.feed-pull__arrow {
+  display: inline-block;
+  transform: rotate(calc(var(--pull-progress) * 180deg));
+  transition: transform 240ms var(--chrome-spring, ease-out);
+}
+
+.feed-pull[data-phase='ready'] .feed-pull__arrow {
+  transform: rotate(180deg);
+}
+
+.feed-pull[data-phase='loading'] .feed-pull__arrow {
+  animation: feed-pull-spin 900ms linear infinite;
+}
+
+@keyframes feed-pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-pull__arrow {
+    transition: none;
+    transform: none;
+  }
+
+  .feed-pull[data-phase='ready'] .feed-pull__arrow,
+  .feed-pull[data-phase='loading'] .feed-pull__arrow {
+    animation: none;
+    transform: none;
+  }
+}

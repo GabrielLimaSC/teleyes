@@ -33,10 +33,12 @@ from app.savings import (
     days_before,
     goal_progress,
     purchase_savings,
+    reference_saving,
     totals,
+    uses_reference,
 )
 from app.utc import UtcDatetime, ensure_utc, utc_now
-from models import Delivery, Match, Purchase, SavingsGoal
+from models import Delivery, Match, Purchase, Rule, SavingsGoal
 from packages.metrics.counters import MetricCounter, MetricReason
 
 router = APIRouter(
@@ -66,6 +68,15 @@ class ItemSavingsResponse(BaseModel):
     saving_vs_usual_pct: float | None
 
 
+class ReferenceResponse(BaseModel):
+    """A price reference typed by the user (S22-01); not a price the teleyes saw."""
+
+    price_cents: int
+    note: str | None
+    saving_cents: int
+    pct: float | None
+
+
 class ReportItemResponse(BaseModel):
     id: int
     name: str
@@ -73,12 +84,18 @@ class ReportItemResponse(BaseModel):
     price_cents: int
     purchased_at: UtcDatetime
     linked: bool
+    # How the history is found: "product" / "rule" / `None` (S22-01). `link_label` is the
+    # rule name (typed by the admin); products have no label here.
+    link_kind: Literal["product", "rule"] | None
+    link_label: str | None
     days_before_black_friday: int
     # `None` for a purchase with no product/rule link: only the amount paid is shown.
     savings: ItemSavingsResponse | None
     # Estimated saving of this purchase / goal amount (negative when overpaid); `None`
     # with no goal or no history for the purchase.
     share_of_goal: float | None
+    # Only filled when the teleyes has no history for the purchase; kept apart from `savings`.
+    reference: ReferenceResponse | None
 
 
 class ReportTotalsResponse(BaseModel):
@@ -88,6 +105,9 @@ class ReportTotalsResponse(BaseModel):
     estimated_saving_cents: int
     reference_total_cents: int
     estimated_saving_pct: float | None
+    # S22-01: saving against references typed by the user, never mixed into the above.
+    reference_saving_cents: int
+    reference_purchases: int
 
 
 class BlackFridaySummaryResponse(BaseModel):
@@ -151,6 +171,26 @@ def _observations(db: Session, purchase: Purchase) -> list[Observation] | None:
             for at, price in load_rule_price_points(db, purchase.rule_id)
         ]
     return None
+
+
+def _link_kind(purchase: Purchase) -> Literal["product", "rule"] | None:
+    if purchase.product_key is not None:
+        return "product"
+    if purchase.rule_id is not None:
+        return "rule"
+    return None
+
+
+def _reference(purchase: Purchase, result: PurchaseSavings | None) -> ReferenceResponse | None:
+    if purchase.reference_price_cents is None or not uses_reference(result):
+        return None
+    ref = reference_saving(purchase.price_cents, purchase.reference_price_cents)
+    return ReferenceResponse(
+        price_cents=ref.price_cents,
+        note=purchase.reference_note,
+        saving_cents=ref.saving_cents,
+        pct=ref.pct,
+    )
 
 
 def _item_savings(result: PurchaseSavings) -> ItemSavingsResponse:
@@ -276,6 +316,9 @@ def savings_report(
     items: list[ReportItemResponse] = []
     results: list[PurchaseSavings | None] = []
     day_gaps: list[int] = []
+    reference_saving_total = 0
+    reference_count = 0
+    rule_names = {rule.id: rule.name for rule in db.scalars(select(Rule))}
     for purchase in purchases:
         purchased_at = ensure_utc(purchase.purchased_at)
         observations = _observations(db, purchase)
@@ -285,6 +328,11 @@ def savings_report(
             else purchase_savings(purchase.price_cents, purchased_at, observations)
         )
         results.append(result)
+        reference = _reference(purchase, result)
+        if reference is not None:
+            reference_saving_total += reference.saving_cents
+            reference_count += 1
+        link_kind = _link_kind(purchase)
         gap = days_before(friday, purchased_at.astimezone(tz).date())
         if gap >= 0:
             day_gaps.append(gap)
@@ -296,9 +344,16 @@ def savings_report(
                 price_cents=purchase.price_cents,
                 purchased_at=purchased_at,
                 linked=observations is not None,
+                link_kind=link_kind,
+                link_label=(
+                    rule_names.get(purchase.rule_id)
+                    if link_kind == "rule" and purchase.rule_id is not None
+                    else None
+                ),
                 days_before_black_friday=gap,
                 savings=None if result is None else _item_savings(result),
                 share_of_goal=_share_of_goal(goal, result),
+                reference=reference,
             )
         )
 
@@ -314,6 +369,8 @@ def savings_report(
             estimated_saving_cents=summary.estimated_saving_cents,
             reference_total_cents=summary.reference_total_cents,
             estimated_saving_pct=summary.estimated_saving_pct,
+            reference_saving_cents=reference_saving_total,
+            reference_purchases=reference_count,
         ),
         black_friday=BlackFridaySummaryResponse(
             date=friday,

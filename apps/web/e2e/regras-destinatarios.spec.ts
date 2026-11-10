@@ -4,7 +4,19 @@ import { apiLogin, apiPost } from './helpers'
 /**
  * S21-07 (F8): destinatário por regra, contra o backend real. Tag aleatória
  * porque o backend é compartilhado entre os specs.
+ *
+ * S26-c: outros specs deixam destinatários em modo "todas as regras" no mesmo banco, então os rótulos
+ * "só Alex" / "ninguém recebe" dependem de quem mais existe. O teste compara contagens relativas
+ * (Alfa recebe uma pessoa a mais que Beta) em vez de depender de um banco vazio.
  */
+async function peopleCount(who: import('@playwright/test').Locator): Promise<number> {
+  const text = ((await who.textContent()) ?? '').trim()
+  if (/ninguém recebe/.test(text)) return 0
+  if (/só /.test(text)) return 1
+  const match = text.match(/(\d+) pessoas/)
+  return match ? Number(match[1]) : Number.NaN
+}
+
 test('Regras: coluna Destinatários, card com regras escolhidas e aviso de quem não recebe', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/')
@@ -24,22 +36,23 @@ test('Regras: coluna Destinatários, card com regras escolhidas e aviso de quem 
   await page.goto('/regras')
   const alfa = page.locator('tbody', { has: page.getByText(`Alfa ${tag}`, { exact: true }) })
   const beta = page.locator('tbody', { has: page.getByText(`Beta ${tag}`, { exact: true }) })
-  await expect(alfa.locator('.delivery-who')).toContainText(`só Alex ${tag}`)
-  await expect(beta.locator('.delivery-who')).toContainText('ninguém recebe')
+  await expect(alfa.locator('.delivery-who')).toBeVisible()
+  const betaBefore = await peopleCount(beta.locator('.delivery-who'))
+  expect(await peopleCount(alfa.locator('.delivery-who'))).toBe(betaBefore + 1)
 
   await beta.getByRole('button', { name: new RegExp(`^Beta ${tag}`) }).click()
-  await expect(beta.getByText('1 destinatário não recebe esta regra')).toBeVisible()
+  await expect(beta.getByText(/\d+ destinatários? não recebem? esta regra/)).toBeVisible()
 
   const card = page.getByRole('article', { name: `Destinatário Alex ${tag}` })
   await expect(card.getByRole('button', { name: `Alfa ${tag}`, pressed: true })).toBeVisible()
   await expect(card.getByRole('button', { name: `Beta ${tag}`, pressed: false })).toBeVisible()
-  await expect(card).toContainText(/1 de \d+ regras? · só alvos atingidos/)
+  await expect(card).toContainText(/1 de \d+ regras? · só preços-alvo atingidos/)
 
   // Uma regra a mais para o card e a coluna seguirem a mudança.
   await card.getByRole('button', { name: `Beta ${tag}` }).click()
   await card.getByRole('button', { name: 'Salvar alterações' }).click()
   await expect(card.getByText('Alterações salvas.')).toBeVisible()
-  await expect(beta.locator('.delivery-who')).toContainText(`só Alex ${tag}`)
+  await expect.poll(() => peopleCount(beta.locator('.delivery-who'))).toBe(betaBefore + 1)
 })
 
 test('Regras: novo destinatário exige regra e tipo, mostra a prévia e cria', async ({ page }) => {

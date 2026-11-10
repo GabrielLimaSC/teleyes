@@ -3,7 +3,9 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { CategoryIcon } from './CategoryIcon'
 import { categorize, CATEGORY_BACKGROUND, CATEGORY_ICON_COLOR } from './matchCategory'
 import { summarizeDeliveryStatus } from './deliveryStatus'
+import { BottomSheet } from './BottomSheet'
 import { Tooltip } from './Tooltip'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { cardTitle, productText } from './matchTitle'
 import { PRODUCT_OPEN_CONTROL_ATTR } from './ProductPanel'
 import type { Match, Recipient, Rule, Source } from '../api/types'
@@ -146,7 +148,7 @@ function MatchSparkline({ match }: { match: Match }) {
         />
       </svg>
       <div className="match-card__spark-axis">
-        <span>{geometry.targetY !== null ? '90 dias · linha = alvo' : '90 dias'}</span>
+        <span>{geometry.targetY !== null ? '90 dias · linha = preço-alvo' : '90 dias'}</span>
       </div>
     </div>
   )
@@ -195,7 +197,7 @@ export function MatchCard({
    * the page owns the actual `POST`/`DELETE /snoozes` (scope `'product'`);
    * only rendered with a `product_key`. */
   onSnooze?: (match: Match) => void
-  /** S14-07: "Definir alvo" — cents already parsed from the inline field;
+  /** S14-07: "Definir preço-alvo" — cents already parsed from the inline field;
    * the page owns the actual `PATCH /rules/{id}`. */
   onSetTarget?: (ruleId: number, targetCents: number) => void
   /** S20-01: "Excluir anúncio" in the ⋯ menu — the page owns the
@@ -242,9 +244,10 @@ export function MatchCard({
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const menuPopupRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
+  const phone = useMediaQuery(PHONE_QUERY)
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen || phone) return
 
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node
@@ -265,16 +268,16 @@ export function MatchCard({
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [menuOpen])
+  }, [menuOpen, phone])
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen || phone) return
     // First item, same expectation as any native menu opened by keyboard or
     // click — the popup's own buttons are reachable without landing back on
     // the trigger first.
     const firstItem = menuPopupRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
     firstItem?.focus()
-  }, [menuOpen])
+  }, [menuOpen, phone])
 
   function closeMenu() {
     setMenuOpen(false)
@@ -329,12 +332,12 @@ export function MatchCard({
   // S14-05 (F5) — "+N fonte(s)" pill, a different mechanism from the S7-11
   // "Visto em: <names>" line below (same rule/price chained over time vs.
   // same product/price across sources): both can render at once. S16-03
-  // (03): the comp counts the OTHER sources, not this one — "+1 fonte" for
-  // seen_count 2, never "Visto em 2 fontes" again.
+  // (03): the comp counts the OTHER sources, not this one — "+1 grupo" for
+  // seen_count 2, never "Visto em 2 grupos" again.
   const seenCount = match.seen_count ?? 1
   const otherSourcesCount = seenCount - 1
   const showSeenBadge = otherSourcesCount > 0
-  const seenBadgeLabel = `+${otherSourcesCount} ${otherSourcesCount === 1 ? 'fonte' : 'fontes'}`
+  const seenBadgeLabel = `+${otherSourcesCount} ${otherSourcesCount === 1 ? 'grupo' : 'grupos'}`
   // S14-06 (F7) manual-edit fields.
   const priceUnidentified = match.price_cents === null
   const manuallyEdited = match.price_source === 'manual'
@@ -357,16 +360,43 @@ export function MatchCard({
 
   const canCreateRule = productKey !== null && onCreateRule !== undefined
   const canSnooze = productKey !== null && onSnooze !== undefined
-  // S16-03 (02): "Corrigir"/"Corrigir preço" replaces "Definir alvo" outright
+  // S16-03 (02): "Corrigir"/"Corrigir preço" replaces "Definir preço-alvo" outright
   // when the price needs a manual fix — never both at once.
   const canCorrect = productKey !== null && priceUnidentified && onOpenProduct !== undefined
   const canSetTarget = onSetTarget !== undefined && !canCorrect
   // S16-03 (05): narrow pulls Silenciar into the ⋯ menu; wide keeps it a
   // standalone button and the menu only ever holds "Criar regra disso".
-  const showSnoozeButton = canSnooze && !isNarrow
+  const showSnoozeButton = canSnooze && !isNarrow && !phone
   const canDelete = onDelete !== undefined
   const canMarkPurchased = onMarkPurchased !== undefined
-  const showMenu = canCreateRule || (isNarrow && canSnooze) || canDelete || canMarkPurchased
+  const showMenu =
+    canCreateRule || (isNarrow && canSnooze) || canDelete || canMarkPurchased || (phone && match.message_link !== null)
+
+  const menuItems: { key: string; label: string; danger?: boolean; run: () => void }[] = []
+  if ((isNarrow || phone) && canSnooze) {
+    menuItems.push({
+      key: 'snooze',
+      label: match.snoozed ? 'Reativar' : 'Silenciar 7 dias',
+      run: () => onSnooze?.(match),
+    })
+  }
+  if (phone && match.message_link !== null) {
+    const link = match.message_link
+    menuItems.push({
+      key: 'promo',
+      label: 'Abrir promoção',
+      run: () => window.open(link, '_blank', 'noopener,noreferrer'),
+    })
+  }
+  if (canCreateRule) {
+    menuItems.push({ key: 'rule', label: 'Criar regra disso', run: () => onCreateRule?.(productKey as string) })
+  }
+  if (canMarkPurchased) {
+    menuItems.push({ key: 'purchased', label: 'Marcar como comprado', run: () => onMarkPurchased?.(match) })
+  }
+  if (canDelete) {
+    menuItems.push({ key: 'delete', label: 'Excluir anúncio', danger: true, run: () => onDelete?.(match) })
+  }
 
   function submitTarget(event: FormEvent) {
     event.preventDefault()
@@ -409,7 +439,7 @@ export function MatchCard({
             {match.target_hit && (
               <span className="match-card__badge match-card__badge--good">
                 <span className="match-card__badge-dot" aria-hidden="true" />
-                Alvo atingido
+                Preço-alvo atingido
               </span>
             )}
             {priceUnidentified && (
@@ -468,15 +498,17 @@ export function MatchCard({
             <div className="match-card__price-missing">
               <p className="match-card__price-missing-label">
                 <span className="match-card__price-missing-dot" aria-hidden="true" />
-                Preço não identificado
+                {phone ? 'R$ —' : 'Preço não identificado'}
               </p>
-              <p className="match-card__price-missing-hint">Corrija à mão — o valor entra no histórico.</p>
+              <p className="match-card__price-missing-hint">
+                {phone ? 'Não conseguimos ler o preço na mensagem' : 'Corrija à mão — o valor entra no histórico.'}
+              </p>
             </div>
           ) : match.price_cash_cents !== null && match.price_card_cents !== null ? (
             <p className="match-card__price">
               {formatCurrency(match.price_cash_cents)}
               <span className="match-card__price-sub">
-                À vista · Cartão {formatCurrency(match.price_card_cents)}
+                {phone ? 'à vista · cartão' : 'À vista · Cartão'} {formatCurrency(match.price_card_cents)}
               </span>
             </p>
           ) : (
@@ -484,7 +516,7 @@ export function MatchCard({
           )}
           {showTargetGapLine && (
             <span className="match-card__price-sub">
-              falta {match.target_gap_pct}% para o alvo {formatCurrency(match.target_price_cents as number)}
+              falta {match.target_gap_pct}% para o preço-alvo {formatCurrency(match.target_price_cents as number)}
             </span>
           )}
           {averageDelta30d !== null && (
@@ -525,7 +557,7 @@ export function MatchCard({
             {...{ [PRODUCT_OPEN_CONTROL_ATTR]: true }}
             onClick={(event) => openProduct(event.currentTarget)}
           >
-            {isNarrow ? 'Corrigir' : 'Corrigir preço'}
+            {isNarrow && !phone ? 'Corrigir' : 'Corrigir preço'}
           </button>
         )}
         {canSetTarget && (
@@ -538,7 +570,7 @@ export function MatchCard({
               setShowTargetForm((current) => !current)
             }}
           >
-            Definir alvo
+            {phone ? 'Definir alvo' : 'Definir preço-alvo'}
           </button>
         )}
         {showSnoozeButton && (
@@ -557,9 +589,9 @@ export function MatchCard({
         {/* S16-03 (01): the trailing group — pushed right, "Abrir promoção"
             text+icon on a wide card, icon-only (same accessible name) on a
             narrow one, then the "⋯" menu. */}
-        {(match.message_link !== null || showMenu) && (
+        {((match.message_link !== null && !phone) || showMenu) && (
           <span className="match-card__links">
-            {match.message_link !== null && (
+            {match.message_link !== null && !phone && (
               <a
                 className="match-card__link"
                 href={match.message_link}
@@ -593,7 +625,7 @@ export function MatchCard({
                     <circle cx="19" cy="12" r="1.2" />
                   </svg>
                 </button>
-                {menuOpen && (
+                {menuOpen && !phone && (
                   <div
                     id={menuId}
                     ref={menuPopupRef}
@@ -601,59 +633,41 @@ export function MatchCard({
                     className="glass-card match-card__menu-popup"
                     onKeyDown={handleMenuKeyDown}
                   >
-                    {isNarrow && canSnooze && (
+                    {menuItems.map((item) => (
                       <button
+                        key={item.key}
                         type="button"
                         role="menuitem"
-                        className="match-card__menu-item"
+                        className={`match-card__menu-item${item.danger ? ' match-card__menu-item--danger' : ''}`}
                         onClick={() => {
-                          onSnooze?.(match)
+                          item.run()
                           closeMenu()
                         }}
                       >
-                        {match.snoozed ? 'Reativar' : 'Silenciar 7 dias'}
+                        {item.label}
                       </button>
-                    )}
-                    {canCreateRule && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="match-card__menu-item"
-                        onClick={() => {
-                          onCreateRule?.(productKey as string)
-                          closeMenu()
-                        }}
-                      >
-                        Criar regra disso
-                      </button>
-                    )}
-                    {canMarkPurchased && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="match-card__menu-item"
-                        onClick={() => {
-                          onMarkPurchased?.(match)
-                          closeMenu()
-                        }}
-                      >
-                        Marcar como comprado
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="match-card__menu-item match-card__menu-item--danger"
-                        onClick={() => {
-                          onDelete?.(match)
-                          closeMenu()
-                        }}
-                      >
-                        Excluir anúncio
-                      </button>
-                    )}
+                    ))}
                   </div>
+                )}
+                {phone && (
+                  <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Mais ações">
+                    <div className="bottom-sheet__list" role="menu" aria-label="Mais ações">
+                      {menuItems.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          role="menuitem"
+                          className={`bottom-sheet__item${item.danger ? ' bottom-sheet__item--danger' : ''}`}
+                          onClick={() => {
+                            setMenuOpen(false)
+                            item.run()
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </BottomSheet>
                 )}
               </span>
             )}
@@ -664,7 +678,7 @@ export function MatchCard({
       {showTargetForm && canSetTarget && (
         <form className="match-card__target-form" onSubmit={submitTarget}>
           <label className="match-card__target-label">
-            Alvo (R$)
+            Preço-alvo (R$)
             <input
               type="text"
               inputMode="decimal"

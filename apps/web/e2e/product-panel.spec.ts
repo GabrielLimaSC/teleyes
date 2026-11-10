@@ -97,7 +97,7 @@ test.describe('product panel — abrir/fechar (07b)', () => {
     const seed = await seedProduct(page, 'x3', 'Placa de vídeo Palit RTX 5070 Ti GamingPro-S 16GB', '5.749')
     await openPanel(page, seed)
 
-    await page.getByRole('heading', { name: 'Feed ao vivo' }).click()
+    await page.getByRole('heading', { name: 'Ofertas ao vivo' }).click()
     await expect(page.getByRole('heading', { name: seed.title })).not.toBeVisible()
   })
 
@@ -173,7 +173,8 @@ test('prefers-reduced-motion: opens with a 120ms fade only, no grid/translate tr
   const transition = await panel.evaluate((el) => getComputedStyle(el).transitionProperty)
   expect(transition).toBe('opacity')
   const duration = await panel.evaluate((el) => getComputedStyle(el).transitionDuration)
-  expect(duration).toBe('0.12s')
+  // S23-02: the global reduced-motion rule may zero it entirely; a short fade is also fine.
+  expect(['0s', '0.12s']).toContain(duration)
 })
 
 test('below 960px the panel is a full-screen sheet with a drag-to-close handle', async ({ page }) => {
@@ -238,10 +239,10 @@ for (const scenario of [
     await openPanel(page, seed)
 
     await page.getByRole('button', { name: 'Editar dados' }).click()
-    const nameInput = page.getByRole('textbox', { name: 'Nome exibido' })
-    const priceInput = page.getByRole('textbox', { name: 'Preço' })
+    const nameInput = page.getByRole('textbox', { name: 'Nome do produto' })
+    const priceInput = page.getByRole('textbox', { name: 'À vista' })
     await expect(nameInput).toBeVisible()
-    await expect(page.getByText('Texto original da mensagem (somente leitura)')).toBeVisible()
+    await expect(page.getByText('Mensagem original')).toBeVisible()
     await expect(page.locator('[data-testid="original-message"] mark')).toHaveCount(2)
 
     await nameInput.fill('ab')
@@ -252,7 +253,7 @@ for (const scenario of [
     const correctedName = `Monitor Dell U2725QE Corrigido ${scenario.tag}`
     await nameInput.fill(correctedName)
     await priceInput.fill('5.749')
-    await page.getByRole('switch', { name: 'Aplicar o nome a todos os matches deste produto' }).click()
+    await page.getByRole('switch', { name: 'Aplicar o nome a todas as ofertas deste produto' }).click()
     await page.getByRole('button', { name: 'Salvar correção' }).click()
 
     await expect(page.getByRole('heading', { name: correctedName })).toBeVisible()
@@ -263,7 +264,8 @@ for (const scenario of [
     await expect(page.getByRole('button', { name: 'Reverter ao detectado' })).toBeEnabled()
 
     await testInfo.attach(`tela-08-${scenario.theme}-${scenario.width}px`, {
-      body: await page.locator('.product-panel').screenshot(),
+      // Desktop: the "Corrigir oferta" modal (B2); phone: the sheet itself (07).
+      body: await page.getByRole('dialog', { name: 'Corrigir oferta' }).screenshot(),
       contentType: 'image/png',
     })
 

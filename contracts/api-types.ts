@@ -1394,6 +1394,8 @@ export interface components {
              * @enum {string}
              */
             state: "idle" | "pending" | "applying" | "failed";
+            /** Unapplied Changes */
+            unapplied_changes: components["schemas"]["UnappliedChangeResponse"][];
         };
         /** LoginRequest */
         LoginRequest: {
@@ -1530,7 +1532,7 @@ export interface components {
          * @description `PATCH /matches/{id}` (F7). Every field is optional — only the ones
          *     actually sent are validated and applied, same "if provided" shape as
          *     `RuleUpdate` (`app.routers.rules`). `price` is free text
-         *     (`packages.rules.manual_price.parse_manual_price_cents` parses it);
+         *     (`teleyes_core.rules.manual_price.parse_manual_price_cents` parses it);
          *     there is no way to clear `display_name`/`model_variant` back to `None`
          *     through this endpoint on purpose — that is exactly what `POST
          *     /matches/{id}/revert` ("Reverter ao detectado") does.
@@ -1547,6 +1549,13 @@ export interface components {
             model_variant?: string | null;
             /** Price */
             price?: string | null;
+            /** Price Card */
+            price_card?: string | null;
+            /**
+             * Reevaluate
+             * @default false
+             */
+            reevaluate: boolean;
         };
         /** MeResponse */
         MeResponse: {
@@ -1749,6 +1758,10 @@ export interface components {
              * Format: date-time
              */
             purchased_at: string;
+            /** Reference Note */
+            reference_note?: string | null;
+            /** Reference Price Cents */
+            reference_price_cents?: number | null;
             /** Rule Id */
             rule_id?: number | null;
             /** Store */
@@ -1774,6 +1787,10 @@ export interface components {
              * Format: date-time
              */
             purchased_at: string;
+            /** Reference Note */
+            reference_note: string | null;
+            /** Reference Price Cents */
+            reference_price_cents: number | null;
             /** Rule Id */
             rule_id: number | null;
             /** Store */
@@ -1861,12 +1878,30 @@ export interface components {
             /** Telegram Chat Id */
             telegram_chat_id?: string | null;
         };
+        /**
+         * ReferenceResponse
+         * @description A price reference typed by the user (S22-01); not a price the teleyes saw.
+         */
+        ReferenceResponse: {
+            /** Note */
+            note: string | null;
+            /** Pct */
+            pct: number | null;
+            /** Price Cents */
+            price_cents: number;
+            /** Saving Cents */
+            saving_cents: number;
+        };
         /** ReportItemResponse */
         ReportItemResponse: {
             /** Days Before Black Friday */
             days_before_black_friday: number;
             /** Id */
             id: number;
+            /** Link Kind */
+            link_kind: ("product" | "rule") | null;
+            /** Link Label */
+            link_label: string | null;
             /** Linked */
             linked: boolean;
             /** Name */
@@ -1878,6 +1913,7 @@ export interface components {
              * Format: date-time
              */
             purchased_at: string;
+            reference: components["schemas"]["ReferenceResponse"] | null;
             savings: components["schemas"]["ItemSavingsResponse"] | null;
             /** Share Of Goal */
             share_of_goal: number | null;
@@ -1894,6 +1930,10 @@ export interface components {
             linked_with_data: number;
             /** Purchases */
             purchases: number;
+            /** Reference Purchases */
+            reference_purchases: number;
+            /** Reference Saving Cents */
+            reference_saving_cents: number;
             /** Reference Total Cents */
             reference_total_cents: number;
             /** Total Paid Cents */
@@ -1955,6 +1995,11 @@ export interface components {
              * @default []
              */
             recipient_ids: number[];
+            /**
+             * Snoozed Indefinitely
+             * @default false
+             */
+            snoozed_indefinitely: boolean;
             /** Snoozed Until */
             snoozed_until?: string | null;
             /** Target Price Cents */
@@ -2176,6 +2221,11 @@ export interface components {
         SnoozeCreate: {
             /** Days */
             days?: number | null;
+            /**
+             * Indefinite
+             * @default false
+             */
+            indefinite: boolean;
             /** Product Key */
             product_key?: string | null;
             /** Rule Id */
@@ -2192,6 +2242,11 @@ export interface components {
         SnoozeResponse: {
             /** Id */
             id: number;
+            /**
+             * Indefinite
+             * @default false
+             */
+            indefinite: boolean;
             /** Label */
             label: string;
             /** Product Key */
@@ -2321,6 +2376,26 @@ export interface components {
             recipient_id: number;
             /** Status */
             status: string;
+        };
+        /**
+         * UnappliedChangeResponse
+         * @description One thing that differs from what the listener runs (S25-F4).
+         */
+        UnappliedChangeResponse: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "created" | "activated" | "edited" | "paused" | "deleted";
+            /**
+             * Entity
+             * @enum {string}
+             */
+            entity: "rule" | "source" | "recipient";
+            /** Fields */
+            fields: string[];
+            /** Name */
+            name: string;
         };
         /** ValidationError */
         ValidationError: {

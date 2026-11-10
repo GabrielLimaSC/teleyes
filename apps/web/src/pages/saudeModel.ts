@@ -58,8 +58,8 @@ export interface ServiceView {
 export const SERVICE_ORDER: { key: ServiceKey; name: string }[] = [
   { key: 'telegram', name: 'Telegram' },
   { key: 'bot', name: 'Bot' },
-  { key: 'listener', name: 'Listener' },
-  { key: 'sse', name: 'Feed (SSE)' },
+  { key: 'listener', name: 'Leitor do Telegram' },
+  { key: 'sse', name: 'Atualização ao vivo' },
   { key: 'db', name: 'Banco' },
 ]
 
@@ -69,6 +69,8 @@ export interface Verdict {
   detail: string
   active: number
   total: number
+  /** Bot off is the only gap: the strip offers the link to configure it. */
+  botOff?: boolean
 }
 
 /** Services still loading (no view yet) are simply not counted as active. */
@@ -88,6 +90,16 @@ export function buildVerdict(views: ServiceView[], demo: boolean): Verdict {
   if (off.length > 0) {
     const names = off.map((view) => view.name).join(' e ')
     const verb = off.length > 1 ? 'estão desligados' : 'está desligado'
+    if (!demo && off.length === 1 && off[0].key === 'bot') {
+      return {
+        tone: 'neutral',
+        title: 'Bot desligado — nenhum alerta sai',
+        detail: `${base}. Sem BOT_TOKEN o teleyes encontra ofertas mas não avisa ninguém.`,
+        active,
+        total,
+        botOff: true,
+      }
+    }
     if (demo) {
       return {
         tone: 'warn',
@@ -106,7 +118,7 @@ export function buildVerdict(views: ServiceView[], demo: boolean): Verdict {
 }
 
 export const EVENT_KIND: Record<SystemEventKind, { label: string; tone: Tone }> = {
-  match_target: { label: 'match', tone: 'good' },
+  match_target: { label: 'oferta', tone: 'good' },
   sse_reconnect: { label: 'sse', tone: 'warn' },
   rules_applied: { label: 'regras', tone: 'neutral' },
   backup: { label: 'banco', tone: 'neutral' },

@@ -6,7 +6,7 @@ import { DemoBanner } from './DemoBanner'
 const baseHealth = {
   status: 'ok',
   env: 'development',
-  version: '0.1.0',
+  version: '1.0.0',
   uptime_seconds: 1,
   telegram: { configured: false, state: 'not_configured' },
   bot: { configured: false, state: 'not_configured' },
@@ -38,7 +38,7 @@ describe('DemoBanner', () => {
 
     const banner = await screen.findByRole('note', { name: 'Aviso de modo demonstração' })
     expect(banner).toHaveTextContent('Modo demonstração — dados fictícios')
-    expect(document.documentElement.dataset.demo).toBe('true')
+    await waitFor(() => expect(document.documentElement.dataset.demo).toBe('true'))
   })
 
   it('renders nothing outside demo mode', async () => {

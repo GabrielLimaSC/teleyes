@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# S23-01: starts as root only to fix volume ownership, then re-runs itself as `teleyes`.
+[ "$(id -u)" = "0" ] && exec /as-teleyes.sh "$0" "$@"
+
 # /app/data is a named Docker volume (docker-compose.prod.yml), not a bind mount
 # from the host filesystem — deliberately, so the permission tightening below is
 # enforced by the filesystem Docker Desktop's own Linux VM actually uses, rather
@@ -16,4 +19,4 @@ chmod 600 /app/session/teleyes.session /app/session/secrets.json 2>/dev/null || 
 
 alembic -c apps/api/alembic.ini upgrade head
 
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-server-header

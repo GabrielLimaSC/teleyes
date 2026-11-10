@@ -31,7 +31,12 @@ export interface EditableMatch extends Match {
 export interface MatchUpdateInput {
   display_name?: string
   model_variant?: string
+  /** "À vista" (it is also the match's `price_cents`). */
   price?: string
+  /** S25-F3: card price. Omitted leaves it alone; `null` or '' clears it. */
+  price_card?: string | null
+  /** S25-F3: re-check the corrected offer against its rule. Never notifies. */
+  reevaluate?: boolean
   apply_name_to_product?: boolean
 }
 
@@ -54,7 +59,7 @@ export async function fetchMatches(filters: MatchFilters = {}): Promise<Match[]>
     credentials: 'same-origin',
   })
   if (!response.ok) {
-    throw new ApiError('Não foi possível carregar os matches.', response.status)
+    throw new ApiError('Não foi possível carregar as ofertas.', response.status)
   }
   return (await response.json()) as Match[]
 }

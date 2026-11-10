@@ -207,13 +207,14 @@ def test_create_with_an_absolute_until(api: ApiContext) -> None:
             "until": "2026-10-01T00:00:00Z",
         },  # both days and until
         {"scope": "rule", "rule_id": 1, "days": 0},
+        {"scope": "rule", "rule_id": 1, "days": 99_999},  # would overflow the calendar
+        {"scope": "rule", "rule_id": 1, "indefinite": True, "days": 1},
+        {"scope": "rule", "rule_id": 1, "indefinite": True, "until": "2026-10-01T00:00:00Z"},
         {"scope": "rule", "rule_id": 1, "days": -1},
         {"scope": "rule", "rule_id": 1, "until": "2020-01-01T00:00:00Z"},  # in the past
     ],
 )
-def test_create_rejects_inconsistent_payloads(
-    api: ApiContext, payload: dict[str, object]
-) -> None:
+def test_create_rejects_inconsistent_payloads(api: ApiContext, payload: dict[str, object]) -> None:
     csrf = _login_csrf(api)
 
     response = api.client.post("/snoozes", json=payload, headers={"x-csrf-token": csrf})
@@ -364,3 +365,70 @@ def test_rules_expose_snoozed_until_only_while_active(api: ApiContext) -> None:
 
     assert rules[api.ids["rule"]]["snoozed_until"] == "2026-09-24T15:00:00Z"
     assert rules[api.ids["other_rule"]]["snoozed_until"] is None
+
+
+# --- S25-F4: "Por 24 h", "Por 7 dias" and "Até reativar" -----------------------
+
+
+@pytest.mark.parametrize(
+    ("days", "expected"), [(1, "2026-09-24T15:00:00Z"), (7, "2026-09-30T15:00:00Z")]
+)
+def test_a_rule_can_be_silenced_for_24_hours_or_7_days(
+    api: ApiContext, days: int, expected: str
+) -> None:
+    csrf = _login_csrf(api)
+
+    created = api.client.post(
+        "/snoozes",
+        json={"scope": "rule", "rule_id": api.ids["rule"], "days": days},
+        headers={"x-csrf-token": csrf},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["until"] == expected
+    assert created.json()["indefinite"] is False
+    rule = next(r for r in api.client.get("/rules").json() if r["id"] == api.ids["rule"])
+    assert rule["snoozed_until"] == expected
+    assert rule["snoozed_indefinitely"] is False
+
+
+def test_a_rule_can_be_silenced_until_reactivated(api: ApiContext) -> None:
+    csrf = _login_csrf(api)
+
+    created = api.client.post(
+        "/snoozes",
+        json={"scope": "rule", "rule_id": api.ids["rule"], "indefinite": True},
+        headers={"x-csrf-token": csrf},
+    )
+
+    assert created.status_code == 201
+    body = created.json()
+    assert body["indefinite"] is True
+    assert body["until"] == "9999-12-31T23:59:59Z"
+    rule = next(r for r in api.client.get("/rules").json() if r["id"] == api.ids["rule"])
+    assert rule["snoozed_until"] == "9999-12-31T23:59:59Z"
+    assert rule["snoozed_indefinitely"] is True
+    assert [item["id"] for item in api.client.get("/snoozes").json()] == [body["id"]]
+
+    # Only "Reativar" ends it.
+    assert (
+        api.client.delete(f"/snoozes/{body['id']}", headers={"x-csrf-token": csrf}).status_code
+        == 204
+    )
+    rule = next(r for r in api.client.get("/rules").json() if r["id"] == api.ids["rule"])
+    assert rule["snoozed_until"] is None
+    assert rule["snoozed_indefinitely"] is False
+
+
+def test_changing_the_duration_replaces_the_previous_snooze(api: ApiContext) -> None:
+    csrf = _login_csrf(api)
+    headers = {"x-csrf-token": csrf}
+    base = {"scope": "rule", "rule_id": api.ids["rule"]}
+
+    api.client.post("/snoozes", json={**base, "indefinite": True}, headers=headers)
+    api.client.post("/snoozes", json={**base, "days": 1}, headers=headers)
+
+    listed = api.client.get("/snoozes").json()
+    assert len(listed) == 1
+    assert listed[0]["until"] == "2026-09-24T15:00:00Z"
+    assert listed[0]["indefinite"] is False

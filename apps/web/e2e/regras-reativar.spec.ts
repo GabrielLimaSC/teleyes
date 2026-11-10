@@ -60,7 +60,13 @@ for (const theme of ['light', 'dark'] as const) {
       await apiPost(page, '/rules', csrf, { name, include_terms: `reativar${tag}`, max_price_cents: 100_000 })
 
       await page.goto('/regras')
-      const row = page.locator('tr', { has: page.getByText(name, { exact: true }) })
+      // Phone (<= 640px) renders rules as cards (RegrasMobileList); desktop as table groups.
+      const isPhone = viewport.width <= 640
+      const rowOf = () =>
+        isPhone
+          ? page.locator('li.rules-m__card', { has: page.getByText(name, { exact: true }) })
+          : page.locator('tr', { has: page.getByText(name, { exact: true }) })
+      const row = rowOf()
       await expect(row).toBeVisible()
 
       await page.waitForLoadState('networkidle')
@@ -68,7 +74,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(activeToggle).toHaveAttribute('aria-checked', 'true')
       const activeX = await leftOf(activeToggle)
       const activeWidth = (await activeToggle.boundingBox())!.width
-      const teto = row.locator('[data-label="Teto"]')
+      const teto = isPhone ? row.locator('.rules-m__prices dd').first() : row.locator('[data-label="Preço máximo"]')
       const activeTetoX = await leftOf(teto)
       await expectNoHorizontalOverflow(page)
       await shoot(page, `${viewport.name}-${theme}-ativa`)
@@ -79,8 +85,12 @@ for (const theme of ['light', 'dark'] as const) {
       const pausedToggle = row.getByRole('switch', { name: 'pausada' })
       await expect(pausedToggle).toHaveAttribute('aria-checked', 'false')
       await expect(page.locator('.toast')).toContainText('Regra pausada.')
-      await expect(row.locator('xpath=ancestor::tbody[1]')).toHaveClass(/rules-table__group--paused/)
-      expect(Number(await row.locator('td.rules-table__name').evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(1)
+      if (isPhone) {
+        await expect(row).toHaveClass(/rules-m__card--paused/)
+      } else {
+        await expect(row.locator('xpath=ancestor::tbody[1]')).toHaveClass(/rules-table__group--paused/)
+        expect(Number(await row.locator('td.rules-table__name').evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(1)
+      }
       expect(await pausedToggle.evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
       expect(await leftOf(pausedToggle), 'o toggle não muda de posição').toBeCloseTo(activeX, 0)
       expect((await pausedToggle.boundingBox())!.width, 'nem de largura').toBeCloseTo(activeWidth, 0)
@@ -93,7 +103,15 @@ for (const theme of ['light', 'dark'] as const) {
       await trigger.click()
       await expect(trigger).toHaveAttribute('aria-expanded', 'true')
       const menu = page.getByRole('menu')
-      await expect(menu.getByRole('menuitem')).toHaveText(['Editar', 'Testar', 'Duplicar', 'Silenciar', 'Limpar histórico', 'Excluir'])
+      await expect(menu.getByRole('menuitem')).toHaveText([
+        'Editar',
+        'Testar',
+        'Duplicar',
+        // S25-F4: "Silenciar" opens a duration submenu, so the item carries a chevron.
+        /^Silenciar/,
+        'Limpar histórico',
+        'Excluir',
+      ])
       const menuBox = (await menu.boundingBox())!
       expect(menuBox.x).toBeGreaterThanOrEqual(0)
       expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(viewport.width)
@@ -107,14 +125,13 @@ for (const theme of ['light', 'dark'] as const) {
       await pausedToggle.click()
       await expect(row.getByRole('switch', { name: 'ativa' })).toHaveAttribute('aria-checked', 'true')
       await expect(page.locator('.toast')).toContainText('Regra reativada.')
-      await expect(row.locator('xpath=ancestor::tbody[1]')).not.toHaveClass(/rules-table__group--paused/)
+      if (isPhone) await expect(row).not.toHaveClass(/rules-m__card--paused/)
+      else await expect(row.locator('xpath=ancestor::tbody[1]')).not.toHaveClass(/rules-table__group--paused/)
       expect(await leftOf(row.getByRole('switch', { name: 'ativa' }))).toBeCloseTo(activeX, 0)
 
       // The state is real: it survives a reload.
       await page.reload()
-      await expect(
-        page.locator('tr', { has: page.getByText(name, { exact: true }) }).getByRole('switch', { name: 'ativa' }),
-      ).toBeVisible()
+      await expect(rowOf().getByRole('switch', { name: 'ativa' })).toBeVisible()
     })
   }
 }

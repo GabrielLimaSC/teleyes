@@ -429,8 +429,16 @@
     max-width: none;
     max-height: 92vh;
     border-radius: 20px 20px 0 0;
+    /* S23-09: an opaque sheet (the Feed showed through the translucent glass
+       behind the text); the glass stays only in the border and shadow. */
+    background: var(--product-panel-sheet-bg);
     transform: translateY(100%);
     z-index: 40;
+  }
+
+  /* On the solid sheet the close glyph needs the stronger text colour (its chip is lighter than the fill). */
+  .product-panel__close {
+    color: var(--plane-text-heading);
   }
 
   .product-panel[data-phase='open'] {
@@ -449,5 +457,92 @@
   .product-panel[data-phase='open'],
   .product-panel[data-phase='closing'] {
     transform: none;
+  }
+}
+
+/* ---- S24-02c: phone (<= 640px), almost-full bottom sheet (screens 06/07).
+   Desktop and tablet layouts above are untouched. ---- */
+@media (max-width: 640px) {
+  .product-panel--phone {
+    height: 94dvh;
+    max-height: 94dvh;
+    /* S25-F3: the tab bar (66px + 12px, z 70) floats over the sheet; the
+       taller "Corrigir oferta" form scrolled its last button under it. */
+    padding: 12px 16px calc(94px + env(safe-area-inset-bottom));
+    gap: 14px;
+  }
+
+  .product-panel--phone .product-panel__close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .product-panel--phone .product-panel__title {
+    overflow-wrap: anywhere;
+  }
+
+  .product-panel__phone-links {
+    display: flex;
+    gap: 10px;
+  }
+
+  .product-panel__phone-links > .plane-action {
+    flex: 1 1 0;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .product-panel--phone .product-panel__range-tab {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .product-panel--phone .product-panel__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .product-panel--phone .product-panel__actions .product-panel__chip {
+    min-height: 48px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .product-panel--phone .product-panel__posting-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Screen 07: Cancelar and Salvar side by side, Reverter below. */
+  .product-editor--phone .product-editor__buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .product-editor--phone .product-editor__buttons > button {
+    min-height: 48px !important;
+    flex: none !important;
+  }
+
+  .product-editor--phone .product-editor__cancel {
+    order: 1;
+  }
+
+  .product-editor--phone .product-editor__buttons > button[type='submit'] {
+    order: 2;
+  }
+
+  .product-editor--phone .product-editor__buttons > button:last-child:not([type='submit']):not(.product-editor__cancel) {
+    order: 3;
+    grid-column: 1 / -1;
+  }
+
+  .product-editor--phone input:not([role='switch']) {
+    min-height: 48px;
+    font-size: 16px;
   }
 }

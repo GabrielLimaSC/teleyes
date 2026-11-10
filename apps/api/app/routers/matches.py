@@ -14,6 +14,7 @@ from app.main import get_current_session, get_db, require_csrf
 from app.match_deletion import delete_matches
 from app.pipeline import (
     DELIVERY_KIND_MANUAL_TARGET,
+    DELIVERY_KIND_TARGET,
     GROUPING_WINDOW,
     build_target_alert_text,
     compute_group_key,
@@ -25,9 +26,9 @@ from app.target_window import within_target_window
 from app.utc import UtcDatetime, utc_now
 from auth.session import SessionRecord
 from models import Delivery, Match, MatchCorrection, Recipient, Rule, Snooze, Source
-from packages.rules.manual_price import PriceParseError, parse_manual_price_cents
-from packages.rules.normalize import normalize_text
-from packages.rules.target import target_gap_pct, target_hit
+from teleyes_core.rules.manual_price import PriceParseError, parse_manual_price_cents
+from teleyes_core.rules.normalize import normalize_text
+from teleyes_core.rules.target import target_gap_pct, target_hit
 
 router = APIRouter(
     prefix="/matches",
@@ -71,7 +72,7 @@ class MatchResponse(BaseModel):
     rule_id: int
     message_text: str
     price_cents: int | None
-    # S7-05: only ever both set together, when packages.rules.price found two
+    # S7-05: only ever both set together, when teleyes_core.rules.price found two
     # explicit, distinct textual anchors — null/null for every other match,
     # same as always.
     price_cash_cents: int | None
@@ -88,7 +89,7 @@ class MatchResponse(BaseModel):
     # still exists and is unaffected, this only decides which one is the
     # representative card and which ones are folded into it.
     grouped_source_ids: list[int] | None = None
-    # S14-01: `packages.rules.product.product_key` of the message (null when
+    # S14-01: `teleyes_core.rules.product.product_key` of the message (null when
     # no product title was recognised) and a short 90-day lowest-price-per-day
     # series of that product (at most 30 points, oldest first; empty when the
     # product has no priced match in the window). Aggregated for the whole
@@ -104,7 +105,7 @@ class MatchResponse(BaseModel):
     # match's own price is to it. `target_price_cents` mirrors `Rule.
     # target_price_cents` (null without one); `target_hit` and
     # `target_gap_pct` are computed fresh on every read from those two plus
-    # `price_cents` (`packages.rules.target`), never persisted — same
+    # `price_cents` (`teleyes_core.rules.target`), never persisted — same
     # reasoning as `is_lowest_price_ever` above. S17-10: both only apply to a
     # match inside `TARGET_HIT_WINDOW` (24 h); an older match reads
     # `target_hit=False`, `target_gap_pct=None` (an expired offer). Items with
@@ -145,7 +146,7 @@ class MatchResponse(BaseModel):
     # manualmente" chip (`"manual"` right after an edit, `"parsed"` again
     # once "Reverter ao detectado" runs, `None` for a match never touched).
     # `original_price_cents` is the price
-    # `packages.rules.price.extract_price` first found, kept for the
+    # `teleyes_core.rules.price.extract_price` first found, kept for the
     # "Reverter" action regardless of how many manual edits followed.
     display_name: str | None = None
     model_variant: str | None = None
@@ -728,7 +729,7 @@ class MatchUpdate(BaseModel):
     """`PATCH /matches/{id}` (F7). Every field is optional — only the ones
     actually sent are validated and applied, same "if provided" shape as
     `RuleUpdate` (`app.routers.rules`). `price` is free text
-    (`packages.rules.manual_price.parse_manual_price_cents` parses it);
+    (`teleyes_core.rules.manual_price.parse_manual_price_cents` parses it);
     there is no way to clear `display_name`/`model_variant` back to `None`
     through this endpoint on purpose — that is exactly what `POST
     /matches/{id}/revert` ("Reverter ao detectado") does.
@@ -736,7 +737,18 @@ class MatchUpdate(BaseModel):
 
     display_name: str | None = None
     model_variant: str | None = None
+    # `price` is the "à vista" price (it also stays `price_cents`, the value
+    # every filter/sort/target uses).
     price: str | None = None
+    # S25-F3: the optional card price. Absent leaves it alone; `null` or an
+    # empty string clears it (tela B2, "Cartão (opcional)").
+    price_card: str | None = None
+    # S25-F3: "Reavaliar regras com este preço". Re-checks the corrected offer
+    # against its rule (target and ceiling) and marks the outcome in the audit
+    # row. Alerts keep their single-fire rule: a target reached by the new
+    # price notifies only recipients that have no target delivery
+    # (`manual_target`/`target`) for this match yet, so it never duplicates.
+    reevaluate: bool = False
     # S14-06: rewrites *only* `display_name` on every other match sharing
     # this match's `product_key` (never `model_variant`/`price` — those are
     # specific to one posting, not the product as a whole). Each sibling
@@ -781,6 +793,75 @@ def _parse_price_or_422(raw: str) -> int:
         ) from error
 
 
+def _parse_card_price(raw: str | None) -> int | None:
+    """`None` (clear) for a null/blank value, otherwise the parsed cents."""
+    if raw is None or not raw.strip():
+        return None
+    return _parse_price_or_422(raw)
+
+
+def _rule_target_hit(db: Session, match: Match) -> bool:
+    rule = db.get(Rule, match.rule_id)
+    return rule is not None and target_hit(match.price_cents, rule.target_price_cents)
+
+
+def _apply_price_edit(
+    match: Match, changes: Changes, *, price_cents: int | None, card_cents: int | None
+) -> bool:
+    """Apply the cash/card prices, recording what actually changed.
+
+    `price_cash_cents`/`price_card_cents` keep the S7-05 invariant — both set
+    together or both null — and `price_cash_cents` mirrors `price_cents`
+    whenever a card price exists. Returns whether anything price-related
+    changed (which also flips `price_source` to "manual").
+    """
+    wanted: dict[str, int | None] = {
+        "price_cents": price_cents,
+        "price_cash_cents": price_cents if card_cents is not None else None,
+        "price_card_cents": card_cents,
+    }
+    current = {name: getattr(match, name) for name in wanted}
+    differing = {name: value for name, value in wanted.items() if value != current[name]}
+    if not differing:
+        return False
+    # S14-06: `original_price_cents` is set exactly once, the first time this
+    # match is ever corrected — never overwritten by a later edit, so it always
+    # mirrors what `extract_price` found.
+    if match.price_source is None:
+        match.original_price_cents = match.price_cents
+    for name, value in differing.items():
+        changes[name] = {"before": current[name], "after": value}
+        setattr(match, name, value)
+    match.price_source = "manual"
+    return True
+
+
+def _reevaluation_mark(db: Session, match: Match, target_hit_before: bool) -> dict[str, Any]:
+    """The audit marker of a "Reavaliar regras com este preço" save: the rule
+    and target the corrected price was checked against, and the outcome. Pure
+    bookkeeping — the feed's `target_hit` and the product history are
+    computed on read from the corrected price, so there is nothing to
+    re-derive or send here.
+    """
+    rule = db.get(Rule, match.rule_id)
+    target_price_cents = rule.target_price_cents if rule is not None else None
+    max_price_cents = rule.max_price_cents if rule is not None else None
+    return {
+        "before": None,
+        "after": {
+            "rule_id": match.rule_id,
+            "target_price_cents": target_price_cents,
+            "target_hit_before": target_hit_before,
+            "target_hit": target_hit(match.price_cents, target_price_cents),
+            "above_max_price": (
+                max_price_cents is not None
+                and match.price_cents is not None
+                and match.price_cents > max_price_cents
+            ),
+        },
+    }
+
+
 @dataclass(frozen=True)
 class ManualTargetReservation:
     recipient_id: int
@@ -798,6 +879,9 @@ def _reserve_manual_target_alerts_if_hit(
     request that inserted a row may send it. A crash after this commit leaves
     an intentionally ambiguous `pending` row, which is never automatically
     retried — at-most-once delivery is safer than a duplicate target alert.
+    S25-F3: a recipient that already has a target delivery (`target` from the
+    pipeline or an earlier `manual_target`) for this match is skipped, so a
+    correction never duplicates an alert that was already sent.
     This function commits even when there is no target/recipient so the
     caller's match edit is durable before any possible external side effect.
     """
@@ -809,7 +893,17 @@ def _reserve_manual_target_alerts_if_hit(
                 select(Recipient).where(Recipient.active.is_(True), Recipient.allowlisted.is_(True))
             )
         )
+        already_notified = set(
+            db.scalars(
+                select(Delivery.recipient_id).where(
+                    Delivery.match_id == match.id,
+                    Delivery.kind.in_((DELIVERY_KIND_TARGET, DELIVERY_KIND_MANUAL_TARGET)),
+                )
+            )
+        )
         for recipient in recipients:
+            if recipient.id in already_notified:
+                continue
             inserted_id = db.scalar(
                 sqlite_insert(Delivery)
                 .values(
@@ -921,6 +1015,19 @@ async def update_match(
             detail="apply_name_to_product requer display_name.",
         )
 
+    # Parse and validate every price up-front so a 422 never leaves a
+    # half-applied edit behind.
+    new_price_cents = _parse_price_or_422(payload.price) if payload.price is not None else None
+    card_sent = "price_card" in payload.model_fields_set
+    new_card_cents = _parse_card_price(payload.price_card) if card_sent else None
+    final_price_cents = new_price_cents if new_price_cents is not None else match.price_cents
+    final_card_cents = new_card_cents if card_sent else match.price_card_cents
+    if final_card_cents is not None and final_price_cents is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Informe o preço à vista para registrar o preço no cartão.",
+        )
+
     changes: Changes = {}
 
     if payload.display_name is not None:
@@ -938,19 +1045,13 @@ async def update_match(
             }
             match.model_variant = new_model_variant
 
-    price_changed = False
-    if payload.price is not None:
-        new_price_cents = _parse_price_or_422(payload.price)
-        if new_price_cents != match.price_cents:
-            # S14-06: `original_price_cents` is set exactly once, the first
-            # time this match is ever corrected — never overwritten by a
-            # later edit, so it always mirrors what `extract_price` found.
-            if match.price_source is None:
-                match.original_price_cents = match.price_cents
-            changes["price_cents"] = {"before": match.price_cents, "after": new_price_cents}
-            match.price_cents = new_price_cents
-            match.price_source = "manual"
-            price_changed = True
+    target_hit_before = _rule_target_hit(db, match)
+    price_changed = _apply_price_edit(
+        match, changes, price_cents=final_price_cents, card_cents=final_card_cents
+    )
+
+    if payload.reevaluate and price_changed:
+        changes["reevaluation"] = _reevaluation_mark(db, match, target_hit_before)
 
     if changes:
         db.add(
@@ -982,7 +1083,7 @@ async def update_match(
 
     db.flush()
 
-    if price_changed:
+    if "price_cents" in changes:
         reservations = _reserve_manual_target_alerts_if_hit(db, match)
         await _deliver_reserved_manual_target_alerts(db, match, reservations, notifier_factory)
     else:
@@ -991,6 +1092,25 @@ async def update_match(
     response = _fetch_match_response(db, match.id, now=now, tz=tz)
     assert response is not None
     return response
+
+
+def _detected_card_pair(db: Session, match: Match) -> dict[str, int | None]:
+    """The cash/card pair `extract_price` first found, rebuilt from the audit
+    trail so "Reverter ao detectado" needs no extra columns: the `before` of
+    the earliest correction that touched each field. A field no correction
+    ever touched is absent (it is still the detected value).
+    """
+    detected: dict[str, int | None] = {}
+    corrections = db.scalars(
+        select(MatchCorrection)
+        .where(MatchCorrection.match_id == match.id)
+        .order_by(MatchCorrection.id)
+    )
+    for correction in corrections:
+        for name in ("price_cash_cents", "price_card_cents"):
+            if name in correction.changes and name not in detected:
+                detected[name] = correction.changes[name]["before"]
+    return detected
 
 
 @router.post(
@@ -1031,6 +1151,10 @@ def revert_match(
                 "after": match.original_price_cents,
             }
             match.price_cents = match.original_price_cents
+        for name, value in _detected_card_pair(db, match).items():
+            if getattr(match, name) != value:
+                changes[name] = {"before": getattr(match, name), "after": value}
+                setattr(match, name, value)
         changes["price_source"] = {"before": match.price_source, "after": "parsed"}
         match.price_source = "parsed"
     if match.display_name is not None:

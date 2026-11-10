@@ -1,3 +1,4 @@
+import { HelpTip } from '../components/HelpTip'
 import type { SavingsReport } from '../api/purchases'
 import {
   METHODOLOGY,
@@ -17,7 +18,12 @@ export function SavingsCard({ report }: { report: SavingsReport }) {
   const withoutHistory = totals.purchases - totals.linked_with_data
   return (
     <div className="plane-pearl economia-tile economia-tile--hero">
-      <div className="economia-tile__label">Economia estimada</div>
+      <div className="economia-tile__label help-inline">
+        Economia estimada
+        <HelpTip term="Economia estimada">
+          Quanto você pagou a menos que o preço típico que o teleyes viu antes. É uma estimativa, não um valor exato.
+        </HelpTip>
+      </div>
       <div className="economia-hero__line">
         <div className={`economia-tile__value economia-tile__value--hero economia-tone--${tone}`}>
           {hasData ? formatSigned(totals.estimated_saving_cents) : 'sem dados'}
@@ -27,7 +33,13 @@ export function SavingsCard({ report }: { report: SavingsReport }) {
       {bars && (
         <div className="economia-bars" aria-label="Mediana contra o valor pago, só das compras com histórico">
           <div className="economia-bars__row">
-            <span>Mediana 90d</span>
+            <span className="help-inline">
+              Mediana 90d
+              <HelpTip term="Mediana 90d">
+                O preço do meio entre todos os que o produto teve nos últimos 90 dias. Serve de referência do que é
+                normal.
+              </HelpTip>
+            </span>
             <span className="economia-bars__track">
               <span className="economia-bars__fill economia-bars__fill--median" style={{ width: `${bars.medianWidth}%` }} />
             </span>
@@ -44,6 +56,13 @@ export function SavingsCard({ report }: { report: SavingsReport }) {
             <span className="economia-bars__value">{formatCurrency(bars.paidCents)}</span>
           </div>
         </div>
+      )}
+      {(totals.reference_purchases ?? 0) > 0 && (
+        <p className="economia-hero__reference" data-testid="reference-saving">
+          {formatSigned(totals.reference_saving_cents ?? 0)} pelas suas referências ({totals.reference_purchases}{' '}
+          {totals.reference_purchases === 1 ? 'compra' : 'compras'}), valores que você informou, fora da estimativa
+          do teleyes
+        </p>
       )}
       <p className="economia-tile__detail economia-hero__method">
         {hasData

@@ -65,6 +65,13 @@ main.regras-page {
   min-width: 0;
 }
 
+.regras-page__panes {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
 .regras-page__rail {
   display: flex;
   flex-direction: column;
@@ -307,6 +314,14 @@ td.wide-table__num {
 
 .delivery-card strong {
   font-size: 13px;
+  color: var(--plane-text-primary);
+}
+
+.delivery-card__hint {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--plane-status-warn);
+  background: var(--plane-surface-raised, transparent);
   color: var(--plane-text-primary);
 }
 
@@ -1264,4 +1279,157 @@ td.wide-table__num {
   left: 14px;
   right: 14px;
   width: auto;
+}
+
+/* S22-02: the rail follows the scroll on the two-column layout. */
+@media (min-width: 1101px) {
+  .regras-page__rail {
+    position: sticky;
+    top: calc(var(--chrome-band-height) + 4px);
+    align-self: start;
+    max-height: calc(100dvh - var(--chrome-band-height) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ---- S23-05: templates, simple/advanced mode, live preview ---- */
+.regras-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regras-templates__label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow);
+}
+
+.regras-templates__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.regras-templates__chip {
+  min-height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-control-border);
+  background: var(--glass-control-bg);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+  cursor: pointer;
+}
+
+.regras-templates__chip[aria-pressed='true'] {
+  border-color: var(--plane-focus-color);
+  box-shadow: inset 0 0 0 1px var(--plane-focus-color);
+  color: var(--plane-text-primary);
+}
+
+.regras-templates__chip:focus-visible {
+  outline: none;
+  border-color: var(--plane-focus-color);
+  box-shadow: var(--plane-focus-ring);
+}
+
+.regras-form__preview {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--plane-text-eyebrow-on-glass);
+}
+
+.regras-form__preview:empty {
+  display: none;
+}
+
+.regras-form__mode-link {
+  align-self: flex-start;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--plane-text-eyebrow-on-glass);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.regras-form__mode-link:focus-visible {
+  outline: none;
+  box-shadow: var(--plane-focus-ring);
+  border-radius: 6px;
+}
+
+.regras-form__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* S24: the "Resumo diário" checkbox and its "?" share one line. */
+.delivery-card__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* S25-F1b: loading skeleton rows (same height as real rows) and template chips in the empty state. */
+.rules-table__row--skeleton > td {
+  padding: 12px 10px;
+  height: 56px;
+  vertical-align: middle;
+}
+
+.rules-table__row--skeleton + .rules-table__row--skeleton > td {
+  border-top: 1px solid var(--plane-divider-color);
+}
+
+.rules-table__bar {
+  display: inline-block;
+  height: 14px;
+  width: 64px;
+  max-width: 100%;
+  border-radius: 6px;
+  background: var(--plane-surface-sunken);
+  animation: rules-table-pulse 1.4s ease-in-out infinite;
+}
+
+.rules-table__bar--wide {
+  width: 55%;
+}
+
+@keyframes rules-table-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rules-table__bar {
+    animation: none;
+  }
+}
+
+.regras-page__empty-templates {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px 24px;
 }

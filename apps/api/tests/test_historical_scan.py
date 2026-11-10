@@ -17,11 +17,11 @@ from app.pipeline import (
 from models import Delivery, Match, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
 from packages.metrics.counters import MetricCounter
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
 from packages.telegram.cursor import TelegramMessage, advance_cursor, get_cursor
 from packages.telegram.fakes import FakeTelegramClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 
 def _msg(message_id: int, text: str, *, date: datetime) -> TelegramMessage:

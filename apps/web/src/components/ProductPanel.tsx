@@ -1,16 +1,21 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent, PointerEvent as ReactPointerEvent, TransitionEvent } from 'react'
+import { useDialogFocus } from '../hooks/useDialogFocus'
 import { fetchProduct } from '../api/products'
 import { fetchEditableMatches, revertMatch, updateMatch } from '../api/matches'
 import type { EditableMatch } from '../api/matches'
 import { ApiError } from '../api/auth'
 import type { Product, ProductHistoryRange, ProductPosting } from '../api/types'
 import { formatClockMoment, formatDayMonth, formatMatchedAt } from '../utils/dates'
-import { useIsProductPanelDrawer, useIsProductPanelSheet } from '../hooks/useMediaQuery'
+import { PHONE_QUERY, useIsProductPanelDrawer, useIsProductPanelSheet, useMediaQuery } from '../hooks/useMediaQuery'
 import { useAuth } from '../auth/AuthContext'
-import { parsePriceInput } from '../utils/priceInput'
+import { parseOptionalPriceInput, parsePriceInput } from '../utils/priceInput'
+import { SwapTransition, useSwapDirection } from '../motion/SwapTransition'
 import { CONFIRM_DIALOG_ATTR } from './ConfirmDialog'
+import { CorrectOfferModal } from './CorrectOfferModal'
 import './ProductPanel.css'
+
+let productPanelEntrySeq = 0
 
 const RANGES: ProductHistoryRange[] = ['90d', '30d', '7d']
 const RANGE_LABELS: Record<ProductHistoryRange, string> = { '90d': '90d', '30d': '30d', '7d': '7d' }
@@ -80,19 +85,25 @@ interface ProductEditorProps {
   onCancel: () => void
   onSaved: (match: EditableMatch) => void
   onReverted: (match: EditableMatch) => void
+  /** S24-02c: phone layout (tela 07), "Corrigir oferta" labels. */
+  phone?: boolean
 }
 
-function ProductEditor({ match, product, onCancel, onSaved, onReverted }: ProductEditorProps) {
+function ProductEditor({ match, product, onCancel, onSaved, onReverted, phone = false }: ProductEditorProps) {
   const { csrfToken } = useAuth()
   const [name, setName] = useState(match.display_name ?? product.title)
   const [price, setPrice] = useState(formatPriceInput(match.price_cents))
+  const [cardPrice, setCardPrice] = useState(formatPriceInput(match.price_card_cents))
+  const [reevaluate, setReevaluate] = useState(true)
   const [applyNameToProduct, setApplyNameToProduct] = useState(false)
   const [nameTouched, setNameTouched] = useState(false)
   const [priceTouched, setPriceTouched] = useState(false)
+  const [cardTouched, setCardTouched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [reverting, setReverting] = useState(false)
   const [nameServerError, setNameServerError] = useState<string | null>(null)
   const [priceServerError, setPriceServerError] = useState<string | null>(null)
+  const [cardServerError, setCardServerError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
   const trimmedName = name.trim()
@@ -102,13 +113,16 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
       : null
   const parsedPrice = parsePriceInput(price)
   const priceError = parsedPrice.error
-  const canSubmit = !nameError && !priceError && !submitting && !reverting
+  const parsedCard = parseOptionalPriceInput(cardPrice)
+  const cardError = parsedCard.error
+  const canSubmit = !nameError && !priceError && !cardError && !submitting && !reverting
   const canRevert =
     match.price_source === 'manual' || match.display_name !== null || match.model_variant !== null
 
   function surfaceServerError(error: unknown): void {
     const message = error instanceof ApiError ? error.message : 'Não foi possível salvar a correção.'
     if (/nome|display_name/i.test(message)) setNameServerError(message)
+    else if (/cartão|card/i.test(message)) setCardServerError(message)
     else if (/preço|price/i.test(message)) setPriceServerError(message)
     else setFormError(message)
   }
@@ -117,8 +131,10 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
     event.preventDefault()
     setNameTouched(true)
     setPriceTouched(true)
+    setCardTouched(true)
     setNameServerError(null)
     setPriceServerError(null)
+    setCardServerError(null)
     setFormError(null)
     if (!canSubmit || parsedPrice.cents === null) return
     if (csrfToken === null) {
@@ -131,6 +147,9 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
       const saved = await updateMatch(csrfToken, match.id, {
         display_name: trimmedName,
         price: formatPriceForApi(parsedPrice.cents),
+        // A blank card field clears it (the server ignores `null` when there is none).
+        price_card: parsedCard.cents === null ? null : formatPriceForApi(parsedCard.cents),
+        reevaluate,
         apply_name_to_product: applyNameToProduct,
       })
       onSaved(saved)
@@ -144,6 +163,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
   async function handleRevert() {
     setNameServerError(null)
     setPriceServerError(null)
+    setCardServerError(null)
     setFormError(null)
     if (csrfToken === null) {
       setFormError('Sua sessão não tem um token de segurança. Atualize a página e entre novamente.')
@@ -177,7 +197,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
   const errorStyle = { ...helperStyle, color: 'var(--plane-status-danger)' }
 
   return (
-    <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <form onSubmit={handleSubmit} noValidate className={phone ? 'product-editor product-editor--phone' : 'product-editor'} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div
         style={{
           borderRadius: 14,
@@ -189,7 +209,7 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
           gap: 7,
         }}
       >
-        <div className="product-panel__label">Texto original da mensagem (somente leitura)</div>
+        <div className="product-panel__label">Mensagem original</div>
         <div
           data-testid="original-message"
           style={{
@@ -210,9 +230,9 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
       </div>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span className="product-panel__label">Nome exibido</span>
+        <span className="product-panel__label">Nome do produto</span>
         <input
-          aria-label="Nome exibido"
+          aria-label="Nome do produto"
           value={name}
           maxLength={120}
           aria-invalid={Boolean((nameTouched && nameError) || nameServerError)}
@@ -225,23 +245,23 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
           autoFocus={match.price_cents !== null}
           style={fieldStyle}
         />
-        <span id="product-name-help" style={helperStyle}>Substitui o título bruto no feed, no histórico e no digest.</span>
+        <span id="product-name-help" style={helperStyle}>Substitui o título bruto nas ofertas, no histórico e no resumo diário.</span>
         {(nameTouched && nameError) || nameServerError ? (
           <span id="product-name-error" role="alert" style={errorStyle}>{nameServerError ?? nameError}</span>
         ) : null}
       </label>
 
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span className="product-panel__label">Preço</span>
+        <span className="product-panel__label">À vista</span>
         <span style={{ position: 'relative', display: 'block' }}>
           <span
             aria-hidden="true"
-            style={{ position: 'absolute', left: 12, top: 12, color: 'var(--plane-text-helper)', fontSize: 14 }}
+            style={{ position: 'absolute', left: 12, top: 12, color: 'var(--plane-text-secondary)', fontSize: 14 }}
           >
             R$
           </span>
           <input
-            aria-label="Preço"
+            aria-label="À vista"
             value={price}
             inputMode="decimal"
             aria-invalid={Boolean((priceTouched && priceError) || priceServerError)}
@@ -261,6 +281,64 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
         ) : null}
       </label>
 
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span className="product-panel__label">Cartão (opcional)</span>
+        <span style={{ position: 'relative', display: 'block' }}>
+          <span
+            aria-hidden="true"
+            style={{ position: 'absolute', left: 12, top: 12, color: 'var(--plane-text-secondary)', fontSize: 14 }}
+          >
+            R$
+          </span>
+          <input
+            aria-label="Cartão (opcional)"
+            value={cardPrice}
+            inputMode="decimal"
+            aria-invalid={Boolean((cardTouched && cardError) || cardServerError)}
+            aria-describedby={`product-card-help${(cardTouched && cardError) || cardServerError ? ' product-card-error' : ''}`}
+            onChange={(event) => {
+              setCardPrice(event.target.value)
+              setCardServerError(null)
+            }}
+            onBlur={() => setCardTouched(true)}
+            style={{ ...fieldStyle, height: 46, paddingLeft: 39, fontSize: 18, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
+          />
+        </span>
+        <span id="product-card-help" style={helperStyle}>Deixe em branco se a oferta não tem preço no cartão.</span>
+        {(cardTouched && cardError) || cardServerError ? (
+          <span id="product-card-error" role="alert" style={errorStyle}>{cardServerError ?? cardError}</span>
+        ) : null}
+      </label>
+
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 10,
+          padding: 12,
+          borderRadius: 12,
+          background: 'var(--glass-tile-bg)',
+          border: '1px solid var(--glass-inner-border-color)',
+          color: 'var(--plane-text-primary)',
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={reevaluate}
+          onChange={(event) => setReevaluate(event.target.checked)}
+          style={{ width: 18, height: 18, flex: 'none', marginTop: 1, accentColor: 'var(--product-panel-accent)' }}
+        />
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          Reavaliar regras com este preço
+          <span style={{ ...helperStyle, fontWeight: 400 }}>
+            A oferta passa pelas regras de novo com o preço corrigido. Nenhum alerta é reenviado.
+          </span>
+        </span>
+      </label>
+
       <div
         style={{
           display: 'flex',
@@ -277,12 +355,12 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
           fontWeight: 600,
         }}
       >
-        <span>Aplicar o nome a todos os matches deste produto</span>
+        <span>Aplicar o nome a todas as ofertas deste produto</span>
         <button
           type="button"
           className="plane-action"
           role="switch"
-          aria-label="Aplicar o nome a todos os matches deste produto"
+          aria-label="Aplicar o nome a todas as ofertas deste produto"
           aria-checked={applyNameToProduct}
           onClick={() => setApplyNameToProduct((current) => !current)}
           style={{
@@ -317,11 +395,11 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
 
       {formError && <p role="alert" style={{ ...errorStyle, fontSize: 12 }}>{formError}</p>}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      <div className="product-editor__buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
         <button type="submit" className="plane-action" disabled={!canSubmit} style={{ flex: '1 1 150px', minHeight: 42 }}>
           {submitting ? 'Salvando…' : 'Salvar correção'}
         </button>
-        <button type="button" className="plane-action plane-action--secondary" onClick={onCancel} disabled={submitting || reverting} style={{ minHeight: 42 }}>
+        <button type="button" className="plane-action plane-action--secondary product-editor__cancel" onClick={onCancel} disabled={submitting || reverting} style={{ minHeight: 42 }}>
           Cancelar
         </button>
         <button type="button" className="plane-action plane-action--secondary" onClick={handleRevert} disabled={!canRevert || submitting || reverting} style={{ minHeight: 42 }}>
@@ -334,15 +412,15 @@ function ProductEditor({ match, product, onCancel, onSaved, onReverted }: Produc
 
 interface TargetEditorProps {
   /** `null` with no target yet — starts the field empty, same as
-   * MatchCard's "Definir alvo". */
+   * MatchCard's "Definir preço-alvo". */
   targetPriceCents: number | null
   ruleName?: string
   onSave: (targetCents: number) => void
 }
 
-/** S14-08 parte 2 (rodada 2) / tela 07 "Alvo de preço": the panel's own
- * "Avise-me abaixo de" field + "Salvar alvo" — same inline-parse-on-submit
- * shape as MatchCard's "Definir alvo" (`utils/priceInput.ts`'s `{cents,
+/** S14-08 parte 2 (rodada 2) / tela 07 "Preço-alvo": the panel's own
+ * "Avise-me abaixo de" field + "Salvar preço-alvo" — same inline-parse-on-submit
+ * shape as MatchCard's "Definir preço-alvo" (`utils/priceInput.ts`'s `{cents,
  * error}`, no full-form validation state needed for a single field). The
  * page (`onSave`) owns the actual `PATCH /rules/{id}` and its own success/
  * failure toast; this only ever blocks on a malformed value it can catch
@@ -382,7 +460,7 @@ function TargetEditor({ targetPriceCents, ruleName, onSave }: TargetEditorProps)
           <span style={{ position: 'relative', display: 'block' }}>
             <span
               aria-hidden="true"
-              style={{ position: 'absolute', left: 12, top: 13, color: 'var(--plane-text-helper)', fontSize: 14 }}
+              style={{ position: 'absolute', left: 12, top: 13, color: 'var(--plane-text-secondary)', fontSize: 14 }}
             >
               R$
             </span>
@@ -414,7 +492,7 @@ function TargetEditor({ targetPriceCents, ruleName, onSave }: TargetEditorProps)
           </span>
         </label>
         <button type="submit" className="plane-action" style={{ minHeight: 42 }}>
-          Salvar alvo
+          Salvar preço-alvo
         </button>
       </div>
       {error !== null && (
@@ -469,6 +547,22 @@ function buildChartGeometry(series: Product['series']): ChartGeometry | null {
     lastX: last.x,
     lastY: last.y,
   }
+}
+
+/** Text alternative of the price chart: lowest, highest and latest price. */
+function describeSeries(series: Product['series'], rangeLabel: string): string {
+  const priced = series.filter((point) => point.price_cents !== null)
+  if (priced.length === 0) return `Histórico de preço, ${rangeLabel}`
+  const prices = priced.map((point) => point.price_cents)
+  const lowest = priced.find((point) => point.price_cents === Math.min(...prices))!
+  const highest = priced.find((point) => point.price_cents === Math.max(...prices))!
+  const last = priced[priced.length - 1]
+  return (
+    `Histórico de preço, ${rangeLabel}: ${priced.length} ${priced.length === 1 ? 'dia' : 'dias'} com preço. ` +
+    `Menor ${formatCurrency(lowest.price_cents)} em ${formatSeriesDate(lowest.date)}, ` +
+    `maior ${formatCurrency(highest.price_cents)} em ${formatSeriesDate(highest.date)}, ` +
+    `último ${formatCurrency(last.price_cents)} em ${formatSeriesDate(last.date)}.`
+  )
 }
 
 export interface ProductPanelProps {
@@ -534,6 +628,8 @@ export function ProductPanel({
   const editRequestIdRef = useRef(0)
   const isSheet = useIsProductPanelSheet()
   const isDrawer = useIsProductPanelDrawer()
+  const isPhone = useMediaQuery(PHONE_QUERY)
+  useDialogFocus(panelRef, true, isSheet || isDrawer)
 
   // The panel mounts already at its "entering" (pre-transition) styles; two
   // rAFs later it flips to "entered" so the browser has committed the first
@@ -570,6 +666,8 @@ export function ProductPanel({
   }
 
   const [range, setRange] = useState<ProductHistoryRange>('90d')
+  // S25-M1: the chart slides toward the period chosen (RANGES runs long → short).
+  const rangeDirection = useSwapDirection(RANGES.indexOf(range))
   const [product, setProduct] = useState<Product | null>(null)
   const [status, setStatus] = useState<Status>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -672,6 +770,32 @@ export function ProductPanel({
     }
   }, [onClose])
 
+  // S24-02c: on the phone the back button closes the sheet (one history
+  // entry for its lifetime, same mechanic as BottomSheet).
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+  useEffect(() => {
+    if (!isPhone) return
+    const key = 'teleyesProductPanel'
+    const entry = `${productPanelEntrySeq++}`
+    window.history.pushState({ ...window.history.state, [key]: entry }, '')
+    let popped = false
+    const onPop = () => {
+      popped = true
+      onCloseRef.current()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      if (popped) return
+      setTimeout(() => {
+        if (window.history.state?.[key] === entry) window.history.back()
+      }, 0)
+    }
+  }, [isPhone])
+
   // The background only stops scrolling in the full-screen sheet (<960px) —
   // the desktop split keeps the feed scrollable behind the panel (07b).
   useEffect(() => {
@@ -733,7 +857,7 @@ export function ProductPanel({
         matches.find((match) => match.product_key === product.product_key)
       if (!selected) {
         setEditableMatch(null)
-        setEditLoadError('Não foi possível localizar o match mais recente deste produto para edição.')
+        setEditLoadError('Não foi possível localizar a oferta mais recente deste produto para edição.')
         return
       }
       setEditableMatch(selected)
@@ -786,7 +910,43 @@ export function ProductPanel({
     onEdited?.(match)
   }
 
+  // S25-F3: the phone corrects inside the sheet (tela 07); every larger layout
+  // opens the "Corrigir oferta" modal (tela B2) over the panel.
+  const inlineEditing = editing && isPhone
+  const editSubtitle =
+    product && editableMatch
+      ? `${product.postings.find((posting) => posting.id === editableMatch.id)?.source_name ?? 'Grupo'} · ${formatClockMoment(editableMatch.matched_at)}`
+      : undefined
+  const editContent =
+    product === null ? null : (
+      <>
+        {editLoading && <p className="product-panel__status">Carregando edição…</p>}
+        {editLoadError && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <p className="product-panel__status product-panel__status--error" role="alert">
+              {editLoadError}
+            </p>
+            <button type="button" className="plane-action plane-action--secondary" onClick={handleEditData}>
+              Tentar novamente
+            </button>
+          </div>
+        )}
+        {!editLoading && !editLoadError && editableMatch && (
+          <ProductEditor
+            key={`${editableMatch.id}-${editableMatch.last_correction?.created_at ?? 'new'}`}
+            match={editableMatch}
+            product={product}
+            onCancel={() => setEditing(false)}
+            onSaved={handleSaved}
+            onReverted={handleReverted}
+            phone={isPhone}
+          />
+        )}
+      </>
+    )
+
   const chart = product ? buildChartGeometry(product.series) : null
+  const firstPostingLink = product?.postings.find((posting) => posting.message_link)?.message_link ?? null
 
   return (
     <>
@@ -799,7 +959,7 @@ export function ProductPanel({
       />
       <section
       ref={panelRef}
-      className={'product-panel' + (isSheet ? ' product-panel--sheet' : '') + (isDrawer ? ' product-panel--drawer' : '')}
+      className={'product-panel' + (isPhone ? ' product-panel--phone' : '') + (isSheet ? ' product-panel--sheet' : '') + (isDrawer ? ' product-panel--drawer' : '')}
       data-phase={visualPhase}
       data-settled={settled ? '' : undefined}
       onTransitionEnd={handleTransitionEnd}
@@ -822,30 +982,26 @@ export function ProductPanel({
 
       <div className="product-panel__header">
         <div className="product-panel__header-info" key={productKey}>
-          {!editing && (
+          {!inlineEditing && (
             <div className="product-panel__icon" aria-hidden="true">
               <span className="product-panel__icon-mark" />
             </div>
           )}
           <div className="product-panel__header-text">
-            {editing && product && (
-              <div style={{ marginBottom: 5, color: 'var(--plane-text-eyebrow)', fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase' }}>
-                Editando produto
-              </div>
-            )}
             <h2 id={headingId} ref={headingRef} tabIndex={-1} className="product-panel__title">
-              {editing && product ? editableMatch?.display_name ?? product.title : product?.title ?? 'Carregando produto…'}
+              {inlineEditing && product ? 'Corrigir oferta' : product?.title ?? 'Carregando produto…'}
             </h2>
-            {product && !editing && (
+            {inlineEditing && product && editSubtitle && <p className="product-panel__subtitle">{editSubtitle}</p>}
+            {product && !inlineEditing && (
               <p className="product-panel__subtitle">
                 {product.total_count} {product.total_count === 1 ? 'registro' : 'registros'} desde{' '}
                 {formatDayMonth(product.first_seen_at)} · {product.sources.length}{' '}
-                {product.sources.length === 1 ? 'fonte' : 'fontes'}
+                {product.sources.length === 1 ? 'grupo' : 'grupos'}
               </p>
             )}
           </div>
         </div>
-        {!editing && product && (
+        {product && !isPhone && (
           <button type="button" className="plane-action plane-action--secondary product-panel__chip" onClick={handleEditData}>
             Editar dados
           </button>
@@ -855,7 +1011,7 @@ export function ProductPanel({
           className="product-panel__close"
           onClick={onClose}
           aria-label="Fechar painel do produto"
-          style={editing ? { marginRight: 44 } : undefined}
+          style={inlineEditing ? { marginRight: 44 } : undefined}
         >
           <span aria-hidden="true">×</span>
         </button>
@@ -874,34 +1030,27 @@ export function ProductPanel({
           </p>
         )}
 
-        {status === 'ready' && product && editing && (
+        {status === 'ready' && product && inlineEditing && editContent}
+
+        {status === 'ready' && product && !inlineEditing && (
           <>
-            {editLoading && <p className="product-panel__status">Carregando edição…</p>}
-            {editLoadError && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                <p className="product-panel__status product-panel__status--error" role="alert">
-                  {editLoadError}
-                </p>
+            {isPhone && (
+              <div className="product-panel__phone-links">
                 <button type="button" className="plane-action plane-action--secondary" onClick={handleEditData}>
-                  Tentar novamente
+                  Editar dados
                 </button>
+                {firstPostingLink && (
+                  <a
+                    className="plane-action plane-action--secondary"
+                    href={firstPostingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Abrir promoção <span aria-hidden="true">↗</span>
+                  </a>
+                )}
               </div>
             )}
-            {!editLoading && !editLoadError && editableMatch && (
-              <ProductEditor
-                key={`${editableMatch.id}-${editableMatch.last_correction?.created_at ?? 'new'}`}
-                match={editableMatch}
-                product={product}
-                onCancel={() => setEditing(false)}
-                onSaved={handleSaved}
-                onReverted={handleReverted}
-              />
-            )}
-          </>
-        )}
-
-        {status === 'ready' && product && !editing && (
-          <>
             <div className="product-panel__well">
               <div className="product-panel__price-row">
                 <div>
@@ -929,6 +1078,7 @@ export function ProductPanel({
                 </div>
               </div>
 
+              <SwapTransition swapKey={range} direction={rangeDirection}>
               {chart ? (
                 <>
                   <svg
@@ -938,7 +1088,7 @@ export function ProductPanel({
                     preserveAspectRatio="none"
                     className={'product-panel__chart' + (rangeLoading ? ' product-panel__chart--loading' : '')}
                     role="img"
-                    aria-label={`Histórico de preço, ${RANGE_LABELS[range]}`}
+                    aria-label={describeSeries(product.series, RANGE_LABELS[range])}
                   >
                     <line x1="0" y1="30" x2={CHART_WIDTH} y2="30" className="product-panel__chart-grid" />
                     <line x1="0" y1="70" x2={CHART_WIDTH} y2="70" className="product-panel__chart-grid" />
@@ -954,6 +1104,7 @@ export function ProductPanel({
               ) : (
                 <p className="product-panel__status">Sem histórico de preço suficiente ainda.</p>
               )}
+              </SwapTransition>
             </div>
 
             <div className="product-panel__stats">
@@ -979,7 +1130,7 @@ export function ProductPanel({
 
             {onSaveTarget && (
               <div className="product-panel__well product-panel__target">
-                <div className="product-panel__label">Alvo de preço</div>
+                <div className="product-panel__label">Preço-alvo</div>
                 <TargetEditor targetPriceCents={targetPriceCents} ruleName={targetRuleName} onSave={onSaveTarget} />
               </div>
             )}
@@ -1016,7 +1167,7 @@ export function ProductPanel({
                   className="plane-action plane-action--danger product-panel__chip"
                   onClick={() => onDeleteProduct(product.total_count)}
                 >
-                  Excluir
+                  {isPhone ? 'Excluir produto' : 'Excluir'}
                 </button>
               )}
             </div>
@@ -1050,6 +1201,11 @@ export function ProductPanel({
         )}
       </div>
       </section>
+      {!isPhone && (
+        <CorrectOfferModal open={editing && product !== null} title="Corrigir oferta" subtitle={editSubtitle} onClose={() => setEditing(false)}>
+          {editContent}
+        </CorrectOfferModal>
+      )}
     </>
   )
 }

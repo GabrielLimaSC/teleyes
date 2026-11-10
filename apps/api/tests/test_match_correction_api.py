@@ -35,8 +35,8 @@ from app.routers.notifications import BotNotifierFactory, get_bot_notifier_facto
 from models import Delivery, Match, MatchCorrection, Recipient, Rule, Source
 from models.base import Base
 from models.db import get_engine
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
 
 
 def _get_match(api: ApiContext, match_id: int) -> Match:

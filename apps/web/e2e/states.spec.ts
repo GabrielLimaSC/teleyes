@@ -10,10 +10,10 @@ test('feed and historico show the empty state before any match exists', async ({
   await apiLogin(page)
 
   await page.goto('/feed')
-  await expect(page.getByText('Nenhum match ainda.')).toBeVisible()
+  await expect(page.getByText(/Nenhuma (regra|oferta) ainda/)).toBeVisible()
 
   await page.goto('/historico')
-  await expect(page.getByText('Nenhum match encontrado com esses filtros.')).toBeVisible()
+  await expect(page.getByText('Nenhum anúncio ainda')).toBeVisible()
 })
 
 test('the "Abrir promoção" button opens the real link in a new tab (S7-10)', async ({
@@ -235,7 +235,7 @@ test('the nav capsule is fully reachable by keyboard with visible focus', async 
   await apiLogin(page)
   await page.goto('/feed')
 
-  const labels = ['Início', 'Feed', 'Histórico', 'Economia', 'Regras', 'Fontes', 'Saúde']
+  const labels = ['Início', 'Ofertas', 'Histórico', 'Economia', 'Regras', 'Grupos', 'Saúde']
   const loginLink = page.getByRole('link', { name: 'Início' })
   await loginLink.focus()
   await expect(loginLink).toBeFocused()

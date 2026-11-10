@@ -1,3 +1,4 @@
+import { HelpTip } from '../components/HelpTip'
 import type { DigestSettings } from '../api/types'
 import { AnchoredPopover } from '../components/AnchoredPopover'
 import './RegrasPage.css'
@@ -17,32 +18,27 @@ function formatNextDigestRun(value: string): string {
  * S21-02: "Entrega dos alertas" (S14-09), absorbed from its own panel into a
  * popover opened by the "Ajustes de entrega" button in the Destinatários
  * header. Same content and same `PUT /digest` as before — digest time and
- * size, "alvo atingido" (always an immediate ping), the common-match rule,
+ * size, "preço-alvo atingido" (always an immediate ping), the common-match rule,
  * and how a repeated offer is handled.
  */
-export function DeliveryAdjustments({
+function DeliveryBody({
   digest,
   error,
   saving,
   onChange,
   onSave,
+  inline,
 }: {
   digest: DigestSettings | null
   error: string | null
   saving: boolean
   onChange: (next: DigestSettings) => void
   onSave: () => void
+  inline: boolean
 }) {
   return (
-    <AnchoredPopover
-      triggerLabel="Ajustes de entrega"
-      triggerContent="Ajustes de entrega"
-      triggerClassName="plane-action plane-action--secondary regras-section-row__button"
-      title="Entrega dos alertas"
-      align="right"
-      wide
-    >
-      <p className="delivery-panel__intro">Uma decisão por tipo de evento — o restante pode ir no digest.</p>
+    <>
+      <p className="delivery-panel__intro">Uma decisão por tipo de evento — o restante pode ir no resumo diário.</p>
       {error && (
         <p role="alert" className="regras-panel__error">
           {error}
@@ -52,22 +48,27 @@ export function DeliveryAdjustments({
       {digest && (
         <div className="delivery-panel__grid">
           <div className="delivery-card">
-            <strong>Alvo atingido</strong>
-            <span>Ping imediato — fura o digest e o silêncio da regra ou do produto.</span>
+            <strong>Preço-alvo atingido</strong>
+            <span>Ping imediato — fura o resumo diário e o silêncio da regra ou do produto.</span>
             <span className="delivery-card__state">
               <i /> prioritário
             </span>
           </div>
           <div className="delivery-card delivery-card--controls">
-            <strong>Match comum</strong>
-            <label>
-              <input
-                type="checkbox"
-                checked={digest.enabled}
-                onChange={(event) => onChange({ ...digest, enabled: event.target.checked })}
-              />
-              Digest diário
-            </label>
+            <strong>Oferta comum</strong>
+            <div className="delivery-card__row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={digest.enabled}
+                  onChange={(event) => onChange({ ...digest, enabled: event.target.checked })}
+                />
+                Resumo diário
+              </label>
+              <HelpTip term="Resumo diário" align="right">
+                Em vez de vários avisos, você recebe uma mensagem por dia com as melhores ofertas.
+              </HelpTip>
+            </div>
             <label>
               Horário
               <input
@@ -78,13 +79,35 @@ export function DeliveryAdjustments({
             </label>
             <label>
               Máximo de itens
-              <input
-                type="number"
-                min="1"
-                max="50"
-                value={digest.top_n}
-                onChange={(event) => onChange({ ...digest, top_n: Number(event.target.value) })}
-              />
+              <span className="delivery-stepper">
+                {inline && (
+                  <button
+                    type="button"
+                    aria-label="Diminuir máximo de itens"
+                    disabled={digest.top_n <= 1}
+                    onClick={() => onChange({ ...digest, top_n: Math.max(1, digest.top_n - 1) })}
+                  >
+                    −
+                  </button>
+                )}
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={digest.top_n}
+                  onChange={(event) => onChange({ ...digest, top_n: Number(event.target.value) })}
+                />
+                {inline && (
+                  <button
+                    type="button"
+                    aria-label="Aumentar máximo de itens"
+                    disabled={digest.top_n >= 50}
+                    onClick={() => onChange({ ...digest, top_n: Math.min(50, digest.top_n + 1) })}
+                  >
+                    +
+                  </button>
+                )}
+              </span>
             </label>
             <label>
               <input
@@ -92,16 +115,25 @@ export function DeliveryAdjustments({
                 checked={digest.mute_individual}
                 onChange={(event) => onChange({ ...digest, mute_individual: event.target.checked })}
               />
-              Não enviar matches comuns individualmente
+              Não enviar ofertas comuns individualmente
             </label>
             <span>
               Próximo envio: {formatNextDigestRun(digest.next_run_at_local)} · {digest.queue_count}{' '}
               {digest.queue_count === 1 ? 'item' : 'itens'} na fila
             </span>
+            {/* The digest only collects common offers that were held back. With
+                individual sending on, every offer already went out and the
+                digest stays empty, which looked like "the digest never arrives". */}
+            {digest.enabled && !digest.mute_individual && (
+              <span className="delivery-card__hint" role="note">
+                Cada oferta comum já chega na hora, então o resumo fica vazio. Marque a opção acima para
+                receber tudo em uma mensagem por dia.
+              </span>
+            )}
           </div>
           <div className="delivery-card">
             <strong>Repetição da mesma oferta</strong>
-            <span>Agrupa no card e não dispara outra entrega.</span>
+            <span>No mesmo minuto, agrupa e não envia de novo. Anunciou de novo depois disso (estoque renovado, por exemplo)? Você recebe outro alerta.</span>
             <span className="delivery-card__state delivery-card__state--neutral">
               <i /> silencioso
             </span>
@@ -120,6 +152,35 @@ export function DeliveryAdjustments({
           </button>
         </div>
       )}
+    </>
+  )
+}
+
+export function DeliveryAdjustments(props: {
+  digest: DigestSettings | null
+  error: string | null
+  saving: boolean
+  onChange: (next: DigestSettings) => void
+  onSave: () => void
+} & { inline?: boolean }) {
+  const { inline = false, ...rest } = props
+  if (inline) {
+    return (
+      <div className="delivery-inline">
+        <DeliveryBody {...rest} inline />
+      </div>
+    )
+  }
+  return (
+    <AnchoredPopover
+      triggerLabel="Ajustes de entrega"
+      triggerContent="Ajustes de entrega"
+      triggerClassName="plane-action plane-action--secondary regras-section-row__button"
+      title="Entrega dos alertas"
+      align="right"
+      wide
+    >
+      <DeliveryBody {...rest} inline={false} />
     </AnchoredPopover>
   )
 }

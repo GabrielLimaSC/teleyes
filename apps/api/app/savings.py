@@ -210,6 +210,25 @@ def totals(paid: Sequence[int], savings: Sequence[PurchaseSavings | None]) -> Sa
     )
 
 
+@dataclass(frozen=True)
+class ReferenceSaving:
+    """Saving against a price the *user typed* (S22-01) — never a price the app saw."""
+
+    price_cents: int
+    saving_cents: int
+    pct: float | None
+
+
+def reference_saving(paid_cents: int, reference_cents: int) -> ReferenceSaving:
+    saving = reference_cents - paid_cents
+    return ReferenceSaving(reference_cents, saving, _pct(saving, reference_cents))
+
+
+def uses_reference(item: PurchaseSavings | None) -> bool:
+    """A typed reference only counts when the teleyes has no usable history of its own."""
+    return item is None or item.status != "ok"
+
+
 GoalPace = Literal["done", "on_track", "behind", "expired"]
 
 

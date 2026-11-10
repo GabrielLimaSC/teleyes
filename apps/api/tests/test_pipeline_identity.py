@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from app.pipeline import IncomingMessage, process_message
 from models import Delivery, Match, ProcessingCursor, Recipient, Rule, Source
 from models.db import get_engine, get_sessionmaker
-from packages.notifications.bot import BotNotifier
-from packages.notifications.fakes import FakeBotClient
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.notifications.bot import BotNotifier
+from teleyes_core.notifications.fakes import FakeBotClient
+from teleyes_core.rules.dedupe import DedupeCache
 
 
 def _seed(session: Session) -> tuple[int, int, int]:

@@ -1,0 +1,100 @@
+/* S23-04: empty states and the first-time tip. Tokens only (materials.css). */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 20px 4px;
+  max-width: 52ch;
+}
+
+.empty-state__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--plane-text-heading);
+}
+
+.empty-state__text {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--plane-text-secondary);
+  text-wrap: pretty;
+}
+
+.empty-state__action {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+td > .empty-state {
+  margin: 0 auto;
+  align-items: center;
+  text-align: center;
+  padding: 28px 8px;
+}
+
+.first-tip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--plane-tint-bg);
+  border: 1px solid var(--plane-tint-border-color);
+}
+
+.first-tip__text {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--plane-text-secondary);
+}
+
+.first-tip__close {
+  flex: none;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--plane-action-radius-compact);
+  border: var(--plane-action-secondary-border);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plane-text-primary);
+  cursor: pointer;
+}
+
+.first-tip__close:focus-visible {
+  outline: 2px solid var(--plane-focus-color);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .first-tip {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .empty-state {
+    align-items: stretch;
+    text-align: center;
+    max-width: none;
+    padding: 32px 8px;
+  }
+
+  .empty-state__action {
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

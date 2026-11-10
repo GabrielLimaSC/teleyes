@@ -1,4 +1,4 @@
-import type { ItemSavings } from '../api/purchases'
+import type { ItemReference, ItemSavings, ReportItem } from '../api/purchases'
 
 export const METHODOLOGY =
   'Estimativa baseada só nos preços que o próprio teleyes viu no Telegram antes da compra: ' +
@@ -54,4 +54,23 @@ export function savingPill(savings: ItemSavings | null): string {
   const amount = formatSigned(savings.saving_vs_median_cents)
   if (savings.saving_vs_median_pct === null) return amount
   return `${amount} · ${formatPct(Math.abs(savings.saving_vs_median_pct))}`
+}
+
+/** "pela regra RTX 5070" / "pelo produto vinculado" / null when the purchase has no link (S22-01). */
+export function historyOrigin(item: Pick<ReportItem, 'link_kind' | 'link_label'>): string | null {
+  if (item.link_kind === 'rule') return item.link_label ? `pela regra ${item.link_label}` : 'pela regra vinculada'
+  if (item.link_kind === 'product') return 'pelo produto vinculado'
+  return null
+}
+
+/** Pill for a saving against the user's own reference; always worded as theirs. */
+export function referencePill(reference: ItemReference): string {
+  const amount = formatSigned(reference.saving_cents)
+  return reference.pct === null ? amount : `${amount} · ${formatPct(Math.abs(reference.pct))}`
+}
+
+/** "Referência sua: R$ 529,00 (média do Google Shopping)". */
+export function referenceMarkerLabel(reference: ItemReference): string {
+  const note = reference.note ? ` (${reference.note})` : ''
+  return `Referência sua: ${formatCurrency(reference.price_cents)}${note}`
 }

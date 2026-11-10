@@ -1,0 +1,68 @@
+/* S25-M1: CSS side of src/motion. The curve is the Feed's `--chrome-spring`
+   (styles/chrome.css); durations are shorter than the chrome's 680 ms. */
+
+/* ---- SwapTransition ---- */
+.motion-swap {
+  position: relative;
+  min-width: 0;
+}
+
+/* A slide of 16px must not make the page scroll sideways for 400 ms; clipped
+   only while it runs, so focus rings at the edge are never cut at rest. */
+.motion-swap[data-swapping] {
+  overflow-x: clip;
+}
+
+.motion-swap__ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+/* ---- segment thumb (useSegmentThumb) ---- */
+.motion-seg {
+  position: relative;
+}
+
+.motion-seg > :not(.motion-seg__thumb) {
+  position: relative;
+  z-index: 1;
+}
+
+.motion-seg__thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transform-origin: 0 0;
+  border-radius: var(--seg-thumb-radius, 9px);
+  background: var(--seg-thumb-bg, var(--plane-input-bg));
+  box-shadow: var(--seg-thumb-shadow, var(--plane-pearl-shadow));
+  pointer-events: none;
+}
+
+/* ---- list cascade ----
+   `style={staggerStyle(index)}` + `className="motion-item"`. 210 ms per item,
+   delayed 30 ms per position up to the 4th: the last one ends at 300 ms. */
+.motion-item {
+  animation: motion-item-in 210ms var(--chrome-spring) both;
+  animation-delay: calc(min(var(--motion-i, 0), 3) * 30ms);
+}
+
+@keyframes motion-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-item {
+    animation: none;
+  }
+}

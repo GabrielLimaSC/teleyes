@@ -47,7 +47,7 @@ test.describe.configure({ mode: 'serial', timeout: 300_000 })
 // Times are shown in the viewer's local zone (S13-01), so what a shot shows
 // depends on the machine's timezone. Pin it, and stop the page clock at the
 // start of each test, so a baseline does not depend on the hour it was taken
-// (e.g. "Matches hoje" between 21h and 24h in UTC-3).
+// (e.g. "Ofertas hoje" between 21h and 24h in UTC-3).
 test.use({ timezoneId: 'UTC', colorScheme: THEME })
 
 const VIEWPORTS = [
@@ -321,8 +321,8 @@ test('seeded data across every screen', async ({ page }) => {
   await shoot(page, 'historico-focus-open', '1440', { fullPage: false, keepScroll: true })
   await page.locator('.theme-toggle__button').focus()
   await shoot(page, 'theme-toggle-focus', '1440', { fullPage: false })
-  await page.getByLabel('Regra').selectOption({ label: 'Regra sem matches' })
-  await expect(page.getByText('Nenhum match encontrado com esses filtros.')).toBeVisible()
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra sem matches' })
+  await expect(page.getByText('Nenhuma oferta encontrada com esses filtros.')).toBeVisible()
   await eachViewport(page, (v) => shoot(page, 'historico-filtered-empty', v))
 
   // ---- Regras ----
@@ -351,18 +351,18 @@ test('seeded data across every screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Cancelar' }).click()
 
   // Validation error in the rail + create toast.
-  await page.getByLabel(/Nome/).fill('Sem termos')
+  await page.getByLabel('Nome', { exact: true }).fill('Sem termos')
   await page.getByRole('button', { name: 'Criar regra' }).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await shoot(page, 'regras-form-error', '1440', { fullPage: false })
-  await page.getByLabel(/Nome/).fill('Regra do toast')
-  await page.getByLabel(/Termos incluídos/).fill('toastitem')
-  await page.getByLabel(/Termos incluídos/).press('Enter')
+  await page.getByLabel('Nome', { exact: true }).fill('Regra do toast')
+  await page.getByLabel(/O que você procura/).fill('toastitem')
+  await page.getByLabel(/O que você procura/).press('Enter')
   // The toast dismisses itself after 4s: hold the page clock while it is shot.
   await page.clock.install()
   await page.clock.pauseAt(new Date(Date.now() + 1000))
   await page.getByRole('button', { name: 'Criar regra' }).click()
-  await expect(page.getByRole('status')).toContainText('Regra criada.')
+  await expect(page.getByRole('status').filter({ hasText: 'Regra criada.' })).toContainText('Regra criada.')
   await eachViewport(page, (v) => shoot(page, 'regras-toast', v, { fullPage: false }))
   await page.clock.resume()
 
@@ -372,7 +372,7 @@ test('seeded data across every screen', async ({ page }) => {
   await page.waitForTimeout(400)
   await eachViewport(page, (v) => shoot(page, 'fontes', v))
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.getByRole('button', { name: '+ Nova fonte' }).click()
+  await page.getByRole('button', { name: '+ Novo grupo' }).click()
   await shoot(page, 'fontes-form', '1440')
   await page.getByRole('button', { name: 'Salvar' }).click()
   await page.waitForTimeout(300)
@@ -406,7 +406,7 @@ test('Saúde: adapter and SSE states, notification result', async ({ page }) => 
   const health = (telegram: string, bot: string) => ({
     status: 'ok',
     env: 'development',
-    version: '0.1.0',
+    version: '1.0.0',
     uptime_seconds: 3661,
     telegram: { configured: telegram !== 'not_configured', state: telegram },
     bot: { configured: bot === 'configured', state: bot },

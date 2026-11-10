@@ -234,5 +234,7 @@ def test_purchase_table_has_no_telegram_content_columns() -> None:
         "store",
         "product_key",
         "rule_id",
+        "reference_price_cents",
+        "reference_note",
         "created_at",
     }

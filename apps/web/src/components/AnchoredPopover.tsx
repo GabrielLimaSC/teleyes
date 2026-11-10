@@ -1,5 +1,9 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
+import { PHONE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { POPOVER_PRESET, animateEnter, animateExit } from '../motion/waapi'
+import { usePresence } from '../motion/usePresence'
+import { BottomSheet } from './BottomSheet'
 import './AnchoredPopover.css'
 
 /**
@@ -32,16 +36,30 @@ export function AnchoredPopover({
   const wrapRef = useRef<HTMLSpanElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const phone = useMediaQuery(PHONE_QUERY)
+  const showPanel = open && !phone
+  // S25-M1: the panel grows from the trigger and shrinks back into it.
+  const rendered = usePresence(showPanel, panelRef, (panel) => animateExit(panel, POPOVER_PRESET))
+
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    const trigger = triggerRef.current
+    if (!showPanel || panel === null || trigger === null) return
+    const anchor = trigger.getBoundingClientRect()
+    const box = panel.getBoundingClientRect()
+    panel.style.transformOrigin = `${anchor.left + anchor.width / 2 - box.left}px 0`
+    animateEnter(panel, POPOVER_PRESET)
+  }, [showPanel])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || phone) return
     panelRef.current?.focus()
     const onPointerDown = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onPointerDown)
     return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [open])
+  }, [open, phone])
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== 'Escape' || !open) return
@@ -65,9 +83,15 @@ export function AnchoredPopover({
       >
         {triggerContent}
       </button>
-      {open && (
+      {phone && (
+        <BottomSheet open={open} onClose={() => setOpen(false)} title={title ?? triggerLabel}>
+          {children}
+        </BottomSheet>
+      )}
+      {rendered && (
         <div
           ref={panelRef}
+          inert={!showPanel}
           id={panelId}
           role="dialog"
           aria-label={title ?? triggerLabel}

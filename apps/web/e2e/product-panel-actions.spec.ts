@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 import { apiLogin, apiPost, apiPut } from './helpers'
 
 /**
- * S14-08 parte 2 (rodada 2) / S14-13: the product panel's "Alvo de preço",
+ * S14-08 parte 2 (rodada 2) / S14-13: the product panel's "Preço-alvo",
  * "Criar regra disso", "Silenciar 7 dias"/"Reativar" and "Editar dados"
  * actions, wired the same way from both the Feed and Histórico pages —
  * real backend (`/demo/messages`, same pattern as product-panel.spec.ts/
@@ -87,7 +87,7 @@ for (const [origin, openPanel] of [
   ['Histórico', openPanelFromHistorico],
 ] as const) {
   test.describe(`painel do produto a partir do ${origin} — ações (S14-08 parte 2 rodada 2)`, () => {
-    test(`"Salvar alvo" digitando "5.749" grava 574900 centavos na regra e mostra R$ 5.749,00 no painel`, async ({
+    test(`"Salvar preço-alvo" digitando "5.749" grava 574900 centavos na regra e mostra R$ 5.749,00 no painel`, async ({
       page,
     }) => {
       const seed = await seedPanelProduct(page, `${origin}-alvo`, 'Placa de vídeo Painel Alvo', '10.000')
@@ -96,10 +96,10 @@ for (const [origin, openPanel] of [
 
       const input = panel.getByRole('textbox', { name: 'Avise-me abaixo de' })
       await input.fill('5.749')
-      await panel.getByRole('button', { name: 'Salvar alvo' }).click()
+      await panel.getByRole('button', { name: 'Salvar preço-alvo' }).click()
 
       await expect(
-        page.getByRole('status').filter({ hasText: 'Alvo de preço salvo.' }),
+        page.getByRole('status').filter({ hasText: 'Preço-alvo salvo.' }),
       ).toBeVisible()
       // The panel reloads the rule's real target after saving — the field
       // reformats to the pt-BR value that was actually persisted, R$
@@ -122,7 +122,7 @@ for (const [origin, openPanel] of [
 
       await expect(page).toHaveURL(new RegExp(`/regras\\?produto=${encodeURIComponent(seed.productKey)}`))
       await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
-      await expect(page.getByLabel(/Nome/)).toHaveValue(seed.title)
+      await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(seed.title)
     })
 
     test('"Silenciar 7 dias" vira "Reativar" no painel, e reativar volta ao rótulo original', async ({ page }) => {
@@ -149,10 +149,11 @@ for (const [origin, openPanel] of [
       const panel = page.locator('.product-panel')
 
       await panel.getByRole('button', { name: 'Editar dados' }).click()
-      const priceInput = panel.getByRole('textbox', { name: 'Preço', exact: true })
+      // The correction opens as a modal (B2) or the sheet itself (07), not inside `.product-panel`.
+      const priceInput = page.getByRole('textbox', { name: 'À vista', exact: true })
       await expect(priceInput).toBeVisible()
       await priceInput.fill('5.749')
-      await panel.getByRole('button', { name: 'Salvar correção' }).click()
+      await page.getByRole('button', { name: 'Salvar correção' }).click()
 
       // The panel itself shows the corrected price…
       await expect(panel.getByText('R$ 5.749,00').first()).toBeVisible()

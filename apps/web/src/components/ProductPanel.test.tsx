@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ProductPanel } from './ProductPanel'
@@ -109,8 +109,8 @@ describe('ProductPanel', () => {
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
 
     expect(await screen.findByRole('heading', { name: product.title })).toBeInTheDocument()
-    // 14 registros desde 24/06 (America/Sao_Paulo local day for the UTC instant) · 2 fontes.
-    expect(screen.getByText(/14 registros desde 24\/06 · 2 fontes/)).toBeInTheDocument()
+    // 14 registros desde 24/06 (America/Sao_Paulo local day for the UTC instant) · 2 grupos.
+    expect(screen.getByText(/14 registros desde 24\/06 · 2 grupos/)).toBeInTheDocument()
     expect(screen.getByText('Preço atual').parentElement).toHaveTextContent('R$ 5.749,00')
     expect(screen.getByText('Menor 90d').closest('.product-panel__stat')).toHaveTextContent('R$ 5.749,00')
     expect(screen.getByText('Média 30d').closest('.product-panel__stat')).toHaveTextContent('R$ 6.512,00')
@@ -123,7 +123,7 @@ describe('ProductPanel', () => {
 
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
 
-    expect(await screen.findByRole('img', { name: 'Histórico de preço, 90d' })).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: /^Histórico de preço, 90d/ })).toBeInTheDocument()
     expect(screen.getByText('24/06')).toBeInTheDocument()
     expect(screen.getByText('hoje')).toBeInTheDocument()
   })
@@ -137,7 +137,7 @@ describe('ProductPanel', () => {
     const user = userEvent.setup()
 
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
-    await screen.findByRole('img', { name: 'Histórico de preço, 90d' })
+    await screen.findByRole('img', { name: /^Histórico de preço, 90d/ })
 
     const tab30d = screen.getByRole('tab', { name: '30d' })
     expect(tab30d).toHaveAttribute('aria-selected', 'false')
@@ -148,7 +148,7 @@ describe('ProductPanel', () => {
         true,
       ),
     )
-    await screen.findByRole('img', { name: 'Histórico de preço, 30d' })
+    await screen.findByRole('img', { name: /^Histórico de preço, 30d/ })
     expect(screen.getByRole('tab', { name: '30d' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: '90d' })).toHaveAttribute('aria-selected', 'false')
   })
@@ -219,7 +219,7 @@ describe('ProductPanel', () => {
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
     await screen.findByRole('heading', { name: product.title })
 
-    expect(screen.queryByText('Alvo de preço')).not.toBeInTheDocument()
+    expect(screen.queryByText('Preço-alvo')).not.toBeInTheDocument()
     expect(screen.queryByText('Criar regra disso')).not.toBeInTheDocument()
     expect(screen.queryByText('Silenciar 7 dias')).not.toBeInTheDocument()
     expect(screen.getByText('Editar dados')).toBeInTheDocument()
@@ -265,13 +265,13 @@ describe('ProductPanel', () => {
     )
     await screen.findByRole('heading', { name: product.title })
 
-    expect(screen.getByText('Alvo de preço')).toBeInTheDocument()
+    expect(screen.getByText('Preço-alvo')).toBeInTheDocument()
     expect(screen.getByText('Criar regra disso')).toBeInTheDocument()
     expect(screen.getByText('Silenciar 7 dias')).toBeInTheDocument()
     expect(screen.getByText('Editar dados')).toBeInTheDocument()
   })
 
-  it('"Salvar alvo" parses the pt-BR thousands dot and calls onSaveTarget with cents', async () => {
+  it('"Salvar preço-alvo" parses the pt-BR thousands dot and calls onSaveTarget with cents', async () => {
     const product = buildProduct()
     const onSaveTarget = vi.fn()
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
@@ -292,7 +292,7 @@ describe('ProductPanel', () => {
     const input = screen.getByRole('textbox', { name: 'Avise-me abaixo de' })
     await user.clear(input)
     await user.type(input, '5.749')
-    await user.click(screen.getByRole('button', { name: 'Salvar alvo' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar preço-alvo' }))
 
     expect(onSaveTarget).toHaveBeenCalledWith(574_900)
   })
@@ -317,7 +317,7 @@ describe('ProductPanel', () => {
 
     await user.clear(input)
     await user.type(input, 'abc')
-    await user.click(screen.getByRole('button', { name: 'Salvar alvo' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar preço-alvo' }))
 
     expect(
       screen.getByRole('alert'),
@@ -381,7 +381,7 @@ describe('ProductPanel', () => {
       <ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} onEdited={onEdited} />,
     )
     await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
-    const price = await screen.findByRole('textbox', { name: 'Preço' })
+    const price = await screen.findByRole('textbox', { name: 'À vista' })
     await user.clear(price)
     await user.type(price, '5.749')
     await user.click(screen.getByRole('button', { name: 'Salvar correção' }))
@@ -411,10 +411,10 @@ describe('ProductPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
 
     expect(onEditData).toHaveBeenCalledOnce()
-    expect(await screen.findByRole('textbox', { name: 'Nome exibido' })).toHaveValue(product.title)
-    expect(screen.getByRole('textbox', { name: 'Preço' })).toHaveValue('6.991,00')
+    expect(await screen.findByRole('textbox', { name: 'Nome do produto' })).toHaveValue(product.title)
+    expect(screen.getByRole('textbox', { name: 'À vista' })).toHaveValue('6.991,00')
     expect(screen.getByTestId('original-message').querySelectorAll('mark')).toHaveLength(2)
-    expect(screen.getByRole('switch', { name: 'Aplicar o nome a todos os matches deste produto' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Aplicar o nome a todas as ofertas deste produto' })).toBeInTheDocument()
   })
 
   it('validates a short name and malformed price in the fields before saving', async () => {
@@ -430,8 +430,8 @@ describe('ProductPanel', () => {
 
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
     await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
-    const name = await screen.findByRole('textbox', { name: 'Nome exibido' })
-    const price = screen.getByRole('textbox', { name: 'Preço' })
+    const name = await screen.findByRole('textbox', { name: 'Nome do produto' })
+    const price = screen.getByRole('textbox', { name: 'À vista' })
     await user.clear(name)
     await user.type(name, 'ab')
     await user.tab()
@@ -469,8 +469,8 @@ describe('ProductPanel', () => {
 
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
     await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
-    const name = await screen.findByRole('textbox', { name: 'Nome exibido' })
-    const price = screen.getByRole('textbox', { name: 'Preço' })
+    const name = await screen.findByRole('textbox', { name: 'Nome do produto' })
+    const price = screen.getByRole('textbox', { name: 'À vista' })
     await user.clear(name)
     await user.type(name, saved.display_name ?? '')
     await user.clear(price)
@@ -483,8 +483,132 @@ describe('ProductPanel', () => {
     expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({
       display_name: 'Placa Palit RTX 5070 Ti',
       price: '5749,00',
+      price_card: null,
+      reevaluate: true,
       apply_name_to_product: true,
     })
+  })
+
+  it('opens the correction as a modal (tela B2) with the message, cash, card and reevaluate fields', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch({ price_cash_cents: 699_100, price_card_cents: 749_900 })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product)),
+      ),
+    )
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Corrigir oferta' })
+    expect(dialog).toHaveClass('plane-glass')
+    expect(within(dialog).getByText('Loja Demo Eletrônicos', { exact: false })).toBeInTheDocument()
+    expect(within(dialog).getByText('Mensagem original')).toBeInTheDocument()
+    expect(within(dialog).getByTestId('original-message')).toHaveTextContent('R$ 6.991,00')
+    expect(await within(dialog).findByRole('textbox', { name: 'Nome do produto' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: 'À vista' })).toHaveValue('6.991,00')
+    expect(within(dialog).getByRole('textbox', { name: 'Cartão (opcional)' })).toHaveValue('7.499,00')
+    expect(within(dialog).getByRole('checkbox', { name: /Reavaliar regras com este preço/ })).toBeChecked()
+    expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Salvar correção' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Reverter ao detectado' })).toBeInTheDocument()
+  })
+
+  it('sends the card price and reevaluate=false when the box is unchecked', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    const saved = buildEditableMatch({ price_card_cents: 749_900, price_source: 'manual' })
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PATCH') return Promise.resolve(jsonResponse(saved))
+      return Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    await user.type(await screen.findByRole('textbox', { name: 'Cartão (opcional)' }), '7.499')
+    await user.click(screen.getByRole('checkbox', { name: /Reavaliar regras/ }))
+    await user.click(screen.getByRole('button', { name: 'Salvar correção' }))
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true))
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({
+      price: '6991,00',
+      price_card: '7499,00',
+      reevaluate: false,
+    })
+  })
+
+  it('clears the card price by sending null when the field is emptied', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch({ price_cash_cents: 699_100, price_card_cents: 749_900 })
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PATCH') return Promise.resolve(jsonResponse(buildEditableMatch()))
+      return Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    await user.clear(await screen.findByRole('textbox', { name: 'Cartão (opcional)' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar correção' }))
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true))
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({ price_card: null, reevaluate: true })
+  })
+
+  it('blocks saving a malformed card price but accepts a blank one', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product)),
+      ),
+    )
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    const card = await screen.findByRole('textbox', { name: 'Cartão (opcional)' })
+    expect(screen.getByRole('button', { name: 'Salvar correção' })).toBeEnabled()
+    await user.type(card, 'abc')
+    await user.tab()
+
+    expect(screen.getByText(/Preço inválido/)).toHaveAttribute('id', 'product-card-error')
+    expect(screen.getByRole('button', { name: 'Salvar correção' })).toBeDisabled()
+  })
+
+  it('Cancelar and Esc close the modal without saving, and clicking inside does not close the panel', async () => {
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    const onClose = vi.fn()
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product)),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={onClose} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+    await user.click(await screen.findByRole('textbox', { name: 'Nome do produto' }))
+    expect(onClose).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Corrigir oferta' })).not.toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Editar dados' }))
+    await screen.findByRole('dialog', { name: 'Corrigir oferta' })
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Corrigir oferta' })).not.toBeInTheDocument())
+    expect(onClose).not.toHaveBeenCalled()
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
   })
 
   it('places a 422 server detail on the corresponding field', async () => {
@@ -503,7 +627,7 @@ describe('ProductPanel', () => {
 
     render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
     await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
-    await screen.findByRole('textbox', { name: 'Nome exibido' })
+    await screen.findByRole('textbox', { name: 'Nome do produto' })
     await user.click(screen.getByRole('button', { name: 'Salvar correção' }))
 
     expect(await screen.findByText('O nome já não pode ser usado.')).toHaveAttribute('id', 'product-name-error')
@@ -545,5 +669,88 @@ describe('ProductPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Preço atual').parentElement).toHaveTextContent('R$ 6.991,00'))
     expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/matches/1/revert') && init?.method === 'POST')).toBe(true)
+  })
+})
+
+describe('ProductPanel on the phone (S24-02c)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  function stubPhone() {
+    const matchMedia = window.matchMedia
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+      ...matchMedia(query),
+      matches: query === '(max-width: 640px)' || query === '(max-width: 959px)',
+    }))
+  }
+
+  it('shows the sheet with Editar dados, Abrir promoção and every action', async () => {
+    stubPhone()
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+
+    const { container } = render(
+      <ProductPanel
+        productKey={product.product_key}
+        phase="open"
+        onClose={() => {}}
+        onSaveTarget={() => {}}
+        onCreateRule={() => {}}
+        onSnooze={() => {}}
+        onMarkPurchased={() => {}}
+        onDeleteProduct={() => {}}
+      />,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Editar dados' })).toBeInTheDocument()
+    expect(container.querySelector('.product-panel--phone')).not.toBeNull()
+    expect(screen.getByRole('link', { name: /Abrir promoção/ })).toHaveAttribute('href', 'https://t.me/c/demo/1')
+    expect(screen.getByRole('button', { name: 'Criar regra disso' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Silenciar 7 dias' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Marcar como comprado' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Ver as 14 postagens/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Excluir produto' })).toBeInTheDocument()
+  })
+
+  it('opens "Corrigir oferta" in the sheet with the same fields and labels as the desktop modal', async () => {
+    stubPhone()
+    const product = buildProduct()
+    const match = buildEditableMatch()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(jsonResponse(String(input).startsWith('/matches') ? [match] : product)),
+      ),
+    )
+    const user = userEvent.setup()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={() => {}} />)
+    await user.click(await screen.findByRole('button', { name: 'Editar dados' }))
+
+    expect(await screen.findByRole('heading', { name: 'Corrigir oferta' })).toBeInTheDocument()
+    expect(screen.getByText('Mensagem original')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Nome do produto' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'À vista' })).toHaveValue('6.991,00')
+    expect(screen.getByRole('textbox', { name: 'Cartão (opcional)' })).toHaveValue('')
+    expect(screen.getByRole('checkbox', { name: /Reavaliar regras com este preço/ })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvar correção' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reverter ao detectado' })).toBeInTheDocument()
+
+  })
+
+  it('closes with the phone back button', async () => {
+    stubPhone()
+    const product = buildProduct()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse(product))))
+    const onClose = vi.fn()
+
+    render(<ProductPanel productKey={product.product_key} phase="open" onClose={onClose} />)
+    await screen.findByRole('button', { name: 'Editar dados' })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })

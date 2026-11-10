@@ -56,7 +56,7 @@ def test_never_overwrites_a_rule_edited_through_the_panel(session: Session) -> N
 
 
 def test_rtx_5070_ti_messages_do_not_also_trigger_the_12gb_rule(session: Session) -> None:
-    from packages.rules.match import MatchRule
+    from teleyes_core.rules.match import MatchRule
 
     seed_default_rules(session)
     session.commit()

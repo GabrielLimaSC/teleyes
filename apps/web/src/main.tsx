@@ -8,6 +8,7 @@ import './styles/viewTransitions.css'
 import './styles/chrome.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
+import { enableRouteTransitions } from './motion/routeTransition'
 
 const router = createBrowserRouter(
   [
@@ -23,6 +24,8 @@ const router = createBrowserRouter(
   // S19-05: the static demo lives under /teleyes/ on GitHub Pages ('/' everywhere else).
   { basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/' },
 )
+// S25-M1: page changes crossfade through the View Transitions API.
+enableRouteTransitions(router)
 
 async function start(): Promise<void> {
   // S19-05: replaced by a literal at build time, so the normal bundle has no mock at all.

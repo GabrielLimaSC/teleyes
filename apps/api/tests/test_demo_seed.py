@@ -36,7 +36,7 @@ from models import (
 )
 from models.db import get_engine, get_sessionmaker
 from packages.metrics.counters import MetricCounter
-from packages.rules.target import target_hit
+from teleyes_core.rules.target import target_hit
 
 NOW = datetime(2026, 6, 1, 15, 30, tzinfo=UTC)
 AlembicRunner = Callable[..., CompletedProcess[str]]

@@ -11,7 +11,7 @@ from app.pipeline import IncomingMessage, process_message, publish_match_event
 from app.routers.notifications import BotNotifierFactory, get_bot_notifier_factory
 from models import Recipient, Rule, Source
 from packages.events.broker import EventBroker
-from packages.rules.dedupe import DedupeCache
+from teleyes_core.rules.dedupe import DedupeCache
 
 router = APIRouter(prefix="/demo", tags=["demo"])
 

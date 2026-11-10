@@ -7,22 +7,37 @@
  * later (a source name, a message, a link) can never reach the export. Store names are
  * opt-in (`includeStores`, off by default) and the piece names can be switched off
  * (`showPieces`).
+ *
+ * S22-01: the references typed by the user (`reference*` fields of the report) are
+ * deliberately left out of the card: it is shareable, and a number the user typed is
+ * not a price the teleyes saw. Only the teleyes estimate is exported.
  */
 import type { ReportItem, SavingsReport } from '../api/purchases'
+import { parseApiDate } from '../utils/dates'
 import { METHODOLOGY, blackFridayLabel, formatCount, formatCurrency, formatPct, formatSigned } from '../utils/savings'
 
 export const CARD_WIDTH = 1080
 export const CARD_HEIGHT = 1350
 const MAX_PIECES = 4
 
+export type CardPeriod = 'month' | '90d' | 'all'
+
+export const PERIOD_LABELS: Record<CardPeriod, string> = {
+  month: 'Este mês',
+  '90d': '90 dias',
+  all: 'Tudo',
+}
+
 export interface CardOptions {
+  /** S25-F5: which purchases the card covers (by purchase date). */
+  period?: CardPeriod
   /** Show the name of each piece. Off: only totals leave the app. */
   showPieces: boolean
   /** Add the store typed on each purchase. Off by default. */
   includeStores: boolean
 }
 
-export const DEFAULT_CARD_OPTIONS: CardOptions = { showPieces: true, includeStores: false }
+export const DEFAULT_CARD_OPTIONS: CardOptions = { period: 'all', showPieces: true, includeStores: false }
 
 export interface ResultsPiece {
   name: string
@@ -35,6 +50,7 @@ export interface ResultsPiece {
 export interface ResultsAggregates {
   schema: 'teleyes.results/1'
   generated_at: string
+  period: CardPeriod
   methodology: string
   totals: {
     purchases: number
@@ -73,8 +89,68 @@ function pieceOf(item: ReportItem, includeStores: boolean): ResultsPiece {
   return piece
 }
 
+const PERIOD_DAYS = 90
+
+/**
+ * S25-F5: the report restricted to the purchases of `period`, totals recomputed from
+ * the items exactly like the backend does (`savings.totals`): only purchases whose
+ * status is `ok` add to the saving; a purchase without history adds to what was paid
+ * but never to the saving. The user's own references stay out (see the file comment).
+ * The period is relative to `report.generated_at`.
+ */
+export function filterReportByPeriod(report: SavingsReport, period: CardPeriod): SavingsReport {
+  if (period === 'all') return report
+  const now = parseApiDate(report.generated_at)
+  const items = report.items.filter((item) => {
+    const when = parseApiDate(item.purchased_at)
+    if (period === 'month') {
+      return when.getFullYear() === now.getFullYear() && when.getMonth() === now.getMonth()
+    }
+    return when.getTime() >= now.getTime() - PERIOD_DAYS * 86_400_000
+  })
+  let saving = 0
+  let reference = 0
+  let counted = 0
+  for (const item of items) {
+    const s = item.savings
+    if (s === null || s.status !== 'ok' || s.median_90d_cents === null || s.saving_vs_median_cents === null) continue
+    saving += s.saving_vs_median_cents
+    reference += s.median_90d_cents
+    counted += 1
+  }
+  const gaps = items.map((item) => item.days_before_black_friday).filter((gap) => gap >= 0)
+  const goal = report.goal
+    ? {
+        ...report.goal,
+        saved_cents: saving,
+        pct: report.goal.amount_cents > 0 ? Math.round((saving / report.goal.amount_cents) * 1000) / 10 : 0,
+      }
+    : report.goal
+  return {
+    ...report,
+    items,
+    goal,
+    totals: {
+      ...report.totals,
+      purchases: items.length,
+      linked_with_data: counted,
+      total_paid_cents: items.reduce((sum, item) => sum + item.price_cents, 0),
+      estimated_saving_cents: saving,
+      reference_total_cents: reference,
+      estimated_saving_pct: counted > 0 && reference > 0 ? Math.round((saving / reference) * 1000) / 10 : null,
+    },
+    black_friday: {
+      ...report.black_friday,
+      purchases_before: gaps.length,
+      days_before_min: gaps.length > 0 ? Math.min(...gaps) : null,
+      days_before_max: gaps.length > 0 ? Math.max(...gaps) : null,
+    },
+  }
+}
+
 /** The JSON of aggregates: whitelist only (see the file comment). */
-export function buildResultsAggregates(report: SavingsReport, options: CardOptions): ResultsAggregates {
+export function buildResultsAggregates(fullReport: SavingsReport, options: CardOptions): ResultsAggregates {
+  const report = filterReportByPeriod(fullReport, options.period ?? 'all')
   const { totals, black_friday: bf, noise } = report
   const discarded = {
     sem_termo: noise.discarded.sem_termo,
@@ -84,6 +160,7 @@ export function buildResultsAggregates(report: SavingsReport, options: CardOptio
   const aggregates: ResultsAggregates = {
     schema: 'teleyes.results/1',
     generated_at: report.generated_at,
+    period: options.period ?? 'all',
     methodology: METHODOLOGY,
     totals: {
       purchases: totals.purchases,
@@ -292,7 +369,7 @@ export function buildResultsSvg(
   }
   parts.push(
     text(190, 106, 'teleyes', 46, palette.text, 'font-weight="700"'),
-    text(190, 148, 'Relatório de economia', 28, palette.muted),
+    text(190, 148, `Relatório de economia · ${PERIOD_LABELS[aggregates.period]}`, 28, palette.muted),
   )
 
   // Hero (y 200-490).
@@ -416,4 +493,41 @@ export async function loadMascotDataUri(url: string): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+/** The PNG as a `File`, ready for `navigator.share` or the clipboard. */
+export function pngFile(blob: Blob): File {
+  return new File([blob], 'teleyes-economia.png', { type: 'image/png' })
+}
+
+export type ShareOutcome = 'shared' | 'copied' | 'cancelled'
+
+/** Whether some way of sharing the image exists here (share sheet or clipboard). */
+export function canShareImage(): boolean {
+  if (typeof navigator === 'undefined') return false
+  if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') return true
+  return typeof navigator.clipboard?.write === 'function' && typeof ClipboardItem !== 'undefined'
+}
+
+/**
+ * S25-F5: share the card image. `navigator.share` with the file when the browser
+ * accepts it; otherwise the image goes to the clipboard ("copied"). Throws when
+ * neither works, so the caller can say so.
+ */
+export async function shareImage(blob: Blob): Promise<ShareOutcome> {
+  const file = pngFile(blob)
+  if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Meus resultados no teleyes' })
+      return 'shared'
+    } catch (failure) {
+      if (failure instanceof DOMException && failure.name === 'AbortError') return 'cancelled'
+      // Any other failure: fall through to the clipboard.
+    }
+  }
+  if (typeof navigator.clipboard?.write === 'function' && typeof ClipboardItem !== 'undefined') {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    return 'copied'
+  }
+  throw new Error('Não foi possível compartilhar a imagem.')
 }

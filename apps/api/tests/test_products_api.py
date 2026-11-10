@@ -25,9 +25,9 @@ from auth.rate_limit import LoginRateLimiter
 from auth.session import SessionStore
 from models import Admin, Match, Rule, Source
 from models.base import Base
-from packages.rules.product import product_key
 from packages.telegram.adapter import TelegramAdapter
 from packages.telegram.fakes import FakeTelegramClient
+from teleyes_core.rules.product import product_key
 
 PASSWORD = "correct horse battery staple"
 NOW = datetime(2026, 9, 23, 15, 0, tzinfo=UTC)

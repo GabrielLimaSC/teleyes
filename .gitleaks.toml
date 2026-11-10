@@ -1,0 +1,20 @@
+# gitleaks configuration (S23-01). Run with: gitleaks detect --source . --redact
+title = "teleyes gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake data only: no real credential has ever been committed (see docs/SECURITY_AUDIT.md)."
+paths = [
+  # Static demo fixtures: fictional product keys (slugs) flagged as "generic-api-key".
+  '''apps/web/src/demo-static/fixtures\.json''',
+]
+regexes = [
+  # Obviously fake API hash used by the setup wizard tests.
+  '''0123456789abcdef0123456789abcdef''',
+  # SQL/Python keyword argument that looks like key=value.
+  '''matched_at=NOW''',
+  # Product slugs (product_key) used as test data.
+  '''(gigabyte-b850m|b850m-gigabyte|palit-rtx-5070-ti[a-z0-9-]*)''',
+]
