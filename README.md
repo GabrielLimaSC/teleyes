@@ -16,7 +16,7 @@ Portuguese) shows the live feed, price history, your savings and the health of t
 
 ![teleyes dashboard demo: live feed, product price chart, rules and dark/light theme](docs/media/demo.gif)
 
-<!-- TODO(author): promo video -->
+https://github.com/user-attachments/assets/de032e68-7cd9-45b5-98cf-49478bab3c65
 
 > Everything in the GIF and the screenshots comes from the [demo stack](#try-the-demo-in-one-command): every
 > store, product, price and group is fictional.
