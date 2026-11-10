@@ -411,9 +411,6 @@ for (const theme of ['light', 'dark'] as const) {
 }
 
 test('/regras?produto=X prefills and saves at 390px, no clipping (S14-09)', async ({ page }) => {
-  // Bug de produto (S26-c): no celular o deep link ?produto= não abre o formulário
-  // (loadForm não liga mobileFormOpen e o rail não existe), então a pré-preenchida não aparece.
-  test.fixme(true, '?produto= não abre o formulário no celular; ver PR S26-c')
   await page.setViewportSize({ width: 390, height: 844 })
   const { title, productKey } = await seedRuleSuggestionProduct(page, 'mobile')
 
@@ -421,12 +418,14 @@ test('/regras?produto=X prefills and saves at 390px, no clipping (S14-09)', asyn
   await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
   await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(title)
 
-  // Scoped to the rail: every row also has its own "Testar" button.
-  await page.locator('.regras-form__test-button').click()
-  await expect(page.getByRole('heading', { name: /Testar regra: nova regra/ })).toBeVisible()
+  // The phone has no rail: the form is the "Nova regra" sheet, with its own footer.
+  const sheet = page.getByRole('dialog', { name: 'Nova regra' })
+  await sheet.getByRole('button', { name: 'Testar' }).click()
+  await expect(sheet.getByRole('region', { name: 'Testar regra' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Criar regra' }).click()
-  await expect(rowByExactName(page, title)).toBeVisible()
+  await sheet.getByRole('button', { name: 'Salvar regra' }).click()
+  // Phone renders rules as cards, not table rows.
+  await expect(page.locator('li.rules-m__card', { has: page.getByText(title, { exact: true }) })).toBeVisible()
 
   const [scrollWidth, clientWidth] = await page.evaluate(() => [
     document.documentElement.scrollWidth,
