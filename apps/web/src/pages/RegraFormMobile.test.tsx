@@ -117,4 +117,32 @@ describe('RegraFormMobile (S24-03c)', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
     expect(await screen.findByRole('alertdialog')).toHaveTextContent('Excluir a regra iPhone?')
   })
+
+  it('opens the form dialog on /regras?produto=<key> with the suggestion prefilled (S27-03)', async () => {
+    window.history.pushState({}, '', '/regras?produto=palit-rtx-5070-ti')
+    const base = vi.mocked(fetch).getMockImplementation()!
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === '/products/palit-rtx-5070-ti/rule-suggestion') {
+          return json({
+            product_key: 'palit-rtx-5070-ti',
+            name: 'Palit RTX 5070 Ti',
+            include_terms: 'palit rtx 5070 ti',
+            max_price_cents: 630_000,
+            target_price_cents: 580_000,
+            average_30d_cents: 651_200,
+            lowest_90d_cents: 580_000,
+          })
+        }
+        return base(input, init)
+      }),
+    )
+    render(<RegrasPage />)
+
+    const dialog = await screen.findByRole('dialog', { name: 'Nova regra' })
+    expect(within(dialog).getByText('pré-preenchida do produto')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Nome')).toHaveValue('Palit RTX 5070 Ti')
+    window.history.pushState({}, '', '/')
+  })
 })

@@ -84,6 +84,7 @@ function SheetInner({
   const closeRef = useRef<HTMLButtonElement>(null)
   const onCloseRef = useRef(onClose)
   const activeRef = useRef(false)
+  const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const drag = useRef<{ startY: number; startAt: number; dy: number } | null>(null)
 
   useEffect(() => {
@@ -109,6 +110,15 @@ function SheetInner({
   // stable across StrictMode's remount, so the entry is pushed only once.
   useEffect(() => {
     if (!open) return
+    // A remount (StrictMode) re-activates the sheet in the same tick: the pop
+    // its cleanup scheduled must not run. Checking `activeRef` when the timer
+    // fires is not enough: if the sheet is really closed before a late timer
+    // runs, both timers see it inactive and each call `history.back()`, which
+    // goes one entry past the sheet's own (to the page before Regras).
+    if (popTimer.current !== null) {
+      clearTimeout(popTimer.current)
+      popTimer.current = null
+    }
     activeRef.current = true
     let popped = false
     if (window.history.state?.[HISTORY_KEY] !== entryId) {
@@ -123,8 +133,10 @@ function SheetInner({
       window.removeEventListener('popstate', onPop)
       activeRef.current = false
       if (popped) return
-      // Deferred: a StrictMode remount re-activates the sheet in the same tick.
-      setTimeout(() => {
+      // Deferred, and at most one pending pop per sheet.
+      if (popTimer.current !== null) clearTimeout(popTimer.current)
+      popTimer.current = setTimeout(() => {
+        popTimer.current = null
         if (!activeRef.current && window.history.state?.[HISTORY_KEY] === entryId) window.history.back()
       }, 0)
     }

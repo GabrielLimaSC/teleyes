@@ -1,7 +1,7 @@
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { StrictMode, useState } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BottomSheet } from './BottomSheet'
 
 function Harness() {
@@ -87,5 +87,25 @@ describe('BottomSheet', () => {
     await user.keyboard('{Escape}')
     await settle()
     expect(window.history.state?.__teleyesSheet).toBeUndefined()
+  })
+
+  it('goes back exactly one history entry even when closed before the StrictMode remount timer fires (S27-03)', async () => {
+    const back = vi.spyOn(window.history, 'back')
+    render(
+      <StrictMode>
+        <Harness />
+      </StrictMode>,
+    )
+    // Open and close in the same tick, so the timer scheduled by the remount's
+    // cleanup runs only after the sheet is really closed.
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'abrir' }))
+    })
+    act(() => {
+      fireEvent.keyDown(document, { key: 'Escape' })
+    })
+    await settle()
+    expect(back).toHaveBeenCalledTimes(1)
+    back.mockRestore()
   })
 })

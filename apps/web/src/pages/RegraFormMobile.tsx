@@ -32,6 +32,7 @@ export function RegraFormMobile({
   onSubmit,
   children,
   modeLink,
+  badge,
 }: {
   open: boolean
   isEditing: boolean
@@ -44,6 +45,8 @@ export function RegraFormMobile({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   children: ReactNode
   modeLink: ReactNode
+  /** Optional chip above the fields (e.g. "pré-preenchida do produto"). */
+  badge?: ReactNode
 }) {
   const title = isEditing ? 'Editar regra' : 'Nova regra'
   return (
@@ -59,6 +62,7 @@ export function RegraFormMobile({
         onClose={onClose}
         onSubmit={onSubmit}
         modeLink={modeLink}
+        badge={badge}
       >
         {children}
       </FormShell>
@@ -78,6 +82,7 @@ function FormShell({
   onSubmit,
   children,
   modeLink,
+  badge,
 }: Omit<Parameters<typeof RegraFormMobile>[0], 'open'> & { title: string }) {
   const [testOpen, setTestOpen] = useState(false)
   const [sample, setSample] = useState('')
@@ -147,6 +152,7 @@ function FormShell({
       </header>
 
       <div className="regra-form-m__fields">
+        {badge ? <div className="regra-form-m__badge-row">{badge}</div> : null}
         {children}
 
         <div className="regra-form-m__preview" aria-live="polite" data-testid="rule-preview-mobile">

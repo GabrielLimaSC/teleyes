@@ -450,6 +450,8 @@ export function RegrasPage() {
             targetPriceReais: priceToInput(next.target_price_cents),
           },
         )
+        // The phone has no rail: the form lives in a sheet that only opens on request.
+        if (phone) setMobileFormOpen(true)
         requestAnimationFrame(() => nameInputRef.current?.focus())
       })
       .catch((error: unknown) =>
@@ -1657,6 +1659,7 @@ export function RegrasPage() {
         error={formError}
         onClose={resetForm}
         onSubmit={submitForm}
+        badge={suggestion && !isEditing ? <span className="regras-form__badge">pré-preenchida do produto</span> : null}
         modeLink={
           <>
             <button
