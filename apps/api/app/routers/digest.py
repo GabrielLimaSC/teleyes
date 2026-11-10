@@ -76,7 +76,7 @@ def _build_response(
     next_run_utc = next_run_at(
         now_utc=now, tz=tz, send_at_local=send_at, already_ran_today=already_ran_today
     )
-    queue = load_pending_queue(db)
+    queue = load_pending_queue(db, now=now)
     return DigestSettingsResponse(
         enabled=settings.enabled,
         send_at_local=settings.send_at_local,

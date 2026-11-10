@@ -45,6 +45,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
+from app.digest_ranking import (
+    DigestQueueItem,
+    clean_title,
+    enrich_items,
+    rank_digest_items,
+    reference_label,
+)
 from app.digest_settings import load_digest_settings, parse_send_at_local
 from app.pipeline import (
     DELIVERY_KIND_DIGEST,
@@ -84,33 +91,27 @@ def next_run_at(
     return local_instant.astimezone(UTC)
 
 
-@dataclass(frozen=True)
-class DigestQueueItem:
-    match_id: int
-    price_cents: int | None
-    title: str
-    message_link: str | None
-    matched_at: datetime
-
-
 def _title_for(match: Match) -> str:
-    """A human-readable line for the digest text — the same product-title
-    extraction the panel and the snooze labels use (`teleyes_core.rules.product`),
-    falling back to the message's first line when no product title was found
-    (e.g. a match with no recognisable product, per S14-01's `product_key`).
+    """A human-readable, markdown/emoji-free line for the digest text: the
+    same product-title extraction the panel and the snooze labels use
+    (`teleyes_core.rules.product`), preferring a manual `display_name` and
+    falling back to the message's first line when no product title was found.
     """
-    title = product_title(match.message_text)
-    if title is not None:
-        return title
-    return match.message_text.splitlines()[0][:120]
+    raw = match.display_name or product_title(match.message_text)
+    if raw is None:
+        raw = match.message_text.splitlines()[0] if match.message_text else ""
+    return clean_title(raw)
 
 
 def load_pending_queue(
-    session: Session, *, recipient_id: int | None = None
+    session: Session, *, recipient_id: int | None = None, now: datetime | None = None
 ) -> list[DigestQueueItem]:
-    """Every distinct `Match` with at least one pending digest delivery,
-    lowest price first (a match with no extracted price sorts last), oldest
-    match as the tiebreak so the ordering is stable and deterministic.
+    """Every distinct `Match` with at least one pending digest delivery, in
+    digest order (S27-01, `app.digest_ranking`): biggest discount against the
+    product's reference first, then items without a trustworthy reference
+    (cheapest first), then suspected bait prices; one item per product, rules
+    interleaved. Worse offers of an already-listed product come last with
+    `superseded=True` so they never take a `top_n` slot.
 
     With `recipient_id`, only that recipient's pending rows are eligible. The
     scheduler always uses this scoped form: delivery outcomes can diverge per
@@ -133,24 +134,30 @@ def load_pending_queue(
             title=_title_for(match),
             message_link=match.message_link,
             matched_at=ensure_utc(match.matched_at),
+            rule_id=match.rule_id,
+            product_key=match.product_key,
         )
         for match in matches
     ]
-    items.sort(
-        key=lambda item: (
-            item.price_cents is None,
-            item.price_cents if item.price_cents is not None else 0,
-            item.matched_at,
-            item.match_id,
-        )
-    )
-    return items
+    enriched = enrich_items(session, items, now=now or datetime.now(UTC))
+    return rank_digest_items(enriched)
+
+
+def split_top_and_overflow(
+    queue: Sequence[DigestQueueItem], top_n: int
+) -> tuple[tuple[DigestQueueItem, ...], tuple[DigestQueueItem, ...]]:
+    """The first `top_n` non-superseded items are sent; everything else
+    (including superseded offers) is retired as skipped."""
+    top = tuple([item for item in queue if not item.superseded][:top_n])
+    top_ids = {item.match_id for item in top}
+    return top, tuple(item for item in queue if item.match_id not in top_ids)
 
 
 def build_digest_text(items: Sequence[DigestQueueItem]) -> str:
-    """pt-BR digest text: cheapest first, with the original link when there is
-    one — mirrors `build_target_alert_text`'s plain, no-locale-module currency
-    formatting (`format_price_cents`).
+    """pt-BR digest text, in the order given, with the original link when
+    there is one. A discount is only mentioned against a reference the app
+    measured ("abaixo da mediana vista" / "abaixo do alvo"). Mirrors
+    `build_target_alert_text`'s plain currency formatting (`format_price_cents`).
     """
     lines = [f"📋 Resumo do dia — {len(items)} oferta(s):", ""]
     for item in items:
@@ -160,6 +167,9 @@ def build_digest_text(items: Sequence[DigestQueueItem]) -> str:
             else "preço não identificado"
         )
         line = f"• {price} — {item.title}"
+        label = reference_label(item)
+        if label:
+            line += f" · {label}"
         if item.message_link:
             line += f" ({item.message_link})"
         lines.append(line)
@@ -286,15 +296,16 @@ async def run_digest_once(
         # recipient's entire queue remains honestly pending for a future day.
         if notifier.delivery_block_reason(recipient.telegram_chat_id) is not None:
             continue
-        queue = load_pending_queue(session, recipient_id=recipient.id)
+        queue = load_pending_queue(session, recipient_id=recipient.id, now=now)
         if not queue:
             continue
+        top_items, overflow_items = split_top_and_overflow(queue, top_n)
         plans.append(
             RecipientDigestPlan(
                 recipient_id=recipient.id,
                 chat_id=recipient.telegram_chat_id,
-                top_items=tuple(queue[:top_n]),
-                overflow_items=tuple(queue[top_n:]),
+                top_items=top_items,
+                overflow_items=overflow_items,
             )
         )
 
