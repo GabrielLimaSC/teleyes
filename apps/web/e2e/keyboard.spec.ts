@@ -150,7 +150,7 @@ test('purchase: register by keyboard; confirmation dialog traps focus and return
   await apiLogin(page)
   await page.goto('/economia')
 
-  const register = page.getByRole('button', { name: 'Registrar compra' })
+  const register = page.getByRole('button', { name: 'Registrar compra', exact: true }).first()
   await register.focus()
   await page.keyboard.press('Enter')
   const form = page.getByRole('form', { name: 'Registrar compra' })

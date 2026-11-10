@@ -142,7 +142,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await scan(page, 'Regras (trilho de destinatário)')
 
         await page.goto('/economia')
-        await page.getByRole('button', { name: 'Registrar compra' }).click()
+        await page.getByRole('button', { name: 'Registrar compra', exact: true }).first().click()
         await expect(page.getByRole('form', { name: 'Registrar compra' })).toBeVisible()
         await scan(page, 'Economia (registrar compra)')
       })
