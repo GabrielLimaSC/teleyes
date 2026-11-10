@@ -61,7 +61,7 @@ test('guides a new install through the three steps until "Tudo pronto"', async (
   // Step 3 lands on Regras with the form focused, and creating a rule finishes the card.
   await card.getByRole('link', { name: 'Criar a primeira regra' }).click()
   await expect(page).toHaveURL(/\/regras$/)
-  const name = page.getByLabel(/Nome/)
+  const name = page.getByLabel('Nome', { exact: true })
   await expect(name).toBeFocused()
   await name.fill('Primeira regra E2E')
   await page.getByLabel(/O que você procura/).fill('placa de video')
@@ -119,7 +119,7 @@ test('the empty Feed and Regras teach and act', async ({ page }) => {
   await expect(page.getByText(/Entendi/).first()).toBeVisible()
   await page.getByRole('link', { name: 'Criar primeira regra' }).click()
   await expect(page).toHaveURL(/\/regras$/)
-  await expect(page.getByLabel(/Nome/)).toBeFocused()
+  await expect(page.getByLabel('Nome', { exact: true })).toBeFocused()
 
   // The tip closes once and stays closed.
   await page.getByRole('button', { name: 'Entendi' }).click()

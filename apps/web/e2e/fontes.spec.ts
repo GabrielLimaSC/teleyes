@@ -97,7 +97,7 @@ test('"Da minha conta" explains when Telegram is not configured and links to the
 })
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`has no horizontal overflow on a phone and keeps the rail below the cards (${theme})`, async ({ page }) => {
+  test(`has no horizontal overflow on a phone and opens the add form in a bottom sheet (${theme})`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await seed(page, `Mobile${theme}`)
     await page.addInitScript((value) => localStorage.setItem('teleyes.theme', value), theme)
@@ -112,8 +112,9 @@ for (const theme of ['light', 'dark'] as const) {
     ])
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1)
 
-    const cardBox = await card.boundingBox()
-    const railBox = await page.locator('#fontes-rail').boundingBox()
-    expect(railBox!.y).toBeGreaterThan(cardBox!.y + cardBox!.height - 1)
+    // On a phone the "Adicionar fonte" rail is gone: "+ Novo" opens it inside a bottom sheet.
+    await expect(page.locator('#fontes-rail')).toHaveCount(0)
+    await page.getByRole('button', { name: '+ Novo' }).click()
+    await expect(page.getByRole('dialog', { name: 'Adicionar grupo' })).toBeVisible()
   })
 }

@@ -8,13 +8,13 @@ test('cria uma regra a partir de um modelo no modo simples e a vê na tabela (S2
 
   await expect(page.getByLabel('Termos bloqueados', { exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'SSD', exact: true }).click()
-  await expect(page.getByLabel(/Nome/)).toHaveValue('SSD')
+  await expect(page.getByLabel('Nome', { exact: true })).toHaveValue('SSD')
   await expect(page.getByLabel(/Até quanto você paga/)).toBeFocused()
 
   // The live preview comes from the real dry-run endpoint.
   await expect(page.getByTestId('rule-preview')).toContainText(/nos últimos \d+ dias/)
 
-  await page.getByLabel(/Nome/).fill('SSD modelo E2E')
+  await page.getByLabel('Nome', { exact: true }).fill('SSD modelo E2E')
   await page.getByLabel(/Até quanto você paga/).fill('450')
   await page.getByRole('button', { name: 'Criar regra' }).click()
 

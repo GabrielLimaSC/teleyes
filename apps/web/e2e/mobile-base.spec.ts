@@ -110,16 +110,16 @@ test('the row menu of an offer card opens as a sheet inside the screen', async (
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
-test('"Ajustes de entrega" opens as a sheet inside the screen', async ({ page }) => {
+test('delivery settings live in the "Entrega" tab, inline and inside the screen', async ({ page }) => {
   await page.goto('/')
   await apiLogin(page)
   await page.goto('/regras')
-  const trigger = page.getByRole('button', { name: 'Ajustes de entrega' }).first()
-  await trigger.scrollIntoViewIfNeeded()
-  await trigger.click()
-  const dialog = page.getByRole('dialog', { name: 'Entrega dos alertas' })
-  await expect(dialog).toBeVisible()
-  const box = await dialog.boundingBox()
+  // On the phone the "Ajustes de entrega" popover is gone: the settings are the "Entrega" tab.
+  await expect(page.getByRole('button', { name: 'Ajustes de entrega' })).toHaveCount(0)
+  await page.getByRole('tab', { name: 'Entrega' }).click()
+  const pane = page.locator('.delivery-inline:visible')
+  await expect(pane).toBeVisible()
+  const box = await pane.boundingBox()
   expect(box!.x).toBeGreaterThanOrEqual(0)
   expect(box!.x + box!.width).toBeLessThanOrEqual(390)
 })

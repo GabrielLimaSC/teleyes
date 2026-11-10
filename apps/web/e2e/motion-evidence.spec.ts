@@ -35,8 +35,10 @@ async function rafPumpWait(page: Page, totalMs: number, steps: number): Promise<
   }
 }
 
-test('mobile navigation drawer opens from the mascot (mid-transition capture)', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+test('compact navigation drawer opens from the mascot (mid-transition capture)', async ({ page }) => {
+  // At 390px (phone, <= 640) the bottom tab bar replaces the capsule since S24; the mascot drawer
+  // still exists on the compact-but-not-phone band (641-760px), so capture it there.
+  await page.setViewportSize({ width: 700, height: 844 })
   await page.goto('/')
   await apiLogin(page)
   await page.goto('/feed')
