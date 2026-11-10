@@ -209,3 +209,8 @@
   min-height: 48px;
   justify-content: center;
 }
+
+.regra-form-m__badge-row {
+  display: flex;
+  flex: 0 0 auto;
+}
