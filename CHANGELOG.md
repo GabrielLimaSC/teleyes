@@ -4,7 +4,7 @@ All notable changes to teleyes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [1.0.0] - unreleased
+## [1.0.0] - 2026-11-10
 
 First stable release: a self-hosted Telegram deal monitor you can install with one command.
 
@@ -24,6 +24,16 @@ First stable release: a self-hosted Telegram deal monitor you can install with o
 - A public static demo on GitHub Pages and a one-command Docker demo, both with fictional data only.
 - CI: production web build, Docker image builds and a Playwright smoke run against a real backend.
 - `CHANGELOG.md` and a documentation index (`docs/README.md`).
+- A phone layout for every screen: bottom tab bar, bottom sheets, a "Mais" menu, a glass navigation chrome and
+  pull to refresh, plus dedicated loading, empty and offline states on phone and desktop.
+- Motion across the app (springy rails, tabs, sheets, dialogs and page transitions) that respects
+  `prefers-reduced-motion`.
+- "Corrigir oferta": fix an offer's cash and card price and re-evaluate the rules without sending an alert; a
+  reached target is still announced only once.
+- Snooze a rule for 24 hours, 7 days or until resumed, with a pending-changes banner and a delete confirmation.
+- Results card with a selectable period and a share button; a "N new offers" pill and a live block on the
+  Ofertas screen.
+- A promo video in the README.
 
 ### Changed
 
@@ -32,6 +42,16 @@ First stable release: a self-hosted Telegram deal monitor you can install with o
 - Redesigned dashboard (v2): Ofertas, Regras, Grupos, Economia, Saúde and login, with day-to-day wording
   instead of internal jargon.
 - The API reports version `1.0.0` on `/health`, shown on the Saúde screen and the login page.
+- The daily digest is ranked by discount against the median price the app has seen for each product (or the
+  rule's target), shows one offer per product, alternates between rules, cleans up titles and keeps suspected
+  bait prices at the end.
+- Repeated alerts are grouped only within the same minute, so a restock announced again minutes later alerts
+  again.
+
+### Fixed
+
+- On phones, closing a rule's menu with Esc could send the screen back to Início.
+- On phones, opening Regras from a product ("create a rule from this product") now opens the prefilled form.
 
 ### Removed
 
