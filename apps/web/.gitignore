@@ -41,3 +41,4 @@ e2e-demo/.scratch
 
 # Setup wizard e2e scratch (S19-02)
 e2e-setup/.scratch
+e2e/.scratch-local
