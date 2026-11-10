@@ -21,3 +21,13 @@ Elsewhere in the repository:
 Architecture in one picture is in the README section "How it works"; the decisions behind it
 ("Engineering decisions") are in the same file. Screenshots in [`screenshots/`](screenshots/) and the demo GIF in
 [`media/`](media/) are recorded from the fictional-data demo stack.
+
+### Regenerating the README media
+
+`scripts/record_readme_media.sh` rebuilds `screenshots/*.png` and `media/demo.gif` in one go, always from
+the fictional-data demo stack (`docker-compose.demo.yml`, project `teleyes-shots`, port `18091`; it never
+touches the real database or stack). It runs `apps/web/e2e-demo/screenshots.spec.ts` (`SCREENSHOTS=1`),
+records the tour in `apps/web/e2e-demo/readme-gif.spec.ts` (`README_GIF=1`, 1280x800 WebM) and converts it
+with ffmpeg (`palettegen`/`paletteuse`, 10 fps, 800 px wide, infinite loop, target under 5 MB).
+Needs Docker, ffmpeg, Node 20+ with `npm ci` and `npx playwright install chromium` done in `apps/web`.
+Tune `DEMO_PORT` or `KEEP_STACK=1` through the environment.

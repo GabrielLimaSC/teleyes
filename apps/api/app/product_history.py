@@ -33,8 +33,8 @@ SPARKLINE_WINDOW = timedelta(days=90)
 SPARKLINE_MAX_POINTS = 30
 # Rule-wide charts mix many products, so one bait price (e.g. "R$ 2,00 no PIX
 # com cupom") would draw a fake drop. Postings priced below this fraction of
-# the rule's median are left out of the CHART only (alerts, cards and the
-# per-product history are untouched). Needs enough postings for a reliable
+# the rule's median are left out of the CHARTS and the product panel stats
+# (alerts and cards are untouched). Needs enough postings for a reliable
 # median. Deterministic and explainable: no fuzzy matching.
 SPARKLINE_OUTLIER_FLOOR_RATIO = 0.25
 SPARKLINE_OUTLIER_MIN_POINTS = 8
@@ -111,8 +111,10 @@ def price_stats(postings: list[Posting], now: datetime) -> PriceStats:
         if posting.price_cents is not None
     ]
     latest = max(priced, default=None)
-    long_window = [price for at, _, price in priced if at >= now - STATS_LONG_WINDOW]
-    short_window = [price for at, _, price in priced if at >= now - STATS_SHORT_WINDOW]
+    # Bait prices never reach the stats, same robust rule as the rule sparkline.
+    robust = _drop_price_outliers([(at, price) for at, _, price in priced])
+    long_window = [price for at, price in robust if at >= now - STATS_LONG_WINDOW]
+    short_window = [price for at, price in robust if at >= now - STATS_SHORT_WINDOW]
     return PriceStats(
         current_price_cents=latest[2] if latest is not None else None,
         current_price_at=latest[0] if latest is not None else None,
@@ -126,13 +128,14 @@ def series_for_range(
     postings: list[Posting], now: datetime, history_range: HistoryRange, tz: ZoneInfo
 ) -> list[PricePoint]:
     since = now - timedelta(days=RANGE_DAYS[history_range])
+    priced = [
+        (posting.matched_at, posting.price_cents)
+        for posting in postings
+        if posting.price_cents is not None
+    ]
+    # The floor is judged against the product's whole history, then the range applies.
     return daily_lowest(
-        (
-            (posting.matched_at, posting.price_cents)
-            for posting in postings
-            if posting.price_cents is not None and posting.matched_at >= since
-        ),
-        tz,
+        ((at, price) for at, price in _drop_price_outliers(priced) if at >= since), tz
     )
 
 

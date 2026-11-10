@@ -1433,3 +1433,34 @@ td.wide-table__num {
   gap: 8px;
   padding: 0 16px 24px;
 }
+
+/* S27-05: notebook widths (901-1439px). The 352px rail plus the fixed numeric,
+   recipients and status columns left the "Regra" name ~100px, broken letter by
+   letter. A slimmer rail and tighter side columns give the name its room back.
+   1440px and up, and the stacked layouts, keep the original sizes. */
+@media (min-width: 901px) and (max-width: 1439px) {
+  .regras-page__grid {
+    grid-template-columns: minmax(0, 1fr) 288px;
+  }
+
+  .regras-page__grid .rules-table th.rules-table__num,
+  .regras-page__grid .rules-table td.rules-table__num {
+    width: 96px;
+  }
+
+  .regras-page__grid table.rules-table th.rules-table__recipients,
+  .regras-page__grid table.rules-table td.rules-table__recipients {
+    width: 124px;
+  }
+
+  .regras-page__grid .rules-table th.rules-table__status,
+  .regras-page__grid .rules-table td.rules-table__status {
+    width: 150px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .regras-page__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
