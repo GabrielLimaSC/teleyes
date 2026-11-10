@@ -56,3 +56,9 @@ Never run `ruff format` over the whole repository: it would rewrite unrelated fi
   (for example `fix(feed): corrige o agrupamento de ofertas`); English is acceptable for outside contributors.
 - Add or update tests proportional to the risk of the change.
 - Never commit secrets, Telegram `.session` files, `.env`, databases or backups. See [SECURITY.md](SECURITY.md).
+
+## License of contributions
+
+teleyes is licensed under the [GNU AGPL v3.0 only](LICENSE). By opening a pull request you agree that your
+contribution is licensed under the same terms, and that the maintainer may also distribute it under other
+terms as part of teleyes.
