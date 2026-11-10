@@ -3,7 +3,7 @@
 **A self-hosted Telegram deal monitor: it watches the promo groups you already read, keeps only what matches your rules, and pings you privately when a price hits your target.**
 
 [![CI](https://github.com/GabrielLimaSC/teleyes/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielLimaSC/teleyes/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/GabrielLimaSC/teleyes?include_prereleases&sort=semver)](https://github.com/GabrielLimaSC/teleyes/releases)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/typescript-React%20%2B%20Vite-3178C6?logo=typescript&logoColor=white)
@@ -386,4 +386,7 @@ groups, public exposure, and fuzzy or ML matching.
 Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) first and open an issue before anything
 large. More context: [PRODUCT.md](PRODUCT.md), [DESIGN.md](DESIGN.md), [docs/](docs/README.md).
 
-Released under the [MIT License](LICENSE).
+Copyright (C) 2026 Gabriel Lima. Released under the [GNU Affero General Public License v3.0 only](LICENSE)
+(`AGPL-3.0-only`): you can use, study, change and share teleyes, including commercially, but if you run a
+modified version as a service for other people, you must offer them its complete source code under the same
+license. Versions up to and including 1.0.0 were released under the MIT License.
