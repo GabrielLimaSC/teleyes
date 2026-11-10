@@ -122,7 +122,7 @@ for (const [origin, openPanel] of [
 
       await expect(page).toHaveURL(new RegExp(`/regras\\?produto=${encodeURIComponent(seed.productKey)}`))
       await expect(page.getByText('pré-preenchida do produto')).toBeVisible()
-      await expect(page.getByLabel(/Nome/)).toHaveValue(seed.title)
+      await expect(page.getByLabel('Nome', { exact: true })).toHaveValue(seed.title)
     })
 
     test('"Silenciar 7 dias" vira "Reativar" no painel, e reativar volta ao rótulo original', async ({ page }) => {

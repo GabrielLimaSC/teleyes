@@ -321,7 +321,7 @@ test('seeded data across every screen', async ({ page }) => {
   await shoot(page, 'historico-focus-open', '1440', { fullPage: false, keepScroll: true })
   await page.locator('.theme-toggle__button').focus()
   await shoot(page, 'theme-toggle-focus', '1440', { fullPage: false })
-  await page.getByLabel('Regra').selectOption({ label: 'Regra sem matches' })
+  await page.getByLabel('Regra', { exact: true }).selectOption({ label: 'Regra sem matches' })
   await expect(page.getByText('Nenhuma oferta encontrada com esses filtros.')).toBeVisible()
   await eachViewport(page, (v) => shoot(page, 'historico-filtered-empty', v))
 
@@ -351,11 +351,11 @@ test('seeded data across every screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Cancelar' }).click()
 
   // Validation error in the rail + create toast.
-  await page.getByLabel(/Nome/).fill('Sem termos')
+  await page.getByLabel('Nome', { exact: true }).fill('Sem termos')
   await page.getByRole('button', { name: 'Criar regra' }).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await shoot(page, 'regras-form-error', '1440', { fullPage: false })
-  await page.getByLabel(/Nome/).fill('Regra do toast')
+  await page.getByLabel('Nome', { exact: true }).fill('Regra do toast')
   await page.getByLabel(/O que você procura/).fill('toastitem')
   await page.getByLabel(/O que você procura/).press('Enter')
   // The toast dismisses itself after 4s: hold the page clock while it is shot.

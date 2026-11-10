@@ -66,6 +66,15 @@ export async function apiPut<T>(page: Page, path: string, csrfToken: string, dat
  * 1100px)`), but the fold itself isn't gated by viewport width.
  */
 export async function clickRuleFilter(page: Page, name: string | RegExp): Promise<void> {
+  // S26-c: on a phone (<= 640px) the rail is gone; the rule filter is a bottom sheet
+  // opened by the "Filtro" button at the top of the Feed (FeedMobileTop).
+  const viewport = page.viewportSize()
+  if (viewport !== null && viewport.width <= 640) {
+    await page.locator('.feed-mobile-top__filter').click()
+    await page.locator('.feed-mobile-sheet').getByRole('button', { name }).click()
+    await page.locator('.feed-mobile-sheet').waitFor({ state: 'hidden' })
+    return
+  }
   // Waits for the rail's own data (rules) to have rendered at all, so an
   // `isVisible()` check right after `page.goto` never reads a false
   // negative from a still-loading rail.

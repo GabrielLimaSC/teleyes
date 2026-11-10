@@ -11,12 +11,15 @@ test('the tab bar is a floating glass capsule and the pill follows the tab', asy
 
   const bar = page.getByRole('navigation', { name: 'Navegação principal' })
   await expect(bar).toBeVisible()
-  const style = await bar.evaluate((el) => {
+  // The bar can be remounted right after sign-in (a detached node reports an empty style): poll until stable.
+  await expect
+    .poll(() => bar.evaluate((el) => getComputedStyle(el).position))
+    .toBe('fixed')
+  const blur = await bar.evaluate((el) => {
     const css = getComputedStyle(el)
-    return { blur: css.backdropFilter || css.getPropertyValue('-webkit-backdrop-filter'), position: css.position }
+    return css.backdropFilter || css.getPropertyValue('-webkit-backdrop-filter')
   })
-  expect(style.position).toBe('fixed')
-  expect(style.blur).toContain('blur')
+  expect(blur).toContain('blur')
 
   const pill = bar.locator('.mobile-tabs__pill')
   const x0 = (await pill.boundingBox())!.x

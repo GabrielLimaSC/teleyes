@@ -98,7 +98,11 @@ for (const scheme of ['light', 'dark'] as const) {
 
         const panel = page.locator('.listener-apply')
         await expect(panel).toContainText(state.text)
-        await expect(panel.locator('.listener-apply__button')).toBeVisible()
+        // S25-F4: while changes are pending the "Aplicar regras" button lives in the amber banner;
+        // otherwise (applied, offline, failed) it stays in the status control.
+        await expect(
+          panel.locator('.listener-apply__button').or(page.locator('.pending-banner__button')).first(),
+        ).toBeVisible()
         const [scrollWidth, clientWidth] = await page.evaluate(() => [
           document.documentElement.scrollWidth,
           document.documentElement.clientWidth,

@@ -263,7 +263,10 @@ for (const { path, rail } of STICKY_RAILS) {
     await apiLogin(page)
     await page.goto(path)
     const el = page.locator(rail).first()
-    await expect(el).toBeVisible()
-    expect(await el.evaluate((node) => getComputedStyle(node).position)).not.toBe('sticky')
+    // The phone layout dropped the side rails (filters/add forms moved into sheets and tabs): the rail is
+    // absent or hidden. If a layout ever shows it again, it must not be sticky.
+    if (await el.isVisible()) {
+      expect(await el.evaluate((node) => getComputedStyle(node).position)).not.toBe('sticky')
+    }
   })
 }
