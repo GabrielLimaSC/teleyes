@@ -1,4 +1,4 @@
-"""S27-05: the product panel's stats and chart ignore bait prices (same robust floor as the sparkline)."""
+"""S27-05: product panel stats and chart ignore bait prices (same floor as the sparkline)."""
 
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo

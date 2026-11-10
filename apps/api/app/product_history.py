@@ -129,10 +129,14 @@ def series_for_range(
 ) -> list[PricePoint]:
     since = now - timedelta(days=RANGE_DAYS[history_range])
     priced = [
-        (posting.matched_at, posting.price_cents) for posting in postings if posting.price_cents is not None
+        (posting.matched_at, posting.price_cents)
+        for posting in postings
+        if posting.price_cents is not None
     ]
     # The floor is judged against the product's whole history, then the range applies.
-    return daily_lowest(((at, price) for at, price in _drop_price_outliers(priced) if at >= since), tz)
+    return daily_lowest(
+        ((at, price) for at, price in _drop_price_outliers(priced) if at >= since), tz
+    )
 
 
 PostingIdentity = tuple[int | None, int]
